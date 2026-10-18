@@ -14,11 +14,13 @@ effects/<set>/<card>/<variant>/<combo>:
            on bright art (target luminance = (1 - art luminance)^2,
            shifted toward violet at full saturation so it stays colorful)
 - shadow:  soft dark halo for contrast over busy art
-- trail:   the text extruded diagonally down-right (union of the stepped
-           offsets — connected to the glyph edges, reads as 3D depth)
-           (TRAIL_OFFSET px, SUBTITLE_TRAIL_OFFSET for the smaller
-           subtitle) in the context color pinned dark
-           (TRAIL_TARGET_LUMA) — a crisp directional shadow
+- trail:   the title extruded diagonally down-right (union of the
+           stepped offsets — connected to the glyph edges, reads as 3D
+           depth); the subtitle moves to the top-right corner
+           (right-aligned, respecting the padding), the usual white
+           with its own trail (SUBTITLE_TRAIL_OFFSET px) (TRAIL_OFFSET
+           px for the title) — the trails are fixed black (TRAIL_COLOR)
+           at TRAIL_ALPHA, so the art shows through them
 - blur:    frosted-glass core: the art behind the glyphs is blurred and
            the white text is semi-transparent over it (per frame)
 - refract: black-hole style lens around the word: the scene inside an
@@ -136,11 +138,13 @@ SHADOW_COLOR = (0, 0, 0)
 SHADOW_RADIUS = 8.0
 SHADOW_FACTOR = 0.55
 SHADOW_OFFSET = (0, 3)
-TRAIL_TARGET_LUMA = 0.10  # context-colored trail pinned dark (the dark-side
-                          # counterpart of the glow's contrasting target)
-TRAIL_OFFSET = 4  # px, equal x/y: the trail runs diagonally down-right
-SUBTITLE_TRAIL_OFFSET = 2  # the subtitle is much smaller than the title,
-                           # so its trail uses a shorter offset to hug it
+#: The trails (title and subtitle) are semi-transparent, so the art
+#: shows through them.
+TRAIL_COLOR = (0, 0, 0)
+TRAIL_ALPHA = 0.75
+TRAIL_OFFSET = 4  # px, equal x/y: the title trail runs diagonally down-right
+#: px: the subtitle text's own trail (the title's is TRAIL_OFFSET)
+SUBTITLE_TRAIL_OFFSET = 3
 FROST_RADIUS = 6.0        # blur of the art seen through the text
 FROST_WHITE_ALPHA = 0.75  # opacity of the base-color core when frosted
 FROST_MARGIN = 30         # crop margin around the name for the blur
@@ -157,9 +161,15 @@ WORKERS = min(8, (os.cpu_count() or 4) // 4)
 
 # Contact-sheet layout, shared by _build_sheet and
 # check_sheet_consistency (the cells must line up exactly).
-SHEET_CELL_W, SHEET_CELL_H, SHEET_CELL_LABEL = 520, 220, 30
+#: A cell is two views side by side: the top-left (the name block) and
+#: the top-right corner (the subtitle)
+SHEET_VIEW_W, SHEET_VIEW_GAP = 520, 8
+SHEET_CELL_W = 2 * SHEET_VIEW_W + SHEET_VIEW_GAP
+SHEET_CELL_H, SHEET_CELL_LABEL = 220, 30
 SHEET_TITLE_H, SHEET_OUTER_PAD, SHEET_SEC_PAD, SHEET_SWATCH = 44, 16, 16, 24
-SHEET_COLS = 2
+#: One combo cell per row: with the two-view cells, a second column
+#: would leave the row half empty
+SHEET_COLS = 1
 
 
 def combo_name(effects: frozenset[str]) -> str:
@@ -309,20 +319,6 @@ def _glow_color(
     return _set_luma(hue, sat, target)
 
 
-def _trail_color(
-    region: Image.Image, mask: Image.Image | None = None
-) -> tuple[int, int, int]:
-    """Context-aware trail color from *region*.
-
-    The same sampled hue/saturation as the glow, but pinned to a dark
-    luminance (TRAIL_TARGET_LUMA): the trail always reads as a dark
-    directional shadow in the scene's own palette, however bright or
-    dark the art is.
-    """
-    hue, sat, _luma = _sample_context(region, mask)
-    return _set_luma(hue, sat, TRAIL_TARGET_LUMA)
-
-
 def _bilinear_gather(
     art: "np.ndarray", fx: "np.ndarray", fy: "np.ndarray", ch: int
 ) -> "np.ndarray":
@@ -370,6 +366,7 @@ class _NameLayers:
     top: Image.Image
     shadow: Image.Image | None
     trail: Image.Image | None
+    sub_trail: Image.Image | None  # subtitle text trail (top-right corner)
     glow_wide: Image.Image | None
     glow_tight: Image.Image | None
     frost_mask: Image.Image | None  # core silhouette clipping the frost
@@ -397,6 +394,7 @@ def build_name_layers(
     title_draw.text((padding - left, padding - top), name, font=font, fill=255)
     core = title_mask.copy()
     sub_mask = None
+    sub_trail = None
     if subtitle:
         sub_size = nr._subtitle_font_size(subtitle, padding)
         # Sheared into an oblique at SUBTITLE_SUPERSAMPLE times the
@@ -406,7 +404,6 @@ def build_name_layers(
         sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size * ss)
         sub_font.set_variation_by_axes([nr.NAME_WEIGHT])
         sub_left, sub_top, sub_bottom = nr._text_ink_offsets(subtitle, sub_font)
-        sub_ink_top = padding + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR)
         ink_h = sub_bottom - sub_top
         drift = round(nr.SUBTITLE_SHEAR * ink_h)
         m4 = ((drift + ss - 1) // ss) * ss
@@ -423,7 +420,14 @@ def build_name_layers(
             padded = Image.new("L", (w4, h4), 0)
             padded.paste(region, (0, 0))
         small = nr._italicize(padded, 0).resize((w4 // ss, h4 // ss), Image.BILINEAR)
-        px, py = padding - m4 // ss, sub_ink_top
+        if "trail" in combo:
+            # Corner variant: the text sits in the top-right corner,
+            # right-aligned and respecting the padding
+            bbox = small.getbbox()
+            px, py = size[0] - padding - bbox[2], padding - bbox[1]
+        else:
+            sub_ink_top = padding + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR)
+            px, py = padding - m4 // ss, sub_ink_top
         sub_mask = Image.new("L", size, 0)
         sub_mask.paste(
             255, (px, py, px + small.width, py + small.height), small
@@ -445,19 +449,19 @@ def build_name_layers(
 
     trail = None
     if "trail" in combo:
-        # Extruded depth: the union of the text shifted one step at a
-        # time along the diagonal, so every trail pixel touches glyph
-        # ink — it reads as 3D depth off the edges, not as a detached
-        # projection. (Hard-edged L masks — tinted per frame in
-        # apply_name with the dark context color.) The subtitle gets
-        # its own shorter depth (see SUBTITLE_TRAIL_OFFSET) so its
-        # trail hugs the small text.
+        # Title: extruded depth — the union of the text shifted one
+        # step at a time along the diagonal, so every trail pixel
+        # touches glyph ink (reads as 3D depth off the edges, not a
+        # detached projection). The subtitle (top-right corner) gets
+        # its own shorter trail. (Hard-edged L masks — tinted fixed
+        # black in apply_name at TRAIL_ALPHA.)
         trail = Image.new("L", size, 0)
         for t in range(1, TRAIL_OFFSET + 1):
             trail.paste(255, (0, 0, size[0], size[1]), _shift(title_mask, (t, t)))
         if sub_mask is not None:
+            sub_trail = Image.new("L", size, 0)
             for t in range(1, SUBTITLE_TRAIL_OFFSET + 1):
-                trail.paste(
+                sub_trail.paste(
                     255, (0, 0, size[0], size[1]), _shift(sub_mask, (t, t))
                 )
 
@@ -533,7 +537,8 @@ def build_name_layers(
         min(size[1], round(padding * GLOW_SAMPLE_H)),
     )
     return _NameLayers(
-        top_layer, shadow, trail, glow_wide, glow_tight,
+        top_layer, shadow, trail, sub_trail,
+        glow_wide, glow_tight,
         frost_mask, frost_box, box,
         refract_box, refract_field,
     )
@@ -562,9 +567,9 @@ def apply_name(canvas: Image.Image, parts: _NameLayers, sample_from: Image.Image
         canvas.alpha_composite(_tint(parts.glow_wide, color, GLOW_WIDE_FACTOR))
         canvas.alpha_composite(_tint(parts.glow_tight, color, GLOW_TIGHT_FACTOR))
     if parts.trail is not None:
-        canvas.alpha_composite(
-            _tint(parts.trail, _trail_color(sample_from.crop(parts.sample_box)), 1.0)
-        )
+        canvas.alpha_composite(_tint(parts.trail, TRAIL_COLOR, TRAIL_ALPHA))
+    if parts.sub_trail is not None:
+        canvas.alpha_composite(_tint(parts.sub_trail, TRAIL_COLOR, TRAIL_ALPHA))
 
     if parts.frost_box is not None:
         # frosted glass: blur the live art behind the glyphs only
@@ -659,10 +664,21 @@ def _center_crop(
     return (x0, y0, x0 + cell_w, y0 + cell_h)
 
 
+def _corner_crop(
+    size: tuple[int, int], cell_w: int, cell_h: int
+) -> tuple[int, int, int, int]:
+    """The top-right cell_w x cell_h window, clamped to the image."""
+    w, h = size
+    x0 = max(0, w - cell_w)
+    return (x0, 0, x0 + cell_w, min(h, cell_h))
+
+
 def _build_sheet(out_root: Path) -> Image.Image | None:
     """Contact sheet: the static variants on disk, stacked vertically
     (one section per card: title with sampled glow color swatch + a grid
-    of the effect combos present for that card).
+    of the effect combos present for that card). Each cell shows two
+    views of the card side by side: the top-left (name block) and the
+    top-right corner (the subtitle).
 
     The swatch is sampled from none.png (clean art) when available,
     otherwise from the first present image with the stamp region masked
@@ -740,14 +756,23 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
             r, c = divmod(i, SHEET_COLS)
             x = x0 + SHEET_SEC_PAD + c * (SHEET_CELL_W + SHEET_SEC_PAD)
             yy = y0 + SHEET_TITLE_H + r * (SHEET_CELL_H + SHEET_CELL_LABEL)
-            cell = Image.open(base_dir / f"{combo}.png").crop(
-                _center_crop(img.size, name, subtitle, padding, SHEET_CELL_W, SHEET_CELL_H)
+            card_img = Image.open(base_dir / f"{combo}.png")
+            left = card_img.crop(
+                _center_crop(
+                    card_img.size, name, subtitle, padding, SHEET_VIEW_W, SHEET_CELL_H
+                )
+            )
+            right = card_img.crop(
+                _corner_crop(card_img.size, SHEET_VIEW_W, SHEET_CELL_H)
             )
             draw.rectangle(
                 (x, yy, x + SHEET_CELL_W - 1, yy + SHEET_CELL_LABEL - 1), fill=(40, 44, 52)
             )
             draw.text((x + 10, yy + 5), combo, font=font_cell, fill=(220, 225, 235))
-            sheet.paste(cell, (x, yy + SHEET_CELL_LABEL))
+            sheet.paste(left, (x, yy + SHEET_CELL_LABEL))
+            sheet.paste(
+                right, (x + SHEET_VIEW_W + SHEET_VIEW_GAP, yy + SHEET_CELL_LABEL)
+            )
     return sheet
 
 
@@ -909,11 +934,17 @@ def check_sheet_consistency() -> bool:
                 + SHEET_CELL_LABEL
             )
             card = Image.open(OUT_ROOT / rel / f"{combo}.png").convert("RGB")
-            box = _center_crop(
-                card.size, name, subtitle, padding, SHEET_CELL_W, SHEET_CELL_H
+            left = sheet.crop((x, yy, x + SHEET_VIEW_W, yy + SHEET_CELL_H))
+            if left.tobytes() != card.crop(
+                _center_crop(card.size, name, subtitle, padding, SHEET_VIEW_W, SHEET_CELL_H)
+            ).tobytes():
+                return False
+            right = sheet.crop(
+                (x + SHEET_VIEW_W + SHEET_VIEW_GAP, yy, x + SHEET_CELL_W, yy + SHEET_CELL_H)
             )
-            cell = sheet.crop((x, yy, x + SHEET_CELL_W, yy + SHEET_CELL_H))
-            if cell.tobytes() != card.crop(box).tobytes():
+            if right.tobytes() != card.crop(
+                _corner_crop(card.size, SHEET_VIEW_W, SHEET_CELL_H)
+            ).tobytes():
                 return False
     return True
 
