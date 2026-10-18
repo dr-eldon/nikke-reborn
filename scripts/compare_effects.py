@@ -3,7 +3,7 @@
 
 Renders each requested card once with nikke-viewer (deterministic, so the
 artifact is reused) and writes the chosen effect combos (default:
-glow+trail; anything else via --combos) to
+trail; anything else via --combos) to
 effects/<set>/<card>/<variant>/<combo>:
 
 - glow:    two-pass context-aware bloom under the crisp text; its color
@@ -44,7 +44,7 @@ encode is its own ffmpeg process).
 Run:  .venv/bin/python scripts/compare_effects.py [--combos a+b,c] [variant ...]
       (default cards: the 0001-rapi trio; tokens like '0004/silver'
       select other cards, 'silver' matches by variant name; default
-      combo: glow+trail)
+      combo: trail)
 """
 
 import colorsys
@@ -136,13 +136,13 @@ SHADOW_COLOR = (0, 0, 0)
 SHADOW_RADIUS = 8.0
 SHADOW_FACTOR = 0.55
 SHADOW_OFFSET = (0, 3)
-TRAIL_TARGET_LUMA = 0.12  # context-colored trail pinned dark (the dark-side
+TRAIL_TARGET_LUMA = 0.10  # context-colored trail pinned dark (the dark-side
                           # counterpart of the glow's contrasting target)
 TRAIL_OFFSET = 4  # px, equal x/y: the trail runs diagonally down-right
 SUBTITLE_TRAIL_OFFSET = 2  # the subtitle is much smaller than the title,
                            # so its trail uses a shorter offset to hug it
 FROST_RADIUS = 6.0        # blur of the art seen through the text
-FROST_WHITE_ALPHA = 0.75  # opacity of the white core when frosted
+FROST_WHITE_ALPHA = 0.75  # opacity of the base-color core when frosted
 FROST_MARGIN = 30         # crop margin around the name for the blur
 REFRACT_MARGIN = 64       # px around the ink: the lens boundary (the ellipse
                           # is inscribed in this box, so the field is 0 there)
@@ -176,7 +176,7 @@ def _parse_combo(spec: str) -> frozenset[str]:
     return frozenset(parts)
 
 
-DEFAULT_COMBOS = ("glow+trail",)  # the locked-in variant; anything else via --combos
+DEFAULT_COMBOS = ("trail",)  # the locked-in variant; anything else via --combos
 
 COMBOS = (
     list(dict.fromkeys(_parse_combo(s) for s in COMBO_SPECS))
@@ -430,8 +430,10 @@ def build_name_layers(
         )
         core.paste(255, (0, 0, size[0], size[1]), sub_mask)
 
-    # white core; translucent when the frosted-glass blur is requested
-    top_layer = _tint(core, (255, 255, 255), FROST_WHITE_ALPHA if "blur" in combo else 1.0)
+    # base-color core; translucent when the frosted-glass blur is requested
+    top_layer = _tint(
+        core, nr.NAME_TEXT_COLOR, FROST_WHITE_ALPHA if "blur" in combo else 1.0
+    )
 
     shadow = None
     if "shadow" in combo:

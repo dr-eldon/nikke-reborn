@@ -127,6 +127,9 @@ SUBTITLE_GAP_FACTOR = 0.5
 #: between letters.
 SUBTITLE_SUPERSAMPLE = 4
 
+#: Base color of the name text (title and subtitle).
+NAME_TEXT_COLOR = (255, 255, 255)
+
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
 #: and the resolution scale are chosen per run: ``slow`` at full
@@ -406,7 +409,7 @@ def _with_name(
     to ``NAME_REFERENCE_LENGTH`` characters, truncated, never below
     ``NAME_MIN_SIZE_FACTOR`` of that). A non-empty *subtitle* sits
     beneath, left-aligned, in italics, at ``_subtitle_font_size`` size.
-    The text is white.
+    The text is NAME_TEXT_COLOR.
     """
     canvas = base.copy()
     draw = ImageDraw.Draw(canvas)
@@ -418,7 +421,7 @@ def _with_name(
         (padding - left, padding - top),
         name,
         font=font,
-        fill=(255, 255, 255, 255),
+        fill=NAME_TEXT_COLOR + (255,),
     )
     if subtitle:
         sub_size = _subtitle_font_size(subtitle, padding)
@@ -458,7 +461,9 @@ def _with_name(
         else:
             padded = region
         small = _italicize(padded, 0).resize((w4 // ss, h4 // ss), Image.BILINEAR)
-        white = (255, 255, 255, 255) if canvas.mode == "RGBA" else (255, 255, 255)
+        white = (
+            NAME_TEXT_COLOR + (255,) if canvas.mode == "RGBA" else NAME_TEXT_COLOR
+        )
         canvas.paste(
             Image.new(canvas.mode, small.size, white),
             (padding - m4 // ss, sub_ink_top),

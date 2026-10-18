@@ -30,12 +30,11 @@ import nikke_reborn as nr
 
 
 def _standard_cards() -> list[Path]:
-    """Card JSONs for every card dir that already has output on disk."""
+    """Card JSONs for every card dir on disk (empty dirs included —
+    e.g. right after dropping a combo's outputs)."""
     cards: list[Path] = []
     for d in sorted(ce.OUT_ROOT.rglob("*")):
         if not d.is_dir():
-            continue
-        if not any(p.suffix in (".png", ".mp4") for p in d.iterdir()):
             continue
         rel = d.relative_to(ce.OUT_ROOT)
         json_path = ce.nr.CARDS_DIR / rel.parent / f"{rel.name}.json"
@@ -47,7 +46,7 @@ def _standard_cards() -> list[Path]:
 def main() -> None:
     cards = _standard_cards()
     if not cards:
-        print("no card output on disk; run compare_effects.py first", file=sys.stderr)
+        print("no card dirs on disk; run compare_effects.py first", file=sys.stderr)
         sys.exit(1)
     workers = min(len(cards), os.cpu_count() or 1)
     print(
