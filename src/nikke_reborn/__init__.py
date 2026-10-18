@@ -2,7 +2,8 @@
 
 Walks :mod:`cards` for card definitions (``*.json``), renders each one with
 the ``nikke-viewer`` executable, composites every rendered frame on top of
-the card's ``background``, overlays the card name at the top left, the
+the card's ``background``, overlays the card name at the top left (with
+its subtitle beneath, in italics), the
 matching logo from ``images/`` at the bottom right and the copyright line
 at the bottom left, then writes the finished result under ``output/``:
 
@@ -99,6 +100,21 @@ NAME_REFERENCE_LENGTH = 17
 #: Shrink floor: the font never drops below this fraction of its base
 #: (NAME_SIZE_FACTOR) size.
 NAME_MIN_SIZE_FACTOR = 0.6
+
+#: Subtitle sizing: the font is padding * SUBTITLE_SIZE_FACTOR (short
+#: subtitles), shrinking linearly to padding * SUBTITLE_MIN_SIZE_FACTOR
+#: between SUBTITLE_FULL_LENGTH and SUBTITLE_FLOOR_LENGTH characters.
+SUBTITLE_SIZE_FACTOR = 0.5
+SUBTITLE_MIN_SIZE_FACTOR = 0.3
+SUBTITLE_FULL_LENGTH = 13
+SUBTITLE_FLOOR_LENGTH = 25
+
+#: Italic slant (radians) for the subtitle.
+SUBTITLE_SHEAR = 0.2
+
+#: Gap between the title's ink bottom and the subtitle's ink top, as a
+#: fraction of the subtitle's font size.
+SUBTITLE_GAP_FACTOR = 0.5
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
@@ -337,14 +353,49 @@ def _name_font_size(name: str, base_size: int) -> int:
     return int(base_size * factor)
 
 
-def _with_name(base: Image.Image, padding: int, name: str) -> Image.Image:
+def _subtitle_font_size(subtitle: str, padding: int) -> int:
+    """Font size for *subtitle*: padding * SUBTITLE_SIZE_FACTOR,
+    shrinking linearly to padding * SUBTITLE_MIN_SIZE_FACTOR between
+    SUBTITLE_FULL_LENGTH and SUBTITLE_FLOOR_LENGTH characters."""
+    length = len(subtitle)
+    if length <= SUBTITLE_FULL_LENGTH:
+        factor = SUBTITLE_SIZE_FACTOR
+    elif length >= SUBTITLE_FLOOR_LENGTH:
+        factor = SUBTITLE_MIN_SIZE_FACTOR
+    else:
+        t = (length - SUBTITLE_FULL_LENGTH) / (
+            SUBTITLE_FLOOR_LENGTH - SUBTITLE_FULL_LENGTH
+        )
+        factor = SUBTITLE_SIZE_FACTOR + (
+            SUBTITLE_MIN_SIZE_FACTOR - SUBTITLE_SIZE_FACTOR
+        ) * t
+    return round(padding * factor)
+
+
+def _italicize(image: Image.Image, anchor_y: float = 0.0) -> Image.Image:
+    """Shear *image* into italics, pinned at row *anchor_y* (rows below
+    it slant left, so the top of the text leans right). Bilinear
+    resampling keeps the slanted edges anti-aliased."""
+    return image.transform(
+        image.size,
+        Image.AFFINE,
+        (1, SUBTITLE_SHEAR, -SUBTITLE_SHEAR * anchor_y, 0, 1, 0),
+        resample=Image.BILINEAR,
+    )
+
+
+def _with_name(
+    base: Image.Image, padding: int, name: str, subtitle: str = ""
+) -> Image.Image:
     """Return a copy of *base* with the card *name* at the top left.
 
-    The ink's top-left corner sits exactly at ``(padding, padding)``,
-    left-aligned; the font size is ``padding * NAME_SIZE_FACTOR``,
-    scaled down with the name's length (full size up to
-    ``NAME_REFERENCE_LENGTH`` characters, truncated, never below
-    ``NAME_MIN_SIZE_FACTOR`` of that); the text is white.
+    The title ink's top-left corner sits exactly at ``(padding,
+    padding)``, left-aligned; the font size is ``padding *
+    NAME_SIZE_FACTOR``, scaled down with the name's length (full size up
+    to ``NAME_REFERENCE_LENGTH`` characters, truncated, never below
+    ``NAME_MIN_SIZE_FACTOR`` of that). A non-empty *subtitle* sits
+    beneath, left-aligned, in italics, at ``_subtitle_font_size`` size.
+    The text is white.
     """
     canvas = base.copy()
     draw = ImageDraw.Draw(canvas)
@@ -358,6 +409,25 @@ def _with_name(base: Image.Image, padding: int, name: str) -> Image.Image:
         font=font,
         fill=(255, 255, 255, 255),
     )
+    if subtitle:
+        sub_size = _subtitle_font_size(subtitle, padding)
+        sub_font = ImageFont.truetype(str(FONT_NAME), sub_size)
+        sub_font.set_variation_by_axes([NAME_WEIGHT])
+        sub_left, sub_top, sub_bottom = _text_ink_offsets(subtitle, sub_font)
+        sub_ink_top = padding + (bottom - top) + round(sub_size * SUBTITLE_GAP_FACTOR)
+        sub_layer = Image.new("L", canvas.size, 0)
+        ImageDraw.Draw(sub_layer).text(
+            (padding - sub_left, sub_ink_top - sub_top),
+            subtitle,
+            font=sub_font,
+            fill=255,
+        )
+        white = (255, 255, 255, 255) if canvas.mode == "RGBA" else (255, 255, 255)
+        canvas.paste(
+            Image.new(canvas.mode, canvas.size, white),
+            (0, 0, canvas.size[0], canvas.size[1]),
+            _italicize(sub_layer, sub_ink_top),
+        )
     return canvas
 
 
@@ -478,6 +548,7 @@ def _finish_card(
     padding: int,
     copyright_color: tuple[int, int, int, int],
     name: str,
+    subtitle: str,
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
@@ -496,7 +567,7 @@ def _finish_card(
         _check_frame_size(frame, artifact.name, expected_size)
         base = _fit_background(background, frame.size)
         base = _with_logo(base, _scale_logo(logo, frame.width), margin)
-        base = _with_name(base, padding, name)
+        base = _with_name(base, padding, name, subtitle)
         base = _with_copyright(base, padding, copyright_color)
         final = _composite_frame(frame, base).convert("RGB")
         return _save_atomic(final, out_dir / f"{json_path.stem}.png")
@@ -507,7 +578,7 @@ def _finish_card(
     size = first.size
     base = _fit_background(background, size)
     base = _with_logo(base, _scale_logo(logo, size[0]), margin)
-    base = _with_name(base, padding, name)
+    base = _with_name(base, padding, name, subtitle)
     base = _with_copyright(base, padding, copyright_color)
 
     def frames() -> Iterator[Image.Image]:
@@ -578,6 +649,7 @@ def _process_card(
     if "title" not in card:
         raise GenerationError(f"{json_path.name}: missing 'title'")
     name = str(card["title"])
+    subtitle = str(card.get("subtitle", ""))
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
@@ -609,6 +681,7 @@ def _process_card(
                     padding,
                     copyright_color,
                     name,
+                    subtitle,
                     framerate,
                     ffmpeg_threads,
                     composite_workers,

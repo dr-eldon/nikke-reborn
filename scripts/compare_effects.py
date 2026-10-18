@@ -14,7 +14,8 @@ effects/<set>/<card>/<variant>/<combo>:
            on bright art (target luminance = 1 - art luminance)
 - shadow:  soft dark halo for contrast over busy art
 - trail:   hard-edged copy of the text offset diagonally down-right
-           (TRAIL_OFFSET px) in the context color pinned dark
+           (TRAIL_OFFSET px, SUBTITLE_TRAIL_OFFSET for the smaller
+           subtitle) in the context color pinned dark
            (TRAIL_TARGET_LUMA) — a crisp directional shadow
 - blur:    frosted-glass core: the art behind the glyphs is blurred and
            the white text is semi-transparent over it (per frame)
@@ -126,6 +127,8 @@ SHADOW_OFFSET = (0, 3)
 TRAIL_TARGET_LUMA = 0.15  # context-colored trail pinned dark (the dark-side
                           # counterpart of the glow's contrasting target)
 TRAIL_OFFSET = 4  # px, equal x/y: the trail runs diagonally down-right
+SUBTITLE_TRAIL_OFFSET = 2  # the subtitle is much smaller than the title,
+                           # so its trail uses a shorter offset to hug it
 FROST_RADIUS = 6.0        # blur of the art seen through the text
 FROST_WHITE_ALPHA = 0.75  # opacity of the white core when frosted
 FROST_MARGIN = 30         # crop margin around the name for the blur
@@ -334,18 +337,51 @@ class _NameLayers:
     refract_field: tuple | None  # (dx, dy) displacement arrays (static)
 
 
+def _italicize(image: Image.Image, anchor_y: float = 0.0) -> Image.Image:
+    """Shear *image* into italics, pinned at row *anchor_y* (rows below
+    it slant left, so the top of the text leans right). Bilinear
+    resampling keeps the slanted edges anti-aliased."""
+    return image.transform(
+        image.size,
+        Image.AFFINE,
+        (1, nr.SUBTITLE_SHEAR, -nr.SUBTITLE_SHEAR * anchor_y, 0, 1, 0),
+        resample=Image.BILINEAR,
+    )
+
+
 def build_name_layers(
-    size: tuple[int, int], name: str, padding: int, combo: frozenset[str]
+    size: tuple[int, int],
+    name: str,
+    subtitle: str,
+    padding: int,
+    combo: frozenset[str],
 ) -> _NameLayers:
     """Build the name stack for *combo*: fixed layers plus glow masks."""
     font_size = nr._name_font_size(name, round(padding * nr.NAME_SIZE_FACTOR))
     font = ImageFont.truetype(str(nr.FONT_NAME), font_size)
     font.set_variation_by_axes([nr.NAME_WEIGHT])
-    left, top, _bottom = nr._text_ink_offsets(name, font)
-    xy = (padding - left, padding - top)
+    left, top, bottom = nr._text_ink_offsets(name, font)
 
-    core = Image.new("L", size, 0)
-    ImageDraw.Draw(core).text(xy, name, font=font, fill=255)
+    title_mask = Image.new("L", size, 0)
+    title_draw = ImageDraw.Draw(title_mask)
+    title_draw.text((padding - left, padding - top), name, font=font, fill=255)
+    core = title_mask.copy()
+    sub_sheared = None
+    if subtitle:
+        sub_size = nr._subtitle_font_size(subtitle, padding)
+        sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
+        sub_font.set_variation_by_axes([nr.NAME_WEIGHT])
+        sub_left, sub_top, sub_bottom = nr._text_ink_offsets(subtitle, sub_font)
+        sub_ink_top = padding + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR)
+        sub_layer = Image.new("L", size, 0)
+        ImageDraw.Draw(sub_layer).text(
+            (padding - sub_left, sub_ink_top - sub_top),
+            subtitle,
+            font=sub_font,
+            fill=255,
+        )
+        sub_sheared = _italicize(sub_layer, sub_ink_top)
+        core.paste(255, (0, 0, size[0], size[1]), sub_sheared)
 
     # white core; translucent when the frosted-glass blur is requested
     top_layer = _tint(core, (255, 255, 255), FROST_WHITE_ALPHA if "blur" in combo else 1.0)
@@ -360,9 +396,17 @@ def build_name_layers(
 
     trail = None
     if "trail" in combo:
-        # Hard-edged: the unblurred core, offset diagonally (L mask —
-        # tinted per frame in apply_name with the dark context color).
-        trail = _shift(core, (TRAIL_OFFSET, TRAIL_OFFSET))
+        # Hard-edged: unblurred copies offset diagonally (L masks — tinted
+        # per frame in apply_name with the dark context color). The
+        # subtitle gets its own shorter offset (see SUBTITLE_TRAIL_OFFSET)
+        # so its trail hugs the small text instead of reading detached.
+        trail = _shift(title_mask, (TRAIL_OFFSET, TRAIL_OFFSET))
+        if sub_sheared is not None:
+            trail.paste(
+                255,
+                (0, 0, size[0], size[1]),
+                _shift(sub_sheared, (SUBTITLE_TRAIL_OFFSET, SUBTITLE_TRAIL_OFFSET)),
+            )
 
     glow_wide = glow_tight = None
     if "glow" in combo:
@@ -375,12 +419,22 @@ def build_name_layers(
         frost_mask = core
         m = FROST_MARGIN
         ink_w = round(font.getlength(name))
-        ink_h = font_size
+        bottom_edge = padding + font_size
+        if subtitle:
+            sub_size = nr._subtitle_font_size(subtitle, padding)
+            sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
+            sub_font.set_variation_by_axes([nr.NAME_WEIGHT])
+            _sub_l, _sub_t, sub_b = nr._text_ink_offsets(subtitle, sub_font)
+            bottom_edge = max(
+                bottom_edge,
+                padding + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR) + (sub_b - _sub_t),
+            )
+            ink_w = max(ink_w, round(sub_font.getlength(subtitle)))
         frost_box = (
             padding - m,
             padding - m,
             padding + ink_w + m,
-            padding + ink_h + m,
+            bottom_edge + m,
         )
 
     refract_box = None
@@ -473,17 +527,23 @@ def apply_name(canvas: Image.Image, parts: _NameLayers, sample_from: Image.Image
     canvas.alpha_composite(parts.top)
 
 
-def _card_name_padding(rel_dir: Path) -> tuple[str, int]:
-    """(name, padding) of the card whose effects live in *rel_dir*."""
+def _card_name_padding(rel_dir: Path) -> tuple[str, str, int]:
+    """(name, subtitle, padding) of the card whose effects live in *rel_dir*."""
     json_path = nr.CARDS_DIR / rel_dir.with_name(rel_dir.name + ".json")
     try:
         card = nr._load_card(json_path)
-        return str(card["title"]), int(card["padding"])
+        return (
+            str(card["title"]),
+            str(card.get("subtitle", "")),
+            int(card["padding"]),
+        )
     except Exception:
-        return "", 50
+        return "", "", 50
 
 
-def _stamp_mask(size: tuple[int, int], name: str, padding: int) -> Image.Image:
+def _stamp_mask(
+    size: tuple[int, int], name: str, subtitle: str, padding: int
+) -> Image.Image:
     """L mask with 0 where the name stamp and its halo sit.
 
     Lets glow-color sampling read the art behind the name from a
@@ -494,21 +554,33 @@ def _stamp_mask(size: tuple[int, int], name: str, padding: int) -> Image.Image:
     font.set_variation_by_axes([nr.NAME_WEIGHT])
     margin = 45  # clears the wide glow blur and the shadow halo
     ink_w = round(font.getlength(name))
-    ink_h = font_size
+    bottom_edge = padding + font_size
+    if subtitle:
+        sub_size = nr._subtitle_font_size(subtitle, padding)
+        sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
+        sub_font.set_variation_by_axes([nr.NAME_WEIGHT])
+        ink_w = max(ink_w, round(sub_font.getlength(subtitle)))
+        bottom_edge += 2 * sub_size  # the italic subtitle block
     mask = Image.new("L", size, 255)
     ImageDraw.Draw(mask).rectangle(
         (padding - margin, padding - margin,
-         padding + ink_w + margin, padding + ink_h + margin),
+         padding + ink_w + margin, bottom_edge + margin),
         fill=0,
     )
     return mask
 
 
 def _center_crop(
-    size: tuple[int, int], name: str, padding: int, cell_w: int, cell_h: int
+    size: tuple[int, int],
+    name: str,
+    subtitle: str,
+    padding: int,
+    cell_w: int,
+    cell_h: int,
 ) -> tuple[int, int, int, int]:
-    """A cell_w x cell_h window centered on the name's ink, clamped to
-    the image; falls back to a corner crop for an empty name."""
+    """A cell_w x cell_h window centered on the name block (title and
+    subtitle), clamped to the image; falls back to a corner crop for an
+    empty name."""
     w, h = size
     if not name:
         x0 = min(padding, w - cell_w)
@@ -519,8 +591,16 @@ def _center_crop(
         font.set_variation_by_axes([nr.NAME_WEIGHT])
         _left, top, bottom = nr._text_ink_offsets(name, font)
         ink_w = round(font.getlength(name))
+        bottom_edge = padding + (bottom - top)
+        if subtitle:
+            sub_size = nr._subtitle_font_size(subtitle, padding)
+            sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
+            sub_font.set_variation_by_axes([nr.NAME_WEIGHT])
+            ink_w = max(ink_w, round(sub_font.getlength(subtitle)))
+            _sl, _st, sub_b = nr._text_ink_offsets(subtitle, sub_font)
+            bottom_edge += round(sub_size * nr.SUBTITLE_GAP_FACTOR) + (sub_b - _st)
         cx = padding + ink_w / 2
-        cy = padding + (bottom - top) / 2
+        cy = (padding + bottom_edge) / 2
         x0 = int(max(0, min(cx - cell_w / 2, w - cell_w)))
         y0 = int(max(0, min(cy - cell_h / 2, h - cell_h)))
     return (x0, y0, x0 + cell_w, y0 + cell_h)
@@ -569,7 +649,7 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
         x0 = outer_pad
         y0 = outer_pad + k * (section_h + outer_pad)
         base_dir = out_root / rel
-        name, padding = _card_name_padding(rel)
+        name, subtitle, padding = _card_name_padding(rel)
         plain = base_dir / "none.png"
         swatch_src = plain if plain.is_file() else base_dir / f"{names[0]}.png"
         img = Image.open(swatch_src)
@@ -581,7 +661,9 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
         )
         stamp_mask = (
             None if plain.is_file()
-            else _stamp_mask((box[2] - box[0], box[3] - box[1]), name, padding)
+            else _stamp_mask(
+                (box[2] - box[0], box[3] - box[1]), name, subtitle, padding
+            )
         )
         glow_color = _glow_color(img.crop(box), stamp_mask)
         print(f"  sheet: {rel.as_posix()} -> glow {glow_color}", flush=True)
@@ -602,7 +684,7 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
             x = x0 + sec_pad + c * (cell_w + sec_pad)
             yy = y0 + title_h + r * (cell_h + label_h)
             cell = Image.open(base_dir / f"{combo}.png").crop(
-                _center_crop(img.size, name, padding, cell_w, cell_h)
+                _center_crop(img.size, name, subtitle, padding, cell_w, cell_h)
             )
             draw.rectangle((x, yy, x + cell_w - 1, yy + label_h - 1), fill=(40, 44, 52))
             draw.text((x + 10, yy + 5), combo, font=font_cell, fill=(220, 225, 235))
@@ -616,6 +698,7 @@ def main() -> None:
     for json_path in CARDS:
         card = nr._load_card(json_path)
         name = str(card["title"])
+        subtitle = str(card.get("subtitle", ""))
         padding = card["padding"]
         margin = round(nr.LOGO_PADDING_FACTOR * padding)
         copyright_color = (
@@ -642,7 +725,7 @@ def main() -> None:
                 art = nr._composite_frame(frame, base)
 
                 def static_task(combo: frozenset[str]) -> frozenset[str]:
-                    parts = build_name_layers(frame.size, name, padding, combo)
+                    parts = build_name_layers(frame.size, name, subtitle, padding, combo)
                     canvas = art.copy()
                     apply_name(canvas, parts, art)
                     nr._save_atomic(canvas.convert("RGB"), out_dir / f"{combo_name(combo)}.png")
