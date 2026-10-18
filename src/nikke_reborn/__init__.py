@@ -106,15 +106,26 @@ NAME_MIN_SIZE_FACTOR = 0.6
 #: between SUBTITLE_FULL_LENGTH and SUBTITLE_FLOOR_LENGTH characters.
 SUBTITLE_SIZE_FACTOR = 0.5
 SUBTITLE_MIN_SIZE_FACTOR = 0.3
-SUBTITLE_FULL_LENGTH = 13
-SUBTITLE_FLOOR_LENGTH = 25
+SUBTITLE_FULL_LENGTH = 18
+SUBTITLE_FLOOR_LENGTH = 30
 
-#: Italic slant (radians) for the subtitle.
+#: Slant of the synthetic italic (subtitle) in horizontal px per
+#: vertical px: the name font has no italic face, so the subtitle is
+#: sheared into an oblique (see SUBTITLE_SUPERSAMPLE).
 SUBTITLE_SHEAR = 0.2
 
 #: Gap between the title's ink bottom and the subtitle's ink top, as a
 #: fraction of the subtitle's font size.
 SUBTITLE_GAP_FACTOR = 0.5
+
+#: Supersampling factor for the italic subtitle: the text is rasterized
+#: at SUBTITLE_SUPERSAMPLE times its size, sheared, and downscaled, so
+#: the slanted edges stay anti-aliased without softening (a 1x shear
+#: blurs every edge by 1-2 px). Shearing the font's outlines instead is
+#: no good: FreeType's autohinter applies "slant correction" to slanted
+#: stems, which shifts them off their true positions and opens up gaps
+#: between letters.
+SUBTITLE_SUPERSAMPLE = 4
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
@@ -373,9 +384,9 @@ def _subtitle_font_size(subtitle: str, padding: int) -> int:
 
 
 def _italicize(image: Image.Image, anchor_y: float = 0.0) -> Image.Image:
-    """Shear *image* into italics, pinned at row *anchor_y* (rows below
-    it slant left, so the top of the text leans right). Bilinear
-    resampling keeps the slanted edges anti-aliased."""
+    """Shear *image* into italics. Row *anchor_y* stays in place and the
+    rows below it shift left, so the top of the text leans right.
+    Bilinear resampling keeps the slanted edges anti-aliased."""
     return image.transform(
         image.size,
         Image.AFFINE,
@@ -411,22 +422,47 @@ def _with_name(
     )
     if subtitle:
         sub_size = _subtitle_font_size(subtitle, padding)
-        sub_font = ImageFont.truetype(str(FONT_NAME), sub_size)
+        # Sheared into an oblique at SUBTITLE_SUPERSAMPLE times the
+        # final size and downscaled (see SUBTITLE_SUPERSAMPLE), so the
+        # slanted edges stay anti-aliased without softening. The shear
+        # is pinned at the ink's top row, so the subtitle's top-left
+        # corner lands exactly at `padding`, left-aligned with the
+        # title.
+        ss = SUBTITLE_SUPERSAMPLE
+        sub_font = ImageFont.truetype(str(FONT_NAME), sub_size * ss)
         sub_font.set_variation_by_axes([NAME_WEIGHT])
         sub_left, sub_top, sub_bottom = _text_ink_offsets(subtitle, sub_font)
         sub_ink_top = padding + (bottom - top) + round(sub_size * SUBTITLE_GAP_FACTOR)
-        sub_layer = Image.new("L", canvas.size, 0)
-        ImageDraw.Draw(sub_layer).text(
-            (padding - sub_left, sub_ink_top - sub_top),
+        # Region-sized mask: ink plus a left margin for the shear drift
+        # (rows below the top row shift left). The margin is rounded up
+        # to a whole supersample block so the downscale stays exact.
+        ink_h = sub_bottom - sub_top
+        drift = round(SUBTITLE_SHEAR * ink_h)
+        m4 = ((drift + ss - 1) // ss) * ss
+        region = Image.new(
+            "L", (round(sub_font.getlength(subtitle)) + m4 + 1, ink_h + 1), 0
+        )
+        ImageDraw.Draw(region).text(
+            (m4 - sub_left, -sub_top),
             subtitle,
             font=sub_font,
             fill=255,
         )
+        # Downscale by an exact factor: pad the region to a multiple of
+        # `ss` (zeros on the right/bottom only).
+        w4 = (region.width + ss - 1) // ss * ss
+        h4 = (region.height + ss - 1) // ss * ss
+        if (region.width, region.height) != (w4, h4):
+            padded = Image.new("L", (w4, h4), 0)
+            padded.paste(region, (0, 0))
+        else:
+            padded = region
+        small = _italicize(padded, 0).resize((w4 // ss, h4 // ss), Image.BILINEAR)
         white = (255, 255, 255, 255) if canvas.mode == "RGBA" else (255, 255, 255)
         canvas.paste(
-            Image.new(canvas.mode, canvas.size, white),
-            (0, 0, canvas.size[0], canvas.size[1]),
-            _italicize(sub_layer, sub_ink_top),
+            Image.new(canvas.mode, small.size, white),
+            (padding - m4 // ss, sub_ink_top),
+            small,
         )
     return canvas
 

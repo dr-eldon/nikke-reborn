@@ -337,18 +337,6 @@ class _NameLayers:
     refract_field: tuple | None  # (dx, dy) displacement arrays (static)
 
 
-def _italicize(image: Image.Image, anchor_y: float = 0.0) -> Image.Image:
-    """Shear *image* into italics, pinned at row *anchor_y* (rows below
-    it slant left, so the top of the text leans right). Bilinear
-    resampling keeps the slanted edges anti-aliased."""
-    return image.transform(
-        image.size,
-        Image.AFFINE,
-        (1, nr.SUBTITLE_SHEAR, -nr.SUBTITLE_SHEAR * anchor_y, 0, 1, 0),
-        resample=Image.BILINEAR,
-    )
-
-
 def build_name_layers(
     size: tuple[int, int],
     name: str,
@@ -366,22 +354,39 @@ def build_name_layers(
     title_draw = ImageDraw.Draw(title_mask)
     title_draw.text((padding - left, padding - top), name, font=font, fill=255)
     core = title_mask.copy()
-    sub_sheared = None
+    sub_mask = None
     if subtitle:
         sub_size = nr._subtitle_font_size(subtitle, padding)
-        sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
+        # Sheared into an oblique at SUBTITLE_SUPERSAMPLE times the
+        # final size and downscaled, as in the production pipeline (see
+        # the constants in nikke_reborn).
+        ss = nr.SUBTITLE_SUPERSAMPLE
+        sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size * ss)
         sub_font.set_variation_by_axes([nr.NAME_WEIGHT])
         sub_left, sub_top, sub_bottom = nr._text_ink_offsets(subtitle, sub_font)
         sub_ink_top = padding + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR)
-        sub_layer = Image.new("L", size, 0)
-        ImageDraw.Draw(sub_layer).text(
-            (padding - sub_left, sub_ink_top - sub_top),
-            subtitle,
-            font=sub_font,
-            fill=255,
+        ink_h = sub_bottom - sub_top
+        drift = round(nr.SUBTITLE_SHEAR * ink_h)
+        m4 = ((drift + ss - 1) // ss) * ss
+        region = Image.new(
+            "L", (round(sub_font.getlength(subtitle)) + m4 + 1, ink_h + 1), 0
         )
-        sub_sheared = _italicize(sub_layer, sub_ink_top)
-        core.paste(255, (0, 0, size[0], size[1]), sub_sheared)
+        ImageDraw.Draw(region).text(
+            (m4 - sub_left, -sub_top), subtitle, font=sub_font, fill=255
+        )
+        w4 = (region.width + ss - 1) // ss * ss
+        h4 = (region.height + ss - 1) // ss * ss
+        padded = region
+        if (region.width, region.height) != (w4, h4):
+            padded = Image.new("L", (w4, h4), 0)
+            padded.paste(region, (0, 0))
+        small = nr._italicize(padded, 0).resize((w4 // ss, h4 // ss), Image.BILINEAR)
+        px, py = padding - m4 // ss, sub_ink_top
+        sub_mask = Image.new("L", size, 0)
+        sub_mask.paste(
+            255, (px, py, px + small.width, py + small.height), small
+        )
+        core.paste(255, (0, 0, size[0], size[1]), sub_mask)
 
     # white core; translucent when the frosted-glass blur is requested
     top_layer = _tint(core, (255, 255, 255), FROST_WHITE_ALPHA if "blur" in combo else 1.0)
@@ -401,11 +406,11 @@ def build_name_layers(
         # subtitle gets its own shorter offset (see SUBTITLE_TRAIL_OFFSET)
         # so its trail hugs the small text instead of reading detached.
         trail = _shift(title_mask, (TRAIL_OFFSET, TRAIL_OFFSET))
-        if sub_sheared is not None:
+        if sub_mask is not None:
             trail.paste(
                 255,
                 (0, 0, size[0], size[1]),
-                _shift(sub_sheared, (SUBTITLE_TRAIL_OFFSET, SUBTITLE_TRAIL_OFFSET)),
+                _shift(sub_mask, (SUBTITLE_TRAIL_OFFSET, SUBTITLE_TRAIL_OFFSET)),
             )
 
     glow_wide = glow_tight = None
