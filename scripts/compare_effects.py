@@ -11,9 +11,11 @@ effects/<set>/<card>/<variant>/<combo>:
            colored pixels in the top-left sample box, per frame) and its
            brightness contrasts the art: bright glow on dark art (capped
            by GLOW_MAX_LUMA so it stays colored, not white), dark glow
-           on bright art (target luminance = 1 - art luminance)
+           on bright art (target luminance = (1 - art luminance)^2,
+           shifted toward violet at full saturation so it stays colorful)
 - shadow:  soft dark halo for contrast over busy art
-- trail:   hard-edged copy of the text offset diagonally down-right
+- trail:   the text extruded diagonally down-right (union of the stepped
+           offsets — connected to the glyph edges, reads as 3D depth)
            (TRAIL_OFFSET px, SUBTITLE_TRAIL_OFFSET for the smaller
            subtitle) in the context color pinned dark
            (TRAIL_TARGET_LUMA) — a crisp directional shadow
@@ -105,9 +107,9 @@ EFFECTS = ("glow", "shadow", "trail", "blur", "refract")
 
 # --- effect tuning (reference viewport 1640x2048, padding 50) --------------
 GLOW_FALLBACK = (170, 235, 255)  # hue/sat source when the art is (near) gray
-GLOW_WIDE_RADIUS = 15.0
+GLOW_WIDE_RADIUS = 4.5
 GLOW_WIDE_FACTOR = 0.70
-GLOW_TIGHT_RADIUS = 5.0
+GLOW_TIGHT_RADIUS = 2.5
 GLOW_TIGHT_FACTOR = 1.00
 # Glow color sampling: the box (in units of padding, from the top-left) of
 # art to read, downsampled to GLOW_SAMPLE_PX x GLOW_SAMPLE_PX.
@@ -120,11 +122,21 @@ GLOW_SAT_MIN = 0.45
 GLOW_SAT_MAX = 0.90
 GLOW_MAX_LUMA = 0.60  # cap on the glow target for dark art (bright, and deep enough to
                       # keep the white text's edge crisp instead of melting into the halo)
+
+#: Below this glow target luminance (i.e. on bright art) the glow is
+#: pushed toward violet and run at full saturation: at low brightness,
+#: hues near green/yellow collapse to gray and read as a soft shadow,
+#: while blue-violet keeps its color.
+GLOW_COLORFUL_THRESHOLD = 0.35
+#: Max hue rotation (degrees, toward violet) a dark glow receives; the
+#: actual rotation scales with how far below GLOW_COLORFUL_THRESHOLD
+#: the target sits.
+GLOW_HUE_SHIFT = 60.0
 SHADOW_COLOR = (0, 0, 0)
 SHADOW_RADIUS = 8.0
 SHADOW_FACTOR = 0.55
 SHADOW_OFFSET = (0, 3)
-TRAIL_TARGET_LUMA = 0.15  # context-colored trail pinned dark (the dark-side
+TRAIL_TARGET_LUMA = 0.12  # context-colored trail pinned dark (the dark-side
                           # counterpart of the glow's contrasting target)
 TRAIL_OFFSET = 4  # px, equal x/y: the trail runs diagonally down-right
 SUBTITLE_TRAIL_OFFSET = 2  # the subtitle is much smaller than the title,
@@ -142,6 +154,12 @@ REFRACT_FRINGE = 0.28     # radial chromatic spread: R at (1+f), B at (1-f)
 # Effect combinations per card run this many in parallel. Each animated
 # combo also drives an ffmpeg encode with 4 threads (8 x 4 fits 32 cores).
 WORKERS = min(8, (os.cpu_count() or 4) // 4)
+
+# Contact-sheet layout, shared by _build_sheet and
+# check_sheet_consistency (the cells must line up exactly).
+SHEET_CELL_W, SHEET_CELL_H, SHEET_CELL_LABEL = 520, 220, 30
+SHEET_TITLE_H, SHEET_OUTER_PAD, SHEET_SEC_PAD, SHEET_SWATCH = 44, 16, 16, 24
+SHEET_COLS = 2
 
 
 def combo_name(effects: frozenset[str]) -> str:
@@ -250,21 +268,45 @@ def _sample_context(
     return (statistics.median(hues), sat, luma_sum / count)
 
 
+def _toward_violet(hue: float, degrees: float) -> float:
+    """Rotate *hue* (0-1, colorsys scale) at most *degrees* toward
+    violet (270 degrees), taking the short way around the wheel."""
+    target = 270.0 / 360.0
+    delta = (target - hue) % 1.0
+    if delta > 0.5:
+        delta -= 1.0
+    step = min(degrees / 360.0, abs(delta))
+    return (hue + (step if delta > 0 else -step)) % 1.0
+
+
 def _glow_color(
     region: Image.Image, mask: Image.Image | None = None
 ) -> tuple[int, int, int]:
     """Context-aware glow color from *region*.
 
     The sampled hue/saturation at a brightness that contrasts the art:
-    the target luminance is 1 - (art luminance), capped by
+    the target luminance is (1 - art luminance) squared, capped by
     GLOW_MAX_LUMA, so dark art gets a bright glow and bright art gets
     a dark one — the halo always stands off the scene instead of
-    merging into it.
+    merging into it. The square steepens the bright side: a plain
+    1 - luma target is barely darker than mid-bright art (0.42 on
+    0.58 art), so the halo would read as invisible; squared it is
+    0.18, a true dark rim. Dark art (luma <= 0.2 or so) hits the cap
+    either way and is unaffected.
+
+    Dark glows are also kept colorful (see GLOW_COLORFUL_THRESHOLD):
+    shifted toward violet at full saturation, since at low brightness
+    the sampled beach/sky teal would read as a soft shadow.
     """
     hue, sat, luma = _sample_context(region, mask)
     if luma is None:
         return GLOW_FALLBACK
-    return _set_luma(hue, sat, min(1.0 - luma, GLOW_MAX_LUMA))
+    target = min((1.0 - luma) ** 2, GLOW_MAX_LUMA)
+    if target < GLOW_COLORFUL_THRESHOLD:
+        strength = (GLOW_COLORFUL_THRESHOLD - target) / GLOW_COLORFUL_THRESHOLD
+        hue = _toward_violet(hue, strength * GLOW_HUE_SHIFT)
+        sat = 1.0
+    return _set_luma(hue, sat, target)
 
 
 def _trail_color(
@@ -401,17 +443,21 @@ def build_name_layers(
 
     trail = None
     if "trail" in combo:
-        # Hard-edged: unblurred copies offset diagonally (L masks — tinted
-        # per frame in apply_name with the dark context color). The
-        # subtitle gets its own shorter offset (see SUBTITLE_TRAIL_OFFSET)
-        # so its trail hugs the small text instead of reading detached.
-        trail = _shift(title_mask, (TRAIL_OFFSET, TRAIL_OFFSET))
+        # Extruded depth: the union of the text shifted one step at a
+        # time along the diagonal, so every trail pixel touches glyph
+        # ink — it reads as 3D depth off the edges, not as a detached
+        # projection. (Hard-edged L masks — tinted per frame in
+        # apply_name with the dark context color.) The subtitle gets
+        # its own shorter depth (see SUBTITLE_TRAIL_OFFSET) so its
+        # trail hugs the small text.
+        trail = Image.new("L", size, 0)
+        for t in range(1, TRAIL_OFFSET + 1):
+            trail.paste(255, (0, 0, size[0], size[1]), _shift(title_mask, (t, t)))
         if sub_mask is not None:
-            trail.paste(
-                255,
-                (0, 0, size[0], size[1]),
-                _shift(sub_mask, (SUBTITLE_TRAIL_OFFSET, SUBTITLE_TRAIL_OFFSET)),
-            )
+            for t in range(1, SUBTITLE_TRAIL_OFFSET + 1):
+                trail.paste(
+                    255, (0, 0, size[0], size[1]), _shift(sub_mask, (t, t))
+                )
 
     glow_wide = glow_tight = None
     if "glow" in combo:
@@ -637,22 +683,19 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
     if not present:
         return None
 
-    cell_w, cell_h, label_h = 520, 220, 30
-    title_h, outer_pad, sec_pad, swatch = 44, 16, 16, 24
     font_title = ImageFont.truetype(str(nr.FONT), 22)
     font_cell = ImageFont.truetype(str(nr.FONT), 18)
-    cols_per_row = 2
-    section_w = cols_per_row * cell_w + (cols_per_row + 1) * sec_pad
-    max_rows = max((len(v) + cols_per_row - 1) // cols_per_row for v in present.values())
-    section_h = title_h + max_rows * (cell_h + label_h)
-    width = section_w + 2 * outer_pad
-    height = len(present) * section_h + (len(present) + 1) * outer_pad
+    section_w = SHEET_COLS * SHEET_CELL_W + (SHEET_COLS + 1) * SHEET_SEC_PAD
+    max_rows = max((len(v) + SHEET_COLS - 1) // SHEET_COLS for v in present.values())
+    section_h = SHEET_TITLE_H + max_rows * (SHEET_CELL_H + SHEET_CELL_LABEL)
+    width = section_w + 2 * SHEET_OUTER_PAD
+    height = len(present) * section_h + (len(present) + 1) * SHEET_OUTER_PAD
     sheet = Image.new("RGB", (width, height), (16, 16, 20))
     draw = ImageDraw.Draw(sheet)
     for k, rel in enumerate(present):
         names = present[rel]
-        x0 = outer_pad
-        y0 = outer_pad + k * (section_h + outer_pad)
+        x0 = SHEET_OUTER_PAD
+        y0 = SHEET_OUTER_PAD + k * (section_h + SHEET_OUTER_PAD)
         base_dir = out_root / rel
         name, subtitle, padding = _card_name_padding(rel)
         plain = base_dir / "none.png"
@@ -672,131 +715,225 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
         )
         glow_color = _glow_color(img.crop(box), stamp_mask)
         print(f"  sheet: {rel.as_posix()} -> glow {glow_color}", flush=True)
-        draw.rectangle((x0, y0, x0 + section_w - 1, y0 + title_h - 1), fill=(34, 38, 46))
+        draw.rectangle(
+            (x0, y0, x0 + section_w - 1, y0 + SHEET_TITLE_H - 1), fill=(34, 38, 46)
+        )
         draw.text((x0 + 12, y0 + 9), rel.as_posix(), font=font_title, fill=(230, 235, 245))
         draw.rectangle(
-            (x0 + section_w - 12 - swatch, y0 + 10, x0 + section_w - 12, y0 + 10 + swatch),
+            (
+                x0 + section_w - 12 - SHEET_SWATCH,
+                y0 + 10,
+                x0 + section_w - 12,
+                y0 + 10 + SHEET_SWATCH,
+            ),
             fill=glow_color,
         )
         draw.text(
-            (x0 + section_w - 12 - swatch - 150, y0 + 12),
+            (x0 + section_w - 12 - SHEET_SWATCH - 150, y0 + 12),
             f"glow {glow_color}",
             font=font_cell,
             fill=(180, 190, 205),
         )
         for i, combo in enumerate(names):
-            r, c = divmod(i, cols_per_row)
-            x = x0 + sec_pad + c * (cell_w + sec_pad)
-            yy = y0 + title_h + r * (cell_h + label_h)
+            r, c = divmod(i, SHEET_COLS)
+            x = x0 + SHEET_SEC_PAD + c * (SHEET_CELL_W + SHEET_SEC_PAD)
+            yy = y0 + SHEET_TITLE_H + r * (SHEET_CELL_H + SHEET_CELL_LABEL)
             cell = Image.open(base_dir / f"{combo}.png").crop(
-                _center_crop(img.size, name, subtitle, padding, cell_w, cell_h)
+                _center_crop(img.size, name, subtitle, padding, SHEET_CELL_W, SHEET_CELL_H)
             )
-            draw.rectangle((x, yy, x + cell_w - 1, yy + label_h - 1), fill=(40, 44, 52))
+            draw.rectangle(
+                (x, yy, x + SHEET_CELL_W - 1, yy + SHEET_CELL_LABEL - 1), fill=(40, 44, 52)
+            )
             draw.text((x + 10, yy + 5), combo, font=font_cell, fill=(220, 225, 235))
-            sheet.paste(cell, (x, yy + label_h))
+            sheet.paste(cell, (x, yy + SHEET_CELL_LABEL))
     return sheet
+
+
+def _overlay_card(
+    json_path: Path,
+    artifact: Path,
+    combos: tuple[frozenset[str], ...],
+    workers: int,
+) -> int:
+    """CPU side of a card: build the base layers and run the combo
+    overlays for a rendered *artifact*, writing to the out dir.
+    Returns the number of files written. Raises RuntimeError if a
+    combo task fails — unlike sys.exit, that propagates through a
+    Future, so this is safe to call from a worker thread."""
+    card = nr._load_card(json_path)
+    name = str(card["title"])
+    subtitle = str(card.get("subtitle", ""))
+    padding = card["padding"]
+    margin = round(nr.LOGO_PADDING_FACTOR * padding)
+    copyright_color = (
+        (0, 0, 0, 255) if card.get("invert_copyright", False) else (255, 255, 255, 255)
+    )
+    framerate = card["framerate"] or nr.DEFAULT_FRAMERATE
+    logo = Image.open(nr.LOGO_PATHS[bool(card.get("invert_logo", False))]).convert(
+        "RGBA"
+    )
+    background = Image.open(nr._background_path(card, json_path)).convert("RGBA")
+
+    out_dir = OUT_ROOT / json_path.parent.relative_to(nr.CARDS_DIR) / json_path.stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    written = 0
+    errors: list[str] = []
+    if artifact.is_file():
+        # ---- static ----
+        frame = nr._open_frame(artifact)
+        base = nr._fit_background(background, frame.size)
+        base = nr._with_logo(base, nr._scale_logo(logo, frame.width), margin)
+        base = nr._with_copyright(base, padding, copyright_color)
+
+        art = nr._composite_frame(frame, base)
+
+        def static_task(combo: frozenset[str]) -> frozenset[str]:
+            parts = build_name_layers(frame.size, name, subtitle, padding, combo)
+            canvas = art.copy()
+            apply_name(canvas, parts, art)
+            nr._save_atomic(canvas.convert("RGB"), out_dir / f"{combo_name(combo)}.png")
+            return combo
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(static_task, c) for c in combos]
+            for fut in as_completed(futures):
+                try:
+                    combo = fut.result()
+                except Exception as exc:
+                    errors.append(f"{json_path.stem}: {exc}")
+                    continue
+                written += 1
+                print(f"  {json_path.stem}: {combo_name(combo)}", flush=True)
+    else:
+        # ---- animated ----
+        paths = nr._frame_paths(artifact)
+        first = nr._open_frame(paths[0])
+        size = first.size
+        first.close()
+        base = nr._fit_background(background, size)
+        base = nr._with_logo(base, nr._scale_logo(logo, size[0]), margin)
+        base = nr._with_copyright(base, padding, copyright_color)
+        # Composite every frame once; the overlays are the only
+        # per-combo work. (143 frames x 13.5 MB fits easily.)
+        frames = []
+        for path in paths:
+            frames.append(nr._composite_frame(nr._open_frame(path), base))
+
+        def animated_task(combo: frozenset[str]) -> frozenset[str]:
+            parts = build_name_layers(size, name, padding, combo)
+
+            def frame_stream(parts=parts):
+                for art in frames:
+                    canvas = art.copy()
+                    apply_name(canvas, parts, art)
+                    yield canvas.convert("RGB")
+
+            nr._encode_mp4(
+                frame_stream(),
+                size,
+                framerate,
+                out_dir / f"{combo_name(combo)}.mp4",
+                threads=4,
+                preset=nr.DRAFT_PRESET,
+                scale=nr.DRAFT_SCALE,
+            )
+            return combo
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(animated_task, c) for c in combos]
+            for fut in as_completed(futures):
+                try:
+                    combo = fut.result()
+                except Exception as exc:
+                    errors.append(f"{json_path.stem}: {exc}")
+                    continue
+                written += 1
+                print(f"  {json_path.stem}: {combo_name(combo)}", flush=True)
+
+    if errors:
+        raise RuntimeError("; ".join(errors))
+    return written
+
+
+def process_card(
+    json_path: Path, combos: tuple[frozenset[str], ...], workers: int
+) -> int:
+    """Render and overlay one card, writing the combo outputs to its
+    out dir. Returns the number of files written. The GPU render runs
+    inline (see regen_cards.py for the serial-render / parallel-overlay
+    split — concurrent nikke-viewer devices exhaust the GPU); the combo
+    overlays are pooled."""
+    with tempfile.TemporaryDirectory(prefix="nikke-reborn-") as workdir:
+        artifact = nr._render_card(json_path, Path(workdir))
+        return _overlay_card(json_path, artifact, combos, workers)
+
+
+def check_sheet_consistency() -> bool:
+    """True when every contact-sheet cell is byte-identical to its
+    card's crop (the sheet is rebuilt from the cards, so the on-disk
+    pair must agree; a mismatch means the two drifted)."""
+    sheet_path = OUT_ROOT / "contact-sheet.png"
+    if not sheet_path.is_file():
+        return False
+    all_names = [
+        combo_name(frozenset(sub))
+        for r in range(len(EFFECTS) + 1)
+        for sub in itertools.combinations(EFFECTS, r)
+    ]
+    present: dict[Path, list[str]] = {}
+    for d in sorted(OUT_ROOT.rglob("*")):
+        if not d.is_dir():
+            continue
+        names = [n for n in all_names if (d / f"{n}.png").is_file()]
+        if names:
+            present[d.relative_to(OUT_ROOT)] = names
+    if not present:
+        return False
+    sheet = Image.open(sheet_path).convert("RGB")
+    max_rows = max((len(v) + SHEET_COLS - 1) // SHEET_COLS for v in present.values())
+    section_h = SHEET_TITLE_H + max_rows * (SHEET_CELL_H + SHEET_CELL_LABEL)
+    for k, rel in enumerate(present):
+        x0 = SHEET_OUTER_PAD
+        y0 = SHEET_OUTER_PAD + k * (section_h + SHEET_OUTER_PAD)
+        name, subtitle, padding = _card_name_padding(rel)
+        for i, combo in enumerate(present[rel]):
+            r, c = divmod(i, SHEET_COLS)
+            x = x0 + SHEET_SEC_PAD + c * (SHEET_CELL_W + SHEET_SEC_PAD)
+            yy = (
+                y0
+                + SHEET_TITLE_H
+                + r * (SHEET_CELL_H + SHEET_CELL_LABEL)
+                + SHEET_CELL_LABEL
+            )
+            card = Image.open(OUT_ROOT / rel / f"{combo}.png").convert("RGB")
+            box = _center_crop(
+                card.size, name, subtitle, padding, SHEET_CELL_W, SHEET_CELL_H
+            )
+            cell = sheet.crop((x, yy, x + SHEET_CELL_W, yy + SHEET_CELL_H))
+            if cell.tobytes() != card.crop(box).tobytes():
+                return False
+    return True
 
 
 def main() -> None:
     started = time.time()
     total = 0
     for json_path in CARDS:
-        card = nr._load_card(json_path)
-        name = str(card["title"])
-        subtitle = str(card.get("subtitle", ""))
-        padding = card["padding"]
-        margin = round(nr.LOGO_PADDING_FACTOR * padding)
-        copyright_color = (
-            (0, 0, 0, 255) if card.get("invert_copyright", False) else (255, 255, 255, 255)
-        )
-        framerate = card["framerate"] or nr.DEFAULT_FRAMERATE
-        logo = Image.open(
-            nr.LOGO_PATHS[bool(card.get("invert_logo", False))]
-        ).convert("RGBA")
-        background = Image.open(nr._background_path(card, json_path)).convert("RGBA")
-
-        out_dir = OUT_ROOT / json_path.parent.relative_to(nr.CARDS_DIR) / json_path.stem
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        with tempfile.TemporaryDirectory(prefix="nikke-reborn-") as workdir:
-            artifact = nr._render_card(json_path, Path(workdir))
-            if artifact.is_file():
-                # ---- static ----
-                frame = nr._open_frame(artifact)
-                base = nr._fit_background(background, frame.size)
-                base = nr._with_logo(base, nr._scale_logo(logo, frame.width), margin)
-                base = nr._with_copyright(base, padding, copyright_color)
-
-                art = nr._composite_frame(frame, base)
-
-                def static_task(combo: frozenset[str]) -> frozenset[str]:
-                    parts = build_name_layers(frame.size, name, subtitle, padding, combo)
-                    canvas = art.copy()
-                    apply_name(canvas, parts, art)
-                    nr._save_atomic(canvas.convert("RGB"), out_dir / f"{combo_name(combo)}.png")
-                    return combo
-
-                with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-                    futures = [pool.submit(static_task, c) for c in COMBOS]
-                    for fut in as_completed(futures):
-                        try:
-                            combo = fut.result()
-                        except Exception as exc:
-                            print(f"  ! {json_path.stem}: {exc}", file=sys.stderr, flush=True)
-                            sys.exit(1)
-                        total += 1
-                        print(f"  {json_path.stem}: {combo_name(combo)}", flush=True)
-            else:
-                # ---- animated ----
-                paths = nr._frame_paths(artifact)
-                first = nr._open_frame(paths[0])
-                size = first.size
-                first.close()
-                base = nr._fit_background(background, size)
-                base = nr._with_logo(base, nr._scale_logo(logo, size[0]), margin)
-                base = nr._with_copyright(base, padding, copyright_color)
-                # Composite every frame once; the overlays are the only
-                # per-combo work. (143 frames x 13.5 MB fits easily.)
-                frames = []
-                for path in paths:
-                    frames.append(nr._composite_frame(nr._open_frame(path), base))
-
-                def animated_task(combo: frozenset[str]) -> frozenset[str]:
-                    parts = build_name_layers(size, name, padding, combo)
-
-                    def frame_stream(parts=parts):
-                        for art in frames:
-                            canvas = art.copy()
-                            apply_name(canvas, parts, art)
-                            yield canvas.convert("RGB")
-
-                    nr._encode_mp4(
-                        frame_stream(),
-                        size,
-                        framerate,
-                        out_dir / f"{combo_name(combo)}.mp4",
-                        threads=4,
-                        preset=nr.DRAFT_PRESET,
-                        scale=nr.DRAFT_SCALE,
-                    )
-                    return combo
-
-                with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-                    futures = [pool.submit(animated_task, c) for c in COMBOS]
-                    for fut in as_completed(futures):
-                        try:
-                            combo = fut.result()
-                        except Exception as exc:
-                            print(f"  ! {json_path.stem}: {exc}", file=sys.stderr, flush=True)
-                            sys.exit(1)
-                        total += 1
-                        print(f"  {json_path.stem}: {combo_name(combo)}", flush=True)
+        try:
+            total += process_card(json_path, COMBOS, WORKERS)
+        except RuntimeError as exc:
+            print(f"  ! {exc}", file=sys.stderr, flush=True)
+            sys.exit(1)
 
     sheet = _build_sheet(OUT_ROOT)
     if sheet is not None:
         nr._save_atomic(sheet, OUT_ROOT / "contact-sheet.png")
         total += 1
         print("  contact-sheet rebuilt (one section per static variant on disk)", flush=True)
+        if not check_sheet_consistency():
+            print("  ! contact-sheet cell mismatch", file=sys.stderr, flush=True)
+            sys.exit(1)
 
     print(f"Done: {total} file(s) in {time.time() - started:.1f}s -> {OUT_ROOT}/")
 
