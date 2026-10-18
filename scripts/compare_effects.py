@@ -6,6 +6,12 @@ artifact is reused) and writes the chosen effect combos (default:
 trail; anything else via --combos) to
 effects/<set>/<card>/<variant>/<combo>:
 
+- base:    the title is filled with a subtle vertical metal gradient —
+           the text color at the ink's top leaning into the per-frame
+           trail tint at the ink's bottom (METAL_TRAIL_MIX, a faint
+           hue lean that tracks the scene), with a bright sheen band
+           (METAL_SHEEN_Y); the corner subtitle keeps the solid base
+           color
 - glow:    two-pass context-aware bloom under the crisp text; its color
            is sampled from the art behind the name (median hue of the
            colored pixels in the top-left sample box, per frame) and its
@@ -17,7 +23,8 @@ effects/<set>/<card>/<variant>/<combo>:
 - trail:   the title extruded diagonally down-right (union of the
            stepped offsets — connected to the glyph edges, reads as 3D
            depth); the subtitle moves to the top-right corner
-           (right-aligned, respecting the padding), the usual white
+           (right-aligned, inset by the card's own padding — the 1.5x
+           title inset stays title-only), the usual white
            with its own trail (SUBTITLE_TRAIL_OFFSET px) (TRAIL_OFFSET
            px for the title) — the trails are tinted with the art's
            own hue behind them (per frame, like the glow) at a shadow
@@ -53,6 +60,7 @@ Run:  .venv/bin/python scripts/compare_effects.py [--combos a+b,c] [variant ...]
 
 import colorsys
 import itertools
+import math
 import os
 import statistics
 import sys
@@ -153,6 +161,15 @@ TRAIL_OFFSET = 5  # px, equal x/y: the title trail runs diagonally down-right
 SUBTITLE_TRAIL_OFFSET = 3
 FROST_RADIUS = 6.0        # blur of the art seen through the text
 FROST_WHITE_ALPHA = 0.75  # opacity of the base-color core when frosted
+#: Metallic title fill: a vertical gradient from the text color at the
+#: ink's top, leaning into the per-frame trail tint at the ink's
+#: bottom by this fraction (a faint hue lean, not a darkening), with
+#: a sheen band (METAL_SHEEN_*: center, brightness, and width in
+#: ink-height fractions and RGB units)
+METAL_TRAIL_MIX = 0.25
+METAL_SHEEN_Y = 0.42
+METAL_SHEEN_DELTA = 20
+METAL_SHEEN_SIGMA = 0.07
 FROST_MARGIN = 30         # crop margin around the name for the blur
 REFRACT_MARGIN = 64       # px around the ink: the lens boundary (the ellipse
                           # is inscribed in this box, so the field is 0 there)
@@ -372,14 +389,18 @@ def _refract_warp(art: "np.ndarray", field: tuple) -> "np.ndarray":
 class _NameLayers:
     """Precomputed name-stack parts.
 
-    ``top`` (white core) and ``shadow`` (soft halo) are color-fixed;
-    the glow and trail masks are tinted per frame with the context
-    colors; ``frost_*`` carry the frosted-glass geometry (the blur
-    itself runs per frame on the live art); the refract field is a
-    static radial lens displacement (the art is warped per frame).
+    ``sub_top`` (the solid subtitle core) and ``shadow`` (soft halo)
+    are color-fixed; the title core is a per-frame metal gradient
+    (``metal_box`` + ``metal_alpha``); the glow and trail masks are
+    tinted per frame with the context colors; ``frost_*`` carry the
+    frosted-glass geometry (the blur itself runs per frame on the
+    live art); the refract field is a static radial lens displacement
+    (the art is warped per frame).
     """
 
-    top: Image.Image
+    sub_top: Image.Image | None  # subtitle core, solid base color
+    metal_box: tuple[int, int, int, int]  # title ink bbox (gradient extent)
+    metal_alpha: Image.Image  # factored title mask (per-frame fill's alpha)
     shadow: Image.Image | None
     trail: Image.Image | None
     sub_trail: Image.Image | None  # subtitle text trail (top-right corner)
@@ -405,10 +426,11 @@ def build_name_layers(
     font = ImageFont.truetype(str(nr.FONT_NAME), font_size)
     font.set_variation_by_axes([nr.NAME_WEIGHT])
     left, top, bottom = nr._text_ink_offsets(name, font)
+    inset = _name_inset(padding)
 
     title_mask = Image.new("L", size, 0)
     title_draw = ImageDraw.Draw(title_mask)
-    title_draw.text((padding - left, padding - top), name, font=font, fill=255)
+    title_draw.text((inset - left, inset - top), name, font=font, fill=255)
     core = title_mask.copy()
     sub_mask = None
     sub_trail = None
@@ -439,11 +461,12 @@ def build_name_layers(
         small = nr._italicize(padded, 0).resize((w4 // ss, h4 // ss), Image.BILINEAR)
         if "trail" in combo:
             # Corner variant: the text sits in the top-right corner,
-            # right-aligned and respecting the padding
+            # right-aligned and inset by the card's own padding (the
+            # title's 1.5x inset stays title-only)
             bbox = small.getbbox()
             px, py = size[0] - padding - bbox[2], padding - bbox[1]
         else:
-            sub_ink_top = padding + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR)
+            sub_ink_top = inset + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR)
             px, py = padding - m4 // ss, sub_ink_top
         sub_mask = Image.new("L", size, 0)
         sub_mask.paste(
@@ -451,9 +474,16 @@ def build_name_layers(
         )
         core.paste(255, (0, 0, size[0], size[1]), sub_mask)
 
-    # base-color core; translucent when the frosted-glass blur is requested
-    top_layer = _tint(
-        core, nr.NAME_TEXT_COLOR, FROST_WHITE_ALPHA if "blur" in combo else 1.0
+    # Title core: a vertical metal gradient whose bottom leans into
+    # the per-frame trail tint — the RGB is built per frame in
+    # apply_name; only the geometry and the (factored) alpha are
+    # static. The corner subtitle keeps the solid base color. Both
+    # cores go translucent when the frosted-glass blur is requested.
+    factor = FROST_WHITE_ALPHA if "blur" in combo else 1.0
+    metal_box = title_mask.getbbox()
+    metal_alpha = title_mask.point(lambda v: int(v * factor))
+    sub_top = (
+        _tint(sub_mask, nr.NAME_TEXT_COLOR, factor) if sub_mask is not None else None
     )
 
     shadow = None
@@ -493,7 +523,7 @@ def build_name_layers(
         frost_mask = core
         m = FROST_MARGIN
         ink_w = round(font.getlength(name))
-        bottom_edge = padding + font_size
+        bottom_edge = inset + font_size
         if subtitle:
             sub_size = nr._subtitle_font_size(subtitle, padding)
             sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
@@ -501,13 +531,15 @@ def build_name_layers(
             _sub_l, _sub_t, sub_b = nr._text_ink_offsets(subtitle, sub_font)
             bottom_edge = max(
                 bottom_edge,
-                padding + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR) + (sub_b - _sub_t),
+                inset + (bottom - top) + round(sub_size * nr.SUBTITLE_GAP_FACTOR) + (sub_b - _sub_t),
             )
             ink_w = max(ink_w, round(sub_font.getlength(subtitle)))
+        # the box covers the title (inset) and the production
+        # subtitle (card padding) — leftmost edge wins
         frost_box = (
             padding - m,
-            padding - m,
-            padding + ink_w + m,
+            inset - m,
+            inset + ink_w + m,
             bottom_edge + m,
         )
 
@@ -561,7 +593,7 @@ def build_name_layers(
         min(size[1], round(padding * GLOW_SAMPLE_H)),
     )
     return _NameLayers(
-        top_layer, shadow, trail, sub_trail,
+        sub_top, metal_box, metal_alpha, shadow, trail, sub_trail,
         glow_wide, glow_tight,
         frost_mask, frost_box, box, corner_box,
         refract_box, refract_field,
@@ -590,11 +622,12 @@ def apply_name(canvas: Image.Image, parts: _NameLayers, sample_from: Image.Image
         color = _glow_color(sample_from.crop(parts.sample_box))
         canvas.alpha_composite(_tint(parts.glow_wide, color, GLOW_WIDE_FACTOR))
         canvas.alpha_composite(_tint(parts.glow_tight, color, GLOW_TIGHT_FACTOR))
+    # The title trail color is the trail tint and the metal gradient's
+    # bottom lean — sample it once per frame.
+    trail_color = _trail_color(sample_from.crop(parts.sample_box))
     if parts.trail is not None:
-        # the trail takes the art's hue behind it (per frame, like the
-        # glow) at a shadow luminance, so it blends into the scene
         canvas.alpha_composite(
-            _tint(parts.trail, _trail_color(sample_from.crop(parts.sample_box)), TRAIL_ALPHA)
+            _tint(parts.trail, trail_color, TRAIL_ALPHA)
         )
     if parts.sub_trail is not None:
         canvas.alpha_composite(
@@ -612,7 +645,44 @@ def apply_name(canvas: Image.Image, parts: _NameLayers, sample_from: Image.Image
         frost.putalpha(parts.frost_mask)
         canvas.alpha_composite(frost)
 
-    canvas.alpha_composite(parts.top)
+    # Title core: a vertical metal gradient — the text color at the
+    # ink's top leaning into this frame's trail tint at the bottom
+    # (METAL_TRAIL_MIX), with the bright sheen band — per frame,
+    # tracking the scene like the trail itself.
+    x0, y0, x1, y1 = parts.metal_box
+    bottom = tuple(
+        round(nr.NAME_TEXT_COLOR[i] + METAL_TRAIL_MIX * (trail_color[i] - nr.NAME_TEXT_COLOR[i]))
+        for i in range(3)
+    )
+    h = y1 - y0 + 1
+    col = Image.new("RGB", (1, h))
+    for y in range(h):
+        t = y / max(1, h - 1)
+        sheen = METAL_SHEEN_DELTA * math.exp(
+            -((t - METAL_SHEEN_Y) ** 2) / (2 * METAL_SHEEN_SIGMA**2)
+        )
+        col.putpixel(
+            (0, y),
+            tuple(
+                min(
+                    255,
+                    round(
+                        nr.NAME_TEXT_COLOR[i]
+                        + (bottom[i] - nr.NAME_TEXT_COLOR[i]) * t
+                        + sheen
+                    ),
+                )
+                for i in range(3)
+            ),
+        )
+    grad = col.resize((x1 - x0 + 1, h), Image.NEAREST)
+    metal = Image.new("RGB", canvas.size, bottom)
+    metal.paste(grad, (x0, y0))
+    layer = metal.convert("RGBA")
+    layer.putalpha(parts.metal_alpha)
+    canvas.alpha_composite(layer)
+    if parts.sub_top is not None:
+        canvas.alpha_composite(parts.sub_top)
 
 
 def _card_name_padding(rel_dir: Path) -> tuple[str, str, int]:
@@ -629,6 +699,15 @@ def _card_name_padding(rel_dir: Path) -> tuple[str, str, int]:
         return "", "", 50
 
 
+def _name_inset(padding: int) -> int:
+    """The title's inset from the card edges.
+
+    Like the logo: 1.5x the card's padding (LOGO_PADDING_FACTOR). The
+    subtitle keeps the card's own padding.
+    """
+    return round(nr.LOGO_PADDING_FACTOR * padding)
+
+
 def _stamp_mask(
     size: tuple[int, int], name: str, subtitle: str, padding: int
 ) -> Image.Image:
@@ -641,8 +720,9 @@ def _stamp_mask(
     font = ImageFont.truetype(str(nr.FONT_NAME), font_size)
     font.set_variation_by_axes([nr.NAME_WEIGHT])
     margin = 45  # clears the wide glow blur and the shadow halo
+    inset = _name_inset(padding)
     ink_w = round(font.getlength(name))
-    bottom_edge = padding + font_size
+    bottom_edge = inset + font_size
     if subtitle:
         sub_size = nr._subtitle_font_size(subtitle, padding)
         sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
@@ -651,8 +731,8 @@ def _stamp_mask(
         bottom_edge += 2 * sub_size  # the italic subtitle block
     mask = Image.new("L", size, 255)
     ImageDraw.Draw(mask).rectangle(
-        (padding - margin, padding - margin,
-         padding + ink_w + margin, bottom_edge + margin),
+        (padding - margin, inset - margin,
+         inset + ink_w + margin, bottom_edge + margin),
         fill=0,
     )
     return mask
@@ -670,16 +750,17 @@ def _center_crop(
     subtitle), clamped to the image; falls back to a corner crop for an
     empty name."""
     w, h = size
+    inset = _name_inset(padding)
     if not name:
-        x0 = min(padding, w - cell_w)
-        y0 = min(padding, h - cell_h)
+        x0 = min(inset, w - cell_w)
+        y0 = min(inset, h - cell_h)
     else:
         font_size = nr._name_font_size(name, round(padding * nr.NAME_SIZE_FACTOR))
         font = ImageFont.truetype(str(nr.FONT_NAME), font_size)
         font.set_variation_by_axes([nr.NAME_WEIGHT])
         _left, top, bottom = nr._text_ink_offsets(name, font)
         ink_w = round(font.getlength(name))
-        bottom_edge = padding + (bottom - top)
+        bottom_edge = inset + (bottom - top)
         if subtitle:
             sub_size = nr._subtitle_font_size(subtitle, padding)
             sub_font = ImageFont.truetype(str(nr.FONT_NAME), sub_size)
@@ -687,8 +768,8 @@ def _center_crop(
             ink_w = max(ink_w, round(sub_font.getlength(subtitle)))
             _sl, _st, sub_b = nr._text_ink_offsets(subtitle, sub_font)
             bottom_edge += round(sub_size * nr.SUBTITLE_GAP_FACTOR) + (sub_b - _st)
-        cx = padding + ink_w / 2
-        cy = (padding + bottom_edge) / 2
+        cx = (padding + inset + ink_w) / 2  # the block's full extent
+        cy = (inset + bottom_edge) / 2
         x0 = int(max(0, min(cx - cell_w / 2, w - cell_w)))
         y0 = int(max(0, min(cy - cell_h / 2, h - cell_h)))
     return (x0, y0, x0 + cell_w, y0 + cell_h)
