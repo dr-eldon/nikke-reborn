@@ -2,9 +2,9 @@
 
 Walks :mod:`cards` for card definitions (``*.json``), renders each one with
 the ``nikke-viewer`` executable, composites every rendered frame on top of
-the card's ``background``, overlays the matching logo from ``images/`` at
-the bottom right and the copyright line at the bottom left, then writes
-the finished result under ``output/``:
+the card's ``background``, overlays the card name at the top left, the
+matching logo from ``images/`` at the bottom right and the copyright line
+at the bottom left, then writes the finished result under ``output/``:
 
 * single-frame cards -> ``output/<set>/<card>/<variant>.png``
 * animated cards     -> ``output/<set>/<card>/<variant>.mp4``
@@ -80,6 +80,17 @@ COPYRIGHT_TEXT = "©SHIFT UP CORP."
 
 #: Sans-serif face for the copyright line (vendored, SIL Open Font License).
 FONT = IMAGES_DIR / "fonts" / "NotoSans-Regular.ttf"
+
+#: Orbitron face for the card name (vendored variable font, SIL OFL).
+FONT_NAME = IMAGES_DIR / "fonts" / "Orbitron.ttf"
+
+#: Card name placement, in units of the card padding: the ink starts at
+#: (padding * NAME_POSITION_FACTOR, padding * NAME_POSITION_FACTOR) with
+#: font size padding * NAME_SIZE_FACTOR and Orbitron weight NAME_WEIGHT
+#: (700 = bold).
+NAME_POSITION_FACTOR = 2.0
+NAME_SIZE_FACTOR = 1.5
+NAME_WEIGHT = 700
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
@@ -289,33 +300,62 @@ def _with_logo(base: Image.Image, logo: Image.Image, margin: int) -> Image.Image
     return canvas
 
 
+def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int, int]:
+    """Ink offsets (left, top, bottom) of *text* from its draw origin.
+
+    Measured on a probe render, because the rasterized ink can differ from
+    the font metrics by a pixel.
+    """
+    origin = 8
+    probe = Image.new(
+        "L",
+        (
+            round(font.getlength(text)) + 2 * origin,
+            font.getmetrics()[0] + font.getmetrics()[1] + 2 * origin,
+        ),
+        0,
+    )
+    ImageDraw.Draw(probe).text((origin, origin), text, font=font, fill=255)
+    left, top, right, bottom = probe.getbbox()
+    return left - origin, top - origin, bottom - origin
+
+
+def _with_name(base: Image.Image, padding: int, name: str) -> Image.Image:
+    """Return a copy of *base* with the card *name* at the top left.
+
+    The ink starts at ``(padding * NAME_POSITION_FACTOR,
+    padding * NAME_POSITION_FACTOR)``, the font size is
+    ``padding * NAME_SIZE_FACTOR``; the text is white.
+    """
+    canvas = base.copy()
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.truetype(str(FONT_NAME), round(padding * NAME_SIZE_FACTOR))
+    font.set_variation_by_axes([NAME_WEIGHT])
+    left, top, bottom = _text_ink_offsets(name, font)
+    position = round(padding * NAME_POSITION_FACTOR)
+    draw.text(
+        (position - left, position - top),
+        name,
+        font=font,
+        fill=(255, 255, 255, 255),
+    )
+    return canvas
+
+
 def _with_copyright(
     base: Image.Image, padding: int, color: tuple[int, int, int, int]
 ) -> Image.Image:
     """Return a copy of *base* with the copyright line at the bottom left.
 
-    The ink of the text starts ``padding`` pixels from the left edge
-    (compensating for the offset between the font metrics and the
-    rasterized glyphs) and is vertically centered inside the box of height
-    ``padding`` at the bottom of the card; its size scales with the card
-    width like the logo.
+    The ink of the text starts ``padding`` pixels from the left edge and
+    is vertically centered inside the box of height ``padding`` at the
+    bottom of the card; its size scales with the card width like the logo.
     """
     canvas = base.copy()
     draw = ImageDraw.Draw(canvas)
     font_size = round(COPYRIGHT_NOMINAL_SIZE * base.width / CARD_REFERENCE_WIDTH)
     font = ImageFont.truetype(str(FONT), font_size)
-    # Calibrate against a probe render so the *rasterized* ink (not the
-    # font metrics, which can be off by a pixel) lands where the spec says:
-    origin = 8
-    probe = Image.new(
-        "L",
-        (round(font.getlength(COPYRIGHT_TEXT)) + 2 * origin,
-         font.getmetrics()[0] + font.getmetrics()[1] + 2 * origin),
-        0,
-    )
-    ImageDraw.Draw(probe).text((origin, origin), COPYRIGHT_TEXT, font=font, fill=255)
-    left, top, right, bottom = probe.getbbox()
-    left, top, bottom = left - origin, top - origin, bottom - origin  # ink offsets from the draw origin
+    left, top, bottom = _text_ink_offsets(COPYRIGHT_TEXT, font)
     x = padding - left
     y = base.height - padding // 2 - round((top + bottom) / 2)
     draw.text((x, y), COPYRIGHT_TEXT, font=font, fill=color)
@@ -418,6 +458,7 @@ def _finish_card(
     margin: int,
     padding: int,
     copyright_color: tuple[int, int, int, int],
+    name: str,
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
@@ -436,6 +477,7 @@ def _finish_card(
         _check_frame_size(frame, artifact.name, expected_size)
         base = _fit_background(background, frame.size)
         base = _with_logo(base, _scale_logo(logo, frame.width), margin)
+        base = _with_name(base, padding, name)
         base = _with_copyright(base, padding, copyright_color)
         final = _composite_frame(frame, base).convert("RGB")
         return _save_atomic(final, out_dir / f"{json_path.stem}.png")
@@ -446,6 +488,7 @@ def _finish_card(
     size = first.size
     base = _fit_background(background, size)
     base = _with_logo(base, _scale_logo(logo, size[0]), margin)
+    base = _with_name(base, padding, name)
     base = _with_copyright(base, padding, copyright_color)
 
     def frames() -> Iterator[Image.Image]:
@@ -511,6 +554,11 @@ def _process_card(
     logo = Image.open(logo_path).convert("RGBA")
     if not FONT.is_file():
         raise GenerationError(f"font not found: {FONT}")
+    if not FONT_NAME.is_file():
+        raise GenerationError(f"font not found: {FONT_NAME}")
+    if "name" not in card:
+        raise GenerationError(f"{json_path.name}: missing 'name'")
+    name = str(card["name"])
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
@@ -541,6 +589,7 @@ def _process_card(
                     margin,
                     padding,
                     copyright_color,
+                    name,
                     framerate,
                     ffmpeg_threads,
                     composite_workers,
