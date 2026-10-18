@@ -2,9 +2,9 @@
 
 Walks :mod:`cards` for card definitions (``*.json``), renders each one with
 the ``nikke-viewer`` executable, composites every rendered frame on top of
-the card's ``background`` and overlays the matching logo from
-``images/`` at the bottom right of the card, then writes the finished
-result under ``output/``:
+the card's ``background``, overlays the matching logo from ``images/`` at
+the bottom right and the copyright line at the bottom left, then writes
+the finished result under ``output/``:
 
 * single-frame cards -> ``output/<set>/<card>/<variant>.png``
 * animated cards     -> ``output/<set>/<card>/<variant>.mp4``
@@ -41,7 +41,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, 
 from pathlib import Path
 from typing import Iterator
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CARDS_DIR = REPO_ROOT / "cards"
@@ -63,11 +63,23 @@ RENDER_ATTEMPTS = 3
 #: The logo sits this many times the card ``padding`` away from the corner.
 LOGO_PADDING_FACTOR = 1.5
 
-#: Nominal logo width (pixels) at the reference card width below; the logo
-#: is scaled proportionally for other viewport widths, preserving its
-#: aspect ratio (so it is exactly 200 px wide on the 1640 px cards we have).
+#: Reference card width (pixels): the nominal sizes below are expressed at
+#: this width and scale proportionally for other viewport widths.
 CARD_REFERENCE_WIDTH = 1640
+
+#: Nominal logo width (pixels) at the reference card width: the logo is
+#: scaled proportionally, preserving its aspect ratio (200 px wide on the
+#: 1640 px cards we have).
 LOGO_NOMINAL_WIDTH = 200
+
+#: Nominal copyright text size (pixels) at the reference card width.
+COPYRIGHT_NOMINAL_SIZE = 20
+
+#: Copyright line rendered at the bottom left of the card.
+COPYRIGHT_TEXT = "©SHIFT UP CORP."
+
+#: Sans-serif face for the copyright line (vendored, SIL Open Font License).
+FONT = IMAGES_DIR / "fonts" / "NotoSans-Regular.ttf"
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
@@ -277,6 +289,39 @@ def _with_logo(base: Image.Image, logo: Image.Image, margin: int) -> Image.Image
     return canvas
 
 
+def _with_copyright(
+    base: Image.Image, padding: int, color: tuple[int, int, int, int]
+) -> Image.Image:
+    """Return a copy of *base* with the copyright line at the bottom left.
+
+    The ink of the text starts ``padding`` pixels from the left edge
+    (compensating for the offset between the font metrics and the
+    rasterized glyphs) and is vertically centered inside the box of height
+    ``padding`` at the bottom of the card; its size scales with the card
+    width like the logo.
+    """
+    canvas = base.copy()
+    draw = ImageDraw.Draw(canvas)
+    font_size = round(COPYRIGHT_NOMINAL_SIZE * base.width / CARD_REFERENCE_WIDTH)
+    font = ImageFont.truetype(str(FONT), font_size)
+    # Calibrate against a probe render so the *rasterized* ink (not the
+    # font metrics, which can be off by a pixel) lands where the spec says:
+    origin = 8
+    probe = Image.new(
+        "L",
+        (round(font.getlength(COPYRIGHT_TEXT)) + 2 * origin,
+         font.getmetrics()[0] + font.getmetrics()[1] + 2 * origin),
+        0,
+    )
+    ImageDraw.Draw(probe).text((origin, origin), COPYRIGHT_TEXT, font=font, fill=255)
+    left, top, right, bottom = probe.getbbox()
+    left, top, bottom = left - origin, top - origin, bottom - origin  # ink offsets from the draw origin
+    x = padding - left
+    y = base.height - padding // 2 - round((top + bottom) / 2)
+    draw.text((x, y), COPYRIGHT_TEXT, font=font, fill=color)
+    return canvas
+
+
 def _composite_frame(frame: Image.Image, base: Image.Image) -> Image.Image:
     """Composite *frame* over the pre-stamped *base*; the result is RGBA."""
     canvas = base.copy()
@@ -371,6 +416,8 @@ def _finish_card(
     background: Image.Image,
     logo: Image.Image,
     margin: int,
+    padding: int,
+    copyright_color: tuple[int, int, int, int],
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
@@ -387,11 +434,9 @@ def _finish_card(
     if artifact.is_file():
         frame = _open_frame(artifact)
         _check_frame_size(frame, artifact.name, expected_size)
-        base = _with_logo(
-            _fit_background(background, frame.size),
-            _scale_logo(logo, frame.width),
-            margin,
-        )
+        base = _fit_background(background, frame.size)
+        base = _with_logo(base, _scale_logo(logo, frame.width), margin)
+        base = _with_copyright(base, padding, copyright_color)
         final = _composite_frame(frame, base).convert("RGB")
         return _save_atomic(final, out_dir / f"{json_path.stem}.png")
 
@@ -399,7 +444,9 @@ def _finish_card(
     first = _open_frame(frame_paths[0])
     _check_frame_size(first, frame_paths[0].name, expected_size)
     size = first.size
-    base = _with_logo(_fit_background(background, size), _scale_logo(logo, size[0]), margin)
+    base = _fit_background(background, size)
+    base = _with_logo(base, _scale_logo(logo, size[0]), margin)
+    base = _with_copyright(base, padding, copyright_color)
 
     def frames() -> Iterator[Image.Image]:
         def composite(index: int, path: Path) -> Image.Image:
@@ -462,7 +509,13 @@ def _process_card(
     if not logo_path.is_file():
         raise GenerationError(f"logo not found: {logo_path}")
     logo = Image.open(logo_path).convert("RGBA")
-    margin = round(LOGO_PADDING_FACTOR * card["padding"])
+    if not FONT.is_file():
+        raise GenerationError(f"font not found: {FONT}")
+    padding = card["padding"]
+    margin = round(LOGO_PADDING_FACTOR * padding)
+    copyright_color = (
+        (0, 0, 0, 255) if card.get("invert_copyright", False) else (255, 255, 255, 255)
+    )
     framerate = card["framerate"] or DEFAULT_FRAMERATE
 
     viewport = card.get("viewport")
@@ -486,6 +539,8 @@ def _process_card(
                     background,
                     logo,
                     margin,
+                    padding,
+                    copyright_color,
                     framerate,
                     ffmpeg_threads,
                     composite_workers,
