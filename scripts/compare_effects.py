@@ -19,8 +19,10 @@ effects/<set>/<card>/<variant>/<combo>:
            depth); the subtitle moves to the top-right corner
            (right-aligned, respecting the padding), the usual white
            with its own trail (SUBTITLE_TRAIL_OFFSET px) (TRAIL_OFFSET
-           px for the title) — the trails are fixed black (TRAIL_COLOR)
-           at TRAIL_ALPHA, so the art shows through them
+           px for the title) — the trails are tinted with the art's
+           own hue behind them (per frame, like the glow) at a shadow
+           luminance (TRAIL_TARGET_LUMA) and TRAIL_ALPHA, so they
+           blend into the scene
 - blur:    frosted-glass core: the art behind the glyphs is blurred and
            the white text is semi-transparent over it (per frame)
 - refract: black-hole style lens around the word: the scene inside an
@@ -140,7 +142,11 @@ SHADOW_FACTOR = 0.55
 SHADOW_OFFSET = (0, 3)
 #: The trails (title and subtitle) are semi-transparent, so the art
 #: shows through them.
-TRAIL_COLOR = (0, 0, 0)
+#: The trails are tinted with the art's own hue behind them (the same
+#: per-frame sampler as the glow) at this target luminance — a colored
+#: shadow that blends into the scene instead of sitting on it
+TRAIL_TARGET_LUMA = 0.12
+TRAIL_COLOR = (0, 0, 0)  # fallback when the sample region has no art
 TRAIL_ALPHA = 0.75
 TRAIL_OFFSET = 4  # px, equal x/y: the title trail runs diagonally down-right
 #: px: the subtitle text's own trail (the title's is TRAIL_OFFSET)
@@ -319,6 +325,16 @@ def _glow_color(
     return _set_luma(hue, sat, target)
 
 
+def _trail_color(region: Image.Image) -> tuple[int, int, int]:
+    """Per-frame trail color: the art's own hue at a fixed dark
+    luminance (a tinted shadow, not a glow). Black when the region
+    has no readable art."""
+    hue, sat, luma = _sample_context(region)
+    if luma is None:
+        return TRAIL_COLOR
+    return _set_luma(hue, sat, TRAIL_TARGET_LUMA)
+
+
 def _bilinear_gather(
     art: "np.ndarray", fx: "np.ndarray", fy: "np.ndarray", ch: int
 ) -> "np.ndarray":
@@ -372,6 +388,7 @@ class _NameLayers:
     frost_mask: Image.Image | None  # core silhouette clipping the frost
     frost_box: tuple[int, int, int, int] | None  # art crop to blur per frame
     sample_box: tuple[int, int, int, int]  # art region to read the context from
+    corner_sample_box: tuple[int, int, int, int]  # top-right (corner trail)
     refract_box: tuple[int, int, int, int] | None  # scene region to warp
     refract_field: tuple | None  # (dx, dy) displacement arrays (static)
 
@@ -529,17 +546,24 @@ def build_name_layers(
             dy / np.maximum(r, 1e-6) * mag,
         )
 
-    # Sample the art behind the name: a corner box it sits inside.
+    # Sample the art behind the name: the corner boxes it sits inside
+    # (top-left for the title, top-right for the corner subtitle).
     box = (
         0,
         0,
         min(size[0], round(padding * GLOW_SAMPLE_W)),
         min(size[1], round(padding * GLOW_SAMPLE_H)),
     )
+    corner_box = (
+        max(0, size[0] - round(padding * GLOW_SAMPLE_W)),
+        0,
+        size[0],
+        min(size[1], round(padding * GLOW_SAMPLE_H)),
+    )
     return _NameLayers(
         top_layer, shadow, trail, sub_trail,
         glow_wide, glow_tight,
-        frost_mask, frost_box, box,
+        frost_mask, frost_box, box, corner_box,
         refract_box, refract_field,
     )
 
@@ -567,9 +591,15 @@ def apply_name(canvas: Image.Image, parts: _NameLayers, sample_from: Image.Image
         canvas.alpha_composite(_tint(parts.glow_wide, color, GLOW_WIDE_FACTOR))
         canvas.alpha_composite(_tint(parts.glow_tight, color, GLOW_TIGHT_FACTOR))
     if parts.trail is not None:
-        canvas.alpha_composite(_tint(parts.trail, TRAIL_COLOR, TRAIL_ALPHA))
+        # the trail takes the art's hue behind it (per frame, like the
+        # glow) at a shadow luminance, so it blends into the scene
+        canvas.alpha_composite(
+            _tint(parts.trail, _trail_color(sample_from.crop(parts.sample_box)), TRAIL_ALPHA)
+        )
     if parts.sub_trail is not None:
-        canvas.alpha_composite(_tint(parts.sub_trail, TRAIL_COLOR, TRAIL_ALPHA))
+        canvas.alpha_composite(
+            _tint(parts.sub_trail, _trail_color(sample_from.crop(parts.corner_sample_box)), TRAIL_ALPHA)
+        )
 
     if parts.frost_box is not None:
         # frosted glass: blur the live art behind the glyphs only
