@@ -1,0 +1,23 @@
+{
+  "id": "c011",
+  "name": "Neon",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "angry",
+  "framerate": 60,
+  "time": 0.0,
+  "mipmapping": true,
+  "pan": [
+    -29.034405,
+    367.57422
+  ],
+  "zoom": 1.62,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "cards/core/backgrounds/sky-sunset.png"
+}

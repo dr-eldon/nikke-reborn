@@ -1,0 +1,19 @@
+[project]
+name = "nikke-reborn"
+version = "0.1.0"
+description = "Render and composite Nikke trading cards"
+readme = "README.md"
+authors = [
+    { name = "Dr. Eldon Tyrell", email = "the.replicant.maker@pm.me" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "pillow>=13.0.0",
+]
+
+[project.scripts]
+generate = "nikke_reborn:generate"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"

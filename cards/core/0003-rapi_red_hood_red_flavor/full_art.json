@@ -1,0 +1,23 @@
+{
+  "id": "c016_01",
+  "name": "Rapi: Red Hood Red Flavor",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "action",
+  "framerate": 60,
+  "time": 2.6550000000000002,
+  "mipmapping": true,
+  "pan": [
+    -49.652206,
+    526.4909
+  ],
+  "zoom": 2.2,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "cards/core/backgrounds/beach-day.png"
+}
