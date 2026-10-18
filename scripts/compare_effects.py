@@ -148,7 +148,7 @@ SHADOW_OFFSET = (0, 3)
 TRAIL_TARGET_LUMA = 0.12
 TRAIL_COLOR = (0, 0, 0)  # fallback when the sample region has no art
 TRAIL_ALPHA = 0.75
-TRAIL_OFFSET = 4  # px, equal x/y: the title trail runs diagonally down-right
+TRAIL_OFFSET = 5  # px, equal x/y: the title trail runs diagonally down-right
 #: px: the subtitle text's own trail (the title's is TRAIL_OFFSET)
 SUBTITLE_TRAIL_OFFSET = 3
 FROST_RADIUS = 6.0        # blur of the art seen through the text
