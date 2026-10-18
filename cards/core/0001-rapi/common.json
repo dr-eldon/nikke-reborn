@@ -1,6 +1,7 @@
 {
   "id": "c010",
-  "name": "Rapi",
+  "title": "Rapi",
+  "subtitle": "",
   "variant": "fb",
   "skin": "default",
   "animation": "action",

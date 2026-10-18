@@ -1,10 +1,11 @@
 {
   "id": "c010_03",
-  "name": "Rapi Classic Vacation",
+  "title": "Rapi",
+  "subtitle": "Classic Vacation",
   "variant": "fb",
   "skin": "default",
   "animation": "idle",
-  "framerate": 60,
+  "framerate": 0,
   "time": 0.0,
   "mipmapping": true,
   "pan": [
@@ -13,7 +14,7 @@
   ],
   "zoom": 1.6,
   "invert_logo": false,
-  "invert_copyright": false,
+  "invert_copyright": true,
   "viewport": [
     1640,
     2048

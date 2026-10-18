@@ -1,10 +1,11 @@
 {
   "id": "c011",
-  "name": "Neon",
+  "title": "Neon",
+  "subtitle": "",
   "variant": "fb",
   "skin": "default",
   "animation": "idle",
-  "framerate": 60,
+  "framerate": 0,
   "time": 0.0,
   "mipmapping": true,
   "pan": [

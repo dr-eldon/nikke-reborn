@@ -1,10 +1,11 @@
 {
   "id": "c016_01",
-  "name": "Rapi: Red Hood Red Flavor",
+  "title": "Rapi",
+  "subtitle": "Red Hood Red Flavor",
   "variant": "fb",
   "skin": "default",
   "animation": "shy",
-  "framerate": 60,
+  "framerate": 0,
   "time": 2.843,
   "mipmapping": true,
   "pan": [

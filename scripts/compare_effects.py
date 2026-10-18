@@ -18,6 +18,13 @@ effects/<set>/<card>/<variant>/<combo>:
            (TRAIL_TARGET_LUMA) — a crisp directional shadow
 - blur:    frosted-glass core: the art behind the glyphs is blurred and
            the white text is semi-transparent over it (per frame)
+- refract: black-hole style lens around the word: the scene inside an
+           ellipse around the name (ink + REFRACT_MARGIN) is pulled
+           radially toward the word's center — REFRACT_STRENGTH at full
+           strength inside the plateau (REFRACT_PLATEAU), fading to 0 at
+           the boundary — with a radial chromatic fringe (R and B gathered
+           at slightly opposite radii), like light bending around a mass
+           (needs numpy, dev-only)
 
 The name is stamped *over* the rendered frame, matching the production
 pipeline (logo/name/copyright overlay the card art). Static variants are
@@ -47,6 +54,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
+
+try:
+    import numpy as np  # refract only
+except ModuleNotFoundError:
+    np = None
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -88,7 +100,7 @@ else:
     CARDS = DEFAULT_CARDS
 OUT_ROOT = nr.REPO_ROOT / "effects"
 
-EFFECTS = ("glow", "shadow", "trail", "blur")
+EFFECTS = ("glow", "shadow", "trail", "blur", "refract")
 
 # --- effect tuning (reference viewport 1640x2048, padding 50) --------------
 GLOW_FALLBACK = (170, 235, 255)  # hue/sat source when the art is (near) gray
@@ -117,6 +129,12 @@ TRAIL_OFFSET = 4  # px, equal x/y: the trail runs diagonally down-right
 FROST_RADIUS = 6.0        # blur of the art seen through the text
 FROST_WHITE_ALPHA = 0.75  # opacity of the white core when frosted
 FROST_MARGIN = 30         # crop margin around the name for the blur
+REFRACT_MARGIN = 64       # px around the ink: the lens boundary (the ellipse
+                          # is inscribed in this box, so the field is 0 there)
+REFRACT_STRENGTH = 12.0   # px, inward pull at full strength
+REFRACT_PLATEAU = 0.65    # lens radius fraction at full strength; linear fade
+                          # to 0 at the boundary beyond it
+REFRACT_FRINGE = 0.28     # radial chromatic spread: R at (1+f), B at (1-f)
 
 # Effect combinations per card run this many in parallel. Each animated
 # combo also drives an ffmpeg encode with 4 threads (8 x 4 fits 32 cores).
@@ -260,6 +278,39 @@ def _trail_color(
     return _set_luma(hue, sat, TRAIL_TARGET_LUMA)
 
 
+def _bilinear_gather(
+    art: "np.ndarray", fx: "np.ndarray", fy: "np.ndarray", ch: int
+) -> "np.ndarray":
+    """Channel *ch* of *art* sampled at (x + fx, y + fy), bilinearly."""
+    h, w = fx.shape
+    sx = (np.arange(w)[None, :] + fx).clip(0, w - 1)
+    sy = (np.arange(h)[:, None] + fy).clip(0, h - 1)
+    x0 = sx.astype(np.intp)
+    y0 = sy.astype(np.intp)
+    x1 = np.minimum(x0 + 1, w - 1)
+    y1 = np.minimum(y0 + 1, h - 1)
+    ax = sx - x0
+    ay = sy - y0
+    a = art[..., ch]
+    return (
+        a[y0, x0] * (1 - ax) * (1 - ay)
+        + a[y0, x1] * (1 - ay) * ax
+        + a[y1, x0] * ay * (1 - ax)
+        + a[y1, x1] * ay * ax
+    )
+
+
+def _refract_warp(art: "np.ndarray", field: tuple) -> "np.ndarray":
+    """Bend *art* into a lens: the scene falls inward toward the word's
+    center, with R and B gathered at slightly different radii (fringe)."""
+    dx, dy = field
+    f = REFRACT_FRINGE
+    r = _bilinear_gather(art, dx * (1 + f), dy * (1 + f), 0)
+    g = _bilinear_gather(art, dx, dy, 1)
+    b = _bilinear_gather(art, dx * (1 - f), dy * (1 - f), 2)
+    return np.stack([r, g, b], axis=-1).round().clip(0, 255).astype(np.uint8)
+
+
 @dataclass
 class _NameLayers:
     """Precomputed name-stack parts.
@@ -267,7 +318,8 @@ class _NameLayers:
     ``top`` (white core) and ``shadow`` (soft halo) are color-fixed;
     the glow and trail masks are tinted per frame with the context
     colors; ``frost_*`` carry the frosted-glass geometry (the blur
-    itself runs per frame on the live art).
+    itself runs per frame on the live art); the refract field is a
+    static radial lens displacement (the art is warped per frame).
     """
 
     top: Image.Image
@@ -277,18 +329,20 @@ class _NameLayers:
     glow_tight: Image.Image | None
     frost_mask: Image.Image | None  # core silhouette clipping the frost
     frost_box: tuple[int, int, int, int] | None  # art crop to blur per frame
-    sample_box: tuple[int, int, int, int]  # art region to read the glow color from
+    sample_box: tuple[int, int, int, int]  # art region to read the context from
+    refract_box: tuple[int, int, int, int] | None  # scene region to warp
+    refract_field: tuple | None  # (dx, dy) displacement arrays (static)
 
 
 def build_name_layers(
     size: tuple[int, int], name: str, padding: int, combo: frozenset[str]
 ) -> _NameLayers:
     """Build the name stack for *combo*: fixed layers plus glow masks."""
-    font = ImageFont.truetype(str(nr.FONT_NAME), round(padding * nr.NAME_SIZE_FACTOR))
+    font_size = nr._name_font_size(name, round(padding * nr.NAME_SIZE_FACTOR))
+    font = ImageFont.truetype(str(nr.FONT_NAME), font_size)
     font.set_variation_by_axes([nr.NAME_WEIGHT])
     left, top, _bottom = nr._text_ink_offsets(name, font)
-    position = round(padding * nr.NAME_POSITION_FACTOR)
-    xy = (position - left, position - top)
+    xy = (padding - left, padding - top)
 
     core = Image.new("L", size, 0)
     ImageDraw.Draw(core).text(xy, name, font=font, fill=255)
@@ -321,9 +375,50 @@ def build_name_layers(
         frost_mask = core
         m = FROST_MARGIN
         ink_w = round(font.getlength(name))
-        ink_h = round(padding * nr.NAME_SIZE_FACTOR)
-        frost_box = (position - m, position - m, position + ink_w + m, position + ink_h + m)
+        ink_h = font_size
+        frost_box = (
+            padding - m,
+            padding - m,
+            padding + ink_w + m,
+            padding + ink_h + m,
+        )
 
+    refract_box = None
+    refract_field = None
+    if "refract" in combo:
+        if np is None:
+            sys.exit(
+                "the refract effect needs numpy: .venv/bin/python -m pip install numpy"
+            )
+        x0, y0, x1, y1 = core.getbbox()
+        m = REFRACT_MARGIN
+        rx0, ry0 = max(0, x0 - m), max(0, y0 - m)
+        rx1, ry1 = min(size[0], x1 + m), min(size[1], y1 + m)
+        h, w = ry1 - ry0, rx1 - rx0
+        # Black-hole lens: one coherent ellipse inscribed in the box above
+        # (so the field is exactly 0 at the box boundary); everything inside
+        # is pulled radially toward the word's center, full strength within
+        # the plateau, linear fade to the boundary. The tiny core ramps in
+        # so the center is not a singularity (it sits under the text anyway).
+        ccx = (x0 + x1) / 2 - rx0
+        ccy = (y0 + y1) / 2 - ry0
+        a = (x1 - x0) / 2 + m
+        b = (y1 - y0) / 2 + m
+        dx = np.arange(w)[None, :] - ccx
+        dy = np.arange(h)[:, None] - ccy
+        rho = np.sqrt((dx / a) ** 2 + (dy / b) ** 2)  # 1 at the boundary
+        r = np.hypot(dx, dy)
+        prof = np.clip((1.0 - rho) / (1.0 - REFRACT_PLATEAU), 0.0, 1.0)
+        mag = REFRACT_STRENGTH * prof * np.minimum(1.0, r / 8.0)
+        refract_box = (rx0, ry0, rx1, ry1)
+        # Gather offset points AWAY from the center: each pixel shows the
+        # content that sat further out, so the scene appears to fall inward.
+        refract_field = (
+            dx / np.maximum(r, 1e-6) * mag,
+            dy / np.maximum(r, 1e-6) * mag,
+        )
+
+    # Sample the art behind the name: a corner box it sits inside.
     box = (
         0,
         0,
@@ -333,6 +428,7 @@ def build_name_layers(
     return _NameLayers(
         top_layer, shadow, trail, glow_wide, glow_tight,
         frost_mask, frost_box, box,
+        refract_box, refract_field,
     )
 
 
@@ -343,6 +439,13 @@ def apply_name(canvas: Image.Image, parts: _NameLayers, sample_from: Image.Image
     the name, so animated cards get a glow that tracks the scene; the
     frost blurs whatever it shows behind the glyphs, per frame.
     """
+    # Refraction bends the scene itself; everything else composites over it.
+    if parts.refract_field is not None:
+        x0, y0, x1, y1 = parts.refract_box
+        art = np.asarray(canvas.crop((x0, y0, x1, y1)))
+        canvas.paste(
+            Image.fromarray(_refract_warp(art, parts.refract_field)), (x0, y0)
+        )
     if parts.shadow is not None:
         canvas.alpha_composite(parts.shadow)
     # The glow sits under the trail: the strong glow would otherwise
@@ -375,7 +478,7 @@ def _card_name_padding(rel_dir: Path) -> tuple[str, int]:
     json_path = nr.CARDS_DIR / rel_dir.with_name(rel_dir.name + ".json")
     try:
         card = nr._load_card(json_path)
-        return str(card["name"]), int(card["padding"])
+        return str(card["title"]), int(card["padding"])
     except Exception:
         return "", 50
 
@@ -386,25 +489,47 @@ def _stamp_mask(size: tuple[int, int], name: str, padding: int) -> Image.Image:
     Lets glow-color sampling read the art behind the name from a
     finished (stamped) image instead of a clean render.
     """
-    font = ImageFont.truetype(str(nr.FONT_NAME), round(padding * nr.NAME_SIZE_FACTOR))
+    font_size = nr._name_font_size(name, round(padding * nr.NAME_SIZE_FACTOR))
+    font = ImageFont.truetype(str(nr.FONT_NAME), font_size)
     font.set_variation_by_axes([nr.NAME_WEIGHT])
-    position = round(padding * nr.NAME_POSITION_FACTOR)
     margin = 45  # clears the wide glow blur and the shadow halo
     ink_w = round(font.getlength(name))
-    ink_h = round(padding * nr.NAME_SIZE_FACTOR)
+    ink_h = font_size
     mask = Image.new("L", size, 255)
     ImageDraw.Draw(mask).rectangle(
-        (position - margin, position - margin,
-         position + ink_w + margin, position + ink_h + margin),
+        (padding - margin, padding - margin,
+         padding + ink_w + margin, padding + ink_h + margin),
         fill=0,
     )
     return mask
 
 
+def _center_crop(
+    size: tuple[int, int], name: str, padding: int, cell_w: int, cell_h: int
+) -> tuple[int, int, int, int]:
+    """A cell_w x cell_h window centered on the name's ink, clamped to
+    the image; falls back to a corner crop for an empty name."""
+    w, h = size
+    if not name:
+        x0 = min(padding, w - cell_w)
+        y0 = min(padding, h - cell_h)
+    else:
+        font_size = nr._name_font_size(name, round(padding * nr.NAME_SIZE_FACTOR))
+        font = ImageFont.truetype(str(nr.FONT_NAME), font_size)
+        font.set_variation_by_axes([nr.NAME_WEIGHT])
+        _left, top, bottom = nr._text_ink_offsets(name, font)
+        ink_w = round(font.getlength(name))
+        cx = padding + ink_w / 2
+        cy = padding + (bottom - top) / 2
+        x0 = int(max(0, min(cx - cell_w / 2, w - cell_w)))
+        y0 = int(max(0, min(cy - cell_h / 2, h - cell_h)))
+    return (x0, y0, x0 + cell_w, y0 + cell_h)
+
+
 def _build_sheet(out_root: Path) -> Image.Image | None:
-    """Contact sheet: the static variants on disk, side by side (one
-    section per card: title with sampled glow color swatch + a grid of
-    the effect combos present for that card).
+    """Contact sheet: the static variants on disk, stacked vertically
+    (one section per card: title with sampled glow color swatch + a grid
+    of the effect combos present for that card).
 
     The swatch is sampled from none.png (clean art) when available,
     otherwise from the first present image with the stamp region masked
@@ -435,31 +560,28 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
     section_w = cols_per_row * cell_w + (cols_per_row + 1) * sec_pad
     max_rows = max((len(v) + cols_per_row - 1) // cols_per_row for v in present.values())
     section_h = title_h + max_rows * (cell_h + label_h)
-    width = len(present) * section_w + (len(present) + 1) * outer_pad
-    height = section_h + 2 * outer_pad
+    width = section_w + 2 * outer_pad
+    height = len(present) * section_h + (len(present) + 1) * outer_pad
     sheet = Image.new("RGB", (width, height), (16, 16, 20))
     draw = ImageDraw.Draw(sheet)
     for k, rel in enumerate(present):
         names = present[rel]
-        x0 = outer_pad + k * (section_w + outer_pad)
-        y0 = outer_pad
+        x0 = outer_pad
+        y0 = outer_pad + k * (section_h + outer_pad)
         base_dir = out_root / rel
         name, padding = _card_name_padding(rel)
-        swatch_src = base_dir / "none.png"
-        stamp_mask = None
-        if not swatch_src.is_file():
-            swatch_src = base_dir / f"{names[0]}.png"
-            stamp_mask = _stamp_mask(
-                (round(padding * GLOW_SAMPLE_W), round(padding * GLOW_SAMPLE_H)),
-                name,
-                padding,
-            )
+        plain = base_dir / "none.png"
+        swatch_src = plain if plain.is_file() else base_dir / f"{names[0]}.png"
         img = Image.open(swatch_src)
         box = (
             0,
             0,
             min(img.width, round(padding * GLOW_SAMPLE_W)),
             min(img.height, round(padding * GLOW_SAMPLE_H)),
+        )
+        stamp_mask = (
+            None if plain.is_file()
+            else _stamp_mask((box[2] - box[0], box[3] - box[1]), name, padding)
         )
         glow_color = _glow_color(img.crop(box), stamp_mask)
         print(f"  sheet: {rel.as_posix()} -> glow {glow_color}", flush=True)
@@ -480,7 +602,7 @@ def _build_sheet(out_root: Path) -> Image.Image | None:
             x = x0 + sec_pad + c * (cell_w + sec_pad)
             yy = y0 + title_h + r * (cell_h + label_h)
             cell = Image.open(base_dir / f"{combo}.png").crop(
-                (padding, padding, padding + cell_w, padding + cell_h)
+                _center_crop(img.size, name, padding, cell_w, cell_h)
             )
             draw.rectangle((x, yy, x + cell_w - 1, yy + label_h - 1), fill=(40, 44, 52))
             draw.text((x + 10, yy + 5), combo, font=font_cell, fill=(220, 225, 235))
@@ -493,7 +615,7 @@ def main() -> None:
     total = 0
     for json_path in CARDS:
         card = nr._load_card(json_path)
-        name = str(card["name"])
+        name = str(card["title"])
         padding = card["padding"]
         margin = round(nr.LOGO_PADDING_FACTOR * padding)
         copyright_color = (

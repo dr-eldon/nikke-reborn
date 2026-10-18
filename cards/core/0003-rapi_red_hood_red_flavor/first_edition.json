@@ -1,10 +1,11 @@
 {
   "id": "c016_01",
-  "name": "Rapi: Red Hood Red Flavor",
+  "title": "Rapi",
+  "subtitle": "Red Hood Red Flavor",
   "variant": "fb",
   "skin": "default",
   "animation": "idle",
-  "framerate": 60,
+  "framerate": 0,
   "time": null,
   "mipmapping": true,
   "pan": [
@@ -13,7 +14,7 @@
   ],
   "zoom": 1.8,
   "invert_logo": false,
-  "invert_copyright": false,
+  "invert_copyright": true,
   "viewport": [
     1640,
     2048

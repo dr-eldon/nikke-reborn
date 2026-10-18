@@ -1,10 +1,11 @@
 {
   "id": "c010_02",
-  "name": "Rapi White Promise",
+  "title": "Rapi",
+  "subtitle": "White Promise",
   "variant": "fb",
   "skin": "default",
   "animation": "special",
-  "framerate": 60,
+  "framerate": 0,
   "time": 2.0,
   "mipmapping": true,
   "pan": [

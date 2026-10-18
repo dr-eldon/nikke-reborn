@@ -84,13 +84,21 @@ FONT = IMAGES_DIR / "fonts" / "NotoSans-Regular.ttf"
 #: Orbitron face for the card name (vendored variable font, SIL OFL).
 FONT_NAME = IMAGES_DIR / "fonts" / "Orbitron.ttf"
 
-#: Card name placement, in units of the card padding: the ink starts at
-#: (padding * NAME_POSITION_FACTOR, padding * NAME_POSITION_FACTOR) with
-#: font size padding * NAME_SIZE_FACTOR and Orbitron weight NAME_WEIGHT
-#: (700 = bold).
-NAME_POSITION_FACTOR = 2.0
+#: Card name placement: the ink's top-left corner sits exactly at
+#: (padding, padding), left-aligned, with font size
+#: padding * NAME_SIZE_FACTOR and Orbitron weight NAME_WEIGHT (700 = bold).
 NAME_SIZE_FACTOR = 1.5
 NAME_WEIGHT = 700
+
+#: Names of NAME_REFERENCE_LENGTH characters or fewer get the full font
+#: size; longer names are scaled down by NAME_REFERENCE_LENGTH / length
+#: (truncated to the pixel), never below NAME_MIN_SIZE_FACTOR of the
+#: base size.
+NAME_REFERENCE_LENGTH = 17
+
+#: Shrink floor: the font never drops below this fraction of its base
+#: (NAME_SIZE_FACTOR) size.
+NAME_MIN_SIZE_FACTOR = 0.6
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
@@ -320,21 +328,32 @@ def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int
     return left - origin, top - origin, bottom - origin
 
 
+def _name_font_size(name: str, base_size: int) -> int:
+    """Size for *name*: the base size for names of at most
+    NAME_REFERENCE_LENGTH characters, otherwise the base size scaled by
+    NAME_REFERENCE_LENGTH / length (truncated), never below
+    NAME_MIN_SIZE_FACTOR of the base size."""
+    factor = min(1.0, max(NAME_REFERENCE_LENGTH / len(name), NAME_MIN_SIZE_FACTOR))
+    return int(base_size * factor)
+
+
 def _with_name(base: Image.Image, padding: int, name: str) -> Image.Image:
     """Return a copy of *base* with the card *name* at the top left.
 
-    The ink starts at ``(padding * NAME_POSITION_FACTOR,
-    padding * NAME_POSITION_FACTOR)``, the font size is
-    ``padding * NAME_SIZE_FACTOR``; the text is white.
+    The ink's top-left corner sits exactly at ``(padding, padding)``,
+    left-aligned; the font size is ``padding * NAME_SIZE_FACTOR``,
+    scaled down with the name's length (full size up to
+    ``NAME_REFERENCE_LENGTH`` characters, truncated, never below
+    ``NAME_MIN_SIZE_FACTOR`` of that); the text is white.
     """
     canvas = base.copy()
     draw = ImageDraw.Draw(canvas)
-    font = ImageFont.truetype(str(FONT_NAME), round(padding * NAME_SIZE_FACTOR))
+    font_size = _name_font_size(name, round(padding * NAME_SIZE_FACTOR))
+    font = ImageFont.truetype(str(FONT_NAME), font_size)
     font.set_variation_by_axes([NAME_WEIGHT])
     left, top, bottom = _text_ink_offsets(name, font)
-    position = round(padding * NAME_POSITION_FACTOR)
     draw.text(
-        (position - left, position - top),
+        (padding - left, padding - top),
         name,
         font=font,
         fill=(255, 255, 255, 255),
@@ -556,9 +575,9 @@ def _process_card(
         raise GenerationError(f"font not found: {FONT}")
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
-    if "name" not in card:
-        raise GenerationError(f"{json_path.name}: missing 'name'")
-    name = str(card["name"])
+    if "title" not in card:
+        raise GenerationError(f"{json_path.name}: missing 'title'")
+    name = str(card["title"])
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
