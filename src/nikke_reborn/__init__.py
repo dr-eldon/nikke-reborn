@@ -28,8 +28,11 @@ the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
 skipped instead of re-rendered.
 
-* single-frame cards -> ``output/<set>/<card>/<variant>.png``
-* animated cards     -> ``output/<set>/<card>/<variant>.mp4``
+* single-frame cards -> ``output/<set>/<card>-<variant>.png``
+* animated cards     -> ``output/<set>/<card>-<variant>.mp4``
+
+(the card's directory is folded into the filename, so a set's cards
+sit flat in ``output/<set>/``)
 
 ``--draft`` runs the same pipeline for quick iteration: ultrafast x264
 preset, half-resolution MP4s (downscaled inside ffmpeg), and results
@@ -977,7 +980,7 @@ def _finish_card(
     preset: str,
     scale: float,
     expected_size: tuple[int, int] | None,
-    out_dir: Path,
+    out_base: Path,
     source_hash: str,
 ) -> Path:
     """Composite a render and write the final PNG or MP4 (atomically).
@@ -995,7 +998,7 @@ def _finish_card(
         if name or subtitle:
             art = _apply_name(art, _name_layers(art.size, name, subtitle, padding))
         final = art.convert("RGB")
-        return _save_atomic(final, out_dir / f"{json_path.stem}.png", source_hash)
+        return _save_atomic(final, _card_out_path(out_base, json_path, "png"), source_hash)
 
     frame_paths = _frame_paths(artifact)
     first = _open_frame(frame_paths[0])
@@ -1040,7 +1043,7 @@ def _finish_card(
                 if next_index < len(frame_paths):
                     futures[next_index] = pool.submit(composite, next_index, frame_paths[next_index])
 
-    out_path = out_dir / f"{json_path.stem}.mp4"
+    out_path = _card_out_path(out_base, json_path, "mp4")
     tmp_path = out_path.with_name(out_path.name + ".part")
     try:
         _encode_mp4(
@@ -1052,6 +1055,18 @@ def _finish_card(
         raise
     tmp_path.replace(out_path)
     return out_path
+
+
+def _card_out_path(out_base: Path, json_path: Path, suffix: str) -> Path:
+    """The flat output path for a card definition: the card's
+    directory is folded into the filename, so
+    ``cards/<set>/<card>/<variant>.json`` renders to
+    ``<out_base>/<set>/<card>-<variant>.<suffix>`` (deeper nesting,
+    if ever used, is folded the same way, one dash per directory)."""
+    card_rel = json_path.parent.relative_to(CARDS_DIR)
+    return (
+        out_base / card_rel.parts[0] / f"{'-'.join(card_rel.parts[1:])}-{json_path.stem}.{suffix}"
+    )
 
 
 def _process_card(
@@ -1098,16 +1113,15 @@ def _process_card(
     viewport = card.get("viewport")
     expected_size = tuple(viewport) if viewport else None
 
-    out_dir = out_base / json_path.parent.relative_to(CARDS_DIR)
     # A definition without a `time` renders an animation (mp4); one with
     # a `time` renders a single frame (png)
-    out_path = out_dir / f"{json_path.stem}.{'mp4' if card.get('time') is None else 'png'}"
+    out_path = _card_out_path(out_base, json_path, "mp4" if card.get("time") is None else "png")
     source_hash = _source_hash(json_path)
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         # The definition is unchanged since the card was written: skip
         # the render
         return out_path, True
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Each render lives in a throw-away working directory; it is removed
     # (together with all intermediate PNGs) when the block exits. The GPU
@@ -1134,7 +1148,7 @@ def _process_card(
                     preset,
                     scale,
                     expected_size,
-                    out_dir,
+                    out_base,
                     source_hash,
                 ), False
             except Exception as exc:
