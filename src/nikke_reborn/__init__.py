@@ -17,7 +17,10 @@ images, built from the templates in ``images/``: the texture
 the pack's back (left) and front (right) images, and the item
 (``card_pack-item.png``), a perspective view whose single pure-blue mask
 is a slanted quadrilateral that the front image is perspective-warped
-to (corner to corner) and clipped into. The white logo is stamped on
+to (corner to corner) and clipped into — its bottom border first
+carrying a thin dark gradient, biased toward the bottom-right
+corner. The white logo is
+stamped on
 the pack's front in both, at the same placement: unslanted on the
 texture's front rectangle, slanted over the item. The finished results are
 written under ``output/``, with
@@ -248,6 +251,22 @@ PACK_LOGO_TOP = 0.04
 #: anti-aliased edge (the mask clip trims it back), so no dark fringe
 #: shows where the warp falls a pixel short of the blue.
 PACK_ITEM_MARGIN = 3
+
+#: The item's front carries a thin dark gradient along its bottom
+#: border, biased toward the bottom-right corner: the strip hugs
+#: the bottom edge (:data:`PACK_BOTTOM_BAND` of the face height)
+#: and fades quadratically away from the edge, so the face above
+#: the strip is untouched; within the strip, the brightness falls
+#: along the edge from the bottom-left (down to
+#: :data:`PACK_BOTTOM_BIAS` of the corner dip) to the bottom-right
+#: corner, which drops to 1 - :data:`PACK_BOTTOM_SHADE` of its
+#: normal brightness. The shading is multiplicative (a plain
+#: gradient), so the art's texture is preserved everywhere — dark
+#: regions darken in proportion and are never crushed to flat
+#: black.
+PACK_BOTTOM_SHADE = 0.85
+PACK_BOTTOM_BAND = 0.05
+PACK_BOTTOM_BIAS = 0.45
 
 
 class GenerationError(RuntimeError):
@@ -1332,6 +1351,43 @@ def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     return out_path, False
 
 
+def _bottom_shade(front: Image.Image) -> Image.Image:
+    """Darken a thin strip along the front's bottom border, biased
+    toward the bottom-right corner: the strip hugs the bottom edge
+    (:data:`PACK_BOTTOM_BAND` of the face height), fading
+    quadratically away from the edge (zero slope at the strip's
+    top, so no seam shows); within the strip, the brightness falls
+    along the edge from the bottom-left (down to
+    :data:`PACK_BOTTOM_BIAS` of the corner dip) to the bottom-right
+    corner (down to 1 - :data:`PACK_BOTTOM_SHADE` of the normal
+    brightness) — multiplicative, so the art's texture is
+    preserved everywhere. Applied before the perspective warp, so
+    it rides the warped face's bottom border."""
+    width, height = front.size
+    # Per-axis ramps; the dip is their product, so it hugs the
+    # bottom edge, biased to the right, fading away from the edge.
+    x = [
+        round(255 * PACK_BOTTOM_SHADE * (PACK_BOTTOM_BIAS + (1.0 - PACK_BOTTOM_BIAS) * i / (width - 1)))
+        for i in range(width)
+    ]
+    y0 = round((1.0 - PACK_BOTTOM_BAND) * height)
+    span = max(1, height - 1 - y0)
+    y = [0 if j <= y0 else round(255 * ((j - y0) / span) ** 2) for j in range(height)]
+    ax = Image.new("L", (width, 1))
+    ax.putdata(x)
+    ay = Image.new("L", (1, height))
+    ay.putdata(y)
+    ax = ax.resize((width, height), Image.Resampling.NEAREST)
+    ay = ay.resize((width, height), Image.Resampling.NEAREST)
+    # factor = 255 * (1 - SHADE * a * b) = 255 - ax*ay/255
+    factor = ImageChops.invert(ImageChops.multiply(ax, ay))
+    return Image.merge(
+        "RGBA",
+        [ImageChops.multiply(front.getchannel(c), factor) for c in "RGB"]
+        + [front.getchannel("A")],
+    )
+
+
 def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     """Composite a pack's front image onto the item template.
 
@@ -1340,7 +1396,9 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     placement) is slanted on its own at 2x and composited over the
     front, which is warped at 1x — so only the logo's edge is
     anti-aliased by supersampling while the front's detail is left
-    untouched. The
+    untouched. The front's bottom border is darkened with a thin
+    gradient first (:func:`_bottom_shade`), biased toward the
+    bottom-right corner. The
     template's pure-blue mask is a
     slanted quadrilateral (the item is a slightly rotated 3D view of the
     pack), so the front is perspective-warped to it — its four corners
@@ -1368,6 +1426,11 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         template = opened.convert("RGBA")
         with Image.open(front_path) as opened:
             front = opened.convert("RGBA")
+        # Shade a thin strip along the front's bottom border
+        # (biased toward the bottom-right corner) before warping, so
+        # the gradient rides the warped face's bottom edge (the logo
+        # sits well above it, so it is unaffected).
+        front = _bottom_shade(front)
         # The logo is NOT composited onto the front before warping: the
         # front's own art is warped once at 1x (never supersampled), and
         # the logo is slanted on its own and composited on top. That way
