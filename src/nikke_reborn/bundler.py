@@ -1,7 +1,7 @@
 """Build Unity AssetBundles without Unity.
 
 The pipeline used to drive the Unity editor (an ExpansionBuilder project) to import each
-PNG as a BC7 Texture2D (+ Sprite), create a Standard-shader Material for every `*-material`
+PNG as a BC7 Texture2D (+ Sprite), create a Standard-shader Material for every `*_Material`
 texture, and pack them into a per-set AssetBundle. This reproduces that output with UnityPy
 so the pipeline no longer needs Unity (and its licensing, Windows-only, DLL and caching
 problems).
@@ -47,9 +47,9 @@ TEXTURE_FORMAT = TextureFormat.BC7
 # from the prototype unchanged.
 SPRITE_PIXELS_TO_UNITS = 100.0
 
-# Builder.GenerateMaterials created a Standard material for every `*-material` texture.
+# Builder.GenerateMaterials created a Standard material for every `*_Material` texture.
 # Those become Texture2D + Material; every other PNG becomes Texture2D + Sprite.
-MATERIAL_SUFFIX = "-material"
+MATERIAL_SUFFIX = "_Material"
 
 # Static card art comes from an already-encoded source texture that `bundle` only relocates.
 # To avoid a lossy decode->PNG->re-encode round-trip, `extract` stashes the source texture
@@ -584,7 +584,7 @@ def build(
 ) -> None:
     """Build one AssetBundle named `name` from the PNGs under `assets_dir`.
 
-    Mirrors Unity's Builder.Run: `*-material` PNGs become Texture2D + Standard Material,
+    Mirrors Unity's Builder.Run: `*_Material` PNGs become Texture2D + Standard Material,
     every other PNG becomes Texture2D + Sprite. Container paths are `assets/` + the path
     relative to `root` (the Assets-equivalent), lowercased -- exactly what Unity emitted
     when `root` was copied into the project's Assets/ -- so the game resolves assets the same.

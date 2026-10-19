@@ -28,9 +28,9 @@ the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
 skipped instead of re-rendered.
 
-* single-frame cards -> ``output/<set>/<card>-<variant>.png``
-* animated cards     -> ``output/<set>/<card>-<variant>.mp4`` alongside
-                       its first frame, ``output/<set>/<card>-<variant>.png``
+* single-frame cards -> ``output/<set>/<card>_<variant>.png``
+* animated cards     -> ``output/<set>/<card>_<variant>.mp4`` alongside
+                       its first frame, ``output/<set>/<card>_<variant>.png``
 
 (the card's directory is folded into the filename, so a set's cards
 sit flat in ``output/<set>/``)
@@ -69,10 +69,15 @@ import subprocess
 import sys
 import tempfile
 import time
-from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    as_completed,
+)
 from pathlib import Path
 from typing import Iterator
-from nikke_reborn import bundler
+from nikke_reborn import bundler, metadata
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 from PIL.PngImagePlugin import PngInfo
@@ -80,9 +85,11 @@ from PIL.PngImagePlugin import PngInfo
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CARDS_DIR = REPO_ROOT / "cards"
 IMAGES_DIR = REPO_ROOT / "images"
+FONTS_DIR = REPO_ROOT / "fonts"
 OUTPUT_DIR = REPO_ROOT / "output"
 DRAFT_DIR = REPO_ROOT / "draft"
 BUNDLES_DIR = REPO_ROOT / "bundles"
+DATABASE_DIR = REPO_ROOT / "database"
 
 VIEWER = "nikke-viewer"
 ENCODER = "ffmpeg"
@@ -97,7 +104,7 @@ DEFAULT_FRAMERATE = 60
 
 #: Variant stems that never carry the card name: the full-art
 #: presentations are generated without title and subtitle.
-NO_NAME_STEMS = frozenset({"full_art", "full_art_animated"})
+NO_NAME_STEMS = frozenset({"FullArt", "FullArtAnimated"})
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -132,10 +139,10 @@ COPYRIGHT_SUPERSAMPLE = 4
 COPYRIGHT_TEXT = "©SHIFT UP CORP."
 
 #: Oswald face for the copyright line (vendored variable font, SIL OFL).
-FONT = IMAGES_DIR / "fonts" / "Oswald.ttf"
+FONT = FONTS_DIR / "Oswald.ttf"
 
 #: Orbitron face for the card name (vendored variable font, SIL OFL).
-FONT_NAME = IMAGES_DIR / "fonts" / "Orbitron.ttf"
+FONT_NAME = FONTS_DIR / "Orbitron.ttf"
 
 #: Card name placement: the ink's top-left corner sits exactly at
 #: (padding, padding), left-aligned, with font size
@@ -186,23 +193,23 @@ NAME_TEXT_COLOR = (255, 255, 255)
 # The name is stamped over the art, per frame, so its tints track the
 # scene: the trails and the metallic gradient's bottom lean take the
 # hue of the art behind the text, at a fixed dark luminance.
-NAME_TRAIL_OFFSET = 5     # px: the title's diagonal (down-right) trail
-SUBTITLE_TRAIL_OFFSET = 3 # px: the subtitle's own (shorter) trail
+NAME_TRAIL_OFFSET = 5  # px: the title's diagonal (down-right) trail
+SUBTITLE_TRAIL_OFFSET = 3  # px: the subtitle's own (shorter) trail
 TRAIL_ALPHA = 0.75
 TRAIL_TARGET_LUMA = 0.12  # the trail reads as a dark shadow tint
 TRAIL_FALLBACK = (0, 0, 0)  # trail color when the sample has no art
-NAME_SAMPLE_W = 6         # context sample box, in padding units
+NAME_SAMPLE_W = 6  # context sample box, in padding units
 NAME_SAMPLE_H = 5
-NAME_SAMPLE_PX = 24       # sample resolution
+NAME_SAMPLE_PX = 24  # sample resolution
 CONTEXT_FALLBACK = (170, 235, 255)  # hue/sat source for (near)-gray art
 CONTEXT_MIN_QUALIFY = 0.25  # min fraction of sample pixels that are colored
 CONTEXT_SAT_BOOST = 1.4  # the sampled saturation is boosted...
 CONTEXT_SAT_MIN = 0.45  # ...and clamped, so the tint stays visible...
 CONTEXT_SAT_MAX = 0.90  # ...without washing out
-METAL_TRAIL_MIX = 0.25    # metallic title: how far the ink's bottom leans
-                          # into the per-frame trail tint
-METAL_SHEEN_Y = 0.42      # sheen band center (fraction of the ink height)
-METAL_SHEEN_DELTA = 20    # band brightness (RGB units)
+METAL_TRAIL_MIX = 0.25  # metallic title: how far the ink's bottom leans
+# into the per-frame trail tint
+METAL_SHEEN_Y = 0.42  # sheen band center (fraction of the ink height)
+METAL_SHEEN_DELTA = 20  # band brightness (RGB units)
 METAL_SHEEN_SIGMA = 0.07  # band width (fraction of the ink height)
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
@@ -211,9 +218,12 @@ METAL_SHEEN_SIGMA = 0.07  # band width (fraction of the ink height)
 #: resolution by default, ``ultrafast`` at half resolution for drafts
 #: (``--draft``).
 FFMPEG_QUALITY_ARGS = (
-    "-crf", "16",
-    "-pix_fmt", "yuv420p",
-    "-movflags", "+faststart",
+    "-crf",
+    "16",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
 )
 
 DEFAULT_PRESET = "slow"
@@ -226,8 +236,8 @@ DRAFT_SCALE = 0.5
 MAX_STAGE_THREADS = 16
 
 LOGO_PATHS = {
-    False: IMAGES_DIR / "logo-white.png",
-    True: IMAGES_DIR / "logo-black.png",
+    False: IMAGES_DIR / "Logo_White.png",
+    True: IMAGES_DIR / "Logo_Black.png",
 }
 
 #: Pack artwork: ``images/`` holds a template per finished image written
@@ -237,18 +247,18 @@ LOGO_PATHS = {
 #: image and the right one the front; the item template is a perspective
 #: view of the pack whose single pure-blue mask is a slanted
 #: quadrilateral that the front image is scaled, rotated and clipped to.
-PACK_TEMPLATE = IMAGES_DIR / "card_pack-material.png"
-PACK_ITEM_TEMPLATE = IMAGES_DIR / "card_pack-item.png"
-PACK_BACK_NAME = "card_pack-back.png"
-PACK_FRONT_NAME = "card_pack-front.png"
-PACK_MATERIAL_NAME = "card_pack-material.png"
-PACK_ITEM_NAME = "card_pack-item.png"
+PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
+PACK_ITEM_TEMPLATE = IMAGES_DIR / "CardPack_Item.png"
+PACK_BACK_NAME = "CardPack_Back.png"
+PACK_FRONT_NAME = "CardPack_Front.png"
+PACK_MATERIAL_NAME = "CardPack_Material.png"
+PACK_ITEM_NAME = "CardPack_Item.png"
 
 #: The white logo stamped on the pack's front, at the same placement in
 #: the material and the item: its width as a fraction of the front's
 #: width (centered horizontally) and its top inset as a fraction of the
 #: front's height.
-PACK_LOGO = IMAGES_DIR / "logo-white.png"
+PACK_LOGO = IMAGES_DIR / "Logo_White.png"
 PACK_LOGO_WIDTH = 0.6
 PACK_LOGO_TOP = 0.04
 
@@ -295,12 +305,57 @@ def generate() -> None:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+
 def bundle() -> None:
     shutil.rmtree(BUNDLES_DIR, ignore_errors=True)
+    BUNDLES_DIR.mkdir()
 
-    for bundle in sorted(OUTPUT_DIR.iterdir()):
-        if bundle.is_dir():
-            bundler.build(bundle, bundle.name, BUNDLES_DIR / bundle.name, OUTPUT_DIR)
+    characters = json.load((DATABASE_DIR / "characters.json").open())
+    characters = {character["id"]: character for character in characters}
+
+    for set in sorted(CARDS_DIR.iterdir()):
+        if not set.is_dir():
+            continue
+
+        cards = []
+
+        for card in sorted(set.iterdir()):
+            if not card.is_dir():
+                continue
+
+            for variant in sorted(card.iterdir()):
+                if not variant.name.endswith(".json"):
+                    continue
+
+                config = json.load(variant.open())
+
+                id = config["id"]
+                title = config["title"]
+                subtitle = config["subtitle"]
+
+                name = f"{title}: {subtitle}" if subtitle else title
+
+                new_card = metadata.card(
+                    name,
+                    variant.stem,
+                    characters.get(id, {"rarity": "R"})["rarity"],
+                    f"{card.stem}_{variant.stem}",
+                )
+                cards.append(new_card)
+
+        expansion = metadata.expansion(set.stem, cards)
+        bundle = metadata.bundle(set.stem, expansions=[expansion])
+
+        with (BUNDLES_DIR / f"{set.stem}.json").open(
+            "w", newline="\n", encoding="utf-8"
+        ) as file:
+            json.dump(bundle, file, indent=2)
+
+    # for bundle in sorted(OUTPUT_DIR.iterdir()):
+    #     if not bundle.is_dir():
+    #         continue
+
+    #     bundler.build(bundle, bundle.name, BUNDLES_DIR / bundle.name, OUTPUT_DIR)
 
 
 def _require_executable(name: str) -> None:
@@ -327,9 +382,12 @@ def _stored_hash(out_path: Path) -> str | None:
         result = subprocess.run(
             [
                 PROBER,
-                "-v", "error",
-                "-show_entries", "format_tags",
-                "-of", "json",
+                "-v",
+                "error",
+                "-show_entries",
+                "format_tags",
+                "-of",
+                "json",
                 str(out_path),
             ],
             capture_output=True,
@@ -341,7 +399,12 @@ def _stored_hash(out_path: Path) -> str | None:
     if result.returncode != 0:
         return None
     try:
-        return json.loads(result.stdout).get("format", {}).get("tags", {}).get(SOURCE_HASH_KEY)
+        return (
+            json.loads(result.stdout)
+            .get("format", {})
+            .get("tags", {})
+            .get(SOURCE_HASH_KEY)
+        )
     except ValueError:
         return None
 
@@ -378,7 +441,9 @@ def _load_card(json_path: Path) -> dict:
 
         return json.loads(json_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise GenerationError(f"cannot read card definition {json_path.name}: {exc}") from exc
+        raise GenerationError(
+            f"cannot read card definition {json_path.name}: {exc}"
+        ) from exc
 
 
 def _background_path(card: dict, json_path: Path) -> Path:
@@ -411,7 +476,9 @@ def _render_card(json_path: Path, workdir: Path) -> Path:
         raise GenerationError(f"could not run {VIEWER!r}: {exc}") from exc
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip()
-        raise GenerationError(f"{VIEWER} failed for {json_path.name} (exit {result.returncode}){': ' + detail if detail else ''}")
+        raise GenerationError(
+            f"{VIEWER} failed for {json_path.name} (exit {result.returncode}){': ' + detail if detail else ''}"
+        )
 
     # Static cards produce <stem>.png next to the input; animated cards
     # produce a <stem>/ directory of numbered frames.
@@ -433,8 +500,9 @@ def _frame_paths(render_dir: Path) -> list[Path]:
     the names depends on the frame count), so the names must be sorted
     numerically.
     """
-    frames = sorted((p for p in render_dir.iterdir() if p.is_file()),
-                    key=lambda p: int(p.stem))
+    frames = sorted(
+        (p for p in render_dir.iterdir() if p.is_file()), key=lambda p: int(p.stem)
+    )
     if not frames:
         raise GenerationError(f"animated render has no frames: {render_dir.name}")
     return frames
@@ -544,9 +612,9 @@ def _subtitle_font_size(subtitle: str, padding: int) -> int:
         t = (length - SUBTITLE_FULL_LENGTH) / (
             SUBTITLE_FLOOR_LENGTH - SUBTITLE_FULL_LENGTH
         )
-        factor = SUBTITLE_SIZE_FACTOR + (
-            SUBTITLE_MIN_SIZE_FACTOR - SUBTITLE_SIZE_FACTOR
-        ) * t
+        factor = (
+            SUBTITLE_SIZE_FACTOR + (SUBTITLE_MIN_SIZE_FACTOR - SUBTITLE_SIZE_FACTOR) * t
+        )
     return round(padding * factor)
 
 
@@ -638,8 +706,9 @@ def _trail_color(region: Image.Image) -> tuple[int, int, int]:
     return _set_luma(hue, sat, TRAIL_TARGET_LUMA)
 
 
-def _tint_layer(mask: Image.Image, color: tuple[int, int, int],
-                factor: float) -> Image.Image:
+def _tint_layer(
+    mask: Image.Image, color: tuple[int, int, int], factor: float
+) -> Image.Image:
     """Straight-alpha RGBA layer: *color* at alpha mask*factor."""
     alpha = mask.point(lambda v: int(v * factor))
     return Image.merge(
@@ -803,7 +872,9 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     # (METAL_TRAIL_MIX), with the bright sheen band.
     x0, y0, x1, y1 = parts.metal_box
     bottom = tuple(
-        round(NAME_TEXT_COLOR[i] + METAL_TRAIL_MIX * (trail_color[i] - NAME_TEXT_COLOR[i]))
+        round(
+            NAME_TEXT_COLOR[i] + METAL_TRAIL_MIX * (trail_color[i] - NAME_TEXT_COLOR[i])
+        )
         for i in range(3)
     )
     h = y1 - y0 + 1
@@ -811,12 +882,19 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     for y in range(h):
         t = y / max(1, h - 1)
         sheen = METAL_SHEEN_DELTA * math.exp(
-            -((t - METAL_SHEEN_Y) ** 2) / (2 * METAL_SHEEN_SIGMA ** 2)
+            -((t - METAL_SHEEN_Y) ** 2) / (2 * METAL_SHEEN_SIGMA**2)
         )
         col.putpixel(
             (0, y),
             tuple(
-                min(255, round(NAME_TEXT_COLOR[i] + (bottom[i] - NAME_TEXT_COLOR[i]) * t + sheen))
+                min(
+                    255,
+                    round(
+                        NAME_TEXT_COLOR[i]
+                        + (bottom[i] - NAME_TEXT_COLOR[i]) * t
+                        + sheen
+                    ),
+                )
                 for i in range(3)
             ),
         )
@@ -892,33 +970,48 @@ def _encode_mp4(
     command = [
         ENCODER,
         "-y",
-        "-loglevel", "error",
-        "-f", "rawvideo",
-        "-pix_fmt", "rgba",
-        "-s", f"{width}x{height}",
-        "-framerate", str(framerate),
-        "-i", "-",
+        "-loglevel",
+        "error",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgba",
+        "-s",
+        f"{width}x{height}",
+        "-framerate",
+        str(framerate),
+        "-i",
+        "-",
     ]
     if scale != 1.0:
         # Downscale inside ffmpeg (fast, SIMD-optimized swscale) rather
         # than resizing every frame in Python first.
-        target = (round(width * scale) & ~1, round(height * scale) & ~1)  # yuv420p needs even dims
+        target = (
+            round(width * scale) & ~1,
+            round(height * scale) & ~1,
+        )  # yuv420p needs even dims
         command += ["-vf", f"scale={target[0]}:{target[1]}"]
     command += [
-        "-c:v", "libx264",
-        "-preset", preset,
+        "-c:v",
+        "libx264",
+        "-preset",
+        preset,
         *FFMPEG_QUALITY_ARGS,
-        "-threads", str(max(1, threads)),
+        "-threads",
+        str(max(1, threads)),
     ]
     if source_hash is not None:
         # Arbitrary metadata keys need use_metadata_tags to land in the
         # container (read back via ffprobe's format tags)
         command += [
-            "-movflags", "use_metadata_tags",
-            "-metadata", f"{SOURCE_HASH_KEY}={source_hash}",
+            "-movflags",
+            "use_metadata_tags",
+            "-metadata",
+            f"{SOURCE_HASH_KEY}={source_hash}",
         ]
     command += [
-        "-f", "mp4",  # explicit format: the output name may carry a suffix (e.g. .part)
+        "-f",
+        "mp4",  # explicit format: the output name may carry a suffix (e.g. .part)
         str(out_path),
     ]
     try:
@@ -937,7 +1030,9 @@ def _encode_mp4(
     except Exception as exc:  # includes a bad frame surfacing mid-stream
         proc.kill()
         proc.wait()
-        detail = proc.stderr.read().decode(errors="replace").strip() if proc.stderr else ""
+        detail = (
+            proc.stderr.read().decode(errors="replace").strip() if proc.stderr else ""
+        )
         detail = f" ({detail[-500:]})" if detail else ""
         raise GenerationError(f"frame stream failed: {exc}{detail}") from exc
     finally:
@@ -1009,7 +1104,9 @@ def _finish_card(
         if name or subtitle:
             art = _apply_name(art, _name_layers(art.size, name, subtitle, padding))
         final = art.convert("RGB")
-        return _save_atomic(final, _card_out_path(out_base, json_path, "png"), source_hash)
+        return _save_atomic(
+            final, _card_out_path(out_base, json_path, "png"), source_hash
+        )
 
     frame_paths = _frame_paths(artifact)
     first = _open_frame(frame_paths[0])
@@ -1060,13 +1157,21 @@ def _finish_card(
                 yield frame
                 next_index = index + workers
                 if next_index < len(frame_paths):
-                    futures[next_index] = pool.submit(composite, next_index, frame_paths[next_index])
+                    futures[next_index] = pool.submit(
+                        composite, next_index, frame_paths[next_index]
+                    )
 
     out_path = _card_out_path(out_base, json_path, "mp4")
     tmp_path = out_path.with_name(out_path.name + ".part")
     try:
         _encode_mp4(
-            frames(), size, framerate, tmp_path, ffmpeg_threads, preset, scale,
+            frames(),
+            size,
+            framerate,
+            tmp_path,
+            ffmpeg_threads,
+            preset,
+            scale,
             source_hash,
         )
     except Exception:
@@ -1078,7 +1183,9 @@ def _finish_card(
         # extension (the same composited frame, so it matches the mp4's
         # opening frame exactly).
         _save_atomic(
-            first_frame.convert("RGB"), _card_out_path(out_base, json_path, "png"), source_hash
+            first_frame.convert("RGB"),
+            _card_out_path(out_base, json_path, "png"),
+            source_hash,
         )
     return out_path
 
@@ -1087,11 +1194,13 @@ def _card_out_path(out_base: Path, json_path: Path, suffix: str) -> Path:
     """The flat output path for a card definition: the card's
     directory is folded into the filename, so
     ``cards/<set>/<card>/<variant>.json`` renders to
-    ``<out_base>/<set>/<card>-<variant>.<suffix>`` (deeper nesting,
+    ``<out_base>/<set>/<card>_<variant>.<suffix>`` (deeper nesting,
     if ever used, is folded the same way, one dash per directory)."""
     card_rel = json_path.parent.relative_to(CARDS_DIR)
     return (
-        out_base / card_rel.parts[0] / f"{'-'.join(card_rel.parts[1:])}-{json_path.stem}.{suffix}"
+        out_base
+        / card_rel.parts[0]
+        / f"{'_'.join(card_rel.parts[1:])}_{json_path.stem}.{suffix}"
     )
 
 
@@ -1240,7 +1349,7 @@ def _pack_mask_rects(mask: Image.Image) -> list[tuple[int, int, int, int]]:
     width, height = flat.size
     spans: dict[tuple[int, int], list[int]] = {}
     for y in range(height):
-        row = data[y * width:(y + 1) * width]
+        row = data[y * width : (y + 1) * width]
         for match in re.finditer(b"\xff+", row):
             run = (match.start(), match.end())
             if spans.get(run, [None, None])[1] == y - 1:
@@ -1304,7 +1413,7 @@ def _pack_item_corners(mask: Image.Image) -> tuple[tuple[int, int], ...]:
     br_s = tr_s = -math.inf
     bl_s = math.inf
     for y in range(height):
-        row = data[y * width:(y + 1) * width]
+        row = data[y * width : (y + 1) * width]
         for x, value in enumerate(row):
             if value:
                 s, d = x + y, x - y
@@ -1332,9 +1441,7 @@ def _pack_item_band(
     8 degrees of freedom (with the last coefficient fixed to 1)."""
     fw, fh = front
     rows = []
-    for (x, y), (sx, sy) in zip(
-        corners, ((0, 0), (fw, 0), (fw, fh), (0, fh))
-    ):
+    for (x, y), (sx, sy) in zip(corners, ((0, 0), (fw, 0), (fw, fh), (0, fh))):
         rows.append([x, y, 1, 0, 0, 0, -sx * x, -sx * y, sx])
         rows.append([0, 0, 0, x, y, 1, -sy * x, -sy * y, sy])
     h11, h12, h13, h21, h22, h23, h31, h32 = _solve_linear(rows)
@@ -1416,7 +1523,11 @@ def _bottom_shade(front: Image.Image) -> Image.Image:
     # Per-axis ramps; the dip is their product, so it hugs the
     # bottom edge, biased to the right, fading away from the edge.
     x = [
-        round(255 * PACK_BOTTOM_SHADE * (PACK_BOTTOM_BIAS + (1.0 - PACK_BOTTOM_BIAS) * i / (width - 1)))
+        round(
+            255
+            * PACK_BOTTOM_SHADE
+            * (PACK_BOTTOM_BIAS + (1.0 - PACK_BOTTOM_BIAS) * i / (width - 1))
+        )
         for i in range(width)
     ]
     y0 = round((1.0 - PACK_BOTTOM_BAND) * height)
@@ -1501,7 +1612,10 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         for x, y in corners:
             dist = math.hypot(x - cx, y - cy)
             expanded.append(
-                (x + PACK_ITEM_MARGIN * (x - cx) / dist, y + PACK_ITEM_MARGIN * (y - cy) / dist)
+                (
+                    x + PACK_ITEM_MARGIN * (x - cx) / dist,
+                    y + PACK_ITEM_MARGIN * (y - cy) / dist,
+                )
             )
         # The front art is warped once, at 1x: its detail is never
         # supersampled.
@@ -1516,11 +1630,20 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         # onto the same face as the front.
         logo_layer = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
         logo_layer.alpha_composite(logo, logo_pos)
-        band2 = _pack_item_band(tuple((2 * x, 2 * y) for x, y in expanded), (fw * 2, fh * 2))
-        warped_logo = logo_layer.resize((fw * 2, fh * 2), Image.LANCZOS).transform(
-            (template.size[0] * 2, template.size[1] * 2), Image.PERSPECTIVE, band2,
-            resample=Image.BICUBIC,
-        ).resize(template.size, Image.LANCZOS).convert("RGBA")
+        band2 = _pack_item_band(
+            tuple((2 * x, 2 * y) for x, y in expanded), (fw * 2, fh * 2)
+        )
+        warped_logo = (
+            logo_layer.resize((fw * 2, fh * 2), Image.LANCZOS)
+            .transform(
+                (template.size[0] * 2, template.size[1] * 2),
+                Image.PERSPECTIVE,
+                band2,
+                resample=Image.BICUBIC,
+            )
+            .resize(template.size, Image.LANCZOS)
+            .convert("RGBA")
+        )
         warped.alpha_composite(warped_logo)
         # Give the front the quad's true coverage as its alpha so the slanted
         # edge is anti-aliased instead of a hard binary cut: where the
@@ -1528,9 +1651,10 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         # its alpha; where it is an opaque near-blue (the edge blended into
         # the grey shadow) it is the blue fraction of that blend.
         alpha = template.getchannel("A")
-        blueness = ImageChops.difference(template.getchannel("B"),
-                                         ImageChops.lighter(template.getchannel("R"),
-                                                            template.getchannel("G")))
+        blueness = ImageChops.difference(
+            template.getchannel("B"),
+            ImageChops.lighter(template.getchannel("R"), template.getchannel("G")),
+        )
         warped.putalpha(ImageChops.darker(ImageChops.darker(alpha, blueness), mask))
         # Reveal the background the front composites over: keep the grey
         # shadow, clear the placeholder, and un-blend the opaque near-blue
@@ -1632,7 +1756,9 @@ def _generate(
         f" and {2 * len(pack_dirs)} pack image(s)" if pack_dirs else ""
     )
     if paths:
-        print(f"Rendering {total} selected card(s) with {jobs} worker(s){notes_text} ...")
+        print(
+            f"Rendering {total} selected card(s) with {jobs} worker(s){notes_text} ..."
+        )
         for path in card_configs:
             print(f"  - {path.relative_to(REPO_ROOT)}")
     else:
@@ -1647,21 +1773,29 @@ def _generate(
     with ProcessPoolExecutor(max_workers=jobs) as pool:
         futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
-                _process_card, path, ffmpeg_threads, composite_workers, preset, scale, out_base
+                _process_card,
+                path,
+                ffmpeg_threads,
+                composite_workers,
+                preset,
+                scale,
+                out_base,
             ): path.relative_to(CARDS_DIR)
             for path in card_configs
         }
         futures.update(
             {
-                pool.submit(_process_pack_material, pack_dir, out_base):
-                    pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
+                pool.submit(
+                    _process_pack_material, pack_dir, out_base
+                ): pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
                 for pack_dir in pack_dirs
             }
         )
         futures.update(
             {
-                pool.submit(_process_pack_item, pack_dir, out_base):
-                    pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
+                pool.submit(
+                    _process_pack_item, pack_dir, out_base
+                ): pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
                 for pack_dir in pack_dirs
             }
         )
@@ -1678,12 +1812,19 @@ def _generate(
                         flush=True,
                     )
                 else:
-                    print(f"[{done}/{total}] {label} -> {out_path.relative_to(REPO_ROOT)}", flush=True)
+                    print(
+                        f"[{done}/{total}] {label} -> {out_path.relative_to(REPO_ROOT)}",
+                        flush=True,
+                    )
             except Exception as exc:
                 # Let the other cards finish; failures are reported (and the
                 # run exits non-zero) once everything has had its retries.
                 failures.append((label, exc))
-                print(f"[{done}/{total}] {label} FAILED: {exc}", file=sys.stderr, flush=True)
+                print(
+                    f"[{done}/{total}] {label} FAILED: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
     if failures:
         for label, exc in failures:
             print(f"error: {label}: {exc}", file=sys.stderr)
