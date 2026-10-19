@@ -20,5 +20,5 @@
     2048
   ],
   "padding": 50,
-  "background": "cards/core/backgrounds/beach-day.png"
+  "background": "../backgrounds/beach-day.png"
 }

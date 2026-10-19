@@ -20,5 +20,5 @@
     2048
   ],
   "padding": 50,
-  "background": "cards/core/backgrounds/sky-night.png"
+  "background": "../backgrounds/sky-night.png"
 }

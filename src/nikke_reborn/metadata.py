@@ -24,12 +24,12 @@ def bundle(name, items=None, expansions=None) -> dict:
             {
                 "PhoneAppId": "NIKKE",
                 "AppDisplayName": "NIKKE",
-                "AppIcon": "Icon",
-                "AppInnerBGImage": "IBG",
-                "AppOuterBGImage": "OBG",
-                "SiteLogo": "_ShopLogo",
-                "SiteHeader": "_ShopBanner",
-                "SiteBackground": "_ShopWallpaper",
+                "AppIcon": "Shop_Icon",
+                "AppInnerBGImage": "Shop_IBG",
+                "AppOuterBGImage": "Shop_OBG",
+                "SiteLogo": "Shop_Logo",
+                "SiteHeader": "Shop_Banner",
+                "SiteBackground": "Shop_Wallpaper",
             }
         ],
     }
@@ -38,11 +38,11 @@ def bundle(name, items=None, expansions=None) -> dict:
 def expansion(set, cards) -> dict:
     return {
         "Name": f"{set} Set",
-        "CardExpansion": f"NIKKE_{set}",
+        "CardExpansion": f"NIKKE_{set}_Expansion",
         "Cards": cards,
         "MenuCategory": "NIKKE",
-        "CardbackSprite": "_Cardback",
-        "FoilMask": "_Foilmask",
+        "CardbackSprite": "Cardback",
+        "FoilMask": "Foilmask",
         "Rarities": RARITIES,
         "HasRandomFoils": False,
         "FoilChance": 0,
@@ -94,8 +94,8 @@ def pack(set) -> dict:
     }
 
     return {
-        "Name": f"{set.upper()} Packs",
-        "CardExpansion": f"nikke_{set}",
+        "Name": f"{set} Packs",
+        "CardExpansion": f"NIKKE_{set}_Expansion",
         "PackType": f"NIKKE_{set}_CardPack",
         "ItemType": f"NIKKE_{set}_CardPack_Item",
         "Material": "CardPack_Material",
@@ -106,7 +106,7 @@ def pack(set) -> dict:
         "AddItemAsAccessory": False,
         "AddItemAsFigurine": False,
         "AddItemAsBoardGame": False,
-        "PhoneAppId": "Nikke",
+        "PhoneAppId": "NIKKE",
         "UsesBaseGameMesh": True,
         "MeshToUse": "BasicCardPack",
         "Mesh": "",

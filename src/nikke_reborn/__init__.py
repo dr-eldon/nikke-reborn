@@ -69,6 +69,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import pathlib
 from concurrent.futures import (
     Future,
     ProcessPoolExecutor,
@@ -90,6 +91,7 @@ OUTPUT_DIR = REPO_ROOT / "output"
 DRAFT_DIR = REPO_ROOT / "draft"
 BUNDLES_DIR = REPO_ROOT / "bundles"
 DATABASE_DIR = REPO_ROOT / "database"
+SHOP_DIR = IMAGES_DIR / "shop"
 
 VIEWER = "nikke-viewer"
 ENCODER = "ffmpeg"
@@ -305,17 +307,28 @@ def generate() -> None:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-
-def bundle() -> None:
-    shutil.rmtree(BUNDLES_DIR, ignore_errors=True)
-    BUNDLES_DIR.mkdir()
-
     characters = json.load((DATABASE_DIR / "characters.json").open())
     characters = {character["id"]: character for character in characters}
 
-    for set in sorted(CARDS_DIR.iterdir()):
+    for set in CARDS_DIR.iterdir():
         if not set.is_dir():
             continue
+
+        if (set / "Foilmask.png").is_file():
+            copy(set / "Foilmask.png", OUTPUT_DIR / set.stem / "Foilmask.png")
+        else:
+            copy(IMAGES_DIR / "Foilmask.png", OUTPUT_DIR / set.stem / "Foilmask.png")
+
+        if (set / "Cardback.png").is_file():
+            copy(set / "Cardback.png", OUTPUT_DIR / set.stem / "Cardback.png")
+        else:
+            copy(IMAGES_DIR / "Cardback.png", OUTPUT_DIR / set.stem / "Cardback.png")
+
+        for file in SHOP_DIR.iterdir():
+            if not file.is_file():
+                continue
+
+            copy(file, OUTPUT_DIR / set.stem / file.name)
 
         cards = []
 
@@ -344,18 +357,39 @@ def bundle() -> None:
                 cards.append(new_card)
 
         expansion = metadata.expansion(set.stem, cards)
-        bundle = metadata.bundle(set.stem, expansions=[expansion])
+        pack = metadata.pack(set.stem)
+        bundle = metadata.bundle(set.stem, items=[pack], expansions=[expansion])
 
-        with (BUNDLES_DIR / f"{set.stem}.json").open(
+        with (OUTPUT_DIR / f"{set.stem}.json").open(
             "w", newline="\n", encoding="utf-8"
         ) as file:
             json.dump(bundle, file, indent=2)
 
-    # for bundle in sorted(OUTPUT_DIR.iterdir()):
-    #     if not bundle.is_dir():
-    #         continue
 
-    #     bundler.build(bundle, bundle.name, BUNDLES_DIR / bundle.name, OUTPUT_DIR)
+def bundle() -> None:
+    shutil.rmtree(BUNDLES_DIR, ignore_errors=True)
+    BUNDLES_DIR.mkdir()
+
+    for target in sorted(OUTPUT_DIR.iterdir()):
+        if not target.is_dir():
+            continue
+
+        bundle = BUNDLES_DIR / f"NIKKE - {target.name}"
+        bundle.mkdir()
+
+        plugins = bundle / "BepInEx" / "plugins"
+
+        for file in ["Shop_Icon.png", "Shop_IBG.png", "Shop_OBG.png"]:
+            copy(
+                SHOP_DIR / file,
+                plugins / "Phone - Overhaul" / "App Images" / "NIKKE" / file,
+            )
+
+        plugin = plugins / bundle.name / f"NIKKE_{target.name}"
+
+        copy(target.with_suffix(".json"), plugin.with_suffix(".json"))
+
+        bundler.build(target, plugin.name, plugin, OUTPUT_DIR)
 
 
 def _require_executable(name: str) -> None:
@@ -1835,3 +1869,23 @@ def _generate(
         f"Done. {what} in {time.monotonic() - start:.1f}s, "
         f"{word} written to {out_base.relative_to(REPO_ROOT)}/{skipped_text}"
     )
+
+
+def copy(source: pathlib.Path, dest: pathlib.Path, overwrite=False):
+    if dest.exists():
+        if not overwrite:
+            return
+
+        if source.is_dir():
+            for entry in source.iterdir():
+                copy(entry, dest / entry.name, overwrite=True)
+
+            return
+
+    if dest.is_relative_to(REPO_ROOT):
+        print(dest.relative_to(REPO_ROOT))
+    else:
+        print(dest)
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    source.copy(dest)
