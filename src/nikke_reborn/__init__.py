@@ -9,13 +9,13 @@ the card name on top of the art, per frame: the title at the top left
 top-right corner (italic, with its own trail). The trails and the
 gradient's bottom lean are tinted with the color of the art behind the
 text each frame, so animated cards track the scene. The full-art
-variants (``full_art``, ``full_art_animated``) are generated without any
-card name. Packs (``cards/`` subdirectories carrying ``card_pack-back.
-png`` and ``card_pack-front.png``) additionally get their two artwork
-images, built from the templates in ``images/``: the material
-(``card_pack-material.png``), whose two pure-blue mask rectangles hold
+variants (``FullArt``, ``FullArtAnimated``) are generated without any
+card name. Packs (``cards/`` subdirectories carrying
+``CardPack_Back.png`` and ``CardPack_Front.png``) additionally get their
+two artwork images, built from the templates in ``images/``: the material
+(``CardPack_Material.png``), whose two pure-blue mask rectangles hold
 the pack's back (left) and front (right) images, and the item
-(``card_pack-item.png``), a perspective view whose single pure-blue mask
+(``CardPack_Item.png``), a perspective view whose single pure-blue mask
 is a slanted quadrilateral that the front image is perspective-warped
 to (corner to corner) and clipped into — its bottom border first
 carrying a thin dark gradient, biased toward the bottom-right
@@ -244,7 +244,7 @@ LOGO_PATHS = {
 
 #: Pack artwork: ``images/`` holds a template per finished image written
 #: to ``<out>/<pack>/`` from a pack's images
-#: (``cards/<pack>/card_pack-{back,front}.png``). The material template
+#: (``cards/<pack>/CardPack_{Back,Front}.png``). The material template
 #: carries two pure-blue mask rectangles, the left one holding the back
 #: image and the right one the front; the item template is a perspective
 #: view of the pack whose single pure-blue mask is a slanted
@@ -295,13 +295,14 @@ def generate() -> None:
     """Render and composite the selected (or all) card definitions."""
     args = _parse_args()
     draft = args.draft
+    out_dir = DRAFT_DIR if draft else OUTPUT_DIR
     try:
         _generate(
             args.paths,
             args.jobs,
             DRAFT_PRESET if draft else DEFAULT_PRESET,
             DRAFT_SCALE if draft else DEFAULT_SCALE,
-            DRAFT_DIR if draft else OUTPUT_DIR,
+            out_dir,
         )
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -310,29 +311,30 @@ def generate() -> None:
     characters = json.load((DATABASE_DIR / "characters.json").open())
     characters = {character["id"]: character for character in characters}
 
-    for set in CARDS_DIR.iterdir():
-        if not set.is_dir():
+    for set_dir in CARDS_DIR.iterdir():
+        if not set_dir.is_dir():
             continue
 
-        if (set / "Foilmask.png").is_file():
-            copy(set / "Foilmask.png", OUTPUT_DIR / set.stem / "Foilmask.png")
+        if (set_dir / "Foilmask.png").is_file():
+            copy(set_dir / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
         else:
-            copy(IMAGES_DIR / "Foilmask.png", OUTPUT_DIR / set.stem / "Foilmask.png")
+            copy(IMAGES_DIR / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
 
-        if (set / "Cardback.png").is_file():
-            copy(set / "Cardback.png", OUTPUT_DIR / set.stem / "Cardback.png")
+        if (set_dir / "Cardback.png").is_file():
+            copy(set_dir / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
         else:
-            copy(IMAGES_DIR / "Cardback.png", OUTPUT_DIR / set.stem / "Cardback.png")
+            copy(IMAGES_DIR / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
 
         for file in SHOP_DIR.iterdir():
             if not file.is_file():
                 continue
 
-            copy(file, OUTPUT_DIR / set.stem / file.name)
+            copy(file, out_dir / set_dir.stem / file.name)
 
         cards = []
+        missing_ids: set[str] = set()
 
-        for card in sorted(set.iterdir()):
+        for card in sorted(set_dir.iterdir()):
             if not card.is_dir():
                 continue
 
@@ -348,19 +350,37 @@ def generate() -> None:
 
                 name = f"{title}: {subtitle}" if subtitle else title
 
+                # Skin variants carry a suffixed id (c010_02); strip the
+                # suffix so they inherit the base character's rarity.
+                character = characters.get(id) or characters.get(
+                    id.split("_", 1)[0]
+                )
+                if character is None:
+                    missing_ids.add(id)
+                    rarity = "R"
+                else:
+                    rarity = character["rarity"]
+
                 new_card = metadata.card(
                     name,
                     variant.stem,
-                    characters.get(id, {"rarity": "R"})["rarity"],
+                    rarity,
                     f"{card.stem}_{variant.stem}",
                 )
                 cards.append(new_card)
 
-        expansion = metadata.expansion(set.stem, cards)
-        pack = metadata.pack(set.stem)
-        bundle = metadata.bundle(set.stem, items=[pack], expansions=[expansion])
+        for missing in sorted(missing_ids):
+            print(
+                f"warning: no character {missing!r} in characters.json; "
+                f"its cards default to rarity 'R'",
+                file=sys.stderr,
+            )
 
-        with (OUTPUT_DIR / f"{set.stem}.json").open(
+        expansion = metadata.expansion(set_dir.stem, cards)
+        pack = metadata.pack(set_dir.stem)
+        bundle = metadata.bundle(set_dir.stem, items=[pack], expansions=[expansion])
+
+        with (out_dir / f"{set_dir.stem}.json").open(
             "w", newline="\n", encoding="utf-8"
         ) as file:
             json.dump(bundle, file, indent=2)
@@ -1491,7 +1511,7 @@ def _process_pack_material(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     is the flat view of the pack) at the item's placement:
     :data:`PACK_LOGO_WIDTH` the front's width, centered,
     :data:`PACK_LOGO_TOP` the front's height down. The finished material
-    is written to ``<out>/<pack>/card_pack-material.png`` (atomically,
+    is written to ``<out>/<pack>/CardPack_Material.png`` (atomically,
     with the SHA-256 of the template, both images and the logo
     embedded, like a finished card); returns ``(out_path, skipped)``,
     where *skipped* is True when the output already exists and its
@@ -1606,7 +1626,7 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     slanted edge is anti-aliased rather than a hard binary cut. The
     finished item keeps
     the template's transparency and is written to
-    ``<out>/<pack>/card_pack-item.png`` (atomically, with the SHA-256 of
+    ``<out>/<pack>/CardPack_Item.png`` (atomically, with the SHA-256 of
     the template and the front embedded, like a finished card); returns
     ``(out_path, skipped)``.
     """
