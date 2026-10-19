@@ -10,9 +10,17 @@ top-right corner (italic, with its own trail). The trails and the
 gradient's bottom lean are tinted with the color of the art behind the
 text each frame, so animated cards track the scene. The full-art
 variants (``full_art``, ``full_art_animated``) are generated without any
-card name. The finished result is written under ``output/``, with the
-SHA-256 of its definition embedded as metadata (a PNG text chunk, an
-MP4 tag); a card whose stored hash matches the current definition is
+card name. Packs (``cards/`` subdirectories carrying ``card_pack-back.
+png`` and ``card_pack-front.png``) additionally get their two artwork
+images, built from the templates in ``images/``: the texture
+(``card_pack-texture.png``), whose two pure-blue mask rectangles hold
+the pack's back (left) and front (right) images, and the item
+(``card_pack-item.png``), a perspective view whose single pure-blue mask
+is a slanted quadrilateral that the front image is perspective-warped
+to (corner to corner) and clipped into. The finished results are
+written under ``output/``, with
+the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
+MP4 tag); a result whose stored hash matches the current inputs is
 skipped instead of re-rendered.
 
 * single-frame cards -> ``output/<set>/<card>/<variant>.png``
@@ -45,6 +53,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -55,7 +64,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, 
 from pathlib import Path
 from typing import Iterator
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from PIL.PngImagePlugin import PngInfo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -209,6 +218,26 @@ LOGO_PATHS = {
     False: IMAGES_DIR / "logo-white.png",
     True: IMAGES_DIR / "logo-black.png",
 }
+
+#: Pack artwork: ``images/`` holds a template per finished image written
+#: to ``<out>/<pack>/`` from a pack's images
+#: (``cards/<pack>/card_pack-{back,front}.png``). The texture template
+#: carries two pure-blue mask rectangles, the left one holding the back
+#: image and the right one the front; the item template is a perspective
+#: view of the pack whose single pure-blue mask is a slanted
+#: quadrilateral that the front image is scaled, rotated and clipped to.
+PACK_TEMPLATE = IMAGES_DIR / "card_pack-texture.png"
+PACK_ITEM_TEMPLATE = IMAGES_DIR / "card_pack-item.png"
+PACK_BACK_NAME = "card_pack-back.png"
+PACK_FRONT_NAME = "card_pack-front.png"
+PACK_TEXTURE_NAME = "card_pack-texture.png"
+PACK_ITEM_NAME = "card_pack-item.png"
+
+#: The item mask's corners are pulled this many px outward before the
+#: perspective warp: the warped front then over-covers the mask's
+#: anti-aliased edge (the mask clip trims it back), so no dark fringe
+#: shows where the warp falls a pixel short of the blue.
+PACK_ITEM_MARGIN = 3
 
 
 class GenerationError(RuntimeError):
@@ -1093,6 +1122,213 @@ def _process_card(
     raise AssertionError("unreachable")  # pragma: no cover
 
 
+def _pack_mask(template: Image.Image) -> Image.Image:
+    """A binary mask of the template's pure-blue placeholder pixels."""
+    r = template.getchannel("R").point(lambda v: 255 if v == 0 else 0)
+    g = template.getchannel("G").point(lambda v: 255 if v == 0 else 0)
+    b = template.getchannel("B").point(lambda v: 255 if v == 255 else 0)
+    return ImageChops.darker(ImageChops.darker(r, g), b)
+
+
+def _pack_mask_rects(mask: Image.Image) -> list[tuple[int, int, int, int]]:
+    """Bounding boxes of the mask's solid rectangles, left to right.
+
+    Each box is ``(left, top, right, bottom)`` with right and bottom
+    exclusive, as PIL expects. A solid rectangle repeats the same pixel
+    run on every row, so consecutive rows carrying the same run belong
+    to the same rectangle.
+    """
+    flat = mask.convert("L")
+    data = flat.tobytes()
+    width, height = flat.size
+    spans: dict[tuple[int, int], list[int]] = {}
+    for y in range(height):
+        row = data[y * width:(y + 1) * width]
+        for match in re.finditer(b"\xff+", row):
+            run = (match.start(), match.end())
+            if spans.get(run, [None, None])[1] == y - 1:
+                spans[run][1] = y
+            else:
+                spans[run] = [y, y]
+    return sorted((x0, y0, x1, y1 + 1) for (x0, x1), (y0, y1) in spans.items())
+
+
+def _find_pack_dirs() -> list[Path]:
+    """``cards/`` subdirectories carrying both pack images (the pack
+    texture's inputs)."""
+    return sorted(
+        pack_dir
+        for pack_dir in CARDS_DIR.iterdir()
+        if pack_dir.is_dir()
+        and (pack_dir / PACK_BACK_NAME).is_file()
+        and (pack_dir / PACK_FRONT_NAME).is_file()
+    )
+
+
+def _pack_hash(template: Path, *images: Path) -> str:
+    """The source hash of a finished pack image: the SHA-256 of its
+    template and input images — every input byte the result depends on."""
+    digest = hashlib.sha256()
+    for path in (template, *images):
+        if not path.is_file():
+            raise GenerationError(f"pack template or image not found: {path}")
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _solve_linear(rows: list[list[float]]) -> list[float]:
+    """Solve a square linear system by Gaussian elimination with partial
+    pivoting and back-substitution. *rows* is an augmented matrix
+    ``n x (n + 1)``; returns the *n* solutions."""
+    m = [row[:] for row in rows]
+    n = len(m)
+    for col in range(n):
+        pivot = max(range(col, n), key=lambda r: abs(m[r][col]))
+        m[col], m[pivot] = m[pivot], m[col]
+        for r in range(col + 1, n):
+            factor = m[r][col] / m[col][col]
+            for j in range(col, n + 1):
+                m[r][j] -= factor * m[col][j]
+    x = [0.0] * n
+    for r in range(n - 1, -1, -1):
+        x[r] = (m[r][n] - sum(m[r][j] * x[j] for j in range(r + 1, n))) / m[r][r]
+    return x
+
+
+def _pack_item_corners(mask: Image.Image) -> tuple[tuple[int, int], ...]:
+    """The mask's four corners (top-left, top-right, bottom-right, bottom-
+    left) as its diagonal extremes: the pixels minimizing/maximizing
+    ``x + y`` (top-left / bottom-right) and ``x - y`` (bottom-left /
+    top-right)."""
+    data = mask.convert("L").tobytes()
+    width, height = mask.size
+    tl = tr = br = bl = None
+    tl_s = math.inf
+    br_s = tr_s = -math.inf
+    bl_s = math.inf
+    for y in range(height):
+        row = data[y * width:(y + 1) * width]
+        for x, value in enumerate(row):
+            if value:
+                s, d = x + y, x - y
+                if s < tl_s:
+                    tl_s, tl = s, (x, y)
+                if s > br_s:
+                    br_s, br = s, (x, y)
+                if d > tr_s:
+                    tr_s, tr = d, (x, y)
+                if d < bl_s:
+                    bl_s, bl = d, (x, y)
+    if tl is None:
+        raise GenerationError("pack item template carries no pure-blue mask")
+    return tl, tr, br, bl
+
+
+def _pack_item_band(
+    corners: tuple[tuple[float, float], ...], front: tuple[int, int]
+) -> tuple[float, ...]:
+    """The ``Image.PERSPECTIVE`` band mapping the four *corners* (in
+    template order: top-left, top-right, bottom-right, bottom-left) to
+    the front's corners ``(0, 0), (W, 0), (W, H), (0, H)`` — the
+    perspective that projects the front onto the item's slanted
+    quadrilateral. The four point correspondences exactly determine the
+    8 degrees of freedom (with the last coefficient fixed to 1)."""
+    fw, fh = front
+    rows = []
+    for (x, y), (sx, sy) in zip(
+        corners, ((0, 0), (fw, 0), (fw, fh), (0, fh))
+    ):
+        rows.append([x, y, 1, 0, 0, 0, -sx * x, -sx * y, sx])
+        rows.append([0, 0, 0, x, y, 1, -sy * x, -sy * y, sy])
+    h11, h12, h13, h21, h22, h23, h31, h32 = _solve_linear(rows)
+    return h11, h12, h13, h21, h22, h23, h31, h32, 1.0
+
+
+def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
+    """Composite a pack's images onto the texture template.
+
+    The template's pure-blue mask rectangles mark the paste regions: the
+    left one holds the pack's back image, the right one its front. The
+    finished texture is written to ``<out>/<pack>/card_pack-texture.png``
+    (atomically, with the SHA-256 of the template and both images
+    embedded, like a finished card); returns ``(out_path, skipped)``,
+    where *skipped* is True when the output already exists and its
+    stored hash matches the current inputs.
+    """
+    pack_dir = pack_dir.resolve()
+    back_path = pack_dir / PACK_BACK_NAME
+    front_path = pack_dir / PACK_FRONT_NAME
+    source_hash = _pack_hash(PACK_TEMPLATE, back_path, front_path)
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_TEXTURE_NAME
+    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    with Image.open(PACK_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+        rects = _pack_mask_rects(_pack_mask(template))
+        if len(rects) != 2:
+            raise GenerationError(
+                f"pack texture template {PACK_TEMPLATE.name} carries "
+                f"{len(rects)} pure-blue mask rectangle(s), expected 2 (back, front)"
+            )
+        for path, rect in ((back_path, rects[0]), (front_path, rects[1])):
+            with Image.open(path) as opened:
+                image = opened.convert("RGBA")
+            target = (rect[2] - rect[0], rect[3] - rect[1])
+            if image.size != target:
+                image = image.resize(target, Image.Resampling.LANCZOS)
+            template.alpha_composite(image, (rect[0], rect[1]))
+        final = template.convert("RGB")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _save_atomic(final, out_path, source_hash)
+    return out_path, False
+
+
+def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
+    """Composite a pack's front image onto the item template.
+
+    The template's pure-blue mask is a slanted quadrilateral (the item
+    is a slightly rotated 3D view of the pack), so the front is
+    perspective-warped to it — its four corners mapped to the mask's four
+    corners. That is the faithful 3D projection: it shows the whole front
+    (no cropping, unlike a flat rotate-and-scale) and fills the mask
+    exactly. The mask corners are pulled :data:`PACK_ITEM_MARGIN` px
+    outward first so the warp over-covers the mask's anti-aliased edge;
+    the paste is clipped to the mask. The finished item keeps the
+    template's transparency and is written to
+    ``<out>/<pack>/card_pack-item.png`` (atomically, with the SHA-256 of
+    the template and the front embedded, like a finished card); returns
+    ``(out_path, skipped)``.
+    """
+    pack_dir = pack_dir.resolve()
+    front_path = pack_dir / PACK_FRONT_NAME
+    source_hash = _pack_hash(PACK_ITEM_TEMPLATE, front_path)
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
+    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    with Image.open(PACK_ITEM_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+        with Image.open(front_path) as opened:
+            front = opened.convert("RGB")
+        mask = _pack_mask(template)
+        corners = _pack_item_corners(mask)
+        # Pull each corner outward from the quad's center so the warped
+        # front over-covers the mask's anti-aliased edge.
+        cx = sum(p[0] for p in corners) / 4
+        cy = sum(p[1] for p in corners) / 4
+        expanded = []
+        for x, y in corners:
+            dist = math.hypot(x - cx, y - cy)
+            expanded.append(
+                (x + PACK_ITEM_MARGIN * (x - cx) / dist, y + PACK_ITEM_MARGIN * (y - cy) / dist)
+            )
+        band = _pack_item_band(tuple(expanded), front.size)
+        warped = front.transform(template.size, Image.PERSPECTIVE, band, resample=Image.BICUBIC)
+        template.paste(warped, (0, 0), mask)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _save_atomic(template, out_path, source_hash)
+    return out_path, False
+
+
 def _default_jobs() -> int:
     """A sensible default pool size: up to 8 cards at once, 1 per 4 cores."""
     return min(8, max(1, (os.cpu_count() or 4) // 4))
@@ -1142,7 +1378,10 @@ def _generate(
     _require_executable(ENCODER)
     _require_executable(PROBER)
     card_configs = _find_card_configs(paths)
-    total = len(card_configs)
+    # An explicit selection renders those cards only; a full run also
+    # produces each pack's artwork images (texture and item).
+    pack_dirs: list[Path] = [] if paths else _find_pack_dirs()
+    total = len(card_configs) + 2 * len(pack_dirs)
     # Split the cores available to each card between the stages that run
     # in parallel: the frame compositing and the ffmpeg encode.
     per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
@@ -1155,13 +1394,16 @@ def _generate(
     if scale != 1.0:
         notes.append(f"{scale:g}x resolution")
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
+    what = f"{len(card_configs)} card(s)" + (
+        f" and {2 * len(pack_dirs)} pack image(s)" if pack_dirs else ""
+    )
     if paths:
         print(f"Rendering {total} selected card(s) with {jobs} worker(s){notes_text} ...")
         for path in card_configs:
             print(f"  - {path.relative_to(REPO_ROOT)}")
     else:
         print(
-            f"Rendering {total} card(s) from {CARDS_DIR.relative_to(REPO_ROOT)}/ "
+            f"Rendering {what} from {CARDS_DIR.relative_to(REPO_ROOT)}/ "
             f"with {jobs} worker(s){notes_text} ..."
         )
 
@@ -1169,15 +1411,29 @@ def _generate(
     done = 0
     skipped = 0
     with ProcessPoolExecutor(max_workers=jobs) as pool:
-        futures = {
+        futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
                 _process_card, path, ffmpeg_threads, composite_workers, preset, scale, out_base
-            ): path
+            ): path.relative_to(CARDS_DIR)
             for path in card_configs
         }
+        futures.update(
+            {
+                pool.submit(_process_pack_texture, pack_dir, out_base):
+                    pack_dir.relative_to(CARDS_DIR) / PACK_TEXTURE_NAME
+                for pack_dir in pack_dirs
+            }
+        )
+        futures.update(
+            {
+                pool.submit(_process_pack_item, pack_dir, out_base):
+                    pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
+                for pack_dir in pack_dirs
+            }
+        )
         for future in as_completed(futures):
             done += 1
-            label = futures[future].relative_to(CARDS_DIR)
+            label = futures[future]
             try:
                 out_path, was_skipped = future.result()
                 if was_skipped:
@@ -1201,6 +1457,6 @@ def _generate(
     word = "drafts" if out_base == DRAFT_DIR else "final cards"
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(
-        f"Done. {total} card(s) in {time.monotonic() - start:.1f}s, "
+        f"Done. {what} in {time.monotonic() - start:.1f}s, "
         f"{word} written to {out_base.relative_to(REPO_ROOT)}/{skipped_text}"
     )
