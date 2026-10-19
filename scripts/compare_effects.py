@@ -182,6 +182,12 @@ REFRACT_FRINGE = 0.28     # radial chromatic spread: R at (1+f), B at (1-f)
 # combo also drives an ffmpeg encode with 4 threads (8 x 4 fits 32 cores).
 WORKERS = min(8, (os.cpu_count() or 4) // 4)
 
+# Animated-variant preview MP4s: full resolution (the half-res draft
+# settings are for the main pipeline's quick-iteration mode), but a
+# fast preset — these judge effects, they are not shipped artifacts
+EFFECTS_MP4_PRESET = "veryfast"
+EFFECTS_MP4_SCALE = 1.0
+
 # Contact-sheet layout, shared by _build_sheet and
 # check_sheet_consistency (the cells must line up exactly).
 #: A cell is two views side by side: the top-left (the name block) and
@@ -959,13 +965,15 @@ def _overlay_card(
             frames.append(nr._composite_frame(nr._open_frame(path), base))
 
         def animated_task(combo: frozenset[str]) -> frozenset[str]:
-            parts = build_name_layers(size, name, padding, combo)
+            parts = build_name_layers(size, name, subtitle, padding, combo)
 
             def frame_stream(parts=parts):
+                # RGBA: the encoder declares -pix_fmt rgba (4 bytes/px);
+                # RGB frames would shift the raw stream by a channel
                 for art in frames:
                     canvas = art.copy()
                     apply_name(canvas, parts, art)
-                    yield canvas.convert("RGB")
+                    yield canvas
 
             nr._encode_mp4(
                 frame_stream(),
@@ -973,8 +981,8 @@ def _overlay_card(
                 framerate,
                 out_dir / f"{combo_name(combo)}.mp4",
                 threads=4,
-                preset=nr.DRAFT_PRESET,
-                scale=nr.DRAFT_SCALE,
+                preset=EFFECTS_MP4_PRESET,
+                scale=EFFECTS_MP4_SCALE,
             )
             return combo
 
