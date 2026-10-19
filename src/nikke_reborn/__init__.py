@@ -1311,9 +1311,12 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     corners. That is the faithful 3D projection: it shows the whole front
     (no cropping, unlike a flat rotate-and-scale) and fills the mask
     exactly. The mask corners are pulled :data:`PACK_ITEM_MARGIN` px
-    outward first so the warp over-covers the mask's anti-aliased edge;
-    the paste is clipped to the mask. The finished item keeps the
-    template's transparency and is written to
+    outward first so the warp over-covers the mask's anti-aliased edge.
+    The front is given the quad's true coverage as its alpha and
+    composited over the placeholder's background (the grey shadow, with
+    the blue edge un-blended back to grey) so the slanted edge is
+    anti-aliased rather than a hard binary cut. The finished item keeps
+    the template's transparency and is written to
     ``<out>/<pack>/card_pack-item.png`` (atomically, with the SHA-256 of
     the template and the front embedded, like a finished card); returns
     ``(out_path, skipped)``.
@@ -1341,10 +1344,47 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
                 (x + PACK_ITEM_MARGIN * (x - cx) / dist, y + PACK_ITEM_MARGIN * (y - cy) / dist)
             )
         band = _pack_item_band(tuple(expanded), front.size)
-        warped = front.transform(template.size, Image.PERSPECTIVE, band, resample=Image.BICUBIC)
-        template.paste(warped, (0, 0), mask)
+        warped = front.transform(template.size, Image.PERSPECTIVE, band, resample=Image.BICUBIC).convert(
+            "RGBA"
+        )
+        # Give the front the quad's true coverage as its alpha so the slanted
+        # edge is anti-aliased instead of a hard binary cut: where the
+        # placeholder is translucent (the edge against transparency) that is
+        # its alpha; where it is an opaque near-blue (the edge blended into
+        # the grey shadow) it is the blue fraction of that blend.
+        alpha = template.getchannel("A")
+        blueness = ImageChops.difference(template.getchannel("B"),
+                                         ImageChops.lighter(template.getchannel("R"),
+                                                            template.getchannel("G")))
+        warped.putalpha(ImageChops.darker(ImageChops.darker(alpha, blueness), mask))
+        # Reveal the background the front composites over: keep the grey
+        # shadow, clear the placeholder, and un-blend the opaque near-blue
+        # edge back to the grey it was mixed from (fringe = t*blue + (1-t)*
+        # grey, so grey = (fringe - t*blue) / (1-t)).
+        background = template.copy()
+        background.putalpha(ImageChops.multiply(alpha, ImageChops.invert(mask)))
+        blue_d = mask.tobytes()
+        blue_n = blueness.tobytes()
+        alpha_n = alpha.tobytes()
+        src = template.load()
+        dst = background.load()
+        width, height = template.size
+        for y in range(height):
+            row = y * width
+            for x in range(width):
+                i = row + x
+                if blue_d[i] and alpha_n[i] == 255 and blue_n[i] < 255:
+                    inv = 255 - blue_n[i]
+                    r, g, b, _ = src[x, y]
+                    dst[x, y] = (
+                        round(r * 255 / inv),
+                        round(g * 255 / inv),
+                        round((b - blue_n[i]) * 255 / inv),
+                        255,
+                    )
+        background.alpha_composite(warped)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    _save_atomic(template, out_path, source_hash)
+    _save_atomic(background, out_path, source_hash)
     return out_path, False
 
 
