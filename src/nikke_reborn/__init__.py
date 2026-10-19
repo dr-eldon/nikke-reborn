@@ -10,7 +10,10 @@ top-right corner (italic, with its own trail). The trails and the
 gradient's bottom lean are tinted with the color of the art behind the
 text each frame, so animated cards track the scene. The full-art
 variants (``full_art``, ``full_art_animated``) are generated without any
-card name. The finished result is written under ``output/``:
+card name. The finished result is written under ``output/``, with the
+SHA-256 of its definition embedded as metadata (a PNG text chunk, an
+MP4 tag); a card whose stored hash matches the current definition is
+skipped instead of re-rendered.
 
 * single-frame cards -> ``output/<set>/<card>/<variant>.png``
 * animated cards     -> ``output/<set>/<card>/<variant>.mp4``
@@ -38,6 +41,8 @@ from __future__ import annotations
 
 import argparse
 import colorsys
+import hashlib
+import json
 import math
 import os
 import shutil
@@ -51,6 +56,7 @@ from pathlib import Path
 from typing import Iterator
 
 from PIL import Image, ImageDraw, ImageFont
+from PIL.PngImagePlugin import PngInfo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CARDS_DIR = REPO_ROOT / "cards"
@@ -60,6 +66,12 @@ DRAFT_DIR = REPO_ROOT / "draft"
 
 VIEWER = "nikke-viewer"
 ENCODER = "ffmpeg"
+PROBER = "ffprobe"
+
+#: Key of the embedded definition hash in the finished cards (a PNG
+#: text chunk, an MP4 tag): a card whose stored hash matches the
+#: current definition is skipped instead of re-rendered.
+SOURCE_HASH_KEY = "nikke-reborn-source"
 
 DEFAULT_FRAMERATE = 60
 
@@ -223,6 +235,44 @@ def generate() -> None:
 def _require_executable(name: str) -> None:
     if shutil.which(name) is None:
         raise GenerationError(f"required executable not found in PATH: {name!r}")
+
+
+def _source_hash(json_path: Path) -> str:
+    """SHA-256 of the card definition file: the input the finished
+    card embeds under :data:`SOURCE_HASH_KEY`."""
+    return hashlib.sha256(json_path.read_bytes()).hexdigest()
+
+
+def _stored_hash(out_path: Path) -> str | None:
+    """The SOURCE_HASH_KEY embedded in a finished card, or None when
+    the file carries no readable tag (older cards, corrupt files)."""
+    if out_path.suffix == ".png":
+        try:
+            with Image.open(out_path) as image:
+                return image.text.get(SOURCE_HASH_KEY)
+        except Exception:
+            return None
+    try:
+        result = subprocess.run(
+            [
+                PROBER,
+                "-v", "error",
+                "-show_entries", "format_tags",
+                "-of", "json",
+                str(out_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout).get("format", {}).get("tags", {}).get(SOURCE_HASH_KEY)
+    except ValueError:
+        return None
 
 
 def _find_card_configs(paths: list[Path] | None = None) -> list[Path]:
@@ -764,6 +814,7 @@ def _encode_mp4(
     threads: int,
     preset: str,
     scale: float,
+    source_hash: str | None = None,
 ) -> None:
     """Encode an RGBA frame stream into an MP4 using ffmpeg."""
     width, height = size
@@ -787,6 +838,15 @@ def _encode_mp4(
         "-preset", preset,
         *FFMPEG_QUALITY_ARGS,
         "-threads", str(max(1, threads)),
+    ]
+    if source_hash is not None:
+        # Arbitrary metadata keys need use_metadata_tags to land in the
+        # container (read back via ffprobe's format tags)
+        command += [
+            "-movflags", "use_metadata_tags",
+            "-metadata", f"{SOURCE_HASH_KEY}={source_hash}",
+        ]
+    command += [
         "-f", "mp4",  # explicit format: the output name may carry a suffix (e.g. .part)
         str(out_path),
     ]
@@ -820,14 +880,22 @@ def _encode_mp4(
         )
 
 
-def _save_atomic(image: Image.Image, out_path: Path) -> Path:
+def _save_atomic(
+    image: Image.Image, out_path: Path, source_hash: str | None = None
+) -> Path:
     """Save *image* to a ``.part`` file and atomically move it into place.
 
     A finished card therefore only ever exists in its complete form.
+    *source_hash* is embedded as the SOURCE_HASH_KEY text chunk so a
+    later run can tell the card is up to date.
     """
     tmp_path = out_path.with_name(out_path.name + ".part")
+    pnginfo = None
+    if source_hash is not None:
+        pnginfo = PngInfo()
+        pnginfo.add_text(SOURCE_HASH_KEY, source_hash)
     try:
-        image.save(tmp_path, format="PNG")
+        image.save(tmp_path, format="PNG", pnginfo=pnginfo)
     except Exception:
         tmp_path.unlink(missing_ok=True)
         raise
@@ -852,6 +920,7 @@ def _finish_card(
     scale: float,
     expected_size: tuple[int, int] | None,
     out_dir: Path,
+    source_hash: str,
 ) -> Path:
     """Composite a render and write the final PNG or MP4 (atomically).
 
@@ -868,7 +937,7 @@ def _finish_card(
         if name or subtitle:
             art = _apply_name(art, _name_layers(art.size, name, subtitle, padding))
         final = art.convert("RGB")
-        return _save_atomic(final, out_dir / f"{json_path.stem}.png")
+        return _save_atomic(final, out_dir / f"{json_path.stem}.png", source_hash)
 
     frame_paths = _frame_paths(artifact)
     first = _open_frame(frame_paths[0])
@@ -916,7 +985,10 @@ def _finish_card(
     out_path = out_dir / f"{json_path.stem}.mp4"
     tmp_path = out_path.with_name(out_path.name + ".part")
     try:
-        _encode_mp4(frames(), size, framerate, tmp_path, ffmpeg_threads, preset, scale)
+        _encode_mp4(
+            frames(), size, framerate, tmp_path, ffmpeg_threads, preset, scale,
+            source_hash,
+        )
     except Exception:
         tmp_path.unlink(missing_ok=True)
         raise
@@ -931,8 +1003,13 @@ def _process_card(
     preset: str = DEFAULT_PRESET,
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
-) -> Path:
-    """Render, composite and encode a single card definition."""
+) -> tuple[Path, bool]:
+    """Render, composite and encode a single card definition.
+
+    Returns ``(out_path, skipped)``; *skipped* is True when the output
+    already exists and the definition hash it embeds matches the current
+    one (nothing was re-rendered).
+    """
     json_path = json_path.resolve()
     card = _load_card(json_path)
     background = Image.open(_background_path(card, json_path)).convert("RGBA")
@@ -964,6 +1041,14 @@ def _process_card(
     expected_size = tuple(viewport) if viewport else None
 
     out_dir = out_base / json_path.parent.relative_to(CARDS_DIR)
+    # A definition without a `time` renders an animation (mp4); one with
+    # a `time` renders a single frame (png)
+    out_path = out_dir / f"{json_path.stem}.{'mp4' if card.get('time') is None else 'png'}"
+    source_hash = _source_hash(json_path)
+    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+        # The definition is unchanged since the card was written: skip
+        # the render
+        return out_path, True
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Each render lives in a throw-away working directory; it is removed
@@ -992,7 +1077,8 @@ def _process_card(
                     scale,
                     expected_size,
                     out_dir,
-                )
+                    source_hash,
+                ), False
             except Exception as exc:
                 if attempt >= RENDER_ATTEMPTS:
                     raise GenerationError(
@@ -1054,6 +1140,7 @@ def _generate(
     """Process the selected cards in a pool of worker processes."""
     _require_executable(VIEWER)
     _require_executable(ENCODER)
+    _require_executable(PROBER)
     card_configs = _find_card_configs(paths)
     total = len(card_configs)
     # Split the cores available to each card between the stages that run
@@ -1080,6 +1167,7 @@ def _generate(
 
     failures: list[tuple[Path, Exception]] = []
     done = 0
+    skipped = 0
     with ProcessPoolExecutor(max_workers=jobs) as pool:
         futures = {
             pool.submit(
@@ -1091,8 +1179,16 @@ def _generate(
             done += 1
             label = futures[future].relative_to(CARDS_DIR)
             try:
-                out_path = future.result()
-                print(f"[{done}/{total}] {label} -> {out_path.relative_to(REPO_ROOT)}", flush=True)
+                out_path, was_skipped = future.result()
+                if was_skipped:
+                    skipped += 1
+                    print(
+                        f"[{done}/{total}] {label} unchanged, "
+                        f"kept {out_path.relative_to(REPO_ROOT)}",
+                        flush=True,
+                    )
+                else:
+                    print(f"[{done}/{total}] {label} -> {out_path.relative_to(REPO_ROOT)}", flush=True)
             except Exception as exc:
                 # Let the other cards finish; failures are reported (and the
                 # run exits non-zero) once everything has had its retries.
@@ -1103,7 +1199,8 @@ def _generate(
             print(f"error: {label}: {exc}", file=sys.stderr)
         sys.exit(1)
     word = "drafts" if out_base == DRAFT_DIR else "final cards"
+    skipped_text = f", {skipped} unchanged" if skipped else ""
     print(
         f"Done. {total} card(s) in {time.monotonic() - start:.1f}s, "
-        f"{word} written to {out_base.relative_to(REPO_ROOT)}/"
+        f"{word} written to {out_base.relative_to(REPO_ROOT)}/{skipped_text}"
     )
