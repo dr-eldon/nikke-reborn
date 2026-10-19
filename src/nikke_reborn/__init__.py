@@ -75,12 +75,20 @@ LOGO_NOMINAL_WIDTH = 200
 
 #: Nominal copyright text size (pixels) at the reference card width.
 COPYRIGHT_NOMINAL_SIZE = 20
+#: Oswald weight for the copyright line (variable axis 200-700; a light
+#: weight reads quieter at this small size)
+COPYRIGHT_WEIGHT = 300
+#: The copyright is stamped at this multiple of its size and downscaled:
+#: at the final size FreeType quantizes glyph advances unevenly (the
+#: word spaces come out different widths), and the LANCZOS downscale
+#: re-smooths them
+COPYRIGHT_SUPERSAMPLE = 4
 
 #: Copyright line rendered at the bottom left of the card.
 COPYRIGHT_TEXT = "©SHIFT UP CORP."
 
-#: Sans-serif face for the copyright line (vendored, SIL Open Font License).
-FONT = IMAGES_DIR / "fonts" / "NotoSans-Regular.ttf"
+#: Oswald face for the copyright line (vendored variable font, SIL OFL).
+FONT = IMAGES_DIR / "fonts" / "Oswald.ttf"
 
 #: Orbitron face for the card name (vendored variable font, SIL OFL).
 FONT_NAME = IMAGES_DIR / "fonts" / "Orbitron.ttf"
@@ -479,16 +487,33 @@ def _with_copyright(
 
     The ink of the text starts ``padding`` pixels from the left edge and
     is vertically centered inside the box of height ``padding`` at the
-    bottom of the card; its size scales with the card width like the logo.
+    bottom of the card; its size scales with the card width like the
+    logo. The text is drawn at COPYRIGHT_SUPERSAMPLE times the final
+    size and downscaled with LANCZOS, so the small letters stay evenly
+    spaced.
     """
     canvas = base.copy()
-    draw = ImageDraw.Draw(canvas)
     font_size = round(COPYRIGHT_NOMINAL_SIZE * base.width / CARD_REFERENCE_WIDTH)
-    font = ImageFont.truetype(str(FONT), font_size)
-    left, top, bottom = _text_ink_offsets(COPYRIGHT_TEXT, font)
-    x = padding - left
-    y = base.height - padding // 2 - round((top + bottom) / 2)
-    draw.text((x, y), COPYRIGHT_TEXT, font=font, fill=color)
+    ss = COPYRIGHT_SUPERSAMPLE
+    big = ImageFont.truetype(str(FONT), font_size * ss)
+    big.set_variation_by_axes([COPYRIGHT_WEIGHT])
+    left, top, bottom = _text_ink_offsets(COPYRIGHT_TEXT, big)
+    region = Image.new(
+        "L", (round(big.getlength(COPYRIGHT_TEXT)) + 1, bottom - top + 1), 0
+    )
+    ImageDraw.Draw(region).text((-left, -top), COPYRIGHT_TEXT, font=big, fill=255)
+    small = region.resize(
+        (round(region.width / ss), round(region.height / ss)), Image.LANCZOS
+    )
+    stamp = Image.new("RGBA", small.size, color)
+    stamp.putalpha(small)
+    canvas.alpha_composite(
+        stamp,
+        (
+            padding,
+            base.height - padding // 2 - round((bottom - top) / (2 * ss)),
+        ),
+    )
     return canvas
 
 
