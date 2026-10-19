@@ -38,7 +38,7 @@ def bundle(name, items=None, expansions=None) -> dict:
 def expansion(set, cards) -> dict:
     return {
         "Name": f"{set} Set",
-        "CardExpansion": f"NIKKE_{set}_Expansion",
+        "CardExpansion": f"NIKKE_{set}",
         "Cards": cards,
         "MenuCategory": "NIKKE",
         "CardbackSprite": "Cardback",
@@ -95,7 +95,7 @@ def pack(set) -> dict:
 
     return {
         "Name": f"{set} Packs",
-        "CardExpansion": f"NIKKE_{set}_Expansion",
+        "CardExpansion": f"NIKKE_{set}",
         "PackType": f"NIKKE_{set}_CardPack",
         "ItemType": f"NIKKE_{set}_CardPack_Item",
         "Material": "CardPack_Material",

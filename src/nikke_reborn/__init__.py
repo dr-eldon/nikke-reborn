@@ -352,9 +352,7 @@ def generate() -> None:
 
                 # Skin variants carry a suffixed id (c010_02); strip the
                 # suffix so they inherit the base character's rarity.
-                character = characters.get(id) or characters.get(
-                    id.split("_", 1)[0]
-                )
+                character = characters.get(id) or characters.get(id.split("_", 1)[0])
                 if character is None:
                     missing_ids.add(id)
                     rarity = "R"
@@ -395,7 +393,7 @@ def bundle() -> None:
             continue
 
         bundle = BUNDLES_DIR / f"NIKKE - {target.name}"
-        bundle.mkdir()
+        bundle.mkdir(parents=True)
 
         plugins = bundle / "BepInEx" / "plugins"
 
@@ -405,10 +403,26 @@ def bundle() -> None:
                 plugins / "Phone - Overhaul" / "App Images" / "NIKKE" / file,
             )
 
-        plugin = plugins / bundle.name / f"NIKKE_{target.name}"
+        prefab = plugins / "NIKKE" / f"{target.name}_prefabloader"
+        plugin = prefab / f"NIKKE_{target.name}"
+        animator = prefab / "VideoCardAnimator"
+
+        if (CARDS_DIR / target.name).is_dir():
+            videos = [
+                file
+                for file in (OUTPUT_DIR / target.name).iterdir()
+                if file.name.endswith(".mp4")
+            ]
+
+            videos_dir = animator / f"NIKKE_{target.name}"
+
+            if videos:
+                videos_dir.mkdir(parents=True)
+
+            for video in videos:
+                copy(video, videos_dir / video.name)
 
         copy(target.with_suffix(".json"), plugin.with_suffix(".json"))
-
         bundler.build(target, plugin.name, plugin, OUTPUT_DIR)
 
 
