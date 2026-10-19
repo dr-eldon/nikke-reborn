@@ -29,7 +29,8 @@ MP4 tag); a result whose stored hash matches the current inputs is
 skipped instead of re-rendered.
 
 * single-frame cards -> ``output/<set>/<card>-<variant>.png``
-* animated cards     -> ``output/<set>/<card>-<variant>.mp4``
+* animated cards     -> ``output/<set>/<card>-<variant>.mp4`` alongside
+                       its first frame, ``output/<set>/<card>-<variant>.png``
 
 (the card's directory is folded into the filename, so a set's cards
 sit flat in ``output/<set>/``)
@@ -983,7 +984,8 @@ def _finish_card(
     out_base: Path,
     source_hash: str,
 ) -> Path:
-    """Composite a render and write the final PNG or MP4 (atomically).
+    """Composite a render and write the final PNG, or the MP4 alongside
+    its first frame as a PNG (all atomically).
 
     Every frame is decoded exactly once, in the streaming pass: a corrupt
     or truncated frame surfaces there and re-triggers the render.
@@ -1008,8 +1010,11 @@ def _finish_card(
     base = _with_logo(base, _scale_logo(logo, size[0]), margin)
     base = _with_copyright(base, padding, copyright_color)
     parts = _name_layers(size, name, subtitle, padding) if name or subtitle else None
+    first_frame: Image.Image | None = None
 
     def frames() -> Iterator[Image.Image]:
+        nonlocal first_frame
+
         def composite(index: int, path: Path) -> Image.Image:
             frame = first if index == 0 else _open_frame(path)
             if frame.size != size:
@@ -1033,12 +1038,17 @@ def _finish_card(
                 futures[i] = pool.submit(composite, i, frame_paths[i])
             for index in range(len(frame_paths)):
                 try:
-                    yield futures[index].result()
+                    frame = futures[index].result()
                 except Exception:
                     for pending in futures[index + 1 :]:
                         if pending is not None:
                             pending.cancel()
                     raise
+                if first_frame is None:
+                    # Keep the first composited frame: it is written
+                    # alongside the animation as its first frame (png).
+                    first_frame = frame
+                yield frame
                 next_index = index + workers
                 if next_index < len(frame_paths):
                     futures[next_index] = pool.submit(composite, next_index, frame_paths[next_index])
@@ -1054,6 +1064,13 @@ def _finish_card(
         tmp_path.unlink(missing_ok=True)
         raise
     tmp_path.replace(out_path)
+    if first_frame is not None:
+        # The animation's first frame, alongside the mp4 with a png
+        # extension (the same composited frame, so it matches the mp4's
+        # opening frame exactly).
+        _save_atomic(
+            first_frame.convert("RGB"), _card_out_path(out_base, json_path, "png"), source_hash
+        )
     return out_path
 
 
@@ -1113,11 +1130,20 @@ def _process_card(
     viewport = card.get("viewport")
     expected_size = tuple(viewport) if viewport else None
 
-    # A definition without a `time` renders an animation (mp4); one with
-    # a `time` renders a single frame (png)
-    out_path = _card_out_path(out_base, json_path, "mp4" if card.get("time") is None else "png")
+    # A definition without a `time` renders an animation (mp4) plus its
+    # first frame (png); one with a `time` renders a single frame (png).
+    animated = card.get("time") is None
+    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
     source_hash = _source_hash(json_path)
-    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+    up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
+    if up_to_date and animated:
+        # The animation's first frame is kept alongside it; a missing or
+        # stale copy forces the card to be re-rendered.
+        first_frame_path = _card_out_path(out_base, json_path, "png")
+        up_to_date = (
+            first_frame_path.is_file() and _stored_hash(first_frame_path) == source_hash
+        )
+    if up_to_date:
         # The definition is unchanged since the card was written: skip
         # the render
         return out_path, True
