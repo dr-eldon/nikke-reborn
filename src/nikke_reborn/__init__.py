@@ -16,8 +16,9 @@ images, built from the templates in ``images/``: the texture
 (``card_pack-texture.png``), whose two pure-blue mask rectangles hold
 the pack's back (left) and front (right) images, and the item
 (``card_pack-item.png``), a perspective view whose single pure-blue mask
-is a slanted quadrilateral that the front image is perspective-warped
-to (corner to corner) and clipped into. The finished results are
+is a slanted quadrilateral that the front image — the white logo
+composited onto it first — is perspective-warped to (corner to corner)
+and clipped into. The finished results are
 written under ``output/``, with
 the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
@@ -232,6 +233,14 @@ PACK_BACK_NAME = "card_pack-back.png"
 PACK_FRONT_NAME = "card_pack-front.png"
 PACK_TEXTURE_NAME = "card_pack-texture.png"
 PACK_ITEM_NAME = "card_pack-item.png"
+
+#: The white logo composited onto the front (the image pasted on the mask)
+#: before the perspective warp: its width as a fraction of the front's
+#: width (centered horizontally) and its top inset as a fraction of the
+#: front's height.
+PACK_ITEM_LOGO = IMAGES_DIR / "logo-white.png"
+PACK_ITEM_LOGO_WIDTH = 0.6
+PACK_ITEM_LOGO_TOP = 0.04
 
 #: The item mask's corners are pulled this many px outward before the
 #: perspective warp: the warped front then over-covers the mask's
@@ -1305,17 +1314,21 @@ def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
 def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     """Composite a pack's front image onto the item template.
 
-    The template's pure-blue mask is a slanted quadrilateral (the item
-    is a slightly rotated 3D view of the pack), so the front is
-    perspective-warped to it — its four corners mapped to the mask's four
-    corners. That is the faithful 3D projection: it shows the whole front
-    (no cropping, unlike a flat rotate-and-scale) and fills the mask
-    exactly. The mask corners are pulled :data:`PACK_ITEM_MARGIN` px
-    outward first so the warp over-covers the mask's anti-aliased edge.
-    The front is given the quad's true coverage as its alpha and
-    composited over the placeholder's background (the grey shadow, with
-    the blue edge un-blended back to grey) so the slanted edge is
-    anti-aliased rather than a hard binary cut. The finished item keeps
+    The white logo is composited onto the front first (:data:`PACK_ITEM_
+    LOGO_WIDTH` the front's width, centered, :data:`PACK_ITEM_LOGO_TOP`
+    the front's height down), so it lands on the pack's front face in
+    perspective along with the front. The template's pure-blue mask is a
+    slanted quadrilateral (the item is a slightly rotated 3D view of the
+    pack), so the front is perspective-warped to it — its four corners
+    mapped to the mask's four corners. That is the faithful 3D projection:
+    it shows the whole front (no cropping, unlike a flat rotate-and-scale)
+    and fills the mask exactly. The mask corners are pulled
+    :data:`PACK_ITEM_MARGIN` px outward first so the warp over-covers the
+    mask's anti-aliased edge. The front is given the quad's true coverage
+    as its alpha and composited over the placeholder's background (the
+    grey shadow, with the blue edge un-blended back to grey) so the
+    slanted edge is anti-aliased rather than a hard binary cut. The
+    finished item keeps
     the template's transparency and is written to
     ``<out>/<pack>/card_pack-item.png`` (atomically, with the SHA-256 of
     the template and the front embedded, like a finished card); returns
@@ -1323,14 +1336,24 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     """
     pack_dir = pack_dir.resolve()
     front_path = pack_dir / PACK_FRONT_NAME
-    source_hash = _pack_hash(PACK_ITEM_TEMPLATE, front_path)
+    source_hash = _pack_hash(PACK_ITEM_TEMPLATE, front_path, PACK_ITEM_LOGO)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(PACK_ITEM_TEMPLATE) as opened:
         template = opened.convert("RGBA")
         with Image.open(front_path) as opened:
-            front = opened.convert("RGB")
+            front = opened.convert("RGBA")
+        # Composite the white logo onto the front (the image pasted on the
+        # mask): 0.6x the front's width, centered horizontally, 0.04x the
+        # front's height down from the top. It is then warped onto the
+        # pack's front face in perspective along with the front.
+        logo = Image.open(PACK_ITEM_LOGO).convert("RGBA")
+        fw, fh = front.size
+        logo_w = round(PACK_ITEM_LOGO_WIDTH * fw)
+        logo_h = round(logo_w * logo.height / logo.width)
+        logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
+        front.alpha_composite(logo, ((fw - logo_w) // 2, round(PACK_ITEM_LOGO_TOP * fh)))
         mask = _pack_item_mask(template)
         corners = _pack_item_corners(mask)
         # Pull each corner outward from the quad's center so the warped
