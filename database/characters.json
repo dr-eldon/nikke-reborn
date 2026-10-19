@@ -1,0 +1,1238 @@
+[
+    {
+        "id": "c102",
+        "name": "Maxwell",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c140",
+        "name": "Sugar",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c210",
+        "name": "Exia",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c191",
+        "name": "Alice",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c090",
+        "name": "Emma",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c160",
+        "name": "Yuni",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c170",
+        "name": "Privaty",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c270",
+        "name": "Blanc",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c271",
+        "name": "Noir",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c142",
+        "name": "Frima",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c082",
+        "name": "Liter",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c220",
+        "name": "Snow White",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c231",
+        "name": "Isabel",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c150",
+        "name": "Julia",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c022",
+        "name": "Signal",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c030",
+        "name": "Poli",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c032",
+        "name": "Miranda",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c070",
+        "name": "Brid",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c071",
+        "name": "Soline",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c072",
+        "name": "Diesel",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c080",
+        "name": "Centi",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c091",
+        "name": "Vesti",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c092",
+        "name": "Eunhwa",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c101",
+        "name": "Drake",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c110",
+        "name": "Crow",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c130",
+        "name": "Mary",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c131",
+        "name": "Pepper",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c141",
+        "name": "Milk",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c171",
+        "name": "Yulha",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c172",
+        "name": "Admi",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c180",
+        "name": "Guillotine",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c181",
+        "name": "Maiden",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c190",
+        "name": "Lucilla",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c200",
+        "name": "Rupee",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c201",
+        "name": "Yan",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c202",
+        "name": "Dolla",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c212",
+        "name": "Novel",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c241",
+        "name": "Epinel",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c242",
+        "name": "Folkwang",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c221",
+        "name": "Rapunzel",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c222",
+        "name": "Scarlet",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c230",
+        "name": "Harran",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c232",
+        "name": "Noah",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c290",
+        "name": "Mana",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c111",
+        "name": "Jackal",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c240",
+        "name": "Rumani",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c040",
+        "name": "D",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c041",
+        "name": "Agent K",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c100",
+        "name": "Laplace",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c282",
+        "name": "Sakura",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c281",
+        "name": "_Moran",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c112",
+        "name": "Viper",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c280",
+        "name": "Rosanna",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c260",
+        "name": "Modernia",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c310",
+        "name": "Aid",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c320",
+        "name": "Bibli",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c321",
+        "name": "Marchana",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c272",
+        "name": "_Rouge",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c311",
+        "name": "Cocoa",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c312",
+        "name": "Soda",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c331",
+        "name": "_Chime",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c361",
+        "name": "Kilo",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c381",
+        "name": "Biscuit",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c400",
+        "name": "Guilty",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c261",
+        "name": "Nihilister",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c340",
+        "name": "Siren",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c342",
+        "name": "Pin",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c401",
+        "name": "Sin",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c371",
+        "name": "Endless",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c233",
+        "name": "Dorothy",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c262",
+        "name": "Liberelli",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c351",
+        "name": "Anchor",
+        "manufacturer": "ELYSION",
+        "rarity": "SR"
+    },
+    {
+        "id": "c010",
+        "name": "Rapi",
+        "manufacturer": "ELYSION",
+        "rarity": "SR"
+    },
+    {
+        "id": "c011",
+        "name": "Neon",
+        "manufacturer": "ELYSION",
+        "rarity": "SR"
+    },
+    {
+        "id": "c020",
+        "name": "Delta",
+        "manufacturer": "ELYSION",
+        "rarity": "SR"
+    },
+    {
+        "id": "c012",
+        "name": "Anis",
+        "manufacturer": "TETRA",
+        "rarity": "SR"
+    },
+    {
+        "id": "c161",
+        "name": "Mihara",
+        "manufacturer": "MISSILIS",
+        "rarity": "SR"
+    },
+    {
+        "id": "c120",
+        "name": "N102",
+        "manufacturer": "MISSILIS",
+        "rarity": "SR"
+    },
+    {
+        "id": "c291",
+        "name": "Ether",
+        "manufacturer": "MISSILIS",
+        "rarity": "SR"
+    },
+    {
+        "id": "c013",
+        "name": "_Marian",
+        "manufacturer": "ELYSION",
+        "rarity": "SR"
+    },
+    {
+        "id": "c060",
+        "name": "Belorta",
+        "manufacturer": "TETRA",
+        "rarity": "SR"
+    },
+    {
+        "id": "c061",
+        "name": "Mica",
+        "manufacturer": "TETRA",
+        "rarity": "SR"
+    },
+    {
+        "id": "c081",
+        "name": "Acre",
+        "manufacturer": "MISSILIS",
+        "rarity": "R"
+    },
+    {
+        "id": "c053",
+        "name": "liqueur",
+        "manufacturer": "TETRA",
+        "rarity": "R"
+    },
+    {
+        "id": "c300",
+        "name": "Soldier EG",
+        "manufacturer": "ELYSION",
+        "rarity": "R"
+    },
+    {
+        "id": "c301",
+        "name": "Soldier FA",
+        "manufacturer": "ELYSION",
+        "rarity": "R"
+    },
+    {
+        "id": "c302",
+        "name": "Product 08",
+        "manufacturer": "MISSILIS",
+        "rarity": "R"
+    },
+    {
+        "id": "c303",
+        "name": "Product 12",
+        "manufacturer": "MISSILIS",
+        "rarity": "R"
+    },
+    {
+        "id": "c304",
+        "name": "iDoll Flower",
+        "manufacturer": "TETRA",
+        "rarity": "R"
+    },
+    {
+        "id": "c305",
+        "name": "iDoll Ocean",
+        "manufacturer": "TETRA",
+        "rarity": "R"
+    },
+    {
+        "id": "c306",
+        "name": "Soldier OW",
+        "manufacturer": "ELYSION",
+        "rarity": "R"
+    },
+    {
+        "id": "c307",
+        "name": "Product 23",
+        "manufacturer": "MISSILIS",
+        "rarity": "R"
+    },
+    {
+        "id": "c308",
+        "name": "iDoll Sun",
+        "manufacturer": "TETRA",
+        "rarity": "R"
+    },
+    {
+        "id": "c352",
+        "name": "Helm",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c432",
+        "name": "Aria",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c430",
+        "name": "Noise",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c431",
+        "name": "Volume",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c193",
+        "name": "Neve",
+        "manufacturer": "TETRA",
+        "rarity": "SR"
+    },
+    {
+        "id": "c203",
+        "name": "Rupee: Winter Shopper",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c121",
+        "name": "Anne: Miracle Fairy",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c402",
+        "name": "Quency",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c802",
+        "name": "Himeno",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR"
+    },
+    {
+        "id": "c801",
+        "name": "Power",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c800",
+        "name": "Makima",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c392",
+        "name": "Rei",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c132",
+        "name": "Mary: Bay Goddess",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c014",
+        "name": "Neon: Blue Ocean",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c380",
+        "name": "Nero",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c350",
+        "name": "Mast",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c015",
+        "name": "Anis: Sparkling Summer",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c353",
+        "name": "Helm: Aquamarine",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c016",
+        "name": "Rapi: Red Hood",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c017",
+        "name": "Anis: Star",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c018",
+        "name": "Neon: Vision Eye",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c023",
+        "name": "Delta: Ninja Thief",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c033",
+        "name": "Quiry",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c043",
+        "name": "D: Killer Wife",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c062",
+        "name": "Mica: Snow Buddy",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c063",
+        "name": "Belorta: Pumpkin Witch",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c073",
+        "name": "Brid: Silent Track",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c074",
+        "name": "Soline: Frost Ticket",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c075",
+        "name": "Diesel: Winter Sweets",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c093",
+        "name": "Emma: Tactical Upgrade",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c094",
+        "name": "Vesti: Tactical Upgrade",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c095",
+        "name": "Eunhwa: Tactical Upgrade",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c103",
+        "name": "Laplace: Ultimate Hero",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c104",
+        "name": "Drake: Great Villain",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c105",
+        "name": "Maxwell: Ordinary Mechanic",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c113",
+        "name": "E.H.",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c143",
+        "name": "Milk: Blooming Bunny",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c162",
+        "name": "Mihara: Bonding Chain",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c182",
+        "name": "Guillotine: Winter Slayer",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c183",
+        "name": "Maiden: Ice Rose",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c192",
+        "name": "Tove",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c194",
+        "name": "Ludmilla: Winter Owner",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c195",
+        "name": "Alice: Wonderland Bunny",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c223",
+        "name": "Nayuta",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c224",
+        "name": "Snow White: Innocent Days",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c225",
+        "name": "Scarlet: Black Shadow",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c226",
+        "name": "Rapunzel: Pure Grace",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c234",
+        "name": "Dorothy: Serendipity",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c283",
+        "name": "Rosanna: Chic Ocean",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c284",
+        "name": "Sakura: Bloom in Summer",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c313",
+        "name": "Privaty: Unkind Maid",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c314",
+        "name": "Soda: Twinkling Bunny",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c315",
+        "name": "Ade: Agent Bunny",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c316",
+        "name": "Velvet",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c322",
+        "name": "Marciana: Marine Study",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c330",
+        "name": "Crown",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c354",
+        "name": "Mast: Romantic Maid",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c355",
+        "name": "Anchor: Innocent Maid",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c382",
+        "name": "Leona",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c390",
+        "name": "Zwei",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c391",
+        "name": "Ein",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c403",
+        "name": "Quency: Escape Queen",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c404",
+        "name": "Guilty: Mighty Bunny",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c405",
+        "name": "Sin: Swift Bunny",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c411",
+        "name": "Flora",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c412",
+        "name": "Trina",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c441",
+        "name": "Avistar",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c450",
+        "name": "Naga",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c451",
+        "name": "Tia",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c470",
+        "name": "Red Hood",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c471",
+        "name": "Snow White: Heavy Arms",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c500",
+        "name": "Elegg",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c501",
+        "name": "Trony",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c502",
+        "name": "Elegg: Boom and Shock",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c511",
+        "name": "Cinderella",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c513",
+        "name": "Little Mermaid",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c514",
+        "name": "Grave",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c515",
+        "name": "Cinderella: Crystal Wave",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c520",
+        "name": "Bready",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c521",
+        "name": "Crust",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c532",
+        "name": "Sora",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c550",
+        "name": "Bay",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c551",
+        "name": "Clay",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c570",
+        "name": "Ark Ranger Black",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c580",
+        "name": "Phantom",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c581",
+        "name": "Arcana",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c582",
+        "name": "Label",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c583",
+        "name": "Arcana: Fortune Mate",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c600",
+        "name": "Mint",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c601",
+        "name": "Prika",
+        "manufacturer": "TETRA",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c620",
+        "name": "Snow Crane",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c810",
+        "name": "2B",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c811",
+        "name": "A2",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c820",
+        "name": "Rem",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c821",
+        "name": "Emilia",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c830",
+        "name": "Asuka",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c831",
+        "name": "Rei Ayanami",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c832",
+        "name": "Mari",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c834",
+        "name": "Rei Ayanami (Tentative Name)",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c835",
+        "name": "Asuka: WILLE",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c840",
+        "name": "Ada",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c841",
+        "name": "Jill",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c842",
+        "name": "Claire",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR"
+    },
+    {
+        "id": "c850",
+        "name": "EVE",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c851",
+        "name": "Raven",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c852",
+        "name": "Lily",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR"
+    },
+    {
+        "id": "c860",
+        "name": "Chisato",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c861",
+        "name": "Takina",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR"
+    },
+    {
+        "id": "c862",
+        "name": "Kurumi",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR"
+    },
+    {
+        "id": "c872",
+        "name": "Aigis",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR"
+    },
+    {
+        "id": "c901",
+        "name": "Syuen",
+        "manufacturer": "MISSILIS",
+        "rarity": "R"
+    },
+    {
+        "id": "c907",
+        "name": "Shifty",
+        "manufacturer": "ELYSION",
+        "rarity": "R"
+    },
+    {
+        "id": "c993",
+        "name": "Mecha Shifty",
+        "manufacturer": "ELYSION",
+        "rarity": "R"
+    }
+]
