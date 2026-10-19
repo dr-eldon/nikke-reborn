@@ -64,7 +64,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, 
 from pathlib import Path
 from typing import Iterator
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 from PIL.PngImagePlugin import PngInfo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -1130,6 +1130,25 @@ def _pack_mask(template: Image.Image) -> Image.Image:
     return ImageChops.darker(ImageChops.darker(r, g), b)
 
 
+def _pack_item_mask(template: Image.Image, threshold: int = 15) -> Image.Image:
+    """The item template's blue region including its anti-aliased fringe.
+
+    The pure-blue placeholder sits on an opaque grey shadow and carries a
+    1px near-blue edge (anti-aliasing) that is *not* pure blue, so a plain
+    :func:`_pack_mask` would leave that rim behind. This mask is the
+    blue-dominant pixels (blue channel above the brighter of red/green by
+    *threshold*) restricted to a 1px dilation of the core, so it spans the
+    core plus the fringe while keeping out the grey shadow and any
+    isolated bluish specks elsewhere."""
+    r = template.getchannel("R")
+    g = template.getchannel("G")
+    b = template.getchannel("B")
+    ring = _pack_mask(template).filter(ImageFilter.MaxFilter(3))
+    excess = ImageChops.difference(b, ImageChops.lighter(r, g))
+    bluish = excess.point(lambda v: 255 if v >= threshold else 0)
+    return ImageChops.darker(bluish, ring)
+
+
 def _pack_mask_rects(mask: Image.Image) -> list[tuple[int, int, int, int]]:
     """Bounding boxes of the mask's solid rectangles, left to right.
 
@@ -1309,7 +1328,7 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         template = opened.convert("RGBA")
         with Image.open(front_path) as opened:
             front = opened.convert("RGB")
-        mask = _pack_mask(template)
+        mask = _pack_item_mask(template)
         corners = _pack_item_corners(mask)
         # Pull each corner outward from the quad's center so the warped
         # front over-covers the mask's anti-aliased edge.
