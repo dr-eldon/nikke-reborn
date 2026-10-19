@@ -12,8 +12,8 @@ text each frame, so animated cards track the scene. The full-art
 variants (``full_art``, ``full_art_animated``) are generated without any
 card name. Packs (``cards/`` subdirectories carrying ``card_pack-back.
 png`` and ``card_pack-front.png``) additionally get their two artwork
-images, built from the templates in ``images/``: the texture
-(``card_pack-texture.png``), whose two pure-blue mask rectangles hold
+images, built from the templates in ``images/``: the material
+(``card_pack-material.png``), whose two pure-blue mask rectangles hold
 the pack's back (left) and front (right) images, and the item
 (``card_pack-item.png``), a perspective view whose single pure-blue mask
 is a slanted quadrilateral that the front image is perspective-warped
@@ -22,7 +22,7 @@ carrying a thin dark gradient, biased toward the bottom-right
 corner. The white logo is
 stamped on
 the pack's front in both, at the same placement: unslanted on the
-texture's front rectangle, slanted over the item. The finished results are
+material's front rectangle, slanted over the item. The finished results are
 written under ``output/``, with
 the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
@@ -229,20 +229,20 @@ LOGO_PATHS = {
 
 #: Pack artwork: ``images/`` holds a template per finished image written
 #: to ``<out>/<pack>/`` from a pack's images
-#: (``cards/<pack>/card_pack-{back,front}.png``). The texture template
+#: (``cards/<pack>/card_pack-{back,front}.png``). The material template
 #: carries two pure-blue mask rectangles, the left one holding the back
 #: image and the right one the front; the item template is a perspective
 #: view of the pack whose single pure-blue mask is a slanted
 #: quadrilateral that the front image is scaled, rotated and clipped to.
-PACK_TEMPLATE = IMAGES_DIR / "card_pack-texture.png"
+PACK_TEMPLATE = IMAGES_DIR / "card_pack-material.png"
 PACK_ITEM_TEMPLATE = IMAGES_DIR / "card_pack-item.png"
 PACK_BACK_NAME = "card_pack-back.png"
 PACK_FRONT_NAME = "card_pack-front.png"
-PACK_TEXTURE_NAME = "card_pack-texture.png"
+PACK_MATERIAL_NAME = "card_pack-material.png"
 PACK_ITEM_NAME = "card_pack-item.png"
 
 #: The white logo stamped on the pack's front, at the same placement in
-#: the texture and the item: its width as a fraction of the front's
+#: the material and the item: its width as a fraction of the front's
 #: width (centered horizontally) and its top inset as a fraction of the
 #: front's height.
 PACK_LOGO = IMAGES_DIR / "logo-white.png"
@@ -1217,7 +1217,7 @@ def _pack_mask_rects(mask: Image.Image) -> list[tuple[int, int, int, int]]:
 
 def _find_pack_dirs() -> list[Path]:
     """``cards/`` subdirectories carrying both pack images (the pack
-    texture's inputs)."""
+    material's inputs)."""
     return sorted(
         pack_dir
         for pack_dir in CARDS_DIR.iterdir()
@@ -1306,16 +1306,16 @@ def _pack_item_band(
     return h11, h12, h13, h21, h22, h23, h31, h32, 1.0
 
 
-def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
-    """Composite a pack's images onto the texture template.
+def _process_pack_material(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
+    """Composite a pack's images onto the material template.
 
     The template's pure-blue mask rectangles mark the paste regions: the
     left one holds the pack's back image, the right one its front, and
-    the white logo is composited onto the front unslanted (the texture
+    the white logo is composited onto the front unslanted (the material
     is the flat view of the pack) at the item's placement:
     :data:`PACK_LOGO_WIDTH` the front's width, centered,
-    :data:`PACK_LOGO_TOP` the front's height down. The finished texture
-    is written to ``<out>/<pack>/card_pack-texture.png`` (atomically,
+    :data:`PACK_LOGO_TOP` the front's height down. The finished material
+    is written to ``<out>/<pack>/card_pack-material.png`` (atomically,
     with the SHA-256 of the template, both images and the logo
     embedded, like a finished card); returns ``(out_path, skipped)``,
     where *skipped* is True when the output already exists and its
@@ -1325,7 +1325,7 @@ def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     back_path = pack_dir / PACK_BACK_NAME
     front_path = pack_dir / PACK_FRONT_NAME
     source_hash = _pack_hash(PACK_TEMPLATE, back_path, front_path, PACK_LOGO)
-    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_TEXTURE_NAME
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(PACK_TEMPLATE) as opened:
@@ -1333,7 +1333,7 @@ def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         rects = _pack_mask_rects(_pack_mask(template))
         if len(rects) != 2:
             raise GenerationError(
-                f"pack texture template {PACK_TEMPLATE.name} carries "
+                f"pack material template {PACK_TEMPLATE.name} carries "
                 f"{len(rects)} pure-blue mask rectangle(s), expected 2 (back, front)"
             )
         for path, rect in ((back_path, rects[0]), (front_path, rects[1])):
@@ -1344,7 +1344,7 @@ def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
                 image = image.resize(target, Image.Resampling.LANCZOS)
             template.alpha_composite(image, (rect[0], rect[1]))
         # The white logo on the front, at the item's placement
-        # (unslanted, since the texture is the flat view):
+        # (unslanted, since the material is the flat view):
         # PACK_LOGO_WIDTH the front's width, centered, PACK_LOGO_TOP the
         # front's height down.
         rx0, ry0, rx1, ry1 = rects[1]
@@ -1406,7 +1406,7 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     """Composite a pack's front image onto the item template.
 
     The white logo (:data:`PACK_LOGO_WIDTH` the front's width, centered,
-    :data:`PACK_LOGO_TOP` the front's height down — the texture's
+    :data:`PACK_LOGO_TOP` the front's height down — the material's
     placement) is slanted on its own at 2x and composited over the
     front, which is warped at 1x — so only the logo's edge is
     anti-aliased by supersampling while the front's detail is left
@@ -1578,7 +1578,7 @@ def _generate(
     _require_executable(PROBER)
     card_configs = _find_card_configs(paths)
     # An explicit selection renders those cards only; a full run also
-    # produces each pack's artwork images (texture and item).
+    # produces each pack's artwork images (material and item).
     pack_dirs: list[Path] = [] if paths else _find_pack_dirs()
     total = len(card_configs) + 2 * len(pack_dirs)
     # Split the cores available to each card between the stages that run
@@ -1618,8 +1618,8 @@ def _generate(
         }
         futures.update(
             {
-                pool.submit(_process_pack_texture, pack_dir, out_base):
-                    pack_dir.relative_to(CARDS_DIR) / PACK_TEXTURE_NAME
+                pool.submit(_process_pack_material, pack_dir, out_base):
+                    pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
                 for pack_dir in pack_dirs
             }
         )
