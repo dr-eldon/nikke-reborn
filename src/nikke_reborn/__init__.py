@@ -72,6 +72,7 @@ import time
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
+from nikke_reborn import bundler
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 from PIL.PngImagePlugin import PngInfo
@@ -81,6 +82,7 @@ CARDS_DIR = REPO_ROOT / "cards"
 IMAGES_DIR = REPO_ROOT / "images"
 OUTPUT_DIR = REPO_ROOT / "output"
 DRAFT_DIR = REPO_ROOT / "draft"
+BUNDLES_DIR = REPO_ROOT / "bundles"
 
 VIEWER = "nikke-viewer"
 ENCODER = "ffmpeg"
@@ -292,6 +294,13 @@ def generate() -> None:
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
+
+def bundle() -> None:
+    shutil.rmtree(BUNDLES_DIR, ignore_errors=True)
+
+    for bundle in sorted(OUTPUT_DIR.iterdir()):
+        if bundle.is_dir():
+            bundler.build(bundle, bundle.name, BUNDLES_DIR / bundle.name, OUTPUT_DIR)
 
 
 def _require_executable(name: str) -> None:

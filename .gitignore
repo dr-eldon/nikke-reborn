@@ -12,5 +12,6 @@ dist/
 
 # Generated card output
 output/
+bundles/
 draft/
 effects/

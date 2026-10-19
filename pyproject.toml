@@ -9,10 +9,12 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "pillow>=13.0.0",
+    "unitypy>=1.25.3",
 ]
 
 [project.scripts]
 generate = "nikke_reborn:generate"
+bundle = "nikke_reborn:bundle"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
