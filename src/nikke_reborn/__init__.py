@@ -2,10 +2,15 @@
 
 Walks :mod:`cards` for card definitions (``*.json``), renders each one with
 the ``nikke-viewer`` executable, composites every rendered frame on top of
-the card's ``background``, overlays the card name at the top left (with
-its subtitle beneath, in italics), the
-matching logo from ``images/`` at the bottom right and the copyright line
-at the bottom left, then writes the finished result under ``output/``:
+the card's ``background``, stamps the matching logo from ``images/`` at
+the bottom right and the copyright line at the bottom left, and overlays
+the card name on top of the art, per frame: the title at the top left
+(metallic vertical gradient, diagonal trail) and the subtitle in the
+top-right corner (italic, with its own trail). The trails and the
+gradient's bottom lean are tinted with the color of the art behind the
+text each frame, so animated cards track the scene. The full-art
+variants (``full_art``, ``full_art_animated``) are generated without any
+card name. The finished result is written under ``output/``:
 
 * single-frame cards -> ``output/<set>/<card>/<variant>.png``
 * animated cards     -> ``output/<set>/<card>/<variant>.mp4``
@@ -32,8 +37,11 @@ definition paths may be passed on the command line to generate only those.
 from __future__ import annotations
 
 import argparse
+import colorsys
+import math
 import os
 import shutil
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -54,6 +62,10 @@ VIEWER = "nikke-viewer"
 ENCODER = "ffmpeg"
 
 DEFAULT_FRAMERATE = 60
+
+#: Variant stems that never carry the card name: the full-art
+#: presentations are generated without title and subtitle.
+NO_NAME_STEMS = frozenset({"full_art", "full_art_animated"})
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -137,6 +149,29 @@ SUBTITLE_SUPERSAMPLE = 4
 
 #: Base color of the name text (title and subtitle).
 NAME_TEXT_COLOR = (255, 255, 255)
+
+# --- name stack effects -------------------------------------------------
+# The name is stamped over the art, per frame, so its tints track the
+# scene: the trails and the metallic gradient's bottom lean take the
+# hue of the art behind the text, at a fixed dark luminance.
+NAME_TRAIL_OFFSET = 5     # px: the title's diagonal (down-right) trail
+SUBTITLE_TRAIL_OFFSET = 3 # px: the subtitle's own (shorter) trail
+TRAIL_ALPHA = 0.75
+TRAIL_TARGET_LUMA = 0.12  # the trail reads as a dark shadow tint
+TRAIL_FALLBACK = (0, 0, 0)  # trail color when the sample has no art
+NAME_SAMPLE_W = 6         # context sample box, in padding units
+NAME_SAMPLE_H = 5
+NAME_SAMPLE_PX = 24       # sample resolution
+CONTEXT_FALLBACK = (170, 235, 255)  # hue/sat source for (near)-gray art
+CONTEXT_MIN_QUALIFY = 0.25  # min fraction of sample pixels that are colored
+CONTEXT_SAT_BOOST = 1.4  # the sampled saturation is boosted...
+CONTEXT_SAT_MIN = 0.45  # ...and clamped, so the tint stays visible...
+CONTEXT_SAT_MAX = 0.90  # ...without washing out
+METAL_TRAIL_MIX = 0.25    # metallic title: how far the ink's bottom leans
+                          # into the per-frame trail tint
+METAL_SHEEN_Y = 0.42      # sheen band center (fraction of the ink height)
+METAL_SHEEN_DELTA = 20    # band brightness (RGB units)
+METAL_SHEEN_SIGMA = 0.07  # band width (fraction of the ink height)
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
@@ -406,77 +441,272 @@ def _italicize(image: Image.Image, anchor_y: float = 0.0) -> Image.Image:
     )
 
 
-def _with_name(
-    base: Image.Image, padding: int, name: str, subtitle: str = ""
-) -> Image.Image:
-    """Return a copy of *base* with the card *name* at the top left.
+def _name_inset(padding: int) -> int:
+    """The title's inset from the card's edges: 1.5x the padding, like
+    the logo (LOGO_PADDING_FACTOR). The corner subtitle keeps the
+    plain padding."""
+    return round(LOGO_PADDING_FACTOR * padding)
 
-    The title ink's top-left corner sits exactly at ``(padding,
-    padding)``, left-aligned; the font size is ``padding *
-    NAME_SIZE_FACTOR``, scaled down with the name's length (full size up
-    to ``NAME_REFERENCE_LENGTH`` characters, truncated, never below
-    ``NAME_MIN_SIZE_FACTOR`` of that). A non-empty *subtitle* sits
-    beneath, left-aligned, in italics, at ``_subtitle_font_size`` size.
-    The text is NAME_TEXT_COLOR.
+
+def _set_luma(hue: float, sat: float, target: float) -> tuple[int, int, int]:
+    """(hue, sat) -> an rgb with perceived luminance of ~*target* (0..1).
+
+    At a fixed hue, luminance is linear in both value and saturation,
+    so the target is hit either by scaling the value (when the hue at
+    this saturation is bright enough at full value) or by reducing the
+    saturation at full value (for intrinsically dark hues like deep
+    blues and reds).
     """
-    canvas = base.copy()
-    draw = ImageDraw.Draw(canvas)
+    r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    luma_c = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    mix = (1.0 - sat) + sat * luma_c  # luminance at full value
+    if mix >= target:
+        value = target / mix
+    else:
+        sat = (1.0 - target) / (1.0 - luma_c)
+        value = 1.0
+    r, g, b = colorsys.hsv_to_rgb(hue, sat, value)
+    return (round(r * 255), round(g * 255), round(b * 255))
+
+
+def _sample_context(
+    region: Image.Image,
+) -> tuple[float, float, float | None]:
+    """(hue, sat, art luminance) sampled from *region*.
+
+    Median hue/saturation of the colored pixels (medians dodge hue
+    wrap-around and single-pixel outliers); the art luminance is the
+    mean over all pixels. (Near)-gray art returns the CONTEXT_FALLBACK
+    hue/sat, so muted art still gets a visible tint; a fully
+    transparent region has no art luminance (None).
+    """
+    small = region.resize((NAME_SAMPLE_PX, NAME_SAMPLE_PX)).convert("RGB")
+    data = small.tobytes()
+    hues: list[float] = []
+    sats: list[float] = []
+    luma_sum, count = 0.0, 0
+    for i in range(0, len(data), 3):
+        r, g, b = data[i] / 255, data[i + 1] / 255, data[i + 2] / 255
+        luma_sum += 0.2126 * r + 0.7152 * g + 0.0722 * b
+        count += 1
+        h, s, v = colorsys.rgb_to_hsv(r, g, b)
+        if s > 0.15 and v > 0.15:
+            hues.append(h)
+            sats.append(s)
+    if count == 0:
+        h, s, _ = colorsys.rgb_to_hsv(*(c / 255 for c in CONTEXT_FALLBACK))
+        return h, s, None
+    if len(hues) < NAME_SAMPLE_PX * NAME_SAMPLE_PX * CONTEXT_MIN_QUALIFY:
+        # near-gray art: the fallback hue/sat
+        h, s, _ = colorsys.rgb_to_hsv(*(c / 255 for c in CONTEXT_FALLBACK))
+        return h, s, luma_sum / count
+    sat = min(
+        CONTEXT_SAT_MAX,
+        max(CONTEXT_SAT_MIN, statistics.median(sats) * CONTEXT_SAT_BOOST),
+    )
+    return statistics.median(hues), sat, luma_sum / count
+
+
+def _trail_color(region: Image.Image) -> tuple[int, int, int]:
+    """The trail tint for a frame: the art's own hue at a fixed dark
+    luminance (a tinted shadow, not a glow). Black when the region
+    has no readable art."""
+    hue, sat, luma = _sample_context(region)
+    if luma is None:
+        return TRAIL_FALLBACK
+    return _set_luma(hue, sat, TRAIL_TARGET_LUMA)
+
+
+def _tint_layer(mask: Image.Image, color: tuple[int, int, int],
+                factor: float) -> Image.Image:
+    """Straight-alpha RGBA layer: *color* at alpha mask*factor."""
+    alpha = mask.point(lambda v: int(v * factor))
+    return Image.merge(
+        "RGBA",
+        (
+            Image.new("L", mask.size, color[0]),
+            Image.new("L", mask.size, color[1]),
+            Image.new("L", mask.size, color[2]),
+            alpha,
+        ),
+    )
+
+
+def _shift_mask(mask: Image.Image, delta: tuple[int, int]) -> Image.Image:
+    """*mask* shifted by *delta* (a negative delta drags the ink
+    down-right)."""
+    dx, dy = delta
+    if dx == 0 and dy == 0:
+        return mask
+    return mask.transform(mask.size, Image.AFFINE, (1, 0, -dx, 0, 1, -dy))
+
+
+class _NameLayers:
+    """The static parts of the name stack (one per card)."""
+
+    def __init__(
+        self,
+        metal_box: tuple[int, int, int, int],
+        metal_alpha: Image.Image,
+        trail: Image.Image | None,
+        sub_trail: Image.Image | None,
+        sub_top: Image.Image | None,
+        sample_box: tuple[int, int, int, int],
+        corner_sample_box: tuple[int, int, int, int],
+    ) -> None:
+        self.metal_box = metal_box
+        self.metal_alpha = metal_alpha
+        self.trail = trail
+        self.sub_trail = sub_trail
+        self.sub_top = sub_top
+        self.sample_box = sample_box
+        self.corner_sample_box = corner_sample_box
+
+
+def _name_layers(
+    size: tuple[int, int], name: str, subtitle: str, padding: int
+) -> _NameLayers:
+    """Build the static name-stack layers for a card of *size*.
+
+    The RGB tints are per-frame (the trail tint and the metallic
+    gradient's bottom lean track the scene), so this stores the masks
+    and geometry; :func:`_apply_name` does the per-frame compositing.
+    """
     font_size = _name_font_size(name, round(padding * NAME_SIZE_FACTOR))
     font = ImageFont.truetype(str(FONT_NAME), font_size)
     font.set_variation_by_axes([NAME_WEIGHT])
     left, top, bottom = _text_ink_offsets(name, font)
-    draw.text(
-        (padding - left, padding - top),
-        name,
-        font=font,
-        fill=NAME_TEXT_COLOR + (255,),
+    inset = _name_inset(padding)
+
+    title_mask = Image.new("L", size, 0)
+    ImageDraw.Draw(title_mask).text(
+        (inset - left, inset - top), name, font=font, fill=255
     )
+    sub_mask = None
+    sub_trail = None
+    sub_top = None
     if subtitle:
         sub_size = _subtitle_font_size(subtitle, padding)
         # Sheared into an oblique at SUBTITLE_SUPERSAMPLE times the
         # final size and downscaled (see SUBTITLE_SUPERSAMPLE), so the
-        # slanted edges stay anti-aliased without softening. The shear
-        # is pinned at the ink's top row, so the subtitle's top-left
-        # corner lands exactly at `padding`, left-aligned with the
-        # title.
+        # slanted edges stay anti-aliased without softening.
         ss = SUBTITLE_SUPERSAMPLE
         sub_font = ImageFont.truetype(str(FONT_NAME), sub_size * ss)
         sub_font.set_variation_by_axes([NAME_WEIGHT])
-        sub_left, sub_top, sub_bottom = _text_ink_offsets(subtitle, sub_font)
-        sub_ink_top = padding + (bottom - top) + round(sub_size * SUBTITLE_GAP_FACTOR)
-        # Region-sized mask: ink plus a left margin for the shear drift
-        # (rows below the top row shift left). The margin is rounded up
-        # to a whole supersample block so the downscale stays exact.
-        ink_h = sub_bottom - sub_top
+        sub_left, sub_top_off, sub_bottom = _text_ink_offsets(subtitle, sub_font)
+        ink_h = sub_bottom - sub_top_off
         drift = round(SUBTITLE_SHEAR * ink_h)
         m4 = ((drift + ss - 1) // ss) * ss
         region = Image.new(
             "L", (round(sub_font.getlength(subtitle)) + m4 + 1, ink_h + 1), 0
         )
         ImageDraw.Draw(region).text(
-            (m4 - sub_left, -sub_top),
-            subtitle,
-            font=sub_font,
-            fill=255,
+            (m4 - sub_left, -sub_top_off), subtitle, font=sub_font, fill=255
         )
-        # Downscale by an exact factor: pad the region to a multiple of
-        # `ss` (zeros on the right/bottom only).
         w4 = (region.width + ss - 1) // ss * ss
         h4 = (region.height + ss - 1) // ss * ss
+        padded = region
         if (region.width, region.height) != (w4, h4):
             padded = Image.new("L", (w4, h4), 0)
             padded.paste(region, (0, 0))
-        else:
-            padded = region
         small = _italicize(padded, 0).resize((w4 // ss, h4 // ss), Image.BILINEAR)
-        white = (
-            NAME_TEXT_COLOR + (255,) if canvas.mode == "RGBA" else NAME_TEXT_COLOR
+        # Corner variant: the text sits in the top-right corner,
+        # right-aligned and inset by the card's own padding (the
+        # title's 1.5x inset stays title-only).
+        bbox = small.getbbox()
+        px, py = size[0] - padding - bbox[2], padding - bbox[1]
+        sub_mask = Image.new("L", size, 0)
+        sub_mask.paste(255, (px, py, px + small.width, py + small.height), small)
+        # The subtitle's own, shorter trail (same diagonal union as
+        # the title's).
+        sub_trail = Image.new("L", size, 0)
+        for t in range(1, SUBTITLE_TRAIL_OFFSET + 1):
+            sub_trail.paste(
+                255, (0, 0, size[0], size[1]), _shift_mask(sub_mask, (t, t))
+            )
+        sub_top = _tint_layer(sub_mask, NAME_TEXT_COLOR, 1.0)
+
+    # Title trail: extruded depth — the union of the text shifted one
+    # step at a time along the diagonal, so every trail pixel touches
+    # glyph ink (reads as 3D depth off the edges, not a detached
+    # projection).
+    trail = Image.new("L", size, 0)
+    for t in range(1, NAME_TRAIL_OFFSET + 1):
+        trail.paste(255, (0, 0, size[0], size[1]), _shift_mask(title_mask, (t, t)))
+
+    # Title core: a vertical metal gradient whose bottom leans into
+    # the per-frame trail tint — the RGB is built per frame in
+    # _apply_name; only the geometry and the alpha are static.
+    metal_box = title_mask.getbbox()
+    metal_alpha = title_mask
+
+    # Sample the art behind the name: the corner boxes the text sits
+    # inside (top-left for the title, top-right for the corner
+    # subtitle).
+    box = (
+        0,
+        0,
+        min(size[0], round(padding * NAME_SAMPLE_W)),
+        min(size[1], round(padding * NAME_SAMPLE_H)),
+    )
+    corner_box = (
+        max(0, size[0] - round(padding * NAME_SAMPLE_W)),
+        0,
+        size[0],
+        min(size[1], round(padding * NAME_SAMPLE_H)),
+    )
+    return _NameLayers(
+        metal_box, metal_alpha, trail, sub_trail, sub_top, box, corner_box
+    )
+
+
+def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
+    """Stamp the name stack onto *art* (the frame composited over the
+    base) and return the result.
+
+    Per frame: the trail tint is sampled from the art behind the
+    title, the corner subtitle's from the art behind it, and the
+    metallic gradient's bottom leans into the title's tint — so the
+    name tracks the scene of animated cards.
+    """
+    canvas = art
+    trail_color = _trail_color(art.crop(parts.sample_box))
+    if parts.trail is not None:
+        canvas.alpha_composite(_tint_layer(parts.trail, trail_color, TRAIL_ALPHA))
+    if parts.sub_trail is not None:
+        corner_color = _trail_color(art.crop(parts.corner_sample_box))
+        canvas.alpha_composite(_tint_layer(parts.sub_trail, corner_color, TRAIL_ALPHA))
+
+    # Title core: a vertical metal gradient — the text color at the
+    # ink's top leaning into this frame's trail tint at the bottom
+    # (METAL_TRAIL_MIX), with the bright sheen band.
+    x0, y0, x1, y1 = parts.metal_box
+    bottom = tuple(
+        round(NAME_TEXT_COLOR[i] + METAL_TRAIL_MIX * (trail_color[i] - NAME_TEXT_COLOR[i]))
+        for i in range(3)
+    )
+    h = y1 - y0 + 1
+    col = Image.new("RGB", (1, h))
+    for y in range(h):
+        t = y / max(1, h - 1)
+        sheen = METAL_SHEEN_DELTA * math.exp(
+            -((t - METAL_SHEEN_Y) ** 2) / (2 * METAL_SHEEN_SIGMA ** 2)
         )
-        canvas.paste(
-            Image.new(canvas.mode, small.size, white),
-            (padding - m4 // ss, sub_ink_top),
-            small,
+        col.putpixel(
+            (0, y),
+            tuple(
+                min(255, round(NAME_TEXT_COLOR[i] + (bottom[i] - NAME_TEXT_COLOR[i]) * t + sheen))
+                for i in range(3)
+            ),
         )
+    grad = col.resize((x1 - x0 + 1, h), Image.NEAREST)
+    metal = Image.new("RGB", canvas.size, bottom)
+    metal.paste(grad, (x0, y0))
+    layer = metal.convert("RGBA")
+    layer.putalpha(parts.metal_alpha)
+    canvas.alpha_composite(layer)
+    if parts.sub_top is not None:
+        canvas.alpha_composite(parts.sub_top)
     return canvas
 
 
@@ -633,9 +863,11 @@ def _finish_card(
         _check_frame_size(frame, artifact.name, expected_size)
         base = _fit_background(background, frame.size)
         base = _with_logo(base, _scale_logo(logo, frame.width), margin)
-        base = _with_name(base, padding, name, subtitle)
         base = _with_copyright(base, padding, copyright_color)
-        final = _composite_frame(frame, base).convert("RGB")
+        art = _composite_frame(frame, base)
+        if name or subtitle:
+            art = _apply_name(art, _name_layers(art.size, name, subtitle, padding))
+        final = art.convert("RGB")
         return _save_atomic(final, out_dir / f"{json_path.stem}.png")
 
     frame_paths = _frame_paths(artifact)
@@ -644,8 +876,8 @@ def _finish_card(
     size = first.size
     base = _fit_background(background, size)
     base = _with_logo(base, _scale_logo(logo, size[0]), margin)
-    base = _with_name(base, padding, name, subtitle)
     base = _with_copyright(base, padding, copyright_color)
+    parts = _name_layers(size, name, subtitle, padding) if name or subtitle else None
 
     def frames() -> Iterator[Image.Image]:
         def composite(index: int, path: Path) -> Image.Image:
@@ -655,7 +887,8 @@ def _finish_card(
                     f"frame size {frame.size[0]}x{frame.size[1]} does not match "
                     f"the first frame's {size[0]}x{size[1]}"
                 )
-            return _composite_frame(frame, base)
+            art = _composite_frame(frame, base)
+            return _apply_name(art, parts) if parts is not None else art
 
         # Frames are independent of each other, so they are composited out
         # of order in a thread pool (Pillow releases the GIL while
@@ -712,10 +945,14 @@ def _process_card(
         raise GenerationError(f"font not found: {FONT}")
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
-    if "title" not in card:
-        raise GenerationError(f"{json_path.name}: missing 'title'")
-    name = str(card["title"])
-    subtitle = str(card.get("subtitle", ""))
+    if json_path.stem in NO_NAME_STEMS:
+        # Full-art presentations never carry the card name
+        name, subtitle = "", ""
+    else:
+        if "title" not in card:
+            raise GenerationError(f"{json_path.name}: missing 'title'")
+        name = str(card["title"])
+        subtitle = str(card.get("subtitle", ""))
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
