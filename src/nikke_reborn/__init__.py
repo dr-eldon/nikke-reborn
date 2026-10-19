@@ -1314,10 +1314,12 @@ def _process_pack_texture(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
 def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     """Composite a pack's front image onto the item template.
 
-    The white logo is composited onto the front first (:data:`PACK_ITEM_
-    LOGO_WIDTH` the front's width, centered, :data:`PACK_ITEM_LOGO_TOP`
-    the front's height down), so it lands on the pack's front face in
-    perspective along with the front. The template's pure-blue mask is a
+    The white logo (:data:`PACK_ITEM_LOGO_WIDTH` the front's width,
+    centered, :data:`PACK_ITEM_LOGO_TOP` the front's height down) is
+    slanted on its own at 2x and composited over the front, which is
+    warped at 1x — so only the logo's edge is anti-aliased by
+    supersampling while the front's detail is left untouched. The
+    template's pure-blue mask is a
     slanted quadrilateral (the item is a slightly rotated 3D view of the
     pack), so the front is perspective-warped to it — its four corners
     mapped to the mask's four corners. That is the faithful 3D projection:
@@ -1344,16 +1346,17 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         template = opened.convert("RGBA")
         with Image.open(front_path) as opened:
             front = opened.convert("RGBA")
-        # Composite the white logo onto the front (the image pasted on the
-        # mask): 0.6x the front's width, centered horizontally, 0.04x the
-        # front's height down from the top. It is then warped onto the
-        # pack's front face in perspective along with the front.
+        # The logo is NOT composited onto the front before warping: the
+        # front's own art is warped once at 1x (never supersampled), and
+        # the logo is slanted on its own and composited on top. That way
+        # only the logo's edge gets the supersampling anti-aliasing while
+        # the front's detail is left untouched.
         logo = Image.open(PACK_ITEM_LOGO).convert("RGBA")
         fw, fh = front.size
         logo_w = round(PACK_ITEM_LOGO_WIDTH * fw)
         logo_h = round(logo_w * logo.height / logo.width)
         logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-        front.alpha_composite(logo, ((fw - logo_w) // 2, round(PACK_ITEM_LOGO_TOP * fh)))
+        logo_pos = ((fw - logo_w) // 2, round(PACK_ITEM_LOGO_TOP * fh))
         mask = _pack_item_mask(template)
         corners = _pack_item_corners(mask)
         # Pull each corner outward from the quad's center so the warped
@@ -1366,10 +1369,25 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
             expanded.append(
                 (x + PACK_ITEM_MARGIN * (x - cx) / dist, y + PACK_ITEM_MARGIN * (y - cy) / dist)
             )
+        # The front art is warped once, at 1x: its detail is never
+        # supersampled.
         band = _pack_item_band(tuple(expanded), front.size)
-        warped = front.transform(template.size, Image.PERSPECTIVE, band, resample=Image.BICUBIC).convert(
-            "RGBA"
-        )
+        warped = front.transform(
+            template.size, Image.PERSPECTIVE, band, resample=Image.BICUBIC
+        ).convert("RGBA")
+        # The logo is slanted on its own at 2x and downscaled, so its
+        # anti-aliasing survives the slant. It sits on a front-sized
+        # transparent canvas at the logo's position; the 2x band (built
+        # from 2x corners, the same quad in the 2x output space) warps it
+        # onto the same face as the front.
+        logo_layer = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
+        logo_layer.alpha_composite(logo, logo_pos)
+        band2 = _pack_item_band(tuple((2 * x, 2 * y) for x, y in expanded), (fw * 2, fh * 2))
+        warped_logo = logo_layer.resize((fw * 2, fh * 2), Image.LANCZOS).transform(
+            (template.size[0] * 2, template.size[1] * 2), Image.PERSPECTIVE, band2,
+            resample=Image.BICUBIC,
+        ).resize(template.size, Image.LANCZOS).convert("RGBA")
+        warped.alpha_composite(warped_logo)
         # Give the front the quad's true coverage as its alpha so the slanted
         # edge is anti-aliased instead of a hard binary cut: where the
         # placeholder is translucent (the edge against transparency) that is
