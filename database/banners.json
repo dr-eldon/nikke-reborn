@@ -1,0 +1,2060 @@
+{
+ "source": "https://lootandwaifus.com/nikke-banner-history/ (GLOBAL server banner list)",
+ "fetched": "2025-10-21",
+ "policy": "One row per character banner, chronological. `nikke` is the NIKKE skin's model id (the viewer id without the `c` prefix); four legacy-portrait rows were resolved against database/characters.json (103, 105, 322, 515). `rerun` marks re-run banners (the site's hidden 'Show re-run banners' set); every rerun ran concurrently with at least one first-appearance banner.",
+ "banners": [
+  {
+   "banner": "Helm",
+   "start": "2022-11-10",
+   "end": "2022-11-23",
+   "nikke": "352",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c352_00_s.webp",
+   "index": 1
+  },
+  {
+   "banner": "Laplace",
+   "start": "2022-11-24",
+   "end": "2022-12-07",
+   "nikke": "100",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c100_00_s.webp",
+   "index": 2
+  },
+  {
+   "banner": "Rupee: Winter Shopper",
+   "start": "2022-12-08",
+   "end": "2022-12-28",
+   "nikke": "203",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c203_00_s.webp",
+   "index": 3
+  },
+  {
+   "banner": "Anne: Miracle Fairy",
+   "start": "2022-12-15",
+   "end": "2022-12-28",
+   "nikke": "121",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c121_00_s.webp",
+   "index": 4
+  },
+  {
+   "banner": "Modernia",
+   "start": "2022-12-31",
+   "end": "2023-01-18",
+   "nikke": "260",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c260_00_s.webp",
+   "index": 5
+  },
+  {
+   "banner": "Jackal",
+   "start": "2023-01-11",
+   "end": "2023-01-24",
+   "nikke": "111",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c111_00_s.webp",
+   "index": 6
+  },
+  {
+   "banner": "Viper",
+   "start": "2023-01-11",
+   "end": "2023-01-24",
+   "nikke": "112",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c112_00_s.webp",
+   "index": 7
+  },
+  {
+   "banner": "Cocoa",
+   "start": "2023-01-31",
+   "end": "2023-02-14",
+   "nikke": "311",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c311_00_s.webp",
+   "index": 8
+  },
+  {
+   "banner": "Soda",
+   "start": "2023-01-31",
+   "end": "2023-02-14",
+   "nikke": "312",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c312_00_s.webp",
+   "index": 9
+  },
+  {
+   "banner": "Makima",
+   "start": "2023-02-21",
+   "end": "2023-03-14",
+   "nikke": "800",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c800_00_s.webp",
+   "index": 10
+  },
+  {
+   "banner": "Power",
+   "start": "2023-02-21",
+   "end": "2023-03-14",
+   "nikke": "801",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c801_00_s.webp",
+   "index": 11
+  },
+  {
+   "banner": "Biscuit",
+   "start": "2023-03-14",
+   "end": "2023-03-29",
+   "nikke": "381",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c381_00_s.webp",
+   "index": 12
+  },
+  {
+   "banner": "Sakura",
+   "start": "2023-03-29",
+   "end": "2023-04-12",
+   "nikke": "282",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c282_00_s.webp",
+   "index": 13
+  },
+  {
+   "banner": "Alice",
+   "start": "2023-04-12",
+   "end": "2023-04-26",
+   "nikke": "191",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c191_00_s.webp",
+   "index": 14
+  },
+  {
+   "banner": "D",
+   "start": "2023-04-12",
+   "end": "2023-04-26",
+   "nikke": "040",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c040_00_s.webp",
+   "index": 15
+  },
+  {
+   "banner": "Dorothy",
+   "start": "2023-04-26",
+   "end": "2023-05-17",
+   "nikke": "233",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c233_00_s.webp",
+   "index": 16
+  },
+  {
+   "banner": "Blanc",
+   "start": "2023-05-17",
+   "end": "2023-05-31",
+   "nikke": "270",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c270_00_s.webp",
+   "index": 17
+  },
+  {
+   "banner": "Noir",
+   "start": "2023-05-24",
+   "end": "2023-06-07",
+   "nikke": "271",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c271_00_s.webp",
+   "index": 18
+  },
+  {
+   "banner": "Rosanna",
+   "start": "2023-05-31",
+   "end": "2023-06-14",
+   "nikke": "280",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c280_00_s.webp",
+   "index": 19
+  },
+  {
+   "banner": "Mary: Bay Goddess",
+   "start": "2023-06-14",
+   "end": "2023-07-05",
+   "nikke": "132",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c132_00_s.webp",
+   "index": 20
+  },
+  {
+   "banner": "Neon: Blue Ocean",
+   "start": "2023-06-21",
+   "end": "2023-07-12",
+   "nikke": "014",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c014_00_s.webp",
+   "index": 21
+  },
+  {
+   "banner": "Nero",
+   "start": "2023-07-05",
+   "end": "2023-07-19",
+   "nikke": "380",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c380_00_s.webp",
+   "index": 22
+  },
+  {
+   "banner": "Mast",
+   "start": "2023-07-19",
+   "end": "2023-08-02",
+   "nikke": "350",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c350_00_s.webp",
+   "index": 23
+  },
+  {
+   "banner": "Anis: Sparkling Summer",
+   "start": "2023-08-02",
+   "end": "2023-08-23",
+   "nikke": "015",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c015_00_s.webp",
+   "index": 24
+  },
+  {
+   "banner": "Helm: Aquamarine",
+   "start": "2023-08-09",
+   "end": "2023-08-30",
+   "nikke": "353",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c353_00_s.webp",
+   "index": 25
+  },
+  {
+   "banner": "2B",
+   "start": "2023-08-31",
+   "end": "2023-09-27",
+   "nikke": "810",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c810_00_s.webp",
+   "index": 26
+  },
+  {
+   "banner": "A2",
+   "start": "2023-09-07",
+   "end": "2023-09-27",
+   "nikke": "811",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c811_00_s.webp",
+   "index": 27
+  },
+  {
+   "banner": "Marciana",
+   "start": "2023-09-20",
+   "end": "2023-10-04",
+   "nikke": "321",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c321_00_s.webp",
+   "index": 28
+  },
+  {
+   "banner": "Naga",
+   "start": "2023-10-04",
+   "end": "2023-10-18",
+   "nikke": "450",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c450_00_s.webp",
+   "index": 29
+  },
+  {
+   "banner": "Tia",
+   "start": "2023-10-11",
+   "end": "2023-10-25",
+   "nikke": "451",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c451_00_s.webp",
+   "index": 30
+  },
+  {
+   "banner": "Quiry",
+   "start": "2023-10-18",
+   "end": "2023-10-31",
+   "nikke": "033",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c033_00_s.webp",
+   "index": 31
+  },
+  {
+   "banner": "Red Hood",
+   "start": "2023-11-01",
+   "end": "2023-11-22",
+   "nikke": "470",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c470_00_s.webp",
+   "index": 32
+  },
+  {
+   "banner": "Tove",
+   "start": "2023-11-22",
+   "end": "2023-12-06",
+   "nikke": "192",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c192_00_s.webp",
+   "index": 33
+  },
+  {
+   "banner": "Anne: Miracle Fairy",
+   "start": "2023-12-06",
+   "end": "2023-12-27",
+   "nikke": "121",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c121_00_s.webp",
+   "index": 34
+  },
+  {
+   "banner": "Ludmilla: Winter Owner",
+   "start": "2023-12-06",
+   "end": "2023-12-27",
+   "nikke": "194",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c194_00_s.webp",
+   "index": 35
+  },
+  {
+   "banner": "Rupee: Winter Shopper",
+   "start": "2023-12-06",
+   "end": "2023-12-27",
+   "nikke": "203",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c203_00_s.webp",
+   "index": 36
+  },
+  {
+   "banner": "Mica: Snow Buddy",
+   "start": "2023-12-13",
+   "end": "2023-12-31",
+   "nikke": "062",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c062_00_s.webp",
+   "index": 37
+  },
+  {
+   "banner": "Modernia",
+   "start": "2023-12-31",
+   "end": "2024-01-10",
+   "nikke": "260",
+   "rerun": true,
+   "badges": [
+    "special",
+    "rerun"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c260_00_s.webp",
+   "index": 38
+  },
+  {
+   "banner": "Scarlet: Black Shadow",
+   "start": "2023-12-31",
+   "end": "2024-01-10",
+   "nikke": "225",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c225_00_s.webp",
+   "index": 39
+  },
+  {
+   "banner": "Leona",
+   "start": "2024-01-11",
+   "end": "2024-01-24",
+   "nikke": "382",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c382_00_s.webp",
+   "index": 40
+  },
+  {
+   "banner": "Moran",
+   "start": "2024-01-25",
+   "end": "2024-02-07",
+   "nikke": "281",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c281_00_s.webp",
+   "index": 41
+  },
+  {
+   "banner": "Privaty: Unkind Maid",
+   "start": "2024-02-05",
+   "end": "2024-02-21",
+   "nikke": "313",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c313_00_s.webp",
+   "index": 42
+  },
+  {
+   "banner": "Ade",
+   "start": "2024-02-15",
+   "end": "2024-02-28",
+   "nikke": "310",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c310_00_s.webp",
+   "index": 43
+  },
+  {
+   "banner": "Elegg",
+   "start": "2024-02-22",
+   "end": "2024-03-05",
+   "nikke": "500",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c500_00_s.webp",
+   "index": 44
+  },
+  {
+   "banner": "D: Killer Wife",
+   "start": "2024-03-07",
+   "end": "2024-03-19",
+   "nikke": "043",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c043_00_s.webp",
+   "index": 45
+  },
+  {
+   "banner": "Emilia",
+   "start": "2024-03-21",
+   "end": "2024-04-10",
+   "nikke": "821",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c821_00_s.webp",
+   "index": 46
+  },
+  {
+   "banner": "Rem",
+   "start": "2024-03-27",
+   "end": "2024-04-10",
+   "nikke": "820",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c820_00_s.webp",
+   "index": 47
+  },
+  {
+   "banner": "Bay",
+   "start": "2024-04-11",
+   "end": "2024-04-22",
+   "nikke": "550",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c550_00_s.webp",
+   "index": 48
+  },
+  {
+   "banner": "Crown",
+   "start": "2024-04-25",
+   "end": "2024-05-15",
+   "nikke": "330",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c330_00_s.webp",
+   "index": 49
+  },
+  {
+   "banner": "Trony",
+   "start": "2024-05-16",
+   "end": "2024-05-29",
+   "nikke": "501",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c501_00_s.webp",
+   "index": 50
+  },
+  {
+   "banner": "Soda: Twinkling Bunny",
+   "start": "2024-05-30",
+   "end": "2024-06-19",
+   "nikke": "314",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c314_00_s.webp",
+   "index": 51
+  },
+  {
+   "banner": "Alice: Wonderland Bunny",
+   "start": "2024-06-06",
+   "end": "2024-06-26",
+   "nikke": "195",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c195_00_s.webp",
+   "index": 52
+  },
+  {
+   "banner": "Clay",
+   "start": "2024-06-20",
+   "end": "2024-07-02",
+   "nikke": "551",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c551_00_s.webp",
+   "index": 53
+  },
+  {
+   "banner": "Mary: Bay Goddess",
+   "start": "2024-07-04",
+   "end": "2024-07-24",
+   "nikke": "132",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c132_00_s.webp",
+   "index": 54
+  },
+  {
+   "banner": "Neon: Blue Ocean",
+   "start": "2024-07-04",
+   "end": "2024-07-24",
+   "nikke": "014",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c014_00_s.webp",
+   "index": 55
+  },
+  {
+   "banner": "Sakura: Bloom in Summer",
+   "start": "2024-07-04",
+   "end": "2024-07-24",
+   "nikke": "284",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c284_00_s.webp",
+   "index": 56
+  },
+  {
+   "banner": "Rosanna: Chic Ocean",
+   "start": "2024-07-11",
+   "end": "2024-07-31",
+   "nikke": "283",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c283_00_s.webp",
+   "index": 57
+  },
+  {
+   "banner": "Ein",
+   "start": "2024-07-25",
+   "end": "2024-08-07",
+   "nikke": "391",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c391_00_s.webp",
+   "index": 58
+  },
+  {
+   "banner": "Anis: Sparkling Summer",
+   "start": "2024-07-25",
+   "end": "2024-08-13",
+   "nikke": "015",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c015_00_s.webp",
+   "index": 59
+  },
+  {
+   "banner": "Helm: Aquamarine",
+   "start": "2024-07-25",
+   "end": "2024-08-13",
+   "nikke": "353",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c353_00_s.webp",
+   "index": 60
+  },
+  {
+   "banner": "Zwei",
+   "start": "2024-08-08",
+   "end": "2024-08-20",
+   "nikke": "390",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c390_00_s.webp",
+   "index": 61
+  },
+  {
+   "banner": "Asuka Shikinami",
+   "start": "2024-08-21",
+   "end": "2024-09-18",
+   "nikke": "830",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c830_00_s.webp",
+   "index": 62
+  },
+  {
+   "banner": "Rei Ayanami",
+   "start": "2024-08-29",
+   "end": "2024-09-18",
+   "nikke": "831",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c831_00_s.webp",
+   "index": 63
+  },
+  {
+   "banner": "Mari Makinami",
+   "start": "2024-09-05",
+   "end": "2024-09-18",
+   "nikke": "832",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c832_00_s.webp",
+   "index": 64
+  },
+  {
+   "banner": "Rouge",
+   "start": "2024-09-19",
+   "end": "2024-10-02",
+   "nikke": "272",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c272_00_s.webp",
+   "index": 65
+  },
+  {
+   "banner": "Quency: Escape Queen",
+   "start": "2024-10-03",
+   "end": "2024-10-16",
+   "nikke": "403",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c403_00_s.webp",
+   "index": 66
+  },
+  {
+   "banner": "Phantom",
+   "start": "2024-10-10",
+   "end": "2024-10-23",
+   "nikke": "580",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c580_00_s.webp",
+   "index": 67
+  },
+  {
+   "banner": "Rumani",
+   "start": "2024-10-17",
+   "end": "2024-10-29",
+   "nikke": "240",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c240_00_s.webp",
+   "index": 68
+  },
+  {
+   "banner": "Cinderella",
+   "start": "2024-10-31",
+   "end": "2024-11-20",
+   "nikke": "511",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c511_00_s.webp",
+   "index": 69
+  },
+  {
+   "banner": "Grave",
+   "start": "2024-11-07",
+   "end": "2024-11-27",
+   "nikke": "514",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c514_00_s.webp",
+   "index": 70
+  },
+  {
+   "banner": "Flora",
+   "start": "2024-11-21",
+   "end": "2024-12-04",
+   "nikke": "411",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c411_00_s.webp",
+   "index": 71
+  },
+  {
+   "banner": "Ludmilla: Winter Owner",
+   "start": "2024-12-04",
+   "end": "2024-12-24",
+   "nikke": "194",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c194_00_s.webp",
+   "index": 72
+  },
+  {
+   "banner": "Mica: Snow Buddy",
+   "start": "2024-12-04",
+   "end": "2024-12-24",
+   "nikke": "062",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c062_00_s.webp",
+   "index": 73
+  },
+  {
+   "banner": "Maiden: Ice Rose",
+   "start": "2024-12-05",
+   "end": "2024-12-25",
+   "nikke": "183",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c183_00_s.webp",
+   "index": 74
+  },
+  {
+   "banner": "Guillotine: Winter Slayer",
+   "start": "2024-12-12",
+   "end": "2024-12-31",
+   "nikke": "182",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c182_00_s.webp",
+   "index": 75
+  },
+  {
+   "banner": "Scarlet: Black Shadow",
+   "start": "2024-12-31",
+   "end": "2025-01-10",
+   "nikke": "225",
+   "rerun": true,
+   "badges": [
+    "special",
+    "rerun"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c225_00_s.webp",
+   "index": 76
+  },
+  {
+   "banner": "Rapi: Red Hood",
+   "start": "2025-01-01",
+   "end": "2025-01-22",
+   "nikke": "016",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c016_00_s.webp",
+   "index": 77
+  },
+  {
+   "banner": "Mana",
+   "start": "2025-01-16",
+   "end": "2025-01-29",
+   "nikke": "290",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c290_00_s.webp",
+   "index": 78
+  },
+  {
+   "banner": "Mast: Romantic Maid",
+   "start": "2025-01-30",
+   "end": "2025-02-18",
+   "nikke": "354",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c354_00_s.webp",
+   "index": 79
+  },
+  {
+   "banner": "Anchor: Innocent Maid",
+   "start": "2025-02-06",
+   "end": "2025-02-26",
+   "nikke": "355",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c355_00_s.webp",
+   "index": 80
+  },
+  {
+   "banner": "Asuka Shikinami",
+   "start": "2025-02-20",
+   "end": "2025-03-11",
+   "nikke": "830",
+   "rerun": true,
+   "badges": [
+    "collab",
+    "rerun"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c830_00_s.webp",
+   "index": 81
+  },
+  {
+   "banner": "Mari Makinami",
+   "start": "2025-02-20",
+   "end": "2025-03-11",
+   "nikke": "832",
+   "rerun": true,
+   "badges": [
+    "collab",
+    "rerun"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c832_00_s.webp",
+   "index": 82
+  },
+  {
+   "banner": "Rei Ayanami",
+   "start": "2025-02-20",
+   "end": "2025-03-11",
+   "nikke": "831",
+   "rerun": true,
+   "badges": [
+    "collab",
+    "rerun"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c831_00_s.webp",
+   "index": 83
+  },
+  {
+   "banner": "Asuka Shikinami Langley: Wille",
+   "start": "2025-02-20",
+   "end": "2025-03-12",
+   "nikke": "835",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c835_00_s.webp",
+   "index": 84
+  },
+  {
+   "banner": "Rei Ayanami (Tentative Name)",
+   "start": "2025-02-27",
+   "end": "2025-03-12",
+   "nikke": "834",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c834_00_s.webp",
+   "index": 85
+  },
+  {
+   "banner": "Trina",
+   "start": "2025-03-13",
+   "end": "2025-03-26",
+   "nikke": "412",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c412_00_s.webp",
+   "index": 86
+  },
+  {
+   "banner": "Bready",
+   "start": "2025-03-27",
+   "end": "2025-04-09",
+   "nikke": "520",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c520_00_s.webp",
+   "index": 87
+  },
+  {
+   "banner": "Crust",
+   "start": "2025-04-10",
+   "end": "2025-04-22",
+   "nikke": "521",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c521_00_s.webp",
+   "index": 88
+  },
+  {
+   "banner": "Little Mermaid",
+   "start": "2025-04-24",
+   "end": "2025-05-14",
+   "nikke": "513",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c513_00_s.webp",
+   "index": 89
+  },
+  {
+   "banner": "Mihara: Bonding Chain",
+   "start": "2025-05-01",
+   "end": "2025-05-21",
+   "nikke": "162",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c162_00_s.webp",
+   "index": 90
+  },
+  {
+   "banner": "Arcana",
+   "start": "2025-05-15",
+   "end": "2025-05-28",
+   "nikke": "581",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c581_00_s.webp",
+   "index": 91
+  },
+  {
+   "banner": "K",
+   "start": "2025-05-29",
+   "end": "2025-06-10",
+   "nikke": "041",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c041_00_s.webp",
+   "index": 92
+  },
+  {
+   "banner": "EVE",
+   "start": "2025-06-12",
+   "end": "2025-07-02",
+   "nikke": "850",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c850_00_s.webp",
+   "index": 93
+  },
+  {
+   "banner": "Raven",
+   "start": "2025-06-19",
+   "end": "2025-07-09",
+   "nikke": "851",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c851_00_s.webp",
+   "index": 94
+  },
+  {
+   "banner": "2B",
+   "start": "2025-07-01",
+   "end": "2025-07-29",
+   "nikke": "810",
+   "rerun": true,
+   "badges": [
+    "collab",
+    "rerun"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c810_00_s.webp",
+   "index": 95
+  },
+  {
+   "banner": "A2",
+   "start": "2025-07-01",
+   "end": "2025-07-29",
+   "nikke": "811",
+   "rerun": true,
+   "badges": [
+    "collab",
+    "rerun"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c811_00_s.webp",
+   "index": 96
+  },
+  {
+   "banner": "Sora",
+   "start": "2025-07-03",
+   "end": "2025-07-16",
+   "nikke": "532",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c532_00_s.webp",
+   "index": 97
+  },
+  {
+   "banner": "Dorothy: Serendipity",
+   "start": "2025-07-17",
+   "end": "2025-08-06",
+   "nikke": "234",
+   "rerun": false,
+   "badges": [
+    "special",
+    "limited"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c234_00_s.webp",
+   "index": 98
+  },
+  {
+   "banner": "Sakura: Bloom in Summer",
+   "start": "2025-07-22",
+   "end": "2025-08-12",
+   "nikke": "284",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c284_00_s.webp",
+   "index": 99
+  },
+  {
+   "banner": "Elegg: Boom and Shock",
+   "start": "2025-07-24",
+   "end": "2025-08-13",
+   "nikke": "502",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c502_00_s.webp",
+   "index": 100
+  },
+  {
+   "banner": "Rosanna: Chic Ocean",
+   "start": "2025-07-30",
+   "end": "2025-08-19",
+   "nikke": "283",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c283_00_s.webp",
+   "index": 101
+  },
+  {
+   "banner": "Emma: Tactical Upgrade",
+   "start": "2025-08-07",
+   "end": "2025-09-03",
+   "nikke": "093",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c093_00_s.webp",
+   "index": 102
+  },
+  {
+   "banner": "Eunhwa: Tactical Upgrade",
+   "start": "2025-08-14",
+   "end": "2025-09-03",
+   "nikke": "095",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c095_00_s.webp",
+   "index": 103
+  },
+  {
+   "banner": "Vesti: Tactical Upgrade",
+   "start": "2025-08-21",
+   "end": "2025-09-10",
+   "nikke": "094",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c094_00_s.webp",
+   "index": 104
+  },
+  {
+   "banner": "Ade: Agent Bunny",
+   "start": "2025-09-04",
+   "end": "2025-09-22",
+   "nikke": "315",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c315_00_s.webp",
+   "index": 105
+  },
+  {
+   "banner": "Anis: Sparkling Summer",
+   "start": "2025-09-04",
+   "end": "2025-09-22",
+   "nikke": "015",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c015_00_s.webp",
+   "index": 106
+  },
+  {
+   "banner": "Anne: Miracle Fairy",
+   "start": "2025-09-04",
+   "end": "2025-09-22",
+   "nikke": "121",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c121_00_s.webp",
+   "index": 107
+  },
+  {
+   "banner": "Helm: Aquamarine",
+   "start": "2025-09-04",
+   "end": "2025-09-22",
+   "nikke": "353",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c353_00_s.webp",
+   "index": 108
+  },
+  {
+   "banner": "Mary: Bay Goddess",
+   "start": "2025-09-04",
+   "end": "2025-09-22",
+   "nikke": "132",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c132_00_s.webp",
+   "index": 109
+  },
+  {
+   "banner": "Neon: Blue Ocean",
+   "start": "2025-09-04",
+   "end": "2025-09-22",
+   "nikke": "014",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c014_00_s.webp",
+   "index": 110
+  },
+  {
+   "banner": "Rupee: Winter Shopper",
+   "start": "2025-09-04",
+   "end": "2025-09-22",
+   "nikke": "203",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c203_00_s.webp",
+   "index": 111
+  },
+  {
+   "banner": "Milk: Blooming Bunny",
+   "start": "2025-09-11",
+   "end": "2025-10-01",
+   "nikke": "143",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c143_00_s.webp",
+   "index": 112
+  },
+  {
+   "banner": "Ada Wong",
+   "start": "2025-09-24",
+   "end": "2025-10-20",
+   "nikke": "840",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c840_00_s.png",
+   "index": 113
+  },
+  {
+   "banner": "Jill Valentine",
+   "start": "2025-10-02",
+   "end": "2025-10-20",
+   "nikke": "841",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c841_00_s.webp",
+   "index": 114
+  },
+  {
+   "banner": "Delta: Ninja Thief",
+   "start": "2025-10-16",
+   "end": "2025-10-28",
+   "nikke": "023",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c023_00_s.webp",
+   "index": 115
+  },
+  {
+   "banner": "Dorothy",
+   "start": "2025-10-29",
+   "end": "2025-11-19",
+   "nikke": "233",
+   "rerun": true,
+   "badges": [
+    "special",
+    "rerun"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c233_00_s.webp",
+   "index": 116
+  },
+  {
+   "banner": "Modernia",
+   "start": "2025-10-29",
+   "end": "2025-11-19",
+   "nikke": "260",
+   "rerun": true,
+   "badges": [
+    "special",
+    "rerun"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c260_00_s.webp",
+   "index": 117
+  },
+  {
+   "banner": "Red Hood",
+   "start": "2025-10-29",
+   "end": "2025-11-19",
+   "nikke": "470",
+   "rerun": true,
+   "badges": [
+    "special",
+    "rerun"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c470_00_s.webp",
+   "index": 118
+  },
+  {
+   "banner": "Nayuta",
+   "start": "2025-10-30",
+   "end": "2025-11-19",
+   "nikke": "223",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c223_00_s.webp",
+   "index": 119
+  },
+  {
+   "banner": "Liberalio",
+   "start": "2025-11-06",
+   "end": "2025-11-26",
+   "nikke": "262",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c262_00_s.png",
+   "index": 120
+  },
+  {
+   "banner": "Soline: Frost Ticket",
+   "start": "2025-11-20",
+   "end": "2025-12-03",
+   "nikke": "074",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c074_00_s.png",
+   "index": 121
+  },
+  {
+   "banner": "Guillotine: Winter Slayer",
+   "start": "2025-12-03",
+   "end": "2025-12-23",
+   "nikke": "182",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c182_00_s.webp",
+   "index": 122
+  },
+  {
+   "banner": "Maiden: Ice Rose",
+   "start": "2025-12-03",
+   "end": "2025-12-23",
+   "nikke": "183",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c183_00_s.webp",
+   "index": 123
+  },
+  {
+   "banner": "Diesel: Winter Sweets",
+   "start": "2025-12-04",
+   "end": "2025-12-24",
+   "nikke": "075",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c075_00_s.webp",
+   "index": 124
+  },
+  {
+   "banner": "Brid: Silent Track",
+   "start": "2025-12-10",
+   "end": "2025-12-31",
+   "nikke": "073",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c073_00_s.webp",
+   "index": 125
+  },
+  {
+   "banner": "Rapi: Red Hood",
+   "start": "2025-12-31",
+   "end": "2026-01-21",
+   "nikke": "016",
+   "rerun": true,
+   "badges": [
+    "special",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c016_00_s.webp",
+   "index": 126
+  },
+  {
+   "banner": "Snow White: Heavy Arms",
+   "start": "2025-12-31",
+   "end": "2026-01-21",
+   "nikke": "471",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c471_00_s.webp",
+   "index": 127
+  },
+  {
+   "banner": "Label",
+   "start": "2026-01-14",
+   "end": "2026-01-28",
+   "nikke": "582",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c582_00_s.webp",
+   "index": 128
+  },
+  {
+   "banner": "Velvet",
+   "start": "2026-01-29",
+   "end": "2026-02-11",
+   "nikke": "316",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c316_00_s.webp",
+   "index": 129
+  },
+  {
+   "banner": "Chisato Nishikigi",
+   "start": "2026-02-11",
+   "end": "2026-03-11",
+   "nikke": "860",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c860_00_s.webp",
+   "index": 130
+  },
+  {
+   "banner": "Takina Inoue",
+   "start": "2026-02-18",
+   "end": "2026-03-11",
+   "nikke": "861",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c861_00_s.webp",
+   "index": 131
+  },
+  {
+   "banner": "E.H.",
+   "start": "2026-03-05",
+   "end": "2026-03-18",
+   "nikke": "113",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c113_00_s.webp",
+   "index": 132
+  },
+  {
+   "banner": "Arcana: Fortune Mate",
+   "start": "2026-03-19",
+   "end": "2026-04-08",
+   "nikke": "583",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c583_00_s.webp",
+   "index": 133
+  },
+  {
+   "banner": "Snow Crane",
+   "start": "2026-04-09",
+   "end": "2026-04-22",
+   "nikke": "620",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c620_00_s.webp",
+   "index": 134
+  },
+  {
+   "banner": "Anis: Star",
+   "start": "2026-04-22",
+   "end": "2026-05-13",
+   "nikke": "017",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c017_00_s.webp",
+   "index": 135
+  },
+  {
+   "banner": "Neon: Vision Eye",
+   "start": "2026-04-29",
+   "end": "2026-05-20",
+   "nikke": "018",
+   "rerun": false,
+   "badges": [
+    "special"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c018_00_s.webp",
+   "index": 136
+  },
+  {
+   "banner": "Mint",
+   "start": "2026-05-14",
+   "end": "2026-06-03",
+   "nikke": "600",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c600_00_s.webp",
+   "index": 137
+  },
+  {
+   "banner": "EVE",
+   "start": "2026-05-14",
+   "end": "2026-06-10",
+   "nikke": "850",
+   "rerun": true,
+   "badges": [
+    "collab",
+    "rerun"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c850_00_s.webp",
+   "index": 138
+  },
+  {
+   "banner": "Raven",
+   "start": "2026-05-20",
+   "end": "2026-06-10",
+   "nikke": "851",
+   "rerun": true,
+   "badges": [
+    "collab",
+    "rerun"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c851_00_s.webp",
+   "index": 139
+  },
+  {
+   "banner": "Prika",
+   "start": "2026-05-28",
+   "end": "2026-06-10",
+   "nikke": "601",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c601_00_s.webp",
+   "index": 140
+  },
+  {
+   "banner": "Anis: Sparkling Summer",
+   "start": "2026-06-11",
+   "end": "2026-07-01",
+   "nikke": "015",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c015_00_s.webp",
+   "index": 141
+  },
+  {
+   "banner": "Ark Ranger Black",
+   "start": "2026-06-11",
+   "end": "2026-07-01",
+   "nikke": "570",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c570_00_s.webp",
+   "index": 142
+  },
+  {
+   "banner": "Helm: Aquamarine",
+   "start": "2026-06-11",
+   "end": "2026-07-01",
+   "nikke": "353",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c353_00_s.webp",
+   "index": 143
+  },
+  {
+   "banner": "Mary: Bay Goddess",
+   "start": "2026-06-11",
+   "end": "2026-07-01",
+   "nikke": "132",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c132_00_s.webp",
+   "index": 144
+  },
+  {
+   "banner": "Neon: Blue Ocean",
+   "start": "2026-06-11",
+   "end": "2026-07-01",
+   "nikke": "014",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c014_00_s.webp",
+   "index": 145
+  },
+  {
+   "banner": "Rosanna: Chic Ocean",
+   "start": "2026-06-11",
+   "end": "2026-07-01",
+   "nikke": "283",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c283_00_s.webp",
+   "index": 146
+  },
+  {
+   "banner": "Sakura: Bloom in Summer",
+   "start": "2026-06-11",
+   "end": "2026-07-01",
+   "nikke": "284",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c284_00_s.webp",
+   "index": 147
+  },
+  {
+   "banner": "Dorothy: Serendipity",
+   "start": "2026-07-02",
+   "end": "2026-07-21",
+   "nikke": "234",
+   "rerun": true,
+   "badges": [
+    "special",
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/mi_c234_00_s.webp",
+   "index": 148
+  },
+  {
+   "banner": "Cinderella: Crystal Wave",
+   "start": "2026-07-02",
+   "end": "2026-07-22",
+   "nikke": "515",
+   "rerun": false,
+   "badges": [
+    "special",
+    "limited"
+   ],
+   "manufacturer": "pilgrim",
+   "portrait": "/characters/nikke/0cindi.webp",
+   "index": 149
+  },
+  {
+   "banner": "Elegg: Boom and Shock",
+   "start": "2026-07-08",
+   "end": "2026-07-28",
+   "nikke": "502",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c502_00_s.webp",
+   "index": 150
+  },
+  {
+   "banner": "Marciana: Marine Study",
+   "start": "2026-07-08",
+   "end": "2026-07-29",
+   "nikke": "322",
+   "rerun": false,
+   "badges": [
+    "limited"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/0marci.webp",
+   "index": 151
+  },
+  {
+   "banner": "Laplace: Ultimate Hero",
+   "start": "2026-07-23",
+   "end": "2026-08-12",
+   "nikke": "103",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/0laplace.webp",
+   "index": 152
+  },
+  {
+   "banner": "Maxwell: Ordinary Mechanic",
+   "start": "2026-07-29",
+   "end": "2026-08-19",
+   "nikke": "105",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/0maxwell.webp",
+   "index": 153
+  },
+  {
+   "banner": "Queen (Makoto Nijima)",
+   "start": "2026-08-12",
+   "end": "2026-09-09",
+   "nikke": "870",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c870_00_s.webp",
+   "index": 154
+  },
+  {
+   "banner": "Yukiko",
+   "start": "2026-08-19",
+   "end": "2026-09-09",
+   "nikke": "871",
+   "rerun": false,
+   "badges": [
+    "collab"
+   ],
+   "manufacturer": "abnormal",
+   "portrait": "/characters/nikke/mi_c871_00_s.webp",
+   "index": 155
+  },
+  {
+   "banner": "Drake: Great Villain",
+   "start": "2026-09-03",
+   "end": "2026-09-17",
+   "nikke": "104",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c104_00_s.webp",
+   "index": 156
+  },
+  {
+   "banner": "Anne: Miracle Fairy",
+   "start": "2026-09-17",
+   "end": "2026-10-07",
+   "nikke": "121",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c121_00_s.webp",
+   "index": 157
+  },
+  {
+   "banner": "Guillotine: Winter Slayer",
+   "start": "2026-09-17",
+   "end": "2026-10-07",
+   "nikke": "182",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c182_00_s.webp",
+   "index": 158
+  },
+  {
+   "banner": "Guilty: Mighty Bunny",
+   "start": "2026-09-17",
+   "end": "2026-10-07",
+   "nikke": "404",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c404_00_s.webp",
+   "index": 159
+  },
+  {
+   "banner": "Ludmilla: Winter Owner",
+   "start": "2026-09-17",
+   "end": "2026-10-07",
+   "nikke": "194",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c194_00_s.webp",
+   "index": 160
+  },
+  {
+   "banner": "Maiden: Ice Rose",
+   "start": "2026-09-17",
+   "end": "2026-10-07",
+   "nikke": "183",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "elysion",
+   "portrait": "/characters/nikke/mi_c183_00_s.webp",
+   "index": 161
+  },
+  {
+   "banner": "Mica: Snow Buddy",
+   "start": "2026-09-17",
+   "end": "2026-10-07",
+   "nikke": "062",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c062_00_s.webp",
+   "index": 162
+  },
+  {
+   "banner": "Rupee: Winter Shopper",
+   "start": "2026-09-17",
+   "end": "2026-10-07",
+   "nikke": "203",
+   "rerun": true,
+   "badges": [
+    "limited",
+    "rerun"
+   ],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_c203_00_s.webp",
+   "index": 163
+  },
+  {
+   "banner": "Sin: Swift Bunny",
+   "start": "2026-09-23",
+   "end": "2026-10-14",
+   "nikke": "405",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "missilis",
+   "portrait": "/characters/nikke/mi_c405_00_s.webp",
+   "index": 164
+  },
+  {
+   "banner": "Belorta: Pumpkin Witch",
+   "start": "2026-10-08",
+   "end": "2026-10-28",
+   "nikke": "063",
+   "rerun": false,
+   "badges": [],
+   "manufacturer": "tetra",
+   "portrait": "/characters/nikke/mi_063_00.webp",
+   "index": 165
+  }
+ ]
+}
