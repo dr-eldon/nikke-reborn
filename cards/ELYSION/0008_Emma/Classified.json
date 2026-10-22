@@ -1,0 +1,24 @@
+{
+  "id": "c090",
+  "title": "Emma",
+  "subtitle": "",
+  "variant": "sc",
+  "skin": "default",
+  "animation": "skillcut_1",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    0.91086656,
+    263.65036
+  ],
+  "zoom": 1.83,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/hotel-night.png"
+}

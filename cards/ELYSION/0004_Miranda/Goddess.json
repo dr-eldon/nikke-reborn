@@ -1,0 +1,24 @@
+{
+  "id": "c032",
+  "title": "Miranda",
+  "subtitle": "",
+  "variant": "sc",
+  "skin": "default",
+  "animation": "skillcut_1",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    204.69086,
+    -86.700195
+  ],
+  "zoom": 1.01,
+  "invert_logo": true,
+  "invert_copyright": true,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-day.png"
+}

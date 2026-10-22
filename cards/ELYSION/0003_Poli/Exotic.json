@@ -1,0 +1,24 @@
+{
+  "id": "c030",
+  "title": "Poli",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "action",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    168.68875,
+    299.36426
+  ],
+  "zoom": 1.5,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/liliweiss-garden.png"
+}

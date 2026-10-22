@@ -1,0 +1,24 @@
+{
+  "id": "c072",
+  "title": "Diesel",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "idle",
+  "framerate": 0,
+  "time": 0.0,
+  "mipmapping": true,
+  "pan": [
+    0.7824936,
+    306.79834
+  ],
+  "zoom": 1.4,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-night.png"
+}

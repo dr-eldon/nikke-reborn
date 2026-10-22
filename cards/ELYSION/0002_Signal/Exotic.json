@@ -1,0 +1,24 @@
+{
+  "id": "c022",
+  "title": "Signal",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "action",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    95.699684,
+    249.2688
+  ],
+  "zoom": 1.4,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/nikke-room.png"
+}
