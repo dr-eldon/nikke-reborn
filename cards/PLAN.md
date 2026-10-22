@@ -387,8 +387,8 @@ Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022
 
 ## Build status
 
-- Base packs 1–3: 62 of the 63 launch NIKKEs are in `database/characters.json` — renderable today. Base *Ludmilla* (TETRA, 0042) has no viewer model yet (her skin *Ludmilla: Winter Owner*, c194, ships in pack 6).
-- Card numbering: the global sequence is 0001–0020 ELYSION, 0021–0042 TETRA, 0043–0064 MISSILIS, 0065+ Genesis. The first 7 drafted cards sit in their base packs — `cards/ELYSION/`: 0001 *Rapi*, 0005 *Brid*; `cards/TETRA/`: 0026 *Alice*, 0035 *Aria*, 0036 *Anis*, 0037 *Belorta*; `cards/MISSILIS/`: 0051 *Admi*. `cards/Genesis/` awaits its launch-wave cards (0065+).
+- Base packs 1–3: 62 of the 63 launch NIKKEs are in `database/characters.json` — renderable today. Base *Ludmilla* (TETRA, 0022) has no viewer model yet (her skin *Ludmilla: Winter Owner*, c194, ships in pack 6).
+- Card numbering is **per pack**: each pack's cards run 0001, 0002, … in roster order, so the pack and the number together identify a card (the viewer NIKKE id in each table row is unrelated). The first 7 drafted cards sit in their base packs — `cards/ELYSION/`: 0001 *Rapi*, 0005 *Brid*; `cards/TETRA/`: 0006 *Alice*, 0015 *Aria*, 0016 *Anis*, 0017 *Belorta*; `cards/MISSILIS/`: 0009 *Admi*. `cards/Genesis/` awaits its launch-wave cards.
 - Packs 5–11: every NIKKE is in `database/characters.json` — renderable today.
 - Pack 12: needs two viewer models before it can render — *Queen (Makoto Nijima)* (c870) and *Yukiko* (c871) (Kuroko's Basketball collab, Aug 2026). All 28 other NIKKEs in the pack are ready.
 - The global-launch standard banners (Ryu, Meryl, Bittercandy …) are absent from both the banner tracker and the viewer database, so those NIKKEs sit outside the 63-renderable launch roster that the base packs now carry; if wanted, that is a 13th "launch" pack pending viewer models.
