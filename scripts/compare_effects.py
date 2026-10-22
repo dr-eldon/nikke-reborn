@@ -927,10 +927,12 @@ def _overlay_card(
         # ---- static ----
         frame = nr._open_frame(artifact)
         base = nr._fit_background(background, frame.size)
-        base = nr._with_logo(base, nr._scale_logo(logo, frame.width), margin)
-        base = nr._with_copyright(base, padding, copyright_color)
+        overlay, overlay_pos = nr._logo_copyright_overlay(
+            frame.size, logo, margin, padding, copyright_color
+        )
 
         art = nr._composite_frame(frame, base)
+        art.alpha_composite(overlay, overlay_pos)
 
         def static_task(combo: frozenset[str]) -> frozenset[str]:
             parts = build_name_layers(frame.size, name, subtitle, padding, combo)
@@ -956,13 +958,17 @@ def _overlay_card(
         size = first.size
         first.close()
         base = nr._fit_background(background, size)
-        base = nr._with_logo(base, nr._scale_logo(logo, size[0]), margin)
-        base = nr._with_copyright(base, padding, copyright_color)
-        # Composite every frame once; the overlays are the only
-        # per-combo work. (143 frames x 13.5 MB fits easily.)
+        overlay, overlay_pos = nr._logo_copyright_overlay(
+            size, logo, margin, padding, copyright_color
+        )
+        # Composite every frame once (logo and copyright line included);
+        # the overlays are the only per-combo work. (143 frames x 13.5 MB
+        # fits easily.)
         frames = []
         for path in paths:
-            frames.append(nr._composite_frame(nr._open_frame(path), base))
+            frame = nr._composite_frame(nr._open_frame(path), base)
+            frame.alpha_composite(overlay, overlay_pos)
+            frames.append(frame)
 
         def animated_task(combo: frozenset[str]) -> frozenset[str]:
             parts = build_name_layers(size, name, subtitle, padding, combo)

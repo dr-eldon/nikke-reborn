@@ -620,6 +620,8 @@ def _stream_composited(
     json_path: Path,
     size: tuple[int, int],
     base: Image.Image,
+    overlay: Image.Image,
+    overlay_pos: tuple[int, int],
     parts: _NameLayers | None,
     composite_workers: int,
     first_frame: list[Image.Image],
@@ -628,13 +630,14 @@ def _stream_composited(
 
     ``--stdout`` writes each frame as a contiguous ``width * height * 4`` byte
     block of raw RGBA, in presentation order. Frames are decoded and
-    composited over *base* (and the name stack, if any) in a sliding window of
-    *composite_workers* threads — Pillow releases the GIL in its raster ops, so
-    the reader stays ahead of the encode and the cores stay busy — and yielded
-    in presentation order. At most ~2x the worker count of frames are in memory
-    at once. The first composited frame is appended to *first_frame*. When the
-    stream ends (or the consumer stops), the viewer is reaped and a non-zero
-    exit surfaced.
+    composited over *base*, then the *overlay* (the pre-stamped logo and
+    copyright line) is stamped on top and the name stack applied, if any, in
+    a sliding window of *composite_workers* threads — Pillow releases the GIL
+    in its raster ops, so the reader stays ahead of the encode and the cores
+    stay busy — and yielded in presentation order. At most ~2x the worker
+    count of frames are in memory at once. The first composited frame is
+    appended to *first_frame*. When the stream ends (or the consumer stops),
+    the viewer is reaped and a non-zero exit surfaced.
     """
     width, height = size
     frame_bytes = width * height * 4
@@ -644,6 +647,7 @@ def _stream_composited(
     def composite(data: bytes) -> Image.Image:
         frame = Image.frombytes("RGBA", (width, height), data)
         art = _composite_frame(frame, base)
+        art.alpha_composite(overlay, overlay_pos)
         return _apply_name(art, parts) if parts is not None else art
 
     workers = max(1, composite_workers)
@@ -1107,8 +1111,35 @@ def _with_copyright(
     return canvas
 
 
+def _logo_copyright_overlay(
+    size: tuple[int, int],
+    logo: Image.Image,
+    margin: int,
+    padding: int,
+    color: tuple[int, int, int, int],
+) -> tuple[Image.Image, tuple[int, int]]:
+    """Pre-stamp the logo and the copyright line onto a transparent layer.
+
+    Both stamps sit at the bottom of the card (bottom right and bottom
+    left, at the same placement as when stamped directly), so the combined
+    layer is cropped to its bounding box; the caller composites the crop
+    onto each frame after the art is in place, keeping the stamps on top
+    of the art for the price of one small strip per frame.
+
+    Returns the cropped layer and the coordinates at which to composite it
+    on a card of *size*.
+    """
+    width, height = size
+    overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    overlay = _with_logo(overlay, _scale_logo(logo, width), margin)
+    overlay = _with_copyright(overlay, padding, color)
+    box = overlay.getbbox()
+    assert box is not None, "the logo and copyright layer is empty"
+    return overlay.crop(box), (box[0], box[1])
+
+
 def _composite_frame(frame: Image.Image, base: Image.Image) -> Image.Image:
-    """Composite *frame* over the pre-stamped *base*; the result is RGBA."""
+    """Composite *frame* over *base*; the result is RGBA."""
     canvas = base.copy()
     if frame.mode != "RGBA":
         frame = frame.convert("RGBA")
@@ -1259,8 +1290,13 @@ def _render_and_finish(
     re-render the card from scratch.
     """
     base = _fit_background(background, size)
-    base = _with_logo(base, _scale_logo(logo, size[0]), margin)
-    base = _with_copyright(base, padding, copyright_color)
+    # The logo and copyright line sit on top of the art, not under it:
+    # pre-stamp them onto a transparent layer and let _stream_composited
+    # apply it to each frame after the art is composited over the
+    # background.
+    overlay, overlay_pos = _logo_copyright_overlay(
+        size, logo, margin, padding, copyright_color
+    )
     parts = _name_layers(size, name, subtitle, padding) if (name or subtitle) else None
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
@@ -1277,7 +1313,16 @@ def _render_and_finish(
     drain = _PipeDrain(viewer.stderr)
     first_frame: list[Image.Image] = []
     composited = _stream_composited(
-        viewer, drain, json_path, size, base, parts, composite_workers, first_frame
+        viewer,
+        drain,
+        json_path,
+        size,
+        base,
+        overlay,
+        overlay_pos,
+        parts,
+        composite_workers,
+        first_frame,
     )
 
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
