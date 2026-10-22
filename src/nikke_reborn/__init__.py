@@ -625,6 +625,8 @@ def _stream_composited(
     parts: _NameLayers | None,
     composite_workers: int,
     first_frame: list[Image.Image],
+    composite_time: list[float],
+    stream_end: list[float],
 ) -> Iterator[Image.Image]:
     """Composite the viewer's raw RGBA stdout frames and yield them in order.
 
@@ -637,7 +639,10 @@ def _stream_composited(
     stay busy — and yielded in presentation order. At most ~2x the worker
     count of frames are in memory at once. The first composited frame is
     appended to *first_frame*. When the stream ends (or the consumer stops),
-    the viewer is reaped and a non-zero exit surfaced.
+    the viewer is reaped and a non-zero exit surfaced. The wall seconds of
+    composite work (summed across the worker threads) accumulate in
+    *composite_time*, and the moment the stream reaches end-of-file is
+    recorded in *stream_end*.
     """
     width, height = size
     frame_bytes = width * height * 4
@@ -645,11 +650,16 @@ def _stream_composited(
     stdout = viewer.stdout
 
     def composite(data: bytes) -> Image.Image:
+        started = time.perf_counter()
         frame = Image.frombytes("RGBA", (width, height), data)
         art = _composite_frame(frame, base)
         art.alpha_composite(overlay, overlay_pos)
-        return _apply_name(art, parts) if parts is not None else art
+        result = _apply_name(art, parts) if parts is not None else art
+        with time_lock:
+            composite_time[0] += time.perf_counter() - started
+        return result
 
+    time_lock = threading.Lock()
     workers = max(1, composite_workers)
     eof = False
     try:
@@ -662,6 +672,7 @@ def _stream_composited(
                 data = _read_exact(stdout, frame_bytes)
                 if not data:
                     eof = True  # end of stream
+                    stream_end[0] = time.perf_counter()
                     return
                 if len(data) != frame_bytes:
                     raise GenerationError(
@@ -1279,7 +1290,7 @@ def _render_and_finish(
     scale: float,
     out_base: Path,
     source_hash: str,
-) -> Path:
+) -> tuple[Path, dict[str, float | None]]:
     """Render *json_path* via the viewer's ``--stdout`` raw stream and write
     the final PNG, or the MP4 alongside its first frame as a PNG.
 
@@ -1288,6 +1299,19 @@ def _render_and_finish(
     ffmpeg encode. Only the finished card is written (atomically). A failure
     at any stage surfaces as a :class:`GenerationError` so the caller can
     re-render the card from scratch.
+
+    Returns the finished card's path and the stage timings in seconds —
+    ``render`` (spawn until the frame stream is fully delivered),
+    ``composite`` (the Pillow work summed across the worker threads) and
+    ``encode`` (the ffmpeg wall time for animations, the PNG write for
+    static cards). The stages overlap — the encode consumes frames while
+    the viewer still renders and the compositing runs in its own threads —
+    so the numbers are per-stage costs, not a sequential partition. A raw
+    frame is far larger than the pipe buffer, so the viewer blocks on
+    write until the reader drains: under load ``render`` therefore
+    reflects the slowest downstream stage (usually the encode) as much as
+    the viewer itself; for the viewer's own cost, run it with its stdout
+    redirected to /dev/null.
     """
     base = _fit_background(background, size)
     # The logo and copyright line sit on top of the art, not under it:
@@ -1298,9 +1322,13 @@ def _render_and_finish(
         size, logo, margin, padding, copyright_color
     )
     parts = _name_layers(size, name, subtitle, padding) if (name or subtitle) else None
+    composite_time: list[float] = [0.0]
+    encode_time: float | None = None
+    stream_end: list[float] = [0.0]
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
     # files). stderr is drained in a thread so it never blocks the viewer.
+    render_started = time.perf_counter()
     try:
         viewer = subprocess.Popen(
             [VIEWER, "--stdout", str(json_path)],
@@ -1323,6 +1351,8 @@ def _render_and_finish(
         parts,
         composite_workers,
         first_frame,
+        composite_time,
+        stream_end,
     )
 
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
@@ -1330,6 +1360,7 @@ def _render_and_finish(
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
             try:
+                encode_started = time.perf_counter()
                 _encode_mp4(
                     composited,
                     size,
@@ -1340,6 +1371,7 @@ def _render_and_finish(
                     scale,
                     source_hash,
                 )
+                encode_time = time.perf_counter() - encode_started
                 if not first_frame:
                     raise GenerationError(
                         f"{VIEWER} produced no frames for {json_path.name}"
@@ -1363,13 +1395,22 @@ def _render_and_finish(
                 raise GenerationError(
                     f"{VIEWER} produced no frame for {json_path.name}"
                 )
+            encode_started = time.perf_counter()
             _save_atomic(frame.convert("RGB"), out_path, source_hash)
+            encode_time = time.perf_counter() - encode_started
     finally:
         # Stop consuming and make sure the viewer is reaped (its ``finally``
         # runs, waiting on / killing the process and checking its exit).
         composited.close()
+    # Measured to stream EOF (not to the reap, which happens after the
+    # encode and the save), so the number covers the frame delivery only.
+    render_seconds = (stream_end[0] or time.perf_counter()) - render_started
 
-    return out_path
+    return out_path, {
+        "render": render_seconds,
+        "composite": composite_time[0],
+        "encode": encode_time,
+    }
 
 
 def _card_out_path(out_base: Path, json_path: Path, suffix: str) -> Path:
@@ -1396,10 +1437,13 @@ def _process_card(
 ) -> tuple[Path, bool]:
     """Render, composite and encode a single card definition.
 
-    Returns ``(out_path, skipped)``; *skipped* is True when the output
-    already exists and the definition hash it embeds matches the current
-    one (nothing was re-rendered).
+    Returns ``(out_path, skipped, timings)``; *skipped* is True when the
+    output already exists and the definition hash it embeds matches the
+    current one (nothing was re-rendered), in which case *timings* is None;
+    otherwise it is the stage-timing dict from :func:`_render_and_finish`
+    plus ``total``, the card's overall wall-clock seconds.
     """
+    total_started = time.perf_counter()
     json_path = json_path.resolve()
     card = _load_card(json_path)
     background = Image.open(_background_path(card, json_path)).convert("RGBA")
@@ -1451,7 +1495,7 @@ def _process_card(
     if up_to_date:
         # The definition is unchanged since the card was written: skip
         # the render
-        return out_path, True
+        return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # The GPU is shared with other tenants, so failures here can be
@@ -1460,28 +1504,27 @@ def _process_card(
     # giving up. Nothing intermediate is written to disk in between.
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
-            return (
-                _render_and_finish(
-                    json_path,
-                    size,
-                    animated,
-                    background,
-                    logo,
-                    margin,
-                    padding,
-                    copyright_color,
-                    name,
-                    subtitle,
-                    framerate,
-                    ffmpeg_threads,
-                    composite_workers,
-                    preset,
-                    scale,
-                    out_base,
-                    source_hash,
-                ),
-                False,
+            finished, timings = _render_and_finish(
+                json_path,
+                size,
+                animated,
+                background,
+                logo,
+                margin,
+                padding,
+                copyright_color,
+                name,
+                subtitle,
+                framerate,
+                ffmpeg_threads,
+                composite_workers,
+                preset,
+                scale,
+                out_base,
+                source_hash,
             )
+            timings["total"] = time.perf_counter() - total_started
+            return finished, False, timings
         except Exception as exc:
             if attempt >= RENDER_ATTEMPTS:
                 raise GenerationError(
@@ -1911,6 +1954,20 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
+def _timings_suffix(timings: dict[str, float | None] | None) -> str:
+    """The per-stage timings as a ``(render 1.20s, composite 0.30s,
+    encode 0.85s, total 2.10s)``-style suffix; empty for results that
+    carry none."""
+    if not timings:
+        return ""
+    parts = [
+        f"{stage} {value:.2f}s"
+        for stage, value in timings.items()
+        if value is not None
+    ]
+    return f" ({', '.join(parts)})" if parts else ""
+
+
 def _generate(
     paths: list[Path],
     jobs: int,
@@ -1990,7 +2047,8 @@ def _generate(
             done += 1
             label = futures[future]
             try:
-                out_path, was_skipped = future.result()
+                out_path, was_skipped, *rest = future.result()
+                timings = rest[0] if rest else None
                 if was_skipped:
                     skipped += 1
                     print(
@@ -2000,7 +2058,9 @@ def _generate(
                     )
                 else:
                     print(
-                        f"[{done}/{total}] {label} -> {out_path.relative_to(REPO_ROOT)}",
+                        f"[{done}/{total}] {label} -> "
+                        f"{out_path.relative_to(REPO_ROOT)}"
+                        f"{_timings_suffix(timings)}",
                         flush=True,
                     )
             except Exception as exc:
