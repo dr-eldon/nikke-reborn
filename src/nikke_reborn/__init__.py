@@ -40,10 +40,12 @@ preset, half-resolution MP4s (downscaled inside ffmpeg), and results
 written to ``draft/`` instead of ``output/`` so draft runs never clobber
 the final cards.
 
-``nikke-viewer`` writes its result next to the input file, so each card is
-rendered inside a throw-away working directory which is deleted as soon as
-the card is done: the intermediate renders are high-resolution lossless
-PNGs and must not accumulate on disk.
+``nikke-viewer --stdout`` streams its frames as raw RGBA pixels (no
+intermediate files), so each card is rendered straight into the pipeline:
+the raw frames are piped out of the viewer's stdout, composited in memory,
+and — for animations — fed to the ffmpeg encode through a pipe. Nothing
+intermediate ever touches the disk; only the finished card is written
+(atomically).
 
 Cards are independent of each other, so they are processed by a pool of
 worker processes (see ``--jobs``); within an animated card, the frames are
@@ -59,6 +61,7 @@ from __future__ import annotations
 import argparse
 import colorsys
 import hashlib
+import io
 import json
 import math
 import os
@@ -67,9 +70,10 @@ import shutil
 import statistics
 import subprocess
 import sys
-import tempfile
+import threading
 import time
 import pathlib
+from collections import deque
 from concurrent.futures import (
     Future,
     ProcessPoolExecutor,
@@ -523,82 +527,171 @@ def _background_path(card: dict, json_path: Path) -> Path:
     return background
 
 
-def _render_card(json_path: Path, workdir: Path) -> Path:
-    """Render one card into *workdir* and return the produced artifact.
+def _read_exact(stream: "io.BufferedReader", n: int) -> bytes:
+    """Read exactly *n* bytes from *stream*; fewer only at end-of-stream.
 
-    The result is either a single ``<stem>.png`` (static card) or a
-    ``<stem>/`` directory of numbered frames (animated card).
+    ``BufferedReader.read`` may return a partial chunk, so this loops until
+    *n* bytes are gathered or the stream is exhausted. A raw frame is written
+    whole by the viewer, so a full read is one call in practice — the loop
+    just makes the frame boundary robust to partial reads.
     """
-    config = workdir / json_path.name
-    shutil.copyfile(json_path, config)
-    command = [VIEWER, config.name]
-    try:
-        result = subprocess.run(
-            command,
-            cwd=workdir,
-            capture_output=True,
-            text=True,
-            timeout=600,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise GenerationError(f"could not run {VIEWER!r}: {exc}") from exc
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout).strip()
-        raise GenerationError(
-            f"{VIEWER} failed for {json_path.name} (exit {result.returncode}){': ' + detail if detail else ''}"
-        )
-
-    # Static cards produce <stem>.png next to the input; animated cards
-    # produce a <stem>/ directory of numbered frames.
-    png_artifact = workdir / f"{json_path.stem}.png"
-    if png_artifact.is_file():
-        return png_artifact
-    render_dir = workdir / json_path.stem
-    if render_dir.is_dir():
-        return render_dir
-    detail = (result.stderr or result.stdout).strip()
-    detail = f" ({detail[-500:]})" if detail else ""
-    raise GenerationError(f"{VIEWER} produced no output for {json_path.name}{detail}")
+    chunks: list[bytes] = []
+    remaining = n
+    while remaining > 0:
+        chunk = stream.read(remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
 
 
-def _frame_paths(render_dir: Path) -> list[Path]:
-    """Numbered frames of an animated render, in presentation order.
+class _PipeDrain:
+    """Drain a pipe into a bounded in-memory buffer from a daemon thread.
 
-    ``nikke-viewer`` writes frames out of order (the zero-padded width of
-    the names depends on the frame count), so the names must be sorted
-    numerically.
+    Keeps the writer from blocking on a full pipe (the viewer's stderr) while
+    its stdout is streamed; only the tail is kept, for error reporting.
     """
-    frames = sorted(
-        (p for p in render_dir.iterdir() if p.is_file()), key=lambda p: int(p.stem)
-    )
-    if not frames:
-        raise GenerationError(f"animated render has no frames: {render_dir.name}")
-    return frames
+
+    def __init__(self, stream: "io.BufferedReader", cap: int = 1 << 20) -> None:
+        self._stream = stream
+        self._cap = cap
+        self._buf = bytearray()
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        try:
+            while True:
+                chunk = self._stream.read1(65536)
+                if not chunk:
+                    break
+                with self._lock:
+                    self._buf.extend(chunk)
+                    if len(self._buf) > self._cap:
+                        del self._buf[: len(self._buf) - self._cap]
+        except (OSError, ValueError):
+            pass
+
+    def text(self) -> str:
+        with self._lock:
+            return bytes(self._buf).decode(errors="replace").strip()
+
+    def join(self, timeout: float | None = None) -> None:
+        self._thread.join(timeout)
 
 
-def _open_frame(path: Path) -> Image.Image:
-    """Open and fully decode a render frame.
-
-    Frames are written by ``nikke-viewer`` from several threads and can
-    occasionally be left truncated; a full decode catches that (and closes
-    the file), so callers may use the returned image directly.
-    """
-    try:
-        image = Image.open(path)
-        image.load()
-    except Exception as exc:
-        raise GenerationError(f"unreadable render output {path.name}: {exc}") from exc
-    return image
-
-
-def _check_frame_size(
-    frame: Image.Image, name: str, expected: tuple[int, int] | None
+def _reap_viewer(
+    viewer: subprocess.Popen,
+    drain: _PipeDrain,
+    *,
+    clean_exit_expected: bool,
 ) -> None:
-    if expected is not None and frame.size != expected:
-        raise GenerationError(
-            f"{name} is {frame.size[0]}x{frame.size[1]}, "
-            f"expected {expected[0]}x{expected[1]}"
-        )
+    """Wait for *viewer* to exit, draining its stderr, and raise on failure.
+
+    When the frame stream was fully read (``clean_exit_expected``) the viewer
+    exits right after its last frame: a grace period is given before killing a
+    hung process, and a non-zero exit is a :class:`GenerationError`. When the
+    stream was abandoned early (the reader or the consumer errored), the viewer
+    may be blocked writing to a full pipe and is killed; its exit code is not
+    consulted (the caller already has the real exception).
+    """
+    if clean_exit_expected:
+        try:
+            viewer.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            viewer.kill()
+            viewer.wait()
+    else:
+        if viewer.poll() is None:
+            viewer.kill()
+        viewer.wait()
+    drain.join(timeout=5)
+    if clean_exit_expected and viewer.returncode != 0:
+        detail = drain.text()
+        detail = f" ({detail[-500:]})" if detail else ""
+        raise GenerationError(f"{VIEWER} failed (exit {viewer.returncode}){detail}")
+
+
+def _stream_composited(
+    viewer: subprocess.Popen,
+    drain: _PipeDrain,
+    json_path: Path,
+    size: tuple[int, int],
+    base: Image.Image,
+    parts: _NameLayers | None,
+    composite_workers: int,
+    first_frame: list[Image.Image],
+) -> Iterator[Image.Image]:
+    """Composite the viewer's raw RGBA stdout frames and yield them in order.
+
+    ``--stdout`` writes each frame as a contiguous ``width * height * 4`` byte
+    block of raw RGBA, in presentation order. Frames are decoded and
+    composited over *base* (and the name stack, if any) in a sliding window of
+    *composite_workers* threads — Pillow releases the GIL in its raster ops, so
+    the reader stays ahead of the encode and the cores stay busy — and yielded
+    in presentation order. At most ~2x the worker count of frames are in memory
+    at once. The first composited frame is appended to *first_frame*. When the
+    stream ends (or the consumer stops), the viewer is reaped and a non-zero
+    exit surfaced.
+    """
+    width, height = size
+    frame_bytes = width * height * 4
+    assert viewer.stdout is not None
+    stdout = viewer.stdout
+
+    def composite(data: bytes) -> Image.Image:
+        frame = Image.frombytes("RGBA", (width, height), data)
+        art = _composite_frame(frame, base)
+        return _apply_name(art, parts) if parts is not None else art
+
+    workers = max(1, composite_workers)
+    eof = False
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            pending: deque[Future[Image.Image]] = deque()
+            yielded = 0
+
+            def submit_next() -> None:
+                nonlocal eof
+                data = _read_exact(stdout, frame_bytes)
+                if not data:
+                    eof = True  # end of stream
+                    return
+                if len(data) != frame_bytes:
+                    raise GenerationError(
+                        f"{VIEWER} stream for {json_path.name} truncated: "
+                        f"{len(data)} of {frame_bytes} bytes"
+                    )
+                pending.append(pool.submit(composite, data))
+
+            # Prime the window.
+            for _ in range(workers):
+                submit_next()
+
+            while pending:
+                future = pending.popleft()
+                try:
+                    frame = future.result()
+                except Exception:
+                    for pending_future in pending:
+                        pending_future.cancel()
+                    raise
+                if yielded == 0:
+                    # Keep the first composited frame: for animations it is
+                    # written alongside the mp4, for a static card it is the
+                    # card itself.
+                    first_frame.append(frame)
+                yielded += 1
+                # Keep the window full (read ahead) before handing off.
+                submit_next()
+                yield frame
+
+        if yielded == 0:
+            raise GenerationError(f"{VIEWER} produced no frames for {json_path.name}")
+    finally:
+        _reap_viewer(viewer, drain, clean_exit_expected=eof)
 
 
 def _fit_background(background: Image.Image, size: tuple[int, int]) -> Image.Image:
@@ -1137,9 +1230,10 @@ def _save_atomic(
     return out_path
 
 
-def _finish_card(
+def _render_and_finish(
     json_path: Path,
-    artifact: Path,
+    size: tuple[int, int],
+    animated: bool,
     background: Image.Image,
     logo: Image.Image,
     margin: int,
@@ -1152,109 +1246,84 @@ def _finish_card(
     composite_workers: int,
     preset: str,
     scale: float,
-    expected_size: tuple[int, int] | None,
     out_base: Path,
     source_hash: str,
 ) -> Path:
-    """Composite a render and write the final PNG, or the MP4 alongside
-    its first frame as a PNG (all atomically).
+    """Render *json_path* via the viewer's ``--stdout`` raw stream and write
+    the final PNG, or the MP4 alongside its first frame as a PNG.
 
-    Every frame is decoded exactly once, in the streaming pass: a corrupt
-    or truncated frame surfaces there and re-triggers the render.
+    Nothing intermediate touches the disk: the viewer's raw RGBA frames are
+    piped straight into the in-memory compositing and (for animations) the
+    ffmpeg encode. Only the finished card is written (atomically). A failure
+    at any stage surfaces as a :class:`GenerationError` so the caller can
+    re-render the card from scratch.
     """
-    if artifact.is_file():
-        frame = _open_frame(artifact)
-        _check_frame_size(frame, artifact.name, expected_size)
-        base = _fit_background(background, frame.size)
-        base = _with_logo(base, _scale_logo(logo, frame.width), margin)
-        base = _with_copyright(base, padding, copyright_color)
-        art = _composite_frame(frame, base)
-        if name or subtitle:
-            art = _apply_name(art, _name_layers(art.size, name, subtitle, padding))
-        final = art.convert("RGB")
-        return _save_atomic(
-            final, _card_out_path(out_base, json_path, "png"), source_hash
-        )
-
-    frame_paths = _frame_paths(artifact)
-    first = _open_frame(frame_paths[0])
-    _check_frame_size(first, frame_paths[0].name, expected_size)
-    size = first.size
     base = _fit_background(background, size)
     base = _with_logo(base, _scale_logo(logo, size[0]), margin)
     base = _with_copyright(base, padding, copyright_color)
-    parts = _name_layers(size, name, subtitle, padding) if name or subtitle else None
-    first_frame: Image.Image | None = None
+    parts = _name_layers(size, name, subtitle, padding) if (name or subtitle) else None
 
-    def frames() -> Iterator[Image.Image]:
-        nonlocal first_frame
-
-        def composite(index: int, path: Path) -> Image.Image:
-            frame = first if index == 0 else _open_frame(path)
-            if frame.size != size:
-                raise GenerationError(
-                    f"frame size {frame.size[0]}x{frame.size[1]} does not match "
-                    f"the first frame's {size[0]}x{size[1]}"
-                )
-            art = _composite_frame(frame, base)
-            return _apply_name(art, parts) if parts is not None else art
-
-        # Frames are independent of each other, so they are composited out
-        # of order in a thread pool (Pillow releases the GIL while
-        # decoding); only the hand-off to ffmpeg follows presentation
-        # order. A sliding window of `workers` pending composites keeps the
-        # pool fed without materializing the whole clip: at most ~2x the
-        # worker count of frames are in memory at any moment.
-        workers = max(1, min(composite_workers, len(frame_paths)))
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures: list[Future[Image.Image] | None] = [None] * len(frame_paths)
-            for i in range(workers):
-                futures[i] = pool.submit(composite, i, frame_paths[i])
-            for index in range(len(frame_paths)):
-                try:
-                    frame = futures[index].result()
-                except Exception:
-                    for pending in futures[index + 1 :]:
-                        if pending is not None:
-                            pending.cancel()
-                    raise
-                if first_frame is None:
-                    # Keep the first composited frame: it is written
-                    # alongside the animation as its first frame (png).
-                    first_frame = frame
-                yield frame
-                next_index = index + workers
-                if next_index < len(frame_paths):
-                    futures[next_index] = pool.submit(
-                        composite, next_index, frame_paths[next_index]
-                    )
-
-    out_path = _card_out_path(out_base, json_path, "mp4")
-    tmp_path = out_path.with_name(out_path.name + ".part")
+    # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
+    # files). stderr is drained in a thread so it never blocks the viewer.
     try:
-        _encode_mp4(
-            frames(),
-            size,
-            framerate,
-            tmp_path,
-            ffmpeg_threads,
-            preset,
-            scale,
-            source_hash,
+        viewer = subprocess.Popen(
+            [VIEWER, "--stdout", str(json_path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
-    tmp_path.replace(out_path)
-    if first_frame is not None:
-        # The animation's first frame, alongside the mp4 with a png
-        # extension (the same composited frame, so it matches the mp4's
-        # opening frame exactly).
-        _save_atomic(
-            first_frame.convert("RGB"),
-            _card_out_path(out_base, json_path, "png"),
-            source_hash,
-        )
+    except OSError as exc:
+        raise GenerationError(f"could not run {VIEWER!r}: {exc}") from exc
+    assert viewer.stderr is not None
+    drain = _PipeDrain(viewer.stderr)
+    first_frame: list[Image.Image] = []
+    composited = _stream_composited(
+        viewer, drain, json_path, size, base, parts, composite_workers, first_frame
+    )
+
+    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
+    try:
+        if animated:
+            tmp_path = out_path.with_name(out_path.name + ".part")
+            try:
+                _encode_mp4(
+                    composited,
+                    size,
+                    framerate,
+                    tmp_path,
+                    ffmpeg_threads,
+                    preset,
+                    scale,
+                    source_hash,
+                )
+                if not first_frame:
+                    raise GenerationError(
+                        f"{VIEWER} produced no frames for {json_path.name}"
+                    )
+            except Exception:
+                tmp_path.unlink(missing_ok=True)
+                raise
+            tmp_path.replace(out_path)
+            # The animation's first frame, alongside the mp4 (the same
+            # composited frame, so it matches the mp4's opening frame
+            # exactly).
+            _save_atomic(
+                first_frame[0].convert("RGB"),
+                _card_out_path(out_base, json_path, "png"),
+                source_hash,
+            )
+        else:
+            # A single frame: take it from the stream and write it.
+            frame = next(composited, None)
+            if frame is None:
+                raise GenerationError(
+                    f"{VIEWER} produced no frame for {json_path.name}"
+                )
+            _save_atomic(frame.convert("RGB"), out_path, source_hash)
+    finally:
+        # Stop consuming and make sure the viewer is reaped (its ``finally``
+        # runs, waiting on / killing the process and checking its exit).
+        composited.close()
+
     return out_path
 
 
@@ -1314,7 +1383,12 @@ def _process_card(
     framerate = card["framerate"] or DEFAULT_FRAMERATE
 
     viewport = card.get("viewport")
-    expected_size = tuple(viewport) if viewport else None
+    if not viewport:
+        raise GenerationError(
+            f"{json_path.name}: missing 'viewport' (needed to size the raw "
+            f"frames streamed by {VIEWER} --stdout)"
+        )
+    size = (int(viewport[0]), int(viewport[1]))
 
     # A definition without a `time` renders an animation (mp4) plus its
     # first frame (png); one with a `time` renders a single frame (png).
@@ -1335,18 +1409,17 @@ def _process_card(
         return out_path, True
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Each render lives in a throw-away working directory; it is removed
-    # (together with all intermediate PNGs) when the block exits. The GPU
-    # is shared with other tenants, so failures here can be transient
-    # (render missing, truncated frame, encode error); the card is re-run
-    # from scratch up to RENDER_ATTEMPTS times before giving up.
+    # The GPU is shared with other tenants, so failures here can be
+    # transient (render error, truncated frame stream, encode error); the
+    # card is re-rendered from scratch up to RENDER_ATTEMPTS times before
+    # giving up. Nothing intermediate is written to disk in between.
     for attempt in range(1, RENDER_ATTEMPTS + 1):
-        with tempfile.TemporaryDirectory(prefix="nikke-reborn-") as workdir:
-            try:
-                artifact = _render_card(json_path, Path(workdir))
-                return _finish_card(
+        try:
+            return (
+                _render_and_finish(
                     json_path,
-                    artifact,
+                    size,
+                    animated,
                     background,
                     logo,
                     margin,
@@ -1359,21 +1432,22 @@ def _process_card(
                     composite_workers,
                     preset,
                     scale,
-                    expected_size,
                     out_base,
                     source_hash,
-                ), False
-            except Exception as exc:
-                if attempt >= RENDER_ATTEMPTS:
-                    raise GenerationError(
-                        f"render of {json_path.name} still failing after "
-                        f"{RENDER_ATTEMPTS} attempts: {exc}"
-                    ) from exc
-                print(
-                    f"    ! {json_path.name}: {exc}; re-rendering "
-                    f"(attempt {attempt}/{RENDER_ATTEMPTS})",
-                    flush=True,
-                )
+                ),
+                False,
+            )
+        except Exception as exc:
+            if attempt >= RENDER_ATTEMPTS:
+                raise GenerationError(
+                    f"render of {json_path.name} still failing after "
+                    f"{RENDER_ATTEMPTS} attempts: {exc}"
+                ) from exc
+            print(
+                f"    ! {json_path.name}: {exc}; re-rendering "
+                f"(attempt {attempt}/{RENDER_ATTEMPTS})",
+                flush=True,
+            )
     raise AssertionError("unreachable")  # pragma: no cover
 
 
