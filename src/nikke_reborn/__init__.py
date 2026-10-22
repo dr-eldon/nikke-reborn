@@ -8,8 +8,8 @@ the card name on top of the art, per frame: the title at the top left
 (metallic vertical gradient, diagonal trail) and the subtitle in the
 top-right corner (italic, with its own trail). The trails and the
 gradient's bottom lean are tinted with the color of the art behind the
-text each frame, so animated cards track the scene. The full-art
-variants (``FullArt``, ``FullArtAnimated``) are generated without any
+text each frame, so animated cards track the scene. The ``Goddess`` and ``Classified``
+variants are generated without any
 card name. Packs (``cards/`` subdirectories carrying
 ``CardPack_Back.png`` and ``CardPack_Front.png``) additionally get their
 two artwork images, built from the templates in ``images/``: the material
@@ -108,9 +108,9 @@ SOURCE_HASH_KEY = "nikke-reborn-source"
 
 DEFAULT_FRAMERATE = 60
 
-#: Variant stems that never carry the card name: the full-art
-#: presentations are generated without title and subtitle.
-NO_NAME_STEMS = frozenset({"FullArt", "FullArtAnimated"})
+#: Variant stems that never carry the card name: the ``Goddess`` and
+#: ``Classified`` presentations are generated without title and subtitle.
+NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -1457,7 +1457,7 @@ def _process_card(
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
     if json_path.stem in NO_NAME_STEMS:
-        # Full-art presentations never carry the card name
+        # These presentations never carry the card name
         name, subtitle = "", ""
     else:
         if "title" not in card:
