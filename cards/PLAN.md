@@ -1,8 +1,8 @@
 # NIKKE REBORN — Card Pack Plan
 
-*Status: planning · drafted 2025-10-21 · the `cards/Alpha` set is a dev prototype (see data notes)*
+*Status: planning · drafted 2025-10-21 · updated 2026-10-22 (the launch roster now ships as three base packs — ELYSION (the face-card line), TETRA, MISSILIS — before all the others) · the `cards/Alpha` set is a dev prototype (see data notes)*
 
-Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 to Oct 2026, in release order. Each pack carries **20–30 NIKKEs**; each NIKKE in a pack gets the three card variants — static, idle animated, and a skill-cut full art where the NIKKE has a cut-in (all roster NIKKEs are SR/SSR and do).
+Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022 to Oct 2026, in release order. **Packs 1–3 are the base packs: they carry the 63 NIKKEs released with the game (all 2022-11-04 per the [Release dates](#release-dates) section), grouped by manufacturer — ELYSION (20) first, as it carries the set's face, then TETRA (22), MISSILIS (22) — and release before every other pack. Every pack carries 20–30 NIKKEs.** Each NIKKE in a pack gets the three card variants — static, idle animated, and a skill-cut full art where the NIKKE has a cut-in (all roster NIKKEs are SR/SSR and do).
 
 ## How a pack is built
 
@@ -10,39 +10,136 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 |---|---|---|
 | **New** | the pack's featured NIKKEs — every banner first appearance in the pack's window, in release order | banner history |
 | **Re-appears** | NIKKEs whose (older) banner the game re-ran concurrently with the pack's banners — the "previous packs re-appear" rule | banner re-runs |
-| **Base forms** | a featured skin's base model, where it exists in the viewer database (e.g. base *Rapi* beside *Rapi: Red Hood*) | viewer database |
+| **Base forms** | a featured skin's base model, where it exists in the viewer database (e.g. base *Mast* beside *Mast: Romantic Maid*) — only NIKKEs who debuted after the launch; every launch NIKKE prints in the base packs | viewer database |
+| **Launch** | the 63 NIKKEs released with the game (2022-11-04) — no banner first appearance in the tracker (the standard launch banners are untracked), so they enter the plan only via the base packs (1–3), where they release before every other pack | release dates |
+| **Reserve** | a NIKKE drawn from the commons reserve to hold the roster at ≥ 20 (precedent: the alternatives below) | commons reserve |
 
-- Packs are grouped by release season; seasons are merged until the roster lands at 20–30 NIKKEs. Concurrent banners are never split across packs (2B/A2, the NERV trios).
-- Nothing is double-counted inside a pack (a NIKKE listed as a re-appearance is not also listed as a base form); the same NIKKE may appear in several packs — re-appears and base forms are often re-lists of a pack's own predecessors (base *Helm* in Abyss re-lists Genesis' Helm; *Dorothy* in Outbreak re-lists Genesis' Dorothy).
+- Packs are grouped by release season; seasons are merged until the roster lands at 20–30 NIKKEs. Packs 1–3 (the base packs) have no banner window — every launch NIKKE shares the 2022-11-04 release date, so they are grouped by **manufacturer** instead — ELYSION first (it carries the set's face, Rapi, who leads it as 0001), then TETRA and MISSILIS + the 6 PILGRIM fairy-tale NIKKEs by launch-line size — and ordered **SSR → SR → R, ties by NIKKE id** (Rapi excepted as the face card). Concurrent banners are never split across packs (2B/A2, the NERV trios).
+- Nothing is double-counted inside a pack (a NIKKE listed as a re-appearance is not also listed as a base form); the same NIKKE may appear in several packs — re-appears and base forms are often re-lists of a pack's own predecessors (base *Helm* in Abyss re-lists Genesis' Helm; *Dorothy* in Outbreak re-lists Genesis' Dorothy). Launch NIKKEs print once, in the base packs.
 - Pack slots are filled per the pack rarity config (mostly common): the **commons reserve** (below) supplies repeat-print filler, while the pack's new NIKKEs anchor the top tiers and re-appears/base forms print mid-rarity.
 
 ## Sources
 
 - Banner history: <https://lootandwaifus.com/nikke-banner-history/> (GLOBAL server list — 165 banners: 120 first appearances + 45 re-runs, Nov 2022 – Oct 2026). Fetched 2025-10-21; raw parse kept in `database/banners.json`. Portrait paths resolve to the viewer model ids (`mi_c405_00` → `c405`); four legacy-portrait banners were resolved against the database (c103, c105, c322, c515).
-- Renderable roster: `database/characters.json` — 206 NIKKE skins `nikke-viewer` can render (`c`-prefixed ids, as used by card JSON `id` fields).
+- Renderable roster: `database/characters.json` — 206 NIKKE skins `nikke-viewer` can render (`c`-prefixed ids, as used by card JSON `id` fields); the launch roster's manufacturer split (TETRA 21 / ELYSION 19 / MISSILIS 16 / PILGRIM 6) also comes from here.
+- Launch roster: the [Release dates](#release-dates) section below — the 63 NIKKEs dated 11/04/2022 are exactly the NIKKEs released with the game; that list is used here for the launch roster only.
 - Cross-check: <https://nikke.gg/characters/> (client-rendered; its latest-48 roster confirmed the same id scheme).
 
 ## Packs
 
-| # | Pack | Window¹ | New | Re-appears | Base forms | Total |
-|---|------|--------|-----|-----------|------------|-------|
-| 1 | **Genesis** | 2022-11-10 – 2023-05-31 | 19 | 0 | 1 | **20** |
-| 2 | **Abyss** | 2023-06-14 – 2023-11-22 | 14 | 2 | 4 | **20** |
-| 3 | **Molten** | 2023-12-06 – 2024-05-30 | 15 | 3 | 5 | **23** |
-| 4 | **Neon Genesis** | 2024-06-06 – 2024-11-21 | 16 | 6 | 4 | **26** |
-| 5 | **Red Hood** | 2024-12-05 – 2025-05-29 | 15 | 6 | 6 | **27** |
-| 6 | **Tactical** | 2025-06-12 – 2025-08-21 | 8 | 10 | 5 | **23** |
-| 7 | **Outbreak** | 2025-09-04 – 2025-11-20 | 8 | 11 | 3 | **22** |
-| 8 | **Blizzard** | 2025-12-04 – 2026-05-28 | 14 | 5 | 6 | **25** |
-| 9 | **Pumpkin Witch** | 2026-06-11 – 2026-10-08 | 11 | 11 | 8 | **30** |
-| — | — | — | **120** | 54² | 42² | — |
+| # | Pack | Window¹ | New | Re-appears | Base forms | Launch | Reserve | Total |
+|---|------|--------|-----|-----------|------------|--------|---------|-------|
+| 1 | **ELYSION** | 2022-11-04 | 0 | 0 | 0 | 19 | 1 | **20** |
+| 2 | **TETRA** | 2022-11-04 | 0 | 0 | 0 | 22 | 0 | **22** |
+| 3 | **MISSILIS** | 2022-11-04 | 0 | 0 | 0 | 22 | 0 | **22** |
+| 4 | **Genesis** | 2022-11-10 – 2023-05-31 | 18 | 0 | 0 | 0 | 2 | **20** |
+| 5 | **Abyss** | 2023-06-14 – 2023-11-22 | 14 | 2 | 1 | 0 | 3 | **20** |
+| 6 | **Molten** | 2023-12-06 – 2024-05-30 | 15 | 3 | 2 | 0 | 0 | **20** |
+| 7 | **Neon Genesis** | 2024-06-06 – 2024-11-21 | 16 | 6 | 3 | 0 | 0 | **25** |
+| 8 | **Red Hood** | 2024-12-05 – 2025-05-29 | 15 | 6 | 2 | 0 | 0 | **23** |
+| 9 | **Tactical** | 2025-06-12 – 2025-08-21 | 8 | 10 | 2 | 0 | 0 | **20** |
+| 10 | **Outbreak** | 2025-09-04 – 2025-11-20 | 8 | 11 | 0 | 0 | 1 | **20** |
+| 11 | **Blizzard** | 2025-12-04 – 2026-05-28 | 14 | 5 | 1 | 0 | 0 | **20** |
+| 12 | **Pumpkin Witch** | 2026-06-11 – 2026-10-08 | 11 | 11 | 5 | 0 | 0 | **27** |
+| — | — | — | **119**³ | 54² | 16 | 63 | 7 | **259** |
 
-¹ from the first to the last *new* NIKKE released in the pack (banner end-dates overlap between neighbours).
+¹ from the first to the last *new* NIKKE released in the pack (banner end-dates overlap between neighbours); the base packs share the game's launch date (2022-11-04), a week before the tracker's first banner (Helm, 2022-11-10).
 ² roster slots, not distinct NIKKEs — several re-list NIKKEs featured in earlier packs.
+³ 119 roster slots + *Alice* (c191), whose first-appearance banner (2023-04-12, pack 4's window) is covered by her launch slot in pack 2 — all 120 banner first appearances stay covered, nothing double-counted.
 
-### 1 · Genesis — Nov 2022 – May 2023 (20 NIKKEs)
+### 1 · ELYSION — 2022-11-04 (20 NIKKEs)
 
-**New (19)** — in release order:
+**Launch (19)** — the ELYSION-manufactured NIKKEs released with the game; Rapi — the set's face — leads as 0001 ahead of the SSR block, then SSR → SR → R (ties by NIKKE id):
+
+| NIKKE | ID | Rarity |
+|---|---|---|
+| Rapi | c010 | SR |
+| Signal | c022 | SSR |
+| Poli | c030 | SSR |
+| Miranda | c032 | SSR |
+| Brid | c070 | SSR |
+| Soline | c071 | SSR |
+| Diesel | c072 | SSR |
+| Emma | c090 | SSR |
+| Vesti | c091 | SSR |
+| Eunhwa | c092 | SSR |
+| Privaty | c170 | SSR |
+| Guillotine | c180 | SSR |
+| Maiden | c181 | SSR |
+| Neon | c011 | SR |
+| Marian | c013 | SR |
+| Delta | c020 | SR |
+| Soldier EG | c300 | R |
+| Soldier FA | c301 | R |
+| Soldier OW | c306 | R |
+
+**Reserve (1)**: Bibli (c320 — an ELYSION NIKKE, keeping the pack single-manufacturer); provisional pick from the commons reserve.
+
+### 2 · TETRA — 2022-11-04 (22 NIKKEs)
+
+**Launch (22)** — the TETRA-manufactured NIKKEs released with the game, SSR → SR → R (ties by NIKKE id); base *Ludmilla* — TETRA per her skin c194, model pending — closes the roster:
+
+| NIKKE | ID | Rarity |
+|---|---|---|
+| Mary | c130 | SSR |
+| Sugar | c140 | SSR |
+| Milk | c141 | SSR |
+| Frima | c142 | SSR |
+| Yulha | c171 | SSR |
+| Alice | c191 | SSR |
+| Rupee | c200 | SSR |
+| Yan | c201 | SSR |
+| Dolla | c202 | SSR |
+| Exia | c210 | SSR |
+| Novel | c212 | SSR |
+| Folkwang | c242 | SSR |
+| Noise | c430 | SSR |
+| Volume | c431 | SSR |
+| Aria | c432 | SSR |
+| Anis | c012 | SR |
+| Belorta | c060 | SR |
+| Mica | c061 | SR |
+| iDoll Flower | c304 | R |
+| iDoll Ocean | c305 | R |
+| iDoll Sun | c308 | R |
+| Ludmilla † | — | SSR |
+
+*Alice* (c191) is counted here; her first-appearance banner (2023-04-12, pack 4's window) is covered by her launch slot.
+
+† not in the viewer database yet — see build status.
+
+### 3 · MISSILIS — 2022-11-04 (22 NIKKEs)
+
+**Launch (22)** — the 16 MISSILIS-manufactured NIKKEs released with the game (SSR → SR → R, ties by NIKKE id), then the 6 PILGRIM fairy-tale NIKKEs — *Snow White*, *Rapunzel*, *Scarlet*, *Harran*, *Isabel*, *Noah* (all SSR, NIKKE-id order):
+
+| NIKKE | ID | Rarity |
+|---|---|---|
+| Centi | c080 | SSR |
+| Liter | c082 | SSR |
+| Drake | c101 | SSR |
+| Maxwell | c102 | SSR |
+| Crow | c110 | SSR |
+| Pepper | c131 | SSR |
+| Julia | c150 | SSR |
+| Yuni | c160 | SSR |
+| Admi | c172 | SSR |
+| Epinel | c241 | SSR |
+| N102 | c120 | SR |
+| Mihara | c161 | SR |
+| Ether | c291 | SR |
+| Product 08 | c302 | R |
+| Product 12 | c303 | R |
+| Product 23 | c307 | R |
+| Snow White | c220 | SSR |
+| Rapunzel | c221 | SSR |
+| Scarlet | c222 | SSR |
+| Harran | c230 | SSR |
+| Isabel | c231 | SSR |
+| Noah | c232 | SSR |
+
+### 4 · Genesis — Nov 2022 – May 2023 (20 NIKKEs)
+
+**New (18)** — in release order:
 
 | NIKKE | ID | Released |
 |---|---|---|
@@ -59,18 +156,21 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 | Power | c801 | 2023-02-21 |
 | Biscuit | c381 | 2023-03-14 |
 | Sakura | c282 | 2023-03-29 |
-| Alice | c191 | 2023-04-12 |
 | D | c040 | 2023-04-12 |
 | Dorothy | c233 | 2023-04-26 |
 | Blanc | c270 | 2023-05-17 |
 | Noir | c271 | 2023-05-24 |
 | Rosanna | c280 | 2023-05-31 |
 
+*Alice* (c191) is a launch NIKKE (pack 1) and is counted there; her first-appearance banner (2023-04-12) is covered by her launch slot.
+
 **Re-appears (0)**: —
 
-**Base forms (1)**: Rupee (c200)
+**Base forms (0)**: — (the pack's former base form, Rupee (c200), is a launch NIKKE and now ships in pack 2)
 
-### 2 · Abyss — Jun 2023 – Nov 2023 (20 NIKKEs)
+**Reserve (2)**: Neve (c193 — released 2022-12-08, inside the pack's window), Nihilister (c261 — released 2023-03-30, inside the pack's window); provisional picks from the commons reserve.
+
+### 5 · Abyss — Jun 2023 – Nov 2023 (20 NIKKEs)
 
 **New (14)** — in release order:
 
@@ -93,9 +193,11 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (2)**: Anne: Miracle Fairy (c121), Rupee: Winter Shopper (c203)
 
-**Base forms (4)**: Neon (c011), Anis (c012), Mary (c130), Helm (c352)
+**Base forms (1)**: Helm (c352) — the pack's former base forms (Neon, Anis, Mary) are launch NIKKEs, now in packs 1–2
 
-### 3 · Molten — Dec 2023 – May 2024 (23 NIKKEs)
+**Reserve (3)**: Snow White: Innocent Days (c224 — released 2023-11-02, inside the pack's window), Siren (c340, sea theme), Rei (c392 — released 2023-04-27, the nearest dated release before the window); provisional picks from the commons reserve.
+
+### 6 · Molten — Dec 2023 – May 2024 (20 NIKKEs)
 
 **New (15)** — in release order:
 
@@ -119,9 +221,9 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (3)**: Anne: Miracle Fairy (c121), Rupee: Winter Shopper (c203), Modernia (c260)
 
-**Base forms (5)**: D (c040), Mica (c061), Privaty (c170), Scarlet (c222), Soda (c312)
+**Base forms (2)**: D (c040), Soda (c312) — the pack's former base forms (Mica, Privaty, Scarlet) are launch NIKKEs, now in packs 1–3
 
-### 4 · Neon Genesis — Jun 2024 – Nov 2024 (26 NIKKEs)
+### 7 · Neon Genesis — Jun 2024 – Nov 2024 (25 NIKKEs)
 
 **New (16)** — in release order:
 
@@ -146,9 +248,9 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (6)**: Neon: Blue Ocean (c014), Anis: Sparkling Summer (c015), Mica: Snow Buddy (c062), Mary: Bay Goddess (c132), Ludmilla: Winter Owner (c194), Helm: Aquamarine (c353)
 
-**Base forms (4)**: Alice (c191), Rosanna (c280), Sakura (c282), Quency (c402)
+**Base forms (3)**: Rosanna (c280), Sakura (c282), Quency (c402) — the pack's former base form (Alice) is a launch NIKKE, now in pack 2
 
-### 5 · Red Hood — Dec 2024 – May 2025 (27 NIKKEs)
+### 8 · Red Hood — Dec 2024 – May 2025 (23 NIKKEs)
 
 **New (15)** — in release order:
 
@@ -172,9 +274,9 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (6)**: Mica: Snow Buddy (c062), Ludmilla: Winter Owner (c194), Scarlet: Black Shadow (c225), Asuka (c830), Rei Ayanami (c831), Mari (c832)
 
-**Base forms (6)**: Rapi (c010), Mihara (c161), Guillotine (c180), Maiden (c181), Mast (c350), Anchor (c351)
+**Base forms (2)**: Mast (c350), Anchor (c351) — the pack's former base forms (Rapi, Mihara, Guillotine, Maiden) are launch NIKKEs, now in packs 1 and 3
 
-### 6 · Tactical — Jun 2025 – Aug 2025 (23 NIKKEs)
+### 9 · Tactical — Jun 2025 – Aug 2025 (20 NIKKEs)
 
 **New (8)** — in release order:
 
@@ -191,9 +293,9 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (10)**: Neon: Blue Ocean (c014), Anis: Sparkling Summer (c015), Anne: Miracle Fairy (c121), Mary: Bay Goddess (c132), Rupee: Winter Shopper (c203), Rosanna: Chic Ocean (c283), Sakura: Bloom in Summer (c284), Helm: Aquamarine (c353), 2B (c810), A2 (c811)
 
-**Base forms (5)**: Emma (c090), Vesti (c091), Eunhwa (c092), Dorothy (c233), Elegg (c500)
+**Base forms (2)**: Dorothy (c233), Elegg (c500) — the pack's former base forms (Emma, Eunhwa, Vesti) are launch NIKKEs, now in pack 1
 
-### 7 · Outbreak — Sep 2025 – Nov 2025 (22 NIKKEs)
+### 10 · Outbreak — Sep 2025 – Nov 2025 (20 NIKKEs)
 
 **New (8)** — in release order:
 
@@ -210,9 +312,11 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (11)**: Neon: Blue Ocean (c014), Anis: Sparkling Summer (c015), Anne: Miracle Fairy (c121), Mary: Bay Goddess (c132), Guillotine: Winter Slayer (c182), Maiden: Ice Rose (c183), Rupee: Winter Shopper (c203), Dorothy (c233), Modernia (c260), Helm: Aquamarine (c353), Red Hood (c470)
 
-**Base forms (3)**: Delta (c020), Soline (c071), Milk (c141)
+**Base forms (0)**: — (the pack's former base forms — Delta, Soline, Milk — are launch NIKKEs, now in packs 1–2)
 
-### 8 · Blizzard — Dec 2025 – May 2026 (25 NIKKEs)
+**Reserve (1)**: Claire (c842 — Resident Evil, matching the pack's RE collab); provisional pick from the commons reserve.
+
+### 11 · Blizzard — Dec 2025 – May 2026 (20 NIKKEs)
 
 **New (14)** — in release order:
 
@@ -235,9 +339,9 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (5)**: Rapi: Red Hood (c016), Guillotine: Winter Slayer (c182), Maiden: Ice Rose (c183), EVE (c850), Raven (c851)
 
-**Base forms (6)**: Neon (c011), Anis (c012), Brid (c070), Diesel (c072), Snow White (c220), Arcana (c581)
+**Base forms (1)**: Arcana (c581) — the pack's former base forms (Neon, Anis, Brid, Diesel, Snow White) are launch NIKKEs, now in packs 1–3
 
-### 9 · Pumpkin Witch — Jun 2026 – Oct 2026 (30 NIKKEs)
+### 12 · Pumpkin Witch — Jun 2026 – Oct 2026 (27 NIKKEs)
 
 **New (11)** — in release order:
 
@@ -257,82 +361,71 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 
 **Re-appears (11)**: Neon: Blue Ocean (c014), Anis: Sparkling Summer (c015), Mica: Snow Buddy (c062), Anne: Miracle Fairy (c121), Guillotine: Winter Slayer (c182), Maiden: Ice Rose (c183), Ludmilla: Winter Owner (c194), Rupee: Winter Shopper (c203), Dorothy: Serendipity (c234), Sakura: Bloom in Summer (c284), Helm: Aquamarine (c353)
 
-**Base forms (8)**: Belorta (c060), Laplace (c100), Drake (c101), Maxwell (c102), Marchana (c321), Guilty (c400), Sin (c401), Cinderella (c511)
+**Base forms (5)**: Laplace (c100), Marchana (c321), Guilty (c400), Sin (c401), Cinderella (c511) — the pack's former base forms (Belorta, Drake, Maxwell) are launch NIKKEs, now in pack 3
 
 † not in the viewer database yet — see build status.
 
 ## Naming
 
-- Series: **NIKKE REBORN**; the nine packs are its expansions, shipped as `cards/Genesis`, `cards/Abyss`, `cards/Molten`, `cards/NeonGenesis`, `cards/RedHood`, `cards/Tactical`, `cards/Outbreak`, `cards/Blizzard`, `cards/PumpkinWitch` (matching the existing `cards/Alpha` single-word convention).
+- Series: **NIKKE REBORN**; the twelve packs are its expansions, shipped as `cards/ELYSION`, `cards/TETRA`, `cards/MISSILIS`, `cards/Genesis`, `cards/Abyss`, `cards/Molten`, `cards/NeonGenesis`, `cards/RedHood`, `cards/Tactical`, `cards/Outbreak`, `cards/Blizzard`, `cards/PumpkinWitch` (matching the existing `cards/Alpha` single-word convention).
 - Each pack name is its headline content:
 
 | Pack | Name | Why |
 |---|---|---|
-| 1 | Genesis | the global-launch wave (Alice, D, Dorothy, Blanc, Noir …) — the game's launch chapter |
-| 2 | Abyss | the ocean-skin summer (Mary: Bay Goddess, Neon: Blue Ocean, Anis: Sparkling Summer, Helm: Aquamarine) |
-| 3 | Molten | the v2.0-era window: Scarlet, the first winter limiteds, D: Killer Wife, Emilia/Rem |
-| 4 | Neon Genesis | the NERV collab trio (Asuka, Rei Ayanami, Mari) + Ein/Zwei |
-| 5 | Red Hood | Rapi: Red Hood's winter, plus the second NERV wave (Asuka: WILLE, Rei Ayanami (TN)) |
-| 6 | Tactical | the Emma/Eunhwa/Vesti: Tactical Upgrade wave with EVE, Raven, Sora |
-| 7 | Outbreak | the Resident Evil collab (Ada, Jill) and the bunny duo (Ade, Milk) |
-| 8 | Blizzard | the Dec 2025–Jan 2026 winter wave (Diesel: Winter Sweets, Brid: Silent Track, Snow White: Heavy Arms) |
-| 9 | Pumpkin Witch | Belorta's Halloween banner, the bunny twins (Guilty, Sin) and the Kuroko's collab |
+| 1 | ELYSION | the ELYSION line of the launch roster — the set's face Rapi (0001), Neon, the maid line, the Soldier trio |
+| 2 | TETRA | the TETRA line of the launch roster — SSR headliners (Mary, Sugar, Alice, Aria …) plus the iDoll trio |
+| 3 | MISSILIS | the MISSILIS line of the launch roster (Admi, Centi, the Product trio …) plus the 6 PILGRIM fairy-tale NIKKEs |
+| 4 | Genesis | the game's launch wave — the first banner NIKKEs after the base packs (Helm, Laplace, …) |
+| 5 | Abyss | the ocean-skin summer (Mary: Bay Goddess, Neon: Blue Ocean, Anis: Sparkling Summer, Helm: Aquamarine) |
+| 6 | Molten | the v2.0-era window: Scarlet, the first winter limiteds, D: Killer Wife, Emilia/Rem |
+| 7 | Neon Genesis | the NERV collab trio (Asuka, Rei Ayanami, Mari) + Ein/Zwei |
+| 8 | Red Hood | Rapi: Red Hood's winter, plus the second NERV wave (Asuka: WILLE, Rei Ayanami (TN)) |
+| 9 | Tactical | the Emma/Eunhwa/Vesti: Tactical Upgrade wave with EVE, Raven, Sora |
+| 10 | Outbreak | the Resident Evil collab (Ada, Jill) and the bunny duo (Ade, Milk) |
+| 11 | Blizzard | the Dec 2025–Jan 2026 winter wave (Diesel: Winter Sweets, Brid: Silent Track, Snow White: Heavy Arms) |
+| 12 | Pumpkin Witch | Belorta's Halloween banner, the bunny twins (Guilty, Sin) and the Kuroko's collab |
 
 ## Build status
 
-- Packs 1–8: every NIKKE is in `database/characters.json` — renderable today.
-- Pack 9: needs two viewer models before it can render — `Queen (Makoto Nijima)` (c870) and `Yukiko` (c871) (Kuroko's Basketball collab, Aug 2026). All 28 other NIKKEs in the pack are ready.
-- The global-launch standard banners (Ryu, Meryl, Bittercandy …) are absent from both the banner tracker and the viewer database, so no pack covers them; if wanted, that is a 10th "launch" pack pending viewer models.
+- Base packs 1–3: 62 of the 63 launch NIKKEs are in `database/characters.json` — renderable today. Base *Ludmilla* (TETRA, 0042) has no viewer model yet (her skin *Ludmilla: Winter Owner*, c194, ships in pack 6).
+- Card numbering: the global sequence is 0001–0020 ELYSION, 0021–0042 TETRA, 0043–0064 MISSILIS, 0065+ Genesis. The first 7 drafted cards sit in their base packs — `cards/ELYSION/`: 0001 *Rapi*, 0005 *Brid*; `cards/TETRA/`: 0026 *Alice*, 0035 *Aria*, 0036 *Anis*, 0037 *Belorta*; `cards/MISSILIS/`: 0051 *Admi*. `cards/Genesis/` awaits its launch-wave cards (0065+).
+- Packs 5–11: every NIKKE is in `database/characters.json` — renderable today.
+- Pack 12: needs two viewer models before it can render — *Queen (Makoto Nijima)* (c870) and *Yukiko* (c871) (Kuroko's Basketball collab, Aug 2026). All 28 other NIKKEs in the pack are ready.
+- The global-launch standard banners (Ryu, Meryl, Bittercandy …) are absent from both the banner tracker and the viewer database, so those NIKKEs sit outside the 63-renderable launch roster that the base packs now carry; if wanted, that is a 13th "launch" pack pending viewer models.
 
 ## Commons reserve
 
-61 NIKKEs from the viewer database are in no pack roster. They are the staple fillers for the packs' common slots (and the raw material for a future "Classics" reissue pack). R-ranks have no skill cut-in, so they would carry static + idle only.
+16 NIKKEs from the viewer database are in no pack roster (down from 61: 38 launch NIKKEs moved to the base packs; 7 drawn as reserve top-ups — ELYSION ×1, Genesis ×2, Abyss ×3, Outbreak ×1). They are the staple fillers for the packs' common slots (and the raw material for a future "Classics" reissue pack). R-ranks have no skill cut-in, so they would carry static + idle only.
 
 | ID | NIKKE | Rarity | | ID | NIKKE | Rarity |
 |---|---|---|---|---|---|---|
-| c013 | Marian | SR | c261 | Nihilister | SSR |
-| c022 | Signal | SSR | c291 | Ether | SR |
-| c030 | Poli | SSR | c300 | Soldier EG | R |
-| c032 | Miranda | SSR | c301 | Soldier FA | R |
-| c053 | liqueur | R | c302 | Product 08 | R |
-| c080 | Centi | SSR | c303 | Product 12 | R |
-| c081 | Acre | R | c304 | iDoll Flower | R |
-| c082 | Liter | SSR | c305 | iDoll Ocean | R |
-| c110 | Crow | SSR | c306 | Soldier OW | R |
-| c120 | N102 | SR | c307 | Product 23 | R |
-| c131 | Pepper | SSR | c308 | iDoll Sun | R |
-| c140 | Sugar | SSR | c320 | Bibli | SSR |
-| c142 | Frima | SSR | c331 | Chime | SSR |
-| c150 | Julia | SSR | c340 | Siren | SSR |
-| c160 | Yuni | SSR | c342 | Pin | SSR |
-| c171 | Yulha | SSR | c361 | Kilo | SSR |
-| c172 | Admi | SSR | c371 | Endless | SSR |
-| c190 | Lucilla | SSR | c392 | Rei | SSR |
-| c193 | Neve | SR | c430 | Noise | SSR |
-| c201 | Yan | SSR | c431 | Volume | SSR |
-| c202 | Dolla | SSR | c432 | Aria | SSR |
-| c210 | Exia | SSR | c441 | Avistar | SSR |
-| c212 | Novel | SSR | c802 | Himeno | SR |
-| c221 | Rapunzel | SSR | c842 | Claire | SR |
-| c224 | Snow White: Innocent Days | SSR | c852 | Lily | SR |
+| c053 | liqueur | R | c441 | Avistar | SSR |
+| c081 | Acre | R | c802 | Himeno | SR |
+| c190 | Lucilla | SSR | c852 | Lily | SR |
 | c226 | Rapunzel: Pure Grace | SSR | c862 | Kurumi | SR |
-| c230 | Harran | SSR | c872 | Aigis | SR |
-| c231 | Isabel | SSR | c901 | Syuen | R |
-| c232 | Noah | SSR | c907 | Shifty | R |
-| c241 | Epinel | SSR | c993 | Mecha Shifty | R |
-| c242 | Folkwang | SSR | | | |
+| c331 | Chime | SSR | c872 | Aigis | SR |
+| c342 | Pin | SSR | c901 | Syuen | R |
+| c361 | Kilo | SSR | c907 | Shifty | R |
+| c371 | Endless | SSR | c993 | Mecha Shifty | R |
 
 ## Data notes
 
-- Packs 1–2 begin with the KR-launch era (Nov 2022 – Mar 2023); the tracker's history is the true release order across servers.
+- Packs 4–5 begin with the KR-launch era (Nov 2022 – Mar 2023); the tracker's history is the true release order across servers.
 - Spelling quirks from the source data: the database spells c321 *Marchana* (officially Marciana) and c310 *Aid* (officially Ade); the banner titles read *K* (database: Agent K) and *Liberalio* (database: Liberelli). Pack rosters use the database names (the renderable ones); banner names are preserved in `database/banners.json`.
-- Pack 9's re-appearances: the concurrent re-run window nominally carries 14 NIKKEs; three (Mary: Bay Goddess c132, Rosanna: Chic Ocean c283, Elegg: Boom and Shock c502) are trimmed to keep the roster at 30. Drop the trim if 20–30 is a soft bound (roster 33).
-- `cards/Alpha` is the dev prototype (Rapi + Neon, including sub-flavor viewer ids like `c010_02` White Promise and `c016_01` Red Hood Red Flavor that sit outside the top-level database). Its NIKKEs are covered by packs 2, 5 and 8 (Neon c011, Rapi c010 / Rapi: Red Hood c016); sub-flavors are a future per-card option, not part of this plan.
+- The launch roster (the base packs' 63 NIKKEs, all 11/04/2022) comes from the Release dates section; the tracker's first banner (Helm, 11/10/2022) postdates the game's launch by a week — the standard launch banners are untracked (see build status).
+- The 63 launch NIKKEs split by manufacturer as TETRA 21, ELYSION 19, MISSILIS 16, PILGRIM 6 (plus *Ludmilla*, TETRA, model pending). The base packs keep single-manufacturer rosters: MISSILIS pairs with the 6 PILGRIM fairy-tale NIKKEs (22), and ELYSION takes one reserve top-up (*Bibli*, c320 — also ELYSION) to reach 20; if purity beats the 20 lower bound, ELYSION can stand at 19.
+- *Alice* (c191) is the only NIKKE who is both a launch NIKKE (11/04/2022) and a banner first appearance (2023-04-12, pack 4's window); she is counted once, in the TETRA base pack, and her banner is covered there.
+- Base *Ludmilla* is not in the viewer database (only her skin c194, pack 6); the other 62 launch NIKKEs are. *Marian*'s database name carries a leading underscore (`_Marian`, c013); pack rosters use the clean name, as throughout.
+- Pack 12's re-appearances: the concurrent re-run window nominally carries 14 NIKKEs; three (Mary: Bay Goddess c132, Rosanna: Chic Ocean c283, Elegg: Boom and Shock c502) are trimmed to keep the roster at 27. Drop the trim if 20–30 is a soft bound (roster 30).
+- The Release dates list ends at *Ein* (07/25/2024) and names two NIKKEs outside the renderable roster (*Pascal*, *Ram*); it is used here for the 11/04/2022 launch roster only.
+- `cards/Alpha` is the dev prototype (Rapi + Neon, including sub-flavor viewer ids like `c010_02` White Promise and `c016_01` Red Hood Red Flavor that sit outside the top-level database). Its NIKKEs are covered by pack 2 (Neon c011, Rapi c010) and pack 8 (Rapi: Red Hood c016); sub-flavors are a future per-card option, not part of this plan.
 
 ## Alternatives considered
 
-- **8 packs**: merge 6 (Tactical) + 7 (Outbreak) — 16 new + 15 distinct re-appears + 7 base = 38, trimmed to 30 by dropping 8 re-appears.
-- **10 packs**: split 4 (Neon Genesis) at the NERV collab — Jun–Aug 2024 (8 new + 4 re + 3 base = 15, topped up from the reserve to 20) and Sep–Nov 2024 (the NERV trio, Rouge, Quency: Escape Queen, Phantom, Rumani, Cinderella, Grave, Flora: 8 new + 2 re + 1 base = 11, topped up to 20).
+- **One 63-NIKKE launch pack** (previous draft): rejected — unbalanced on its own, and 81 with the launch wave; the three base packs keep every pack inside 20–30.
+- **21/21/21 by mixing manufacturers**: would move NIKKEs across manufacturer lines (e.g. 2 MISSILIS into ELYSION); rejected — the single-manufacturer split is the point of the base packs.
+- **11 packs**: merge 9 (Tactical) + 10 (Outbreak) — 16 new + 21 re-appear slots (several NIKKEs re-listed from both packs) + 2 base forms = 39, trimmed to 30 by dropping 9 re-appears; the 7 reserve top-ups apply to the 12-pack plan only.
+- **13 packs**: split 7 (Neon Genesis) at the NERV collab — Jun–Aug 2024 (8 new + 4 re + 2 base = 14, topped up from the reserve to 20) and Sep–Nov 2024 (the NERV trio, Rouge, Quency: Escape Queen, Phantom, Rumani, Cinderella, Grave, Flora: 8 new + 2 re + 1 base = 11, topped up to 20).
 
 ## Release dates
 
@@ -465,6 +558,9 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 126	Rosanna: Chic Ocean	07/11/2024
 127	Ein	07/25/2024
 
+**The base packs' launch roster:** entries 1–63 (all dated 11/04/2022 — the NIKKEs released with the game) form the three base packs (ELYSION, TETRA, MISSILIS) and release before every other pack; entries 64 onward are post-launch releases already covered by the packs above (the list ends at Ein, 07/25/2024).
+
 ## Changelog
 
+- 2026-10-22: launch roster (the 63 base NIKKEs, per the new Release dates section) split into three base packs before all the others — ELYSION (20, the set's face Rapi leading as 0001), TETRA (22, incl. Ludmilla †), MISSILIS (16 MISSILIS + 6 PILGRIM) — grouped by manufacturer (ELYSION first as the face-card line, then by launch-line size), ordered SSR → SR → R (ties by NIKKE id; Rapi leads ELYSION as 0001) instead of alphabetical; the 22 launch NIKKEs previously printed as base forms in the other packs move to the base packs; 7 reserve top-ups (ELYSION ×1, Genesis ×2, Abyss ×3, Outbreak ×1) hold those packs at 20; commons reserve 61 → 16; 12-pack structure with every pack inside 20–30.
 - 2025-10-21: plan drafted from the banner history (165 banners) and the 206-skin viewer database; 9-pack structure settled at 20–30 NIKKEs per pack.

@@ -81,9 +81,9 @@ import nikke_reborn as nr
 
 ALL_CARDS = sorted(nr.CARDS_DIR.rglob("*.json"))
 DEFAULT_CARDS = [
-    nr.CARDS_DIR / "Alpha" / "0001_Rapi" / "Standard.json",
-    nr.CARDS_DIR / "Alpha" / "0001_Rapi" / "EX.json",
-    nr.CARDS_DIR / "Alpha" / "0001_Rapi" / "FirstEdition.json",
+    nr.CARDS_DIR / "ELYSION" / "0001_Rapi" / "Common.json",
+    nr.CARDS_DIR / "ELYSION" / "0001_Rapi" / "Exotic.json",
+    nr.CARDS_DIR / "ELYSION" / "0001_Rapi" / "Idle.json",
 ]
 
 
