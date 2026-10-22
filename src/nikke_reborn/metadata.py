@@ -217,7 +217,7 @@ def card(name, variant, rarity, sprite) -> dict:
         "Rarity": variant,
         "BorderType": border,
         "Sprite": sprite,
-        "IsFoil": variant == "EX" or "FullArt" in variant,
+        "IsFoil": variant in ["Exotic", "Goddess", "Classified"],
         "ElementType": "None",
         "FoilMask": "",
         "CardBack": "",
