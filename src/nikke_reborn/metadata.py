@@ -1,11 +1,12 @@
 RARITIES = [
-    "Standard",
-    "Silver",
-    "Gold",
-    "FirstEdition",
-    "EX",
-    "FullArt",
-    "FullArtAnimated",
+    "Common",
+    "Uncommon",
+    "Rare",
+    "Special",
+    "Idle",
+    "Exotic",
+    "Goddess",
+    "Classified",
 ]
 
 
@@ -58,29 +59,48 @@ def expansion(set, cards) -> dict:
 
 
 def pack(set) -> dict:
-    def slot(
-        silver, gold, first_edition, ex=0, full_art=0, full_art_animated=0
-    ) -> dict:
+    def slot(uncommon, rare, special, idle, exotic=0, goddess=0, classified=0) -> dict:
         return {
-            "Standard": 100
-            - silver
-            - gold
-            - first_edition
-            - ex
-            - full_art
-            - full_art_animated,
-            "Silver": silver,
-            "Gold": gold,
-            "FirstEdition": first_edition,
-            "EX": ex,
-            "FullArt": full_art,
-            "FullArtAnimated": full_art_animated,
+            "Common": 100
+            - uncommon
+            - rare
+            - special
+            - idle
+            - exotic
+            - goddess
+            - classified,
+            "Uncommon": uncommon,
+            "Rare": rare,
+            "Special": special,
+            "Idle": idle,
+            "Exotic": exotic,
+            "Goddess": goddess,
+            "Classified": classified,
         }
 
-    common = slot(silver=10, gold=4, first_edition=1)
-    uncommon = slot(silver=10, gold=4, first_edition=1, ex=0.5)
+    common = slot(
+        uncommon=8,
+        rare=4,
+        special=2,
+        idle=1,
+    )
+
+    uncommon = slot(
+        uncommon=16,
+        rare=8,
+        special=4,
+        idle=2,
+        exotic=0.5,
+    )
+
     rare = slot(
-        silver=10, gold=4, first_edition=2, ex=1, full_art=0.5, full_art_animated=0.25
+        uncommon=25,
+        rare=16,
+        special=5,
+        idle=2,
+        exotic=1,
+        goddess=0.5,
+        classified=0.25,
     )
 
     slot_weights = {
@@ -150,13 +170,14 @@ def card(name, variant, rarity, sprite) -> dict:
     BORDERS = ["Base", "FirstEdition", "Silver", "Gold", "EX", "FullArt"]
 
     VARIANT_BORDER = {
-        "Standard": 0,
-        "Silver": 0,
-        "Gold": 0,
-        "FirstEdition": 4,
-        "EX": 3,
-        "FullArt": 4,
-        "FullArtAnimated": 5,
+        "Common": 0,
+        "Uncommon": 0,
+        "Rare": 0,
+        "Special": 1,
+        "Idle": 4,
+        "Exotic": 3,
+        "Goddess": 4,
+        "Classified": 5,
     }
 
     RARITY_BONUS = {

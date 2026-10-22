@@ -1,0 +1,24 @@
+{
+  "id": "c060",
+  "title": "Belorta",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "angry",
+  "framerate": 0,
+  "time": 2.1280990099999997,
+  "mipmapping": true,
+  "pan": [
+    35.09885,
+    294.5273
+  ],
+  "zoom": 1.5,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-sunset.png"
+}

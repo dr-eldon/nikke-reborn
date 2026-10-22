@@ -1,0 +1,24 @@
+{
+  "id": "c191",
+  "title": "Alice",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "action",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    -12.218168,
+    287.2206
+  ],
+  "zoom": 1.5,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/shopping-mall.png"
+}

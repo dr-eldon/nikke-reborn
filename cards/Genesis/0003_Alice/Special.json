@@ -1,0 +1,24 @@
+{
+  "id": "c191",
+  "title": "Alice",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "delight",
+  "framerate": 0,
+  "time": 2.338,
+  "mipmapping": true,
+  "pan": [
+    60.487007,
+    297.4291
+  ],
+  "zoom": 1.5,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/goddess-of-victory-night.png"
+}

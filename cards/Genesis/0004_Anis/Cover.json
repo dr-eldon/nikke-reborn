@@ -1,0 +1,24 @@
+{
+  "id": "c012",
+  "title": "Anis",
+  "subtitle": "",
+  "variant": "cover",
+  "skin": "default",
+  "animation": "cover_reload",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    -66.31842,
+    3.7600262
+  ],
+  "zoom": 1.0,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/smoke-pink.png"
+}

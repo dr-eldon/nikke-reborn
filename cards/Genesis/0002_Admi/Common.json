@@ -1,0 +1,24 @@
+{
+  "id": "c172",
+  "title": "Admi",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "idle",
+  "framerate": 0,
+  "time": 0.0,
+  "mipmapping": true,
+  "pan": [
+    96.74879,
+    259.4438
+  ],
+  "zoom": 1.46,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-night.png"
+}

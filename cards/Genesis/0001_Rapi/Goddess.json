@@ -1,0 +1,24 @@
+{
+  "id": "c010",
+  "title": "Rapi",
+  "subtitle": "",
+  "variant": "sc",
+  "skin": "default",
+  "animation": "skillcut_1",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    476.5848,
+    125.4567
+  ],
+  "zoom": 2.1,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/land-sunset.png"
+}

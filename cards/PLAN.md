@@ -334,6 +334,137 @@ Nine card packs (expansions) covering every NIKKE banner release from Nov 2022 t
 - **8 packs**: merge 6 (Tactical) + 7 (Outbreak) — 16 new + 15 distinct re-appears + 7 base = 38, trimmed to 30 by dropping 8 re-appears.
 - **10 packs**: split 4 (Neon Genesis) at the NERV collab — Jun–Aug 2024 (8 new + 4 re + 3 base = 15, topped up from the reserve to 20) and Sep–Nov 2024 (the NERV trio, Rouge, Quency: Escape Queen, Phantom, Rumani, Cinderella, Grave, Flora: 8 new + 2 re + 1 base = 11, topped up to 20).
 
+## Release dates
+
++	Name	Release Date
+1	Admi	11/04/2022
+2	Alice	11/04/2022
+3	Anis	11/04/2022
+4	Aria	11/04/2022
+5	Belorta	11/04/2022
+6	Brid	11/04/2022
+7	Centi	11/04/2022
+8	Crow	11/04/2022
+9	Delta	11/04/2022
+10	Diesel	11/04/2022
+11	Dolla	11/04/2022
+12	Drake	11/04/2022
+13	Emma	11/04/2022
+14	Epinel	11/04/2022
+15	Ether	11/04/2022
+16	Eunhwa	11/04/2022
+17	Exia	11/04/2022
+18	Folkwang	11/04/2022
+19	Frima	11/04/2022
+20	Guillotine	11/04/2022
+21	Harran	11/04/2022
+22	iDoll Flower	11/04/2022
+23	iDoll Ocean	11/04/2022
+24	iDoll Sun	11/04/2022
+25	Isabel	11/04/2022
+26	Julia	11/04/2022
+27	Liter	11/04/2022
+28	Ludmilla	11/04/2022
+29	Maiden	11/04/2022
+30	Marian	11/04/2022
+31	Mary	11/04/2022
+32	Maxwell	11/04/2022
+33	Mica	11/04/2022
+34	Mihara	11/04/2022
+35	Milk	11/04/2022
+36	Miranda	11/04/2022
+37	N102	11/04/2022
+38	Neon	11/04/2022
+39	Noah	11/04/2022
+40	Noise	11/04/2022
+41	Novel	11/04/2022
+42	Pepper	11/04/2022
+43	Poli	11/04/2022
+44	Privaty	11/04/2022
+45	Product 08	11/04/2022
+46	Product 12	11/04/2022
+47	Product 23	11/04/2022
+48	Rapi	11/04/2022
+49	Rapunzel	11/04/2022
+50	Rupee	11/04/2022
+51	Scarlet	11/04/2022
+52	Signal	11/04/2022
+53	Snow White	11/04/2022
+54	Soldier EG	11/04/2022
+55	Soldier FA	11/04/2022
+56	Soldier OW	11/04/2022
+57	Soline	11/04/2022
+58	Sugar	11/04/2022
+59	Vesti	11/04/2022
+60	Volume	11/04/2022
+61	Yan	11/04/2022
+62	Yulha	11/04/2022
+63	Yuni	11/04/2022
+64	Helm	11/10/2022
+65	Laplace	11/24/2022
+66	Neve	12/08/2022
+67	Rupee: Winter Shopper	12/08/2022
+68	Anne: Miracle Fairy	12/15/2022
+69	Modernia	01/01/2023
+70	Guilty	01/12/2023
+71	Jackal	01/12/2023
+72	Quency	01/12/2023
+73	Sin	01/12/2023
+74	Viper	01/19/2023
+75	Cocoa	02/01/2023
+76	Soda	02/01/2023
+77	Himeno	02/22/2023
+78	Makima	02/22/2023
+79	Power	02/22/2023
+80	Biscuit	03/15/2023
+81	Nihilister	03/30/2023
+82	Sakura	03/30/2023
+83	D	04/13/2023
+84	Dorothy	04/27/2023
+85	Rei	04/27/2023
+86	Blanc	05/18/2023
+87	Noir	05/25/2023
+88	Rosanna	06/01/2023
+89	Nero	06/06/2023
+90	Mary: Bay Goddess	06/15/2023
+91	Neon: Blue Ocean	06/22/2023
+92	Mast	07/20/2023
+93	Anchor	08/03/2023
+94	Anis: Sparkling Summer	08/03/2023
+95	Helm: Aquamarine	08/10/2023
+96	2B	09/01/2023
+97	Pascal	09/01/2023
+98	A2	09/08/2023
+99	Marciana	09/21/2023
+100	Naga	10/05/2023
+101	Tia	10/12/2023
+102	Quiry	10/19/2023
+103	Red Hood	11/02/2023
+104	Snow White: Innocent Days	11/02/2023
+105	Tove	11/23/2023
+106	Ludmilla: Winter Owner	12/07/2023
+107	Mica: Snow Buddy	12/14/2023
+108	Scarlet:Black Shadow	01/01/2024
+109	Leona	01/11/2024
+110	Moran	01/25/2024
+111	Privaty: Unkind Maid	02/05/2024
+112	Ade	02/15/2024
+113	Elegg	02/22/2024
+114	D: Killer Wife	03/07/2024
+115	Emilia	03/21/2024
+116	Ram	03/21/2024
+117	Rem	03/28/2024
+118	Bay	04/11/2024
+119	Crown	04/25/2024
+120	Kilo	04/25/2024
+121	Trony	05/16/2024
+122	Soda: Twinkling Bunny	05/30/2024
+123	Alice: Wonderland Bunny	06/06/2024
+124	Clay	06/20/2024
+125	Sakura: Bloom In Summer	07/04/2024
+126	Rosanna: Chic Ocean	07/11/2024
+127	Ein	07/25/2024
+
 ## Changelog
 
 - 2025-10-21: plan drafted from the banner history (165 banners) and the 206-skin viewer database; 9-pack structure settled at 20–30 NIKKEs per pack.
