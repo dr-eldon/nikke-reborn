@@ -122,15 +122,7 @@ impl Material {
             .map_err(|e| format!("failed to decode image {}: {e}", path.display()))?;
         let rgba = img.to_rgba8();
         let (w, h) = (rgba.width() as usize, rgba.height() as usize);
-        // Unity UVs use a bottom-left origin (v=0 = bottom of the image), but
-        // PNG rows run top-to-bottom and wgpu/Vulkan textures place v=0 at the
-        // top. Flip the rows so the mesh's UVs line up with the artwork.
-        let raw = rgba.into_raw();
-        let stride = w * 4;
-        let mut pixels = Vec::with_capacity(raw.len());
-        for row in raw.chunks_exact(stride).rev() {
-            pixels.extend_from_slice(row);
-        }
+        let pixels = rgba.into_raw();
         Ok(Arc::new(Self {
             width: w as u32,
             height: h as u32,
@@ -175,17 +167,14 @@ const MSAA_SAMPLES: u32 = 4;
 /// Column-major matrix (matches WGSL `mat4x4f`).
 type Mat4 = [[f32; 4]; 4];
 
-/// The in-game model is displayed with its X axis mirrored relative to the
-/// raw asset space, so mirror x to match (fan spread direction and artwork
-/// left/right). This is a reflection (det −1), which reverses on-screen
-/// winding — the fragment shader compensates by inverting its front-facing
-/// rule, so the transformed normals light correctly.
-const X_MIRROR: Mat4 = [
-    [-1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 1.0],
-];
+const fn identity() -> Mat4 {
+    [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
 
 /// `a * b` for column-major matrices.
 fn mul(a: &Mat4, b: &Mat4) -> Mat4 {
@@ -292,10 +281,13 @@ const FILL: vec3<f32> = vec3<f32>(0.2);
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    let world = uniforms.model * vec4<f32>(input.position, 1.0);
+    let world = uniforms.model * vec4<f32>(-input.position.x, input.position.yz, 1.0);
     out.position = uniforms.view_proj * world;
-    out.normal = (uniforms.model * vec4<f32>(input.normal, 0.0)).xyz;
-    out.uv = input.uv;
+    out.normal = (uniforms.model * vec4<f32>(-input.normal.x, input.normal.yz, 0.0)).xyz;
+    // Unity UVs use a bottom-left origin (v=0 = image bottom), but wgpu/Vulkan
+    // textures place v=0 at the top (first row). Flip V so the UVs line up with
+    // the artwork.
+    out.uv = vec2<f32>(input.uv.x, 1.0 - input.uv.y);
     return out;
 }
 
@@ -305,9 +297,6 @@ fn fs_main(
     @builtin(front_facing) front: bool,
 ) -> @location(0) vec4<f32> {
     var n = normalize(input.normal);
-    // The model is x-mirrored (a reflection), which reverses on-screen
-    // winding and so inverts `front_facing` for the whole scene: flip the
-    // normal for front-facing fragments instead of back-facing ones.
     if (front) {
         n = -n;
     }
@@ -715,7 +704,7 @@ impl Pipeline {
         let view = look_at(eye, primitive.camera.pan, primitive.camera.up());
         let uniforms = Uniforms {
             view_proj: mul(&proj, &view),
-            model: X_MIRROR,
+            model: identity(),
         };
         queue.write_buffer(&self.uniforms_buffer, 0, bytemuck::bytes_of(&uniforms));
 
@@ -1040,11 +1029,11 @@ mod camera_tests {
                         let dx = eye[0] - cam.pan[0];
                         let dy = eye[1] - cam.pan[1];
                         let dz = eye[2] - cam.pan[2];
-                    let actual = (dx * dx + dy * dy + dz * dz).sqrt();
-                    assert!(
-                        (actual - d).abs() < d * 1e-4,
-                        "yaw={yaw} pitch={pitch} roll={roll} zoom={zoom}: eye at {actual}, expected {d}"
-                    );
+                        let actual = (dx * dx + dy * dy + dz * dz).sqrt();
+                        assert!(
+                            (actual - d).abs() < d * 1e-4,
+                            "yaw={yaw} pitch={pitch} roll={roll} zoom={zoom}: eye at {actual}, expected {d}"
+                        );
                     }
                 }
             }
@@ -1074,16 +1063,11 @@ mod camera_tests {
         }
         // Roll is a rotation about the view axis: the rolled basis must
         // equal the unrolled basis rotated in the right/up plane.
-        let unrolled = Camera {
-            roll: 0.0,
-            ..cam
-        };
+        let unrolled = Camera { roll: 0.0, ..cam };
         let (r0, u0) = unrolled.screen_axes();
         let (cr, sr) = (cam.roll.cos(), cam.roll.sin());
         let close = |a: [f32; 3], b: [f32; 3]| {
-            (a[0] - b[0]).abs() < 1e-5
-                && (a[1] - b[1]).abs() < 1e-5
-                && (a[2] - b[2]).abs() < 1e-5
+            (a[0] - b[0]).abs() < 1e-5 && (a[1] - b[1]).abs() < 1e-5 && (a[2] - b[2]).abs() < 1e-5
         };
         let expected_right = [
             r0[0] * cr - u0[0] * sr,
@@ -1148,8 +1132,8 @@ mod blit_tests {
 
             let format = wgpu::TextureFormat::Rgba8UnormSrgb;
             let mut pipeline = Pipeline::create(&device, &queue, format);
-            let mesh =
-                Mesh::from_file(std::path::Path::new("../assets/CardPackStatic_Mesh.asset")).ok()?;
+            let mesh = Mesh::from_file(std::path::Path::new("../assets/CardPackStatic_Mesh.asset"))
+                .ok()?;
             let primitive = Primitive {
                 mesh: Some(Arc::new(mesh)),
                 material: None,
@@ -1225,12 +1209,7 @@ mod blit_tests {
             let mapped = buffer.slice(..).get_mapped_range().ok()?;
 
             // Opaque-pixel bounding box.
-            let (mut min_x, mut min_y, mut max_x, mut max_y) = (
-                u32::MAX,
-                u32::MAX,
-                0u32,
-                0u32,
-            );
+            let (mut min_x, mut min_y, mut max_x, mut max_y) = (u32::MAX, u32::MAX, 0u32, 0u32);
             for y in 0..frame.height {
                 let start = (y as u64 * row_stride) as usize;
                 for x in 0..frame.width {
@@ -1300,29 +1279,13 @@ mod blit_tests {
                 );
                 // Nothing outside the clip rect.
                 assert!(o.0 >= offset.x, "content leaked left of the clip");
-                assert!(o.2 < offset.x + offset.width, "content leaked right of the clip");
+                assert!(
+                    o.2 < offset.x + offset.width,
+                    "content leaked right of the clip"
+                );
             }
             (None, _) => {}
             _ => panic!("partial GPU render (one clip rendered, the other did not)"),
         }
-    }
-}
-
-#[cfg(test)]
-mod material_tests {
-    use super::*;
-
-    /// PNG rows run top-to-bottom, but Unity UVs (and wgpu texture sampling)
-    /// expect v=0 at the image bottom — `from_file` must flip the rows.
-    #[test]
-    fn rows_are_flipped_for_unity_uvs() {
-        // Top pixel (1,2,3,4), bottom pixel (5,6,7,8).
-        let img = image::RgbaImage::from_raw(1, 2, vec![1, 2, 3, 4, 5, 6, 7, 8]).unwrap();
-        let path =
-            std::env::temp_dir().join(format!("unity_viewer_flip_{}.png", std::process::id()));
-        img.save(&path).unwrap();
-        let mat = Material::from_file(&path).unwrap();
-        std::fs::remove_file(&path).ok();
-        assert_eq!(mat.pixels, vec![5, 6, 7, 8, 1, 2, 3, 4]);
     }
 }
