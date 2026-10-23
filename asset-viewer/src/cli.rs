@@ -11,9 +11,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use iced::Rectangle;
 use crate::scene::{Camera, Material, Pipeline, Primitive};
 use crate::unity::Mesh;
+use iced::Rectangle;
 
 use crate::{ASSETS_DIR, IMAGES_DIR, OUTPUT_DIR, ROOT};
 
@@ -284,7 +284,9 @@ fn parse(args: &[String]) -> Result<Options, String> {
                 print!("{HELP}");
                 std::process::exit(0);
             }
-            "--rotation" => rotation = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
+            "--rotation" => {
+                rotation = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?)
+            }
             "--zoom" => zoom = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
             "--pitch" => pitch = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
             "--width" => width = parse_num(flag_value(args, &mut i, flag, inline)?, flag)?,
@@ -307,8 +309,8 @@ fn parse(args: &[String]) -> Result<Options, String> {
         Some(_) => None,
         None => {
             return Err(
-                "missing <material> argument (use 'none' for no material; see --help)".to_string()
-            )
+                "missing <material> argument (use 'none' for no material; see --help)".to_string(),
+            );
         }
     };
     let rotation = rotation.ok_or("--rotation <deg> is required")?;
@@ -341,7 +343,12 @@ fn parse(args: &[String]) -> Result<Options, String> {
 }
 
 /// Value of `--flag`: the inline `=value` part, or the next argument.
-fn flag_value(args: &[String], i: &mut usize, flag: &str, inline: Option<&str>) -> Result<String, String> {
+fn flag_value(
+    args: &[String],
+    i: &mut usize,
+    flag: &str,
+    inline: Option<&str>,
+) -> Result<String, String> {
     match inline {
         Some(v) => Ok(v.to_string()),
         None => {
@@ -376,9 +383,7 @@ fn resolve_mesh(name: &str) -> Result<PathBuf, String> {
         .iter()
         .find(|p| p.is_file())
         .cloned()
-        .ok_or_else(|| {
-            format!("mesh not found: {name} (tried the given path and {ASSETS_DIR}/)")
-        })
+        .ok_or_else(|| format!("mesh not found: {name} (tried the given path and {ASSETS_DIR}/)"))
 }
 
 fn resolve_material(name: &str) -> Result<PathBuf, String> {

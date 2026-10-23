@@ -23,7 +23,7 @@ use iced::widget::shader::Action;
 use iced::widget::{
     button, column, combo_box, container, image, responsive, row, rule, shader, space, text,
 };
-use iced::{widget, Background, Color, Font, Length, Point, Task, Theme, Vector, Widget};
+use iced::{Background, Color, Font, Length, Point, Task, Theme, Vector, Widget, widget};
 
 use scene::{Camera, Material, Primitive};
 use unity::Mesh;
@@ -233,12 +233,8 @@ impl App {
 
         let mesh_state =
             combo_box::State::new(mesh_entries.iter().map(|e| e.label.clone()).collect());
-        let material_state = combo_box::State::new(
-            material_entries
-                .iter()
-                .map(|e| e.label.clone())
-                .collect(),
-        );
+        let material_state =
+            combo_box::State::new(material_entries.iter().map(|e| e.label.clone()).collect());
 
         let selected_mesh = mesh_entries.first().map(|_| 0);
         let app = App {
@@ -399,8 +395,8 @@ impl App {
                 // the model, so a downward drag (delta.y > 0) must raise the
                 // camera to tilt the model's top toward you (grab feel).
                 self.camera.yaw -= delta.x as f32 * ROTATE_SPEED;
-                self.camera.pitch =
-                    (self.camera.pitch + delta.y as f32 * ROTATE_SPEED).clamp(-PITCH_LIMIT, PITCH_LIMIT);
+                self.camera.pitch = (self.camera.pitch + delta.y as f32 * ROTATE_SPEED)
+                    .clamp(-PITCH_LIMIT, PITCH_LIMIT);
                 Task::none()
             }
 
@@ -448,8 +444,7 @@ impl App {
     fn apply_material_load(&mut self, i: usize, res: Result<Option<Arc<Material>>, String>) {
         match res {
             Ok(Some(mat)) => {
-                let preview =
-                    image::Handle::from_rgba(mat.width, mat.height, mat.pixels.clone());
+                let preview = image::Handle::from_rgba(mat.width, mat.height, mat.pixels.clone());
                 if let Some(entry) = self.material_entries.get_mut(i) {
                     entry.data = Some(mat.clone());
                     entry.preview = Some(preview);
@@ -625,19 +620,17 @@ impl widget::shader::Program<Message> for Renderer<'_> {
         cursor: iced::mouse::Cursor,
     ) -> Option<Action<Message>> {
         match event {
-            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(button)) => {
-                match button {
-                    iced::mouse::Button::Left => {
-                        state.rotate = cursor.position();
-                        Some(Action::capture())
-                    }
-                    iced::mouse::Button::Right => {
-                        state.pan = cursor.position();
-                        Some(Action::capture())
-                    }
-                    _ => None,
+            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(button)) => match button {
+                iced::mouse::Button::Left => {
+                    state.rotate = cursor.position();
+                    Some(Action::capture())
                 }
-            }
+                iced::mouse::Button::Right => {
+                    state.pan = cursor.position();
+                    Some(Action::capture())
+                }
+                _ => None,
+            },
             iced::Event::Mouse(iced::mouse::Event::CursorMoved { .. }) => {
                 let pos = cursor.position()?;
                 if let Some(last) = state.rotate {
@@ -651,8 +644,7 @@ impl widget::shader::Program<Message> for Renderer<'_> {
                     let h = bounds.size().height.max(1.0);
                     let radius = self.mesh.as_ref().map(|m| m.radius()).unwrap_or(1.0);
                     let distance = self.camera.distance(radius);
-                    let world_per_px =
-                        2.0_f32 * distance * (scene::FOV_Y * 0.5).tan() / h;
+                    let world_per_px = 2.0_f32 * distance * (scene::FOV_Y * 0.5).tan() / h;
                     Some(Action::publish(Message::Pan(Vector::new(
                         (pos.x - last.x) * world_per_px,
                         (pos.y - last.y) * world_per_px,

@@ -81,8 +81,8 @@ pub struct Material {
 impl Material {
     /// Decode an image file (PNG/…) into an RGBA8 material.
     pub fn from_file(path: &std::path::Path) -> Result<Arc<Self>, String> {
-        let bytes = std::fs::read(path)
-            .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+        let bytes =
+            std::fs::read(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
         let img = image::load_from_memory(&bytes)
             .map_err(|e| format!("failed to decode image {}: {e}", path.display()))?;
         let rgba = img.to_rgba8();
@@ -132,14 +132,17 @@ pub struct Primitive {
 /// Column-major matrix (matches WGSL `mat4x4f`).
 type Mat4 = [[f32; 4]; 4];
 
-const fn identity() -> Mat4 {
-    [
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ]
-}
+/// The in-game model is displayed with its X axis mirrored relative to the
+/// raw asset space, so mirror x to match (fan spread direction and artwork
+/// left/right). This is a reflection (det −1), which reverses on-screen
+/// winding — the fragment shader compensates by inverting its front-facing
+/// rule, so the transformed normals light correctly.
+const X_MIRROR: Mat4 = [
+    [-1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+];
 
 /// `a * b` for column-major matrices.
 fn mul(a: &Mat4, b: &Mat4) -> Mat4 {
@@ -182,11 +185,7 @@ fn look_at(eye: [f32; 3], target: [f32; 3], up: [f32; 3]) -> Mat4 {
     fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
         a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
     }
-    let f = norm([
-        target[0] - eye[0],
-        target[1] - eye[1],
-        target[2] - eye[2],
-    ]);
+    let f = norm([target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]]);
     let s = norm(cross(f, up));
     let u = cross(s, f);
     [
@@ -250,7 +249,10 @@ fn fs_main(
     @builtin(front_facing) front: bool,
 ) -> @location(0) vec4<f32> {
     var n = normalize(input.normal);
-    if (!front) {
+    // The model is x-mirrored (a reflection), which reverses on-screen
+    // winding and so inverts `front_facing` for the whole scene: flip the
+    // normal for front-facing fragments instead of back-facing ones.
+    if (front) {
         n = -n;
     }
     let albedo = textureSample(base_color, base_sampler, input.uv);
@@ -390,16 +392,16 @@ impl Pipeline {
             },
         );
         let default_view = default_texture.create_view(&wgpu::wgt::TextureViewDescriptor {
-                    label: None,
-                    format: None,
-                    dimension: None,
-                    usage: None,
-                    aspect: wgpu::TextureAspect::All,
-                    base_mip_level: 0,
-                    mip_level_count: Some(1),
-                    base_array_layer: 0,
-                    array_layer_count: Some(1),
-                });
+            label: None,
+            format: None,
+            dimension: None,
+            usage: None,
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: Some(1),
+            base_array_layer: 0,
+            array_layer_count: Some(1),
+        });
 
         Self {
             device: device.clone(),
@@ -416,11 +418,7 @@ impl Pipeline {
     }
 
     /// (Re)create the full-frame depth attachment.
-    fn update_depth(
-        &mut self,
-        device: &wgpu::Device,
-        size: Size<u32>,
-    ) {
+    fn update_depth(&mut self, device: &wgpu::Device, size: Size<u32>) {
         if self
             .depth
             .as_ref()
@@ -472,18 +470,14 @@ impl Pipeline {
     ) {
         self.update_depth(device, size);
 
-        let radius = primitive
-            .mesh
-            .as_ref()
-            .map(|m| m.radius())
-            .unwrap_or(1.0);
+        let radius = primitive.mesh.as_ref().map(|m| m.radius()).unwrap_or(1.0);
         let distance = primitive.camera.distance(radius).max(1e-3);
         let eye = primitive.camera.eye(radius);
         let proj = perspective(FOV_Y, aspect, distance / 100.0, distance * 100.0);
         let view = look_at(eye, primitive.camera.pan, [0.0, 1.0, 0.0]);
         let uniforms = Uniforms {
             view_proj: mul(&proj, &view),
-            model: identity(),
+            model: X_MIRROR,
         };
         queue.write_buffer(&self.uniforms_buffer, 0, bytemuck::bytes_of(&uniforms));
 
@@ -593,11 +587,7 @@ impl iced::widget::shader::Primitive for Primitive {
         pipeline.prepare(device, queue, self, frame, aspect);
     }
 
-    fn draw(
-        &self,
-        _pipeline: &Self::Pipeline,
-        _render_pass: &mut wgpu::RenderPass,
-    ) -> bool {
+    fn draw(&self, _pipeline: &Self::Pipeline, _render_pass: &mut wgpu::RenderPass) -> bool {
         // Not drawn here: we need our own depth attachment, so the actual
         // rendering happens in `render` (the fallback pass).
         false
@@ -666,11 +656,13 @@ impl Primitive {
                 resource: wgpu::BindingResource::Sampler(&pipeline.sampler),
             },
         ];
-        let bind_group = pipeline.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("mesh bind group"),
-            layout: &pipeline.bind_layout,
-            entries: &entries,
-        });
+        let bind_group = pipeline
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("mesh bind group"),
+                layout: &pipeline.bind_layout,
+                entries: &entries,
+            });
 
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("asset-viewer pass"),

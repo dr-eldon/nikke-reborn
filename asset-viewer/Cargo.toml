@@ -15,7 +15,8 @@ wgpu = "30"
 [dependencies.iced]
 git = "https://github.com/iced-rs/iced"
 rev = "ab336f6d6403d7206d82c7c2caa46143efde8284"
-features = ["tokio", "image-without-codecs"]
+default-features = false
+features = ["wgpu", "tiny-skia", "crisp", "linux-theme-detection", "x11", "wayland", "wayland-dlopen", "wayland-decorations", "tokio", "image-without-codecs"]
 
 [dependencies.tokio]
 version = "1"

@@ -119,10 +119,7 @@ impl Mesh {
         let Some(tx) = d.index_from(ds, "_typelessdata:") else {
             return Err(Error::Parse("missing _typelessdata".into()));
         };
-        let line_end = text[tx..]
-            .find('\n')
-            .map(|i| tx + i)
-            .unwrap_or(text.len());
+        let line_end = text[tx..].find('\n').map(|i| tx + i).unwrap_or(text.len());
         let hex = text[tx + "_typelessdata:".len()..line_end].trim();
         let data =
             decode_hex(hex).ok_or_else(|| Error::Parse("_typelessdata is not valid hex".into()))?;
@@ -166,10 +163,8 @@ impl Mesh {
                 }
             }
         }
-        let stream_span: BTreeMap<u32, u32> = highest
-            .into_iter()
-            .map(|(s, (_, end))| (s, end))
-            .collect();
+        let stream_span: BTreeMap<u32, u32> =
+            highest.into_iter().map(|(s, (_, end))| (s, end)).collect();
         if stream_span.is_empty() {
             return Err(Error::Parse("no vertex attribute channels".into()));
         }
@@ -206,20 +201,48 @@ impl Mesh {
         let p_stride = span_of(p_stream);
         let n_stride = span_of(n_stream);
         let u_stride = span_of(u_stream);
-        let p_base = stream_starts(stream_span.keys().position(|s| s == &p_stream).unwrap_or(0), &starts);
-        let n_base = stream_starts(stream_span.keys().position(|s| s == &n_stream).unwrap_or(0), &starts);
-        let u_base = stream_starts(stream_span.keys().position(|s| s == &u_stream).unwrap_or(0), &starts);
+        let p_base = stream_starts(
+            stream_span.keys().position(|s| s == &p_stream).unwrap_or(0),
+            &starts,
+        );
+        let n_base = stream_starts(
+            stream_span.keys().position(|s| s == &n_stream).unwrap_or(0),
+            &starts,
+        );
+        let u_base = stream_starts(
+            stream_span.keys().position(|s| s == &u_stream).unwrap_or(0),
+            &starts,
+        );
 
         let mut vertices = Vec::with_capacity(vertex_count);
         let mut out_of_bounds = 0usize;
         let eps = extent.iter().copied().fold(0.0, f32::max).max(1e-4) * 1e-3 + 1e-4;
         for v in 0..vertex_count {
-            let position = read_floats(&data, (p_base + p_stride * v as u64) as usize, p_off as usize, p_fmt, p_dim as usize)?;
-            let normal = read_floats(&data, (n_base + n_stride * v as u64) as usize, n_off as usize, n_fmt, n_dim as usize)?;
-            let uv = read_floats(&data, (u_base + u_stride * v as u64) as usize, u_off as usize, u_fmt, u_dim as usize)?;
+            let position = read_floats(
+                &data,
+                (p_base + p_stride * v as u64) as usize,
+                p_off as usize,
+                p_fmt,
+                p_dim as usize,
+            )?;
+            let normal = read_floats(
+                &data,
+                (n_base + n_stride * v as u64) as usize,
+                n_off as usize,
+                n_fmt,
+                n_dim as usize,
+            )?;
+            let uv = read_floats(
+                &data,
+                (u_base + u_stride * v as u64) as usize,
+                u_off as usize,
+                u_fmt,
+                u_dim as usize,
+            )?;
 
             let in_aabb = (0..3).all(|i| {
-                position[i] <= center[i] + extent[i] + eps && position[i] >= center[i] - extent[i] - eps
+                position[i] <= center[i] + extent[i] + eps
+                    && position[i] >= center[i] - extent[i] - eps
             });
             if !in_aabb {
                 out_of_bounds += 1;
@@ -263,7 +286,10 @@ impl<'a> Doc<'a> {
     fn scalar_from(&self, from: usize, key: &str) -> Option<&'a str> {
         let needle = format!("{key}:");
         let idx = self.index_from(from, &needle)? + needle.len();
-        let end = self.0[idx..].find('\n').map(|i| idx + i).unwrap_or(self.0.len());
+        let end = self.0[idx..]
+            .find('\n')
+            .map(|i| idx + i)
+            .unwrap_or(self.0.len());
         Some(self.0[idx..end].trim())
     }
 
@@ -340,7 +366,14 @@ fn parse_channels(block: &str) -> Vec<(u32, u32, u32, u32)> {
 /// bogus dimensions along the way.
 fn pick_channels(
     channels: &[(u32, u32, u32, u32)],
-) -> Result<((u32, u32, u32, u32), (u32, u32, u32, u32), (u32, u32, u32, u32)), Error> {
+) -> Result<
+    (
+        (u32, u32, u32, u32),
+        (u32, u32, u32, u32),
+        (u32, u32, u32, u32),
+    ),
+    Error,
+> {
     // Position: first channel (f32 × 3 in these files).
     let pos = channels
         .iter()
@@ -425,19 +458,11 @@ fn f16_to_f32(bits: u16) -> f32 {
     let magnitude = if exp == 0 {
         frac * 2f32.powi(-24)
     } else if exp == 0x1f {
-        if frac == 0.0 {
-            f32::INFINITY
-        } else {
-            f32::NAN
-        }
+        if frac == 0.0 { f32::INFINITY } else { f32::NAN }
     } else {
         (1.0 + frac / 1024.0) * 2f32.powi(exp as i32 - 15)
     };
-    if sign == 1 {
-        -magnitude
-    } else {
-        magnitude
-    }
+    if sign == 1 { -magnitude } else { magnitude }
 }
 
 fn decode_hex(hex: &str) -> Option<Vec<u8>> {
@@ -456,8 +481,7 @@ fn decode_hex(hex: &str) -> Option<Vec<u8>> {
 
 /// Decode the hex index blob into `u16` LE indices.
 fn decode_u16_le(hex: &str, expected: usize, vertex_count: usize) -> Result<Vec<u16>, Error> {
-    let bytes =
-        decode_hex(hex).ok_or_else(|| Error::Parse("bad m_IndexBuffer hex".into()))?;
+    let bytes = decode_hex(hex).ok_or_else(|| Error::Parse("bad m_IndexBuffer hex".into()))?;
     if bytes.len() < expected * 2 {
         return Err(Error::Parse(format!(
             "index buffer too short: {} bytes for {expected} indices",
@@ -491,14 +515,19 @@ mod tests {
     fn assert_sane(mesh: &Mesh, expected_vertex_count: usize) {
         assert_eq!(mesh.vertices.len(), expected_vertex_count);
         assert!(!mesh.indices.is_empty(), "mesh has indices");
-        assert!(mesh.indices.len() % 3 == 0, "index count must be multiple of 3");
+        assert!(
+            mesh.indices.len() % 3 == 0,
+            "index count must be multiple of 3"
+        );
         for idx in mesh.indices.iter() {
             assert!((*idx as usize) < mesh.vertices.len(), "index in range");
         }
         // Normals should be roughly unit length and finite.
         for v in mesh.vertices.iter() {
             assert!(v.normal.iter().all(|c| c.is_finite()), "normal finite");
-            let len = (v.normal[0] * v.normal[0] + v.normal[1] * v.normal[1] + v.normal[2] * v.normal[2]).sqrt();
+            let len =
+                (v.normal[0] * v.normal[0] + v.normal[1] * v.normal[1] + v.normal[2] * v.normal[2])
+                    .sqrt();
             assert!(len > 0.05 && len < 20.0, "normal length {len} sane");
             assert!(v.position.iter().all(|c| c.is_finite()), "position finite");
             assert!(v.uv.iter().all(|c| c.is_finite()), "uv finite");
@@ -511,7 +540,10 @@ mod tests {
             .map(|v| v.position[0].abs() + v.position[1].abs() + v.position[2].abs())
             .fold(0.0f32, f32::max);
         // Sum of abs can be up to ~3*extent; be generous.
-        assert!(max_pos < max_extent * 4.0 + 1e-3, "positions centered (max {max_pos} vs extent {max_extent})");
+        assert!(
+            max_pos < max_extent * 4.0 + 1e-3,
+            "positions centered (max {max_pos} vs extent {max_extent})"
+        );
     }
 
     #[test]
@@ -565,7 +597,10 @@ mod material_tests {
         let img = ::image::load_from_memory(&bytes).unwrap();
         let rgba = img.to_rgba8();
         assert!(rgba.width() > 0 && rgba.height() > 0);
-        assert_eq!(rgba.as_raw().len(), (rgba.width() * rgba.height() * 4) as usize);
+        assert_eq!(
+            rgba.as_raw().len(),
+            (rgba.width() * rgba.height() * 4) as usize
+        );
         eprintln!(
             "Cardback.png decoded: {}x{} ({} RGBA bytes)",
             rgba.width(),
@@ -574,5 +609,3 @@ mod material_tests {
         );
     }
 }
-
-
