@@ -1,10 +1,11 @@
-"""Compose a pack's ``CardPack_Front`` on the fly from its ``Expansion.json``.
+"""Compose a pack's ``CardPack_Front`` and ``CardPack_Back`` on the fly from
+its ``Expansion.json``.
 
-The front is built procedurally from the expansion's metadata — it is never
-stored: :func:`generate` composes it in memory and hands it to the material and
-item composition. Everything is driven by the expansion (its ``pack``
+The front and back are built procedurally from the expansion's metadata —
+neither is stored: :func:`generate` composes them in memory and hands them to
+the material composition. Everything is driven by the expansion (its ``pack``
 characters, ``background`` and ``logo``), so the same code composes any
-expansion's front without per-pack changes.
+expansion's front and back without per-pack changes.
 
 * the ``pack`` field lists the NIKKES to feature (card-definition paths
   relative to the pack directory). The *first* one is the hero: it is centered
@@ -27,6 +28,13 @@ lists, its background, its logo, and the material template that sizes it — are
 hashed (see :func:`front_source_hash`) into the finished material and item, so
 when those inputs are unchanged the front's render is skipped entirely rather
 than re-rendered.
+
+The back is the expansion's ``background`` resized to the back's height and
+left-cropped to its exact width (the front center-crops the same background),
+sized by the material template's left mask rectangle. Its inputs (the
+background and the material template) are hashed (see
+:func:`back_source_hash`) into the finished material, so the back is composed
+on the fly and never stored either.
 """
 
 from __future__ import annotations
@@ -91,6 +99,22 @@ def front_size() -> tuple[int, int]:
     return rect[2] - rect[0], rect[3] - rect[1]
 
 
+def back_size() -> tuple[int, int]:
+    """The pack back's target size: the material template's *left* mask
+    rectangle (the right one is the front). Composing at exactly this size
+    means the material composition pastes it with no rescale."""
+    with Image.open(nr.PACK_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+    rects = nr._pack_mask_rects(nr._pack_mask(template))
+    if len(rects) != 2:
+        raise nr.GenerationError(
+            f"{nr.PACK_TEMPLATE.name} carries {len(rects)} pure-blue mask "
+            f"rectangle(s), expected 2 (back, front)"
+        )
+    rect = rects[0]
+    return rect[2] - rect[0], rect[3] - rect[1]
+
+
 def load_expansion(pack_dir: Path) -> dict:
     """The pack's ``Expansion.json`` (its ``pack`` characters, ``background``
     and ``logo``) — the metadata the front is composed from."""
@@ -122,6 +146,21 @@ def front_source_hash(pack_dir: Path) -> str:
         logo_path = pack_dir / LOGO_NAME
         if logo_path.is_file():
             digest.update(logo_path.read_bytes())
+    digest.update(nr.PACK_TEMPLATE.read_bytes())
+    return digest.hexdigest()
+
+
+def back_source_hash(pack_dir: Path) -> str:
+    """A hash of the back's *inputs* — everything the composed back depends on:
+    its ``background`` and the material template that sizes it. It is computed
+    without composing the back, so the finished material can be skipped (and
+    the back's composition avoided) when those inputs are unchanged."""
+    expansion = load_expansion(pack_dir)
+    background = expansion.get("background")
+    if not background:
+        raise nr.GenerationError(f"{pack_dir.name}: missing 'background'")
+    digest = hashlib.sha256()
+    digest.update((pack_dir / background).resolve().read_bytes())
     digest.update(nr.PACK_TEMPLATE.read_bytes())
     return digest.hexdigest()
 
@@ -191,10 +230,12 @@ def _paste_body(
     canvas.alpha_composite(body, (left, top))
 
 
-def _fit_background(background: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """Resize *background* to the front's height, then center-crop it to the
-    front's exact width (the spec's treatment, distinct from the card's cover
-    fit)."""
+def _fit_background(
+    background: Image.Image, size: tuple[int, int], align: str = "center"
+) -> Image.Image:
+    """Resize *background* to the target's height, then crop it to the
+    target's exact width, *align*-justified: ``"center"`` for the front,
+    ``"left"`` for the back (the back takes the background's left side)."""
     width, height = size
     scale = height / background.height
     if scale != 1.0:
@@ -202,7 +243,12 @@ def _fit_background(background: Image.Image, size: tuple[int, int]) -> Image.Ima
             (round(background.width * scale), height),
             Image.Resampling.LANCZOS,
         )
-    left = (background.width - width) // 2
+    if align == "left":
+        left = 0
+    elif align == "center":
+        left = (background.width - width) // 2
+    else:
+        raise nr.GenerationError(f"unknown background alignment {align!r}")
     return background.crop((left, 0, left + width, height)).convert("RGBA")
 
 
@@ -377,3 +423,19 @@ def build_front(
         )
 
     return canvas
+
+
+def build_back(
+    pack_dir: Path, expansion: dict, size: tuple[int, int]
+) -> Image.Image:
+    """Compose the pack back from the expansion's ``background``: resized to
+    the back's height and left-cropped to its exact width (the front
+    center-crops the same background). The result is returned in memory; it is
+    the material's left rectangle and is never written to disk."""
+    bg_rel = expansion.get("background")
+    if not bg_rel:
+        raise nr.GenerationError(f"{pack_dir.name}: missing 'background'")
+    bg_path = (pack_dir / bg_rel).resolve()
+    if not bg_path.is_file():
+        raise nr.GenerationError(f"{pack_dir.name}: background not found: {bg_rel}")
+    return _fit_background(Image.open(bg_path).convert("RGBA"), size, align="left")
