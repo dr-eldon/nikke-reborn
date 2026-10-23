@@ -83,6 +83,8 @@ enum Message {
     PitchChanged(f32),
     RollChanged(f32),
     ZoomChanged(f32),
+    /// Pan axis (0 = X, 1 = Y, 2 = Z) and its new world value.
+    PanChanged(usize, f32),
     ResetView,
 }
 
@@ -443,6 +445,11 @@ impl App {
                 Task::none()
             }
 
+            Message::PanChanged(axis, value) => {
+                self.camera.pan[axis] = value;
+                Task::none()
+            }
+
             Message::ResetView => {
                 self.camera = Camera::default();
                 Task::none()
@@ -513,6 +520,12 @@ impl App {
     }
 
     fn view(&self) -> impl Widget<Message> {
+        // Pan sliders: the orbit target, ranged per mesh (±2 bounding
+        // radii, 1% step — a symmetric grid that always includes 0).
+        let pan_radius = self.mesh.as_ref().map_or(1.0, |m| m.radius());
+        let pan_range = -2.0 * pan_radius..=2.0 * pan_radius;
+        let pan_step = pan_radius / 100.0;
+
         let sidebar = column![
             text("Asset Viewer").size(18),
             space::vertical(),
@@ -606,6 +619,30 @@ impl App {
                 0.01,
                 format!("{:.2}×", self.camera.zoom),
                 |exp| Message::ZoomChanged(10f32.powf(exp)),
+            ),
+            Self::slider_row(
+                "Pan X",
+                pan_range.clone(),
+                self.camera.pan[0],
+                pan_step,
+                format!("{:.3}", self.camera.pan[0]),
+                |v| Message::PanChanged(0, v),
+            ),
+            Self::slider_row(
+                "Pan Y",
+                pan_range.clone(),
+                self.camera.pan[1],
+                pan_step,
+                format!("{:.3}", self.camera.pan[1]),
+                |v| Message::PanChanged(1, v),
+            ),
+            Self::slider_row(
+                "Pan Z",
+                pan_range.clone(),
+                self.camera.pan[2],
+                pan_step,
+                format!("{:.3}", self.camera.pan[2]),
+                |v| Message::PanChanged(2, v),
             ),
             space::vertical().height(Length::Fill),
             button(text("Reset view").size(12))

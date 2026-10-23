@@ -36,7 +36,7 @@ impl Default for Camera {
             pitch: -5.0 * DEG,
             roll: -5.0 * DEG,
             zoom: 1.1,
-            pan: [0.0; 3],
+            pan: [0.0, -0.03, 0.0],
         }
     }
 }

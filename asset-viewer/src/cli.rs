@@ -118,12 +118,13 @@ pub fn run(args: &[String]) -> Result<(), String> {
             .unwrap_or_else(|| "(none)".to_string())
     );
 
+    // Unspecified fields (e.g. pan) inherit the GUI's default camera.
     let camera = Camera {
         yaw: opts.rotation * DEG,
         pitch: opts.pitch * DEG,
         roll: opts.roll * DEG,
         zoom: opts.zoom,
-        pan: [0.0, 0.0, 0.0],
+        ..Camera::default()
     };
     let primitive = Primitive {
         mesh: Some(Arc::new(mesh)),
