@@ -715,7 +715,7 @@ fn panel_style() -> widget::container::Style {
 
 fn canvas_style() -> widget::container::Style {
     widget::container::Style {
-        background: Some(Background::Color(Color::from_rgb8(20, 22, 27))),
+        background: Some(Background::Color(Color::from_rgb8(0, 0, 0))),
         ..Default::default()
     }
 }
