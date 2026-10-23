@@ -13,7 +13,7 @@ variants are generated without any
 card name. Packs (``cards/`` subdirectories carrying
 ``CardPack_Back.png`` and an ``Expansion.json``) additionally get their
 two artwork images, built from the templates in ``images/``. The
-pack's front is composed on the fly (by :mod:`nikke_reborn.packfront`)
+pack's front is composed on the fly (by :mod:`nikke_reborn.pack`)
 from the expansion's metadata — its ``background``, its featured NIKKES
 (``pack``) drawn over it, and its ``logo`` when the expansion names a
 placement — and is never stored. The material
@@ -252,7 +252,7 @@ LOGO_PATHS = {
 #: to ``<out>/<pack>/``. The material template carries two pure-blue mask
 #: rectangles, the left one holding the pack's back image
 #: (``cards/<pack>/CardPack_Back.png``) and the right one the composed
-#: front (see :mod:`nikke_reborn.packfront`); the item template is a
+#: front (see :mod:`nikke_reborn.pack`); the item template is a
 #: perspective view of the pack whose single pure-blue mask is a slanted
 #: quadrilateral that the front is perspective-warped to.
 PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
@@ -1596,15 +1596,15 @@ def _pack_mask_rects(mask: Image.Image) -> list[tuple[int, int, int, int]]:
 def _find_pack_dirs() -> list[Path]:
     """``cards/`` subdirectories carrying a pack back and an ``Expansion.json``
     (the pack's inputs). The front is composed from the expansion on the fly
-    (see :mod:`nikke_reborn.packfront`), so it is never stored."""
-    from nikke_reborn import packfront
+    (see :mod:`nikke_reborn.pack`), so it is never stored."""
+    from nikke_reborn import pack
 
     return sorted(
         pack_dir
         for pack_dir in CARDS_DIR.iterdir()
         if pack_dir.is_dir()
         and (pack_dir / PACK_BACK_NAME).is_file()
-        and (pack_dir / packfront.EXPANSION_NAME).is_file()
+        and (pack_dir / pack.EXPANSION_NAME).is_file()
     )
 
 
@@ -1613,7 +1613,7 @@ def _pack_hash(
 ) -> str:
     """The source hash of a finished pack image: the SHA-256 of its
     template, input images and — when *front_source* is given — that hash of
-    the composed front's inputs (see :func:`packfront.front_source_hash`),
+    the composed front's inputs (see :func:`pack.front_source_hash`),
     every input the result depends on. Using the front's *inputs* rather than
     its pixels lets the hash be computed without rendering the front."""
     digest = hashlib.sha256()
@@ -2029,12 +2029,12 @@ def _generate(
     # from the expansion's metadata and never written to disk. The front's
     # inputs are hashed up front (without rendering it), so the render is
     # skipped entirely when both the material and item are already up to date.
-    from nikke_reborn import packfront
+    from nikke_reborn import pack
 
     fronts: dict[Path, Image.Image] = {}
     front_sources: dict[Path, str] = {}
     for pack_dir in pack_dirs:
-        front_source = packfront.front_source_hash(pack_dir)
+        front_source = pack.front_source_hash(pack_dir)
         front_sources[pack_dir] = front_source
         back_path = pack_dir / PACK_BACK_NAME
         material_ok = _pack_output_up_to_date(
@@ -2047,9 +2047,9 @@ def _generate(
         )
         if material_ok and item_ok:
             continue  # nothing changed for this pack; skip the front's render
-        expansion = packfront.load_expansion(pack_dir)
-        fronts[pack_dir] = packfront.build_front(
-            pack_dir, expansion, packfront.front_size()
+        expansion = pack.load_expansion(pack_dir)
+        fronts[pack_dir] = pack.build_front(
+            pack_dir, expansion, pack.front_size()
         )
     total = len(card_configs) + 2 * len(fronts)
     # Split the cores available to each card between the stages that run
