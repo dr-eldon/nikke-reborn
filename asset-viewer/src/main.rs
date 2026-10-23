@@ -10,11 +10,11 @@
 //! PNG screenshot (no window):
 //!
 //! ```text
-//! asset-viewer <mesh> <material> --rotation <deg> --zoom <factor> [options]
+//! asset-viewer <mesh> <material> [options]
 //! ```
 //!
-//! See `--help` for the full option list (`--pitch`, `--width`, `--height`,
-//! `--out`).
+//! See `--help` for the full option list (`--rotation`, `--pitch`, `--roll`,
+//! `--zoom`, `--width`, `--height`, `--out`).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

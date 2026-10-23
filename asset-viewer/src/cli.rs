@@ -1,7 +1,7 @@
 //! Headless screenshot mode.
 //!
 //! ```text
-//! asset-viewer <mesh> <material> --rotation <deg> --zoom <factor> [options]
+//! asset-viewer <mesh> <material> [options]
 //! ```
 //!
 //! Renders the given mesh (with the given material) offscreen at the requested
@@ -17,39 +17,58 @@ use iced::Rectangle;
 
 use crate::{ASSETS_DIR, IMAGES_DIR, OUTPUT_DIR, ROOT};
 
-const DEFAULT_WIDTH: u32 = 1080;
-const DEFAULT_HEIGHT: u32 = 1440;
-const DEFAULT_PITCH: f32 = 17.0;
+const DEFAULT_WIDTH: u32 = 1024;
+const DEFAULT_HEIGHT: u32 = 1024;
 
 const DEG: f32 = std::f32::consts::PI / 180.0;
 
-pub const HELP: &str = "asset-viewer — take a headless screenshot of a mesh with a material
+/// Radians to degrees.
+fn to_deg() -> f32 {
+    180.0 / std::f32::consts::PI
+}
+
+/// Camera angle (radians) as degrees, trimmed for display (e.g. `-140`).
+fn fmt_deg(rad: f32) -> String {
+    format!("{}", (rad * to_deg() * 100.0).round() / 100.0)
+}
+
+/// The usage text. The camera defaults come from `Camera::default` so the
+/// CLI and the GUI can never drift apart.
+pub fn help() -> String {
+    let cam = Camera::default();
+    format!(
+        "asset-viewer — take a headless screenshot of a mesh with a material
 
 Usage:
-  asset-viewer <mesh> <material> --rotation <deg> --zoom <factor> [options]
+  asset-viewer <mesh> <material> [options]
 
 Arguments:
   <mesh>            Path to a .asset mesh, or its name inside assets/
   <material>        Path to a PNG, or its name inside images/ or output/
                     (use 'none' to render without a material)
 
-Required options:
-      --rotation <deg>   Camera yaw in degrees (0 = straight-on)
-      --zoom <factor>    Zoom factor (1.0 = default framing)
-
 Options:
-      --pitch <deg>      Camera pitch in degrees (default 17)
-      --roll <deg>       Camera roll in degrees (default 0)
-      --width <px>       Output width in pixels (default 1080)
-      --height <px>      Output height in pixels (default 1440)
+      --rotation <deg>   Camera yaw in degrees (default {rotation})
+      --pitch <deg>      Camera pitch in degrees (default {pitch})
+      --roll <deg>       Camera roll in degrees (default {roll})
+      --zoom <factor>    Zoom factor (default {zoom}; 1.0 = fitted framing)
+      --width <px>       Output width in pixels (default {DEFAULT_WIDTH})
+      --height <px>      Output height in pixels (default {DEFAULT_HEIGHT})
       --out <path>       Output PNG path (default <mesh-stem>.png)
   -h, --help             Show this help
 
 Examples:
+  asset-viewer CardPackStatic_Mesh Cardback
   asset-viewer CardPackStatic_Mesh Cardback --rotation -30 --zoom 1.2
   asset-viewer assets/CardPack_Mesh.asset images/Cardback.png \\
       --rotation 20 --zoom 0.9 --pitch 10 --out /tmp/shot.png
-";
+",
+        rotation = fmt_deg(cam.yaw),
+        pitch = fmt_deg(cam.pitch),
+        roll = fmt_deg(cam.roll),
+        zoom = cam.zoom,
+    )
+}
 
 #[derive(Debug)]
 struct Options {
@@ -303,7 +322,7 @@ fn parse(args: &[String]) -> Result<Options, String> {
         };
         match flag {
             "-h" | "--help" => {
-                print!("{HELP}");
+                print!("{}", help());
                 std::process::exit(0);
             }
             "--rotation" => {
@@ -336,8 +355,12 @@ fn parse(args: &[String]) -> Result<Options, String> {
             );
         }
     };
-    let rotation = rotation.ok_or("--rotation <deg> is required")?;
-    let zoom = zoom.ok_or("--zoom <factor> is required")?;
+    // Unspecified camera flags take the GUI's default camera.
+    let default = Camera::default();
+    let rotation = rotation.unwrap_or(default.yaw * to_deg());
+    let pitch = pitch.unwrap_or(default.pitch * to_deg());
+    let roll = roll.unwrap_or(default.roll * to_deg());
+    let zoom = zoom.unwrap_or(default.zoom);
     if zoom <= 0.0 {
         return Err("--zoom must be greater than 0".to_string());
     }
@@ -357,8 +380,8 @@ fn parse(args: &[String]) -> Result<Options, String> {
         mesh,
         material,
         rotation,
-        pitch: pitch.unwrap_or(DEFAULT_PITCH),
-        roll: roll.unwrap_or(0.0),
+        pitch,
+        roll,
         zoom,
         width,
         height,
@@ -455,7 +478,8 @@ mod tests {
         assert_eq!(o.material.as_deref(), Some("texture.png"));
         assert!((o.rotation - (-30.0)).abs() < 1e-3);
         assert!((o.zoom - 1.2).abs() < 1e-3);
-        assert!((o.pitch - DEFAULT_PITCH).abs() < 1e-3);
+        assert!((o.pitch - Camera::default().pitch * to_deg()).abs() < 1e-3);
+        assert!((o.roll - Camera::default().roll * to_deg()).abs() < 1e-3);
         assert_eq!((o.width, o.height), (DEFAULT_WIDTH, DEFAULT_HEIGHT));
         assert_eq!(o.out, PathBuf::from("mesh.png"));
     }
@@ -467,9 +491,14 @@ mod tests {
     }
 
     #[test]
-    fn requires_rotation_and_zoom() {
-        assert!(parse3("m t --zoom 1").unwrap_err().contains("--rotation"));
-        assert!(parse3("m t --rotation 1").unwrap_err().contains("--zoom"));
+    fn camera_defaults_match_the_gui() {
+        let o = parse3("m t").unwrap();
+        let cam = Camera::default();
+        let d = to_deg();
+        assert!((o.rotation - cam.yaw * d).abs() < 1e-3);
+        assert!((o.pitch - cam.pitch * d).abs() < 1e-3);
+        assert!((o.roll - cam.roll * d).abs() < 1e-3);
+        assert!((o.zoom - cam.zoom).abs() < 1e-3);
     }
 
     #[test]

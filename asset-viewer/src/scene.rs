@@ -30,11 +30,12 @@ pub struct Camera {
 
 impl Default for Camera {
     fn default() -> Self {
+        const DEG: f32 = std::f32::consts::PI / 180.0;
         Self {
-            yaw: -0.55,
-            pitch: 0.3,
-            roll: 0.0,
-            zoom: 1.0,
+            yaw: -140.0 * DEG,
+            pitch: -5.0 * DEG,
+            roll: -5.0 * DEG,
+            zoom: 1.1,
             pan: [0.0; 3],
         }
     }
