@@ -39,6 +39,7 @@ Required options:
 
 Options:
       --pitch <deg>      Camera pitch in degrees (default 17)
+      --roll <deg>       Camera roll in degrees (default 0)
       --width <px>       Output width in pixels (default 1080)
       --height <px>      Output height in pixels (default 1440)
       --out <path>       Output PNG path (default <mesh-stem>.png)
@@ -56,6 +57,7 @@ struct Options {
     material: Option<String>,
     rotation: f32,
     pitch: f32,
+    roll: f32,
     zoom: f32,
     width: u32,
     height: u32,
@@ -100,6 +102,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let camera = Camera {
         yaw: opts.rotation * DEG,
         pitch: opts.pitch * DEG,
+        roll: opts.roll * DEG,
         zoom: opts.zoom,
         pan: [0.0, 0.0, 0.0],
     };
@@ -285,6 +288,7 @@ fn parse(args: &[String]) -> Result<Options, String> {
     let mut rotation: Option<f32> = None;
     let mut zoom: Option<f32> = None;
     let mut pitch: Option<f32> = None;
+    let mut roll: Option<f32> = None;
     let mut width: u32 = DEFAULT_WIDTH;
     let mut height: u32 = DEFAULT_HEIGHT;
     let mut out: Option<PathBuf> = None;
@@ -307,6 +311,7 @@ fn parse(args: &[String]) -> Result<Options, String> {
             }
             "--zoom" => zoom = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
             "--pitch" => pitch = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
+            "--roll" => roll = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
             "--width" => width = parse_num(flag_value(args, &mut i, flag, inline)?, flag)?,
             "--height" => height = parse_num(flag_value(args, &mut i, flag, inline)?, flag)?,
             "--out" => out = Some(PathBuf::from(flag_value(args, &mut i, flag, inline)?)),
@@ -353,6 +358,7 @@ fn parse(args: &[String]) -> Result<Options, String> {
         material,
         rotation,
         pitch: pitch.unwrap_or(DEFAULT_PITCH),
+        roll: roll.unwrap_or(0.0),
         zoom,
         width,
         height,

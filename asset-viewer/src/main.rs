@@ -21,9 +21,12 @@ use std::sync::Arc;
 
 use iced::widget::shader::Action;
 use iced::widget::{
-    button, column, combo_box, container, image, responsive, row, rule, shader, space, text,
+    button, column, combo_box, container, image, responsive, row, rule, shader, slider, space,
+    text,
 };
-use iced::{Background, Color, Font, Length, Point, Task, Theme, Vector, Widget, widget};
+use iced::{
+    Alignment, Background, Color, Font, Length, Point, Right, Task, Theme, Vector, Widget, widget,
+};
 
 use scene::{Camera, Material, Primitive};
 use unity::Mesh;
@@ -39,6 +42,7 @@ const OUTPUT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../output");
 
 const ROTATE_SPEED: f32 = 0.008;
 const PITCH_LIMIT: f32 = 1.5;
+const PITCH_LIMIT_DEG: f32 = PITCH_LIMIT * 180.0 / std::f32::consts::PI;
 const ZOOM_MIN: f32 = 0.05;
 const ZOOM_MAX: f32 = 16.0;
 const ZOOM_STEP_LINES: f32 = 0.12;
@@ -74,6 +78,11 @@ enum Message {
     Rotate(Vector),
     Pan(Vector),
     Zoom(f32),
+    /// Slider values: yaw/pitch/roll in degrees, zoom as a distance factor.
+    YawChanged(f32),
+    PitchChanged(f32),
+    RollChanged(f32),
+    ZoomChanged(f32),
     ResetView,
 }
 
@@ -414,6 +423,26 @@ impl App {
                 Task::none()
             }
 
+            Message::YawChanged(deg) => {
+                self.camera.yaw = deg.to_radians();
+                Task::none()
+            }
+
+            Message::PitchChanged(deg) => {
+                self.camera.pitch = deg.to_radians().clamp(-PITCH_LIMIT, PITCH_LIMIT);
+                Task::none()
+            }
+
+            Message::RollChanged(deg) => {
+                self.camera.roll = deg.to_radians();
+                Task::none()
+            }
+
+            Message::ZoomChanged(zoom) => {
+                self.camera.zoom = zoom.clamp(ZOOM_MIN, ZOOM_MAX);
+                Task::none()
+            }
+
             Message::ResetView => {
                 self.camera = Camera::default();
                 Task::none()
@@ -457,6 +486,30 @@ impl App {
             Err(e) if self.selected_material == i => self.error = Some(e),
             Err(_) => {}
         }
+    }
+
+    /// A labeled slider row: name, slider, and the formatted current value.
+    /// The value is clamped into the range for display — e.g. yaw drifts
+    /// unboundedly when orbiting with the mouse, so the slider snaps to
+    /// its end when that happens.
+    fn slider_row<'a>(
+        label: &'a str,
+        range: std::ops::RangeInclusive<f32>,
+        value: f32,
+        step: f32,
+        display: String,
+        on_change: impl Fn(f32) -> Message + 'a,
+    ) -> impl Widget<Message> + 'a {
+        let value = value.clamp(*range.start(), *range.end());
+        row![
+            text(label).size(11).width(44),
+            slider(range, value, on_change).width(Length::Fill).step(step),
+            text(display)
+                .size(11)
+                .width(56)
+                .align_x(Right),
+        ]
+        .align_y(Alignment::Center)
     }
 
     fn view(&self) -> impl Widget<Message> {
@@ -517,6 +570,43 @@ impl App {
             } else {
                 text(" ").size(1)
             },
+            rule::horizontal(1u32),
+            space::vertical().height(8u32),
+            text("View").size(12),
+            Self::slider_row(
+                "Yaw",
+                -180.0..=180.0,
+                self.camera.yaw.to_degrees(),
+                1.0,
+                format!("{:.0}°", self.camera.yaw.to_degrees()),
+                |deg| Message::YawChanged(deg),
+            ),
+            Self::slider_row(
+                "Pitch",
+                (-PITCH_LIMIT_DEG)..=(PITCH_LIMIT_DEG),
+                self.camera.pitch.to_degrees(),
+                1.0,
+                format!("{:.0}°", self.camera.pitch.to_degrees()),
+                |deg| Message::PitchChanged(deg),
+            ),
+            Self::slider_row(
+                "Roll",
+                -90.0..=90.0,
+                self.camera.roll.to_degrees(),
+                1.0,
+                format!("{:.0}°", self.camera.roll.to_degrees()),
+                |deg| Message::RollChanged(deg),
+            ),
+            // Log-scale: the scroll wheel zooms multiplicatively, so a
+            // log10 slider matches that feel (1% per step).
+            Self::slider_row(
+                "Zoom",
+                ZOOM_MIN.log10()..=ZOOM_MAX.log10(),
+                self.camera.zoom.log10(),
+                0.01,
+                format!("{:.2}×", self.camera.zoom),
+                |exp| Message::ZoomChanged(10f32.powf(exp)),
+            ),
             space::vertical().height(Length::Fill),
             button(text("Reset view").size(12))
                 .width(Length::Fill)
@@ -620,17 +710,27 @@ impl widget::shader::Program<Message> for Renderer<'_> {
         cursor: iced::mouse::Cursor,
     ) -> Option<Action<Message>> {
         match event {
-            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(button)) => match button {
-                iced::mouse::Button::Left => {
-                    state.rotate = cursor.position();
-                    Some(Action::capture())
+            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(button)) => {
+                // `update` receives every mouse event in the window, so a
+                // drag only arms when the press lands over the canvas —
+                // otherwise e.g. dragging the view sliders on the sidebar
+                // would rotate/pan the camera at the same time.
+                if cursor.is_over(bounds) {
+                    match button {
+                        iced::mouse::Button::Left => {
+                            state.rotate = cursor.position();
+                            Some(Action::capture())
+                        }
+                        iced::mouse::Button::Right => {
+                            state.pan = cursor.position();
+                            Some(Action::capture())
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
                 }
-                iced::mouse::Button::Right => {
-                    state.pan = cursor.position();
-                    Some(Action::capture())
-                }
-                _ => None,
-            },
+            }
             iced::Event::Mouse(iced::mouse::Event::CursorMoved { .. }) => {
                 let pos = cursor.position()?;
                 if let Some(last) = state.rotate {
@@ -662,7 +762,11 @@ impl widget::shader::Program<Message> for Renderer<'_> {
                 }
                 None
             }
-            iced::Event::Mouse(iced::mouse::Event::WheelScrolled { delta }) => {
+            // Same guard as the buttons: don't zoom while scrolling over
+            // the sidebar.
+            iced::Event::Mouse(iced::mouse::Event::WheelScrolled { delta })
+                if cursor.is_over(bounds) =>
+            {
                 let step = match delta {
                     iced::mouse::ScrollDelta::Lines { y, .. } => *y * ZOOM_STEP_LINES,
                     iced::mouse::ScrollDelta::Pixels { y, .. } => *y * ZOOM_STEP_PIXELS,

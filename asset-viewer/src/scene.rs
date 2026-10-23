@@ -20,6 +20,8 @@ pub struct Camera {
     pub yaw: f32,
     /// Camera elevation (radians).
     pub pitch: f32,
+    /// Rotation of the camera about its view axis (radians).
+    pub roll: f32,
     /// Distance multiplier (1.0 = fitted to the mesh's bounding sphere).
     pub zoom: f32,
     /// Orbit target (world).
@@ -31,6 +33,7 @@ impl Default for Camera {
         Self {
             yaw: -0.55,
             pitch: 0.3,
+            roll: 0.0,
             zoom: 1.0,
             pan: [0.0; 3],
         }
@@ -60,13 +63,44 @@ impl Camera {
         ]
     }
 
-    /// Unit world vectors pointing to the screen's right and up.
+    /// Unit world vectors pointing to the screen's right and up, with roll
+    /// applied (a rotation of the camera about its view axis).
     pub fn screen_axes(&self) -> ([f32; 3], [f32; 3]) {
+        let (sy, cy) = (self.yaw.sin(), self.yaw.cos());
+        let (sp, cp) = (self.pitch.sin(), self.pitch.cos());
+        // The unrolled camera basis: `right` is the unit (f × world-up)
+        // horizontal, `up` the true camera up, for f = eye→target.
+        let right = [cy, 0.0, -sy];
+        let up = [-sy * sp, cp, -cy * sp];
+        let (cr, sr) = (self.roll.cos(), self.roll.sin());
+        (
+            [
+                right[0] * cr - up[0] * sr,
+                right[1] * cr - up[1] * sr,
+                right[2] * cr - up[2] * sr,
+            ],
+            [
+                up[0] * cr + right[0] * sr,
+                up[1] * cr + right[1] * sr,
+                up[2] * cr + right[2] * sr,
+            ],
+        )
+    }
+
+    /// The up vector for the view matrix: the camera's true up with roll
+    /// applied. Feeding it to `look_at` (with the same eye/target) yields a
+    /// view that is exactly the unrolled view rotated about its view axis.
+    pub fn up(&self) -> [f32; 3] {
         let (sy, cy) = (self.yaw.sin(), self.yaw.cos());
         let (sp, cp) = (self.pitch.sin(), self.pitch.cos());
         let right = [cy, 0.0, -sy];
         let up = [-sy * sp, cp, -cy * sp];
-        (right, up)
+        let (cr, sr) = (self.roll.cos(), self.roll.sin());
+        [
+            up[0] * cr + right[0] * sr,
+            up[1] * cr + right[1] * sr,
+            up[2] * cr + right[2] * sr,
+        ]
     }
 }
 
@@ -677,7 +711,7 @@ impl Pipeline {
         let distance = primitive.camera.distance(radius).max(1e-3);
         let eye = primitive.camera.eye(radius);
         let proj = perspective(FOV_Y, aspect, distance / 100.0, distance * 100.0);
-        let view = look_at(eye, primitive.camera.pan, [0.0, 1.0, 0.0]);
+        let view = look_at(eye, primitive.camera.pan, primitive.camera.up());
         let uniforms = Uniforms {
             view_proj: mul(&proj, &view),
             model: X_MIRROR,
@@ -992,22 +1026,25 @@ mod camera_tests {
         for yaw in [-1.0f32, -0.55, -0.2, 0.0, 0.3, 0.7, 1.2, 3.0] {
             for pitch in [-1.0f32, -0.4, 0.0, 0.3, 0.9] {
                 for zoom in [0.5f32, 1.0, 2.0] {
-                    let cam = Camera {
-                        yaw,
-                        pitch,
-                        zoom,
-                        pan: [1.0, -2.0, 3.0],
-                    };
-                    let eye = cam.eye(radius);
-                    let d = cam.distance(radius);
-                    let dx = eye[0] - cam.pan[0];
-                    let dy = eye[1] - cam.pan[1];
-                    let dz = eye[2] - cam.pan[2];
+                    for roll in [-0.8f32, 0.0, 0.8] {
+                        let cam = Camera {
+                            yaw,
+                            pitch,
+                            roll,
+                            zoom,
+                            pan: [1.0, -2.0, 3.0],
+                        };
+                        let eye = cam.eye(radius);
+                        let d = cam.distance(radius);
+                        let dx = eye[0] - cam.pan[0];
+                        let dy = eye[1] - cam.pan[1];
+                        let dz = eye[2] - cam.pan[2];
                     let actual = (dx * dx + dy * dy + dz * dz).sqrt();
                     assert!(
                         (actual - d).abs() < d * 1e-4,
-                        "yaw={yaw} pitch={pitch} zoom={zoom}: eye at {actual}, expected {d}"
+                        "yaw={yaw} pitch={pitch} roll={roll} zoom={zoom}: eye at {actual}, expected {d}"
                     );
+                    }
                 }
             }
         }
@@ -1018,6 +1055,7 @@ mod camera_tests {
         let cam = Camera {
             yaw: 0.7,
             pitch: -0.4,
+            roll: 0.35,
             zoom: 1.0,
             pan: [0.0; 3],
         };
@@ -1026,12 +1064,40 @@ mod camera_tests {
         let (sp, cp) = (cam.pitch.sin(), cam.pitch.cos());
         let view = [cp * sy, sp, cp * cy]; // eye -> target direction
         let dot = |a: [f32; 3], b: [f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        // The rolled basis stays orthonormal and perpendicular to the view.
         assert!((dot(right, up) - 0.0).abs() < 1e-5);
         assert!((dot(right, view) - 0.0).abs() < 1e-5);
         assert!((dot(up, view) - 0.0).abs() < 1e-5);
         for v in [right, up] {
             assert!((dot(v, v) - 1.0).abs() < 1e-5);
         }
+        // Roll is a rotation about the view axis: the rolled basis must
+        // equal the unrolled basis rotated in the right/up plane.
+        let unrolled = Camera {
+            roll: 0.0,
+            ..cam
+        };
+        let (r0, u0) = unrolled.screen_axes();
+        let (cr, sr) = (cam.roll.cos(), cam.roll.sin());
+        let close = |a: [f32; 3], b: [f32; 3]| {
+            (a[0] - b[0]).abs() < 1e-5
+                && (a[1] - b[1]).abs() < 1e-5
+                && (a[2] - b[2]).abs() < 1e-5
+        };
+        let expected_right = [
+            r0[0] * cr - u0[0] * sr,
+            r0[1] * cr - u0[1] * sr,
+            r0[2] * cr - u0[2] * sr,
+        ];
+        let expected_up = [
+            u0[0] * cr + r0[0] * sr,
+            u0[1] * cr + r0[1] * sr,
+            u0[2] * cr + r0[2] * sr,
+        ];
+        assert!(close(right, expected_right));
+        assert!(close(up, expected_up));
+        // The view matrix's up must match the rolled screen up.
+        assert!(close(cam.up(), up));
     }
 }
 
