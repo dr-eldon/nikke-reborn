@@ -485,12 +485,19 @@ def _find_card_configs(paths: list[Path] | None = None) -> list[Path]:
     """Return the card definition files to generate.
 
     With no explicit *paths*, every ``*.json`` under :data:`CARDS_DIR`
-    (sorted for deterministic output). Explicit paths are resolved against
-    the repo root, must be files that live under :data:`CARDS_DIR`, are
-    de-duplicated and returned in the given order.
+    (sorted for deterministic output), excluding the pack's
+    ``Expansion.json`` (the pack's metadata, not a card). Explicit paths are
+    resolved against the repo root, must be files that live under
+    :data:`CARDS_DIR`, are de-duplicated and returned in the given order.
     """
     if not paths:
-        return sorted(CARDS_DIR.rglob("*.json"))
+        from nikke_reborn import pack
+
+        return sorted(
+            path
+            for path in CARDS_DIR.rglob("*.json")
+            if path.name != pack.EXPANSION_NAME
+        )
     configs: list[Path] = []
     seen: set[Path] = set()
     for raw in paths:
