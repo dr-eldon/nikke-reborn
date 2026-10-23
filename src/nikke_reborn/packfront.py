@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
-"""Procedurally generate a pack's ``CardPack_Front.png`` from ``Expansion.json``.
+"""Compose a pack's ``CardPack_Front`` on the fly from its ``Expansion.json``.
 
-This is the iteration workbench for the new pack-front pipeline. Instead of a
-hand-made ``CardPack_Front.png``, the front is built from the expansion's
-metadata:
+The front is built procedurally from the expansion's metadata — it is never
+stored: :func:`generate` composes it in memory and hands it to the material and
+item composition. Everything is driven by the expansion (its ``pack``
+characters, ``background`` and ``logo``), so the same code composes any
+expansion's front without per-pack changes.
 
 * the ``pack`` field lists the NIKKES to feature (card-definition paths
   relative to the pack directory). The *first* one is the hero: it is centered
@@ -21,40 +22,21 @@ metadata:
   hue and saturation, brightened), so the bloom matches the scene rather than
   a fixed white.
 
-Everything is driven by the expansion's metadata (its ``pack`` characters,
-``background`` and ``logo``), so the same code composes any expansion's front
-without per-pack changes.
-
-The finished front is written to ``cards/<set>/CardPack_Front.png`` (replacing
-the hand-made one), so the existing material and item composition consume it
-unchanged. Unless ``--front-only`` is given, this script then runs the material
-and item composition (via the package) so the full result is visible while
-iterating — without re-rendering the set's cards.
-
 Rendered first-frames are cached on disk (keyed by the card definition's hash)
 so repeated runs do not pay the GPU render again.
-
-Run:  .venv/bin/python scripts/gen_pack_front.py <pack>
-      .venv/bin/python scripts/gen_pack_front.py <pack> --front-only
 """
 
 from __future__ import annotations
 
-import argparse
 import colorsys
 import json
 import subprocess
-import sys
-import time
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import nikke_reborn as nr
 from PIL import Image, ImageChops, ImageFilter
 
 EXPANSION_NAME = "Expansion.json"
-FRONT_NAME = "CardPack_Front.png"
 CACHE_DIR = nr.REPO_ROOT / ".pack_cache"
 
 # --- front composition tuning (fractions of the front) ----------------------
@@ -90,9 +72,9 @@ LOGO_GLOW_VALUE = 0.9  # target brightness of the glow tint (0-1)
 LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo` field
 
 
-def _front_size() -> tuple[int, int]:
+def front_size() -> tuple[int, int]:
     """The pack front's target size: the material template's *right* mask
-    rectangle (the left one is the back). Generating at exactly this size means
+    rectangle (the left one is the back). Composing at exactly this size means
     the material composition pastes it with no rescale."""
     with Image.open(nr.PACK_TEMPLATE) as opened:
         template = opened.convert("RGBA")
@@ -106,7 +88,9 @@ def _front_size() -> tuple[int, int]:
     return rect[2] - rect[0], rect[3] - rect[1]
 
 
-def _load_expansion(pack_dir: Path) -> dict:
+def load_expansion(pack_dir: Path) -> dict:
+    """The pack's ``Expansion.json`` (its ``pack`` characters, ``background``
+    and ``logo``) — the metadata the front is composed from."""
     path = pack_dir / EXPANSION_NAME
     if not path.is_file():
         raise nr.GenerationError(f"no {EXPANSION_NAME} in {pack_dir}")
@@ -308,7 +292,9 @@ def build_front(
     """Compose the pack front entirely from the expansion's metadata: its
     background, the featured NIKKES drawn over it (backs first, the hero on
     top), and — when the expansion names a ``logo`` placement — the expansion's
-    logo (``<pack>/Logo.png``) with its glow on top, at the named placement."""
+    logo (``<pack>/Logo.png``) with its glow on top, at the named placement.
+    The result is returned in memory; it is the material's right rectangle and
+    is never written to disk."""
     width, height = size
 
     bg_rel = expansion.get("background")
@@ -373,52 +359,3 @@ def build_front(
         )
 
     return canvas
-
-
-def write_front(pack_dir: Path, expansion: dict) -> Path:
-    front = build_front(pack_dir, expansion, _front_size())
-    out = pack_dir / FRONT_NAME
-    out.parent.mkdir(parents=True, exist_ok=True)
-    front.convert("RGB").save(out)
-    return out
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate a pack's CardPack_Front.png from Expansion.json"
-    )
-    parser.add_argument("pack", help="pack name (a subdirectory of cards/)")
-    parser.add_argument(
-        "--front-only",
-        action="store_true",
-        help="only write the front; skip the material and item composition",
-    )
-    args = parser.parse_args()
-
-    pack_dir = nr.CARDS_DIR / args.pack
-    if not pack_dir.is_dir():
-        parser.error(f"pack directory not found: {pack_dir}")
-
-    expansion = _load_expansion(pack_dir)
-    started = time.monotonic()
-    front = write_front(pack_dir, expansion)
-    print(
-        f"wrote {front.relative_to(nr.REPO_ROOT)} "
-        f"({time.monotonic() - started:.1f}s)"
-    )
-
-    if args.front_only:
-        return
-
-    for process in (nr._process_pack_material, nr._process_pack_item):
-        out_path, skipped = process(pack_dir, nr.OUTPUT_DIR)
-        verb = "kept" if skipped else "wrote"
-        print(f"{verb} {out_path.relative_to(nr.REPO_ROOT)}")
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except nr.GenerationError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        sys.exit(1)
