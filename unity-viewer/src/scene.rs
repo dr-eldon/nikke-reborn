@@ -32,11 +32,11 @@ impl Default for Camera {
     fn default() -> Self {
         const DEG: f32 = std::f32::consts::PI / 180.0;
         Self {
-            yaw: -140.0 * DEG,
-            pitch: -5.0 * DEG,
+            yaw: -138.0 * DEG,
+            pitch: 0.0,
             roll: -5.0 * DEG,
-            zoom: 1.1,
-            pan: [0.0, -0.03, 0.0],
+            zoom: 1.18,
+            pan: [0.0, -0.02, 0.0],
         }
     }
 }
