@@ -250,7 +250,7 @@ const LIGHT_DIR: vec3<f32> = normalize(vec3<f32>(0.45, 0.8, 0.4));
 const FILL_DIR: vec3<f32> = normalize(vec3<f32>(-0.4, -0.3, -0.5));
 // Bright enough that faces read close to the source texture; the key + fill
 // light only add gentle 3D shading on top.
-const AMBIENT: vec3<f32> = vec3<f32>(0.5, 0.52, 0.56);
+const AMBIENT: vec3<f32> = vec3<f32>(0.65, 0.67, 0.71);
 const DIFFUSE: vec3<f32> = vec3<f32>(0.55);
 const FILL: vec3<f32> = vec3<f32>(0.2);
 
