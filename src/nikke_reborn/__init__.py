@@ -1488,10 +1488,7 @@ def _process_card(
 
     # A definition without a `time` renders an animation (mp4) plus its
     # first frame (png); one with a `time` renders a single frame (png).
-    # Video generation is disabled for now so it doesn't trigger while
-    # testing: every card renders only its first frame (PNG), no MP4.
-    # animated = card.get("time") is None
-    animated = False
+    animated = card.get("time") is None
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
     source_hash = _source_hash(json_path)
     up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
@@ -1608,8 +1605,7 @@ def _find_pack_dirs() -> list[Path]:
     return sorted(
         pack_dir
         for pack_dir in CARDS_DIR.iterdir()
-        if pack_dir.is_dir()
-        and (pack_dir / pack.EXPANSION_NAME).is_file()
+        if pack_dir.is_dir() and (pack_dir / pack.EXPANSION_NAME).is_file()
     )
 
 
@@ -2017,9 +2013,7 @@ def _timings_suffix(timings: dict[str, float | None] | None) -> str:
     if not timings:
         return ""
     parts = [
-        f"{stage} {value:.2f}s"
-        for stage, value in timings.items()
-        if value is not None
+        f"{stage} {value:.2f}s" for stage, value in timings.items() if value is not None
     ]
     return f" ({', '.join(parts)})" if parts else ""
 
@@ -2058,12 +2052,21 @@ def _generate(
         front_source = pack.front_source_hash(pack_dir)
         back_source = pack.back_source_hash(pack_dir)
         material_ok = _pack_output_up_to_date(
-            PACK_TEMPLATE, PACK_MATERIAL_NAME, pack_dir,
-            (PACK_LOGO,), out_base, front_source, back_source,
+            PACK_TEMPLATE,
+            PACK_MATERIAL_NAME,
+            pack_dir,
+            (PACK_LOGO,),
+            out_base,
+            front_source,
+            back_source,
         )
         item_ok = _pack_output_up_to_date(
-            PACK_ITEM_TEMPLATE, PACK_ITEM_NAME, pack_dir,
-            (PACK_LOGO,), out_base, front_source,
+            PACK_ITEM_TEMPLATE,
+            PACK_ITEM_NAME,
+            pack_dir,
+            (PACK_LOGO,),
+            out_base,
+            front_source,
         )
         if material_ok and item_ok:
             continue  # nothing changed for this pack; skip the front's render
@@ -2094,7 +2097,8 @@ def _generate(
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
     what = f"{len(card_configs)} card(s)" + (
         f" and {len(material_needs) + len(item_needs)} pack image(s)"
-        if material_needs or item_needs else ""
+        if material_needs or item_needs
+        else ""
     )
     if paths:
         print(
@@ -2142,7 +2146,10 @@ def _generate(
             {
                 pool.submit(
                     _process_pack_item,
-                    pack_dir, out_base, fronts[pack_dir], front_sources[pack_dir],
+                    pack_dir,
+                    out_base,
+                    fronts[pack_dir],
+                    front_sources[pack_dir],
                 ): pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
                 for pack_dir in item_needs
             }
