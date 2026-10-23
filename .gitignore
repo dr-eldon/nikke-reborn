@@ -15,6 +15,3 @@ output/
 bundles/
 draft/
 effects/
-
-# Rendered-frame cache for procedural pack front generation
-.pack_cache/

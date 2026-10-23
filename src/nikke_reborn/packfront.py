@@ -22,13 +22,17 @@ expansion's front without per-pack changes.
   hue and saturation, brightened), so the bloom matches the scene rather than
   a fixed white.
 
-Rendered first-frames are cached on disk (keyed by the card definition's hash)
-so repeated runs do not pay the GPU render again.
+The front's inputs — its ``Expansion.json``, the featured NIKKE definitions it
+lists, its background, its logo, and the material template that sizes it — are
+hashed (see :func:`front_source_hash`) into the finished material and item, so
+when those inputs are unchanged the front's render is skipped entirely rather
+than re-rendered.
 """
 
 from __future__ import annotations
 
 import colorsys
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -37,7 +41,6 @@ import nikke_reborn as nr
 from PIL import Image, ImageChops, ImageFilter
 
 EXPANSION_NAME = "Expansion.json"
-CACHE_DIR = nr.REPO_ROOT / ".pack_cache"
 
 # --- front composition tuning (fractions of the front) ----------------------
 # Every NIKKE's feet sit on the front's bottom edge (feet baseline = 1.0), so
@@ -100,13 +103,35 @@ def load_expansion(pack_dir: Path) -> dict:
         raise nr.GenerationError(f"cannot read {path}: {exc}") from exc
 
 
+def front_source_hash(pack_dir: Path) -> str:
+    """A hash of the front's *inputs* — everything the composed front depends
+    on: its ``Expansion.json``, the featured NIKKE definitions it lists, its
+    background and (when a placement is set) its logo, and the material
+    template that sizes it. It is computed without rendering the front, so the
+    finished material and item can be skipped (and the front's render avoided)
+    when those inputs are unchanged."""
+    expansion = load_expansion(pack_dir)
+    digest = hashlib.sha256()
+    digest.update((pack_dir / EXPANSION_NAME).read_bytes())
+    for rel in expansion.get("pack", []):
+        digest.update(nr._source_hash((pack_dir / rel).resolve()).encode())
+    background = expansion.get("background")
+    if background:
+        digest.update((pack_dir / background).resolve().read_bytes())
+    if expansion.get("logo"):
+        logo_path = pack_dir / LOGO_NAME
+        if logo_path.is_file():
+            digest.update(logo_path.read_bytes())
+    digest.update(nr.PACK_TEMPLATE.read_bytes())
+    return digest.hexdigest()
+
+
 def _render_first_frame(json_path: Path) -> Image.Image:
     """Render the card's first frame via ``nikke-viewer --stdout`` (raw RGBA).
 
     The viewer streams every frame as a contiguous ``viewport``-sized RGBA
     block; only the first is kept and the stream is abandoned (the viewer is
-    killed), so an animated NIKKE costs no more than a static one. Cached on
-    disk by the definition's hash so unchanged NIKKES are not re-rendered.
+    killed), so an animated NIKKE costs no more than a static one.
     """
     card = nr._load_card(json_path)
     viewport = card.get("viewport")
@@ -117,12 +142,6 @@ def _render_first_frame(json_path: Path) -> Image.Image:
         )
     width, height = int(viewport[0]), int(viewport[1])
     frame_bytes = width * height * 4
-
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cache_path = CACHE_DIR / f"{nr._source_hash(json_path)}.png"
-    if cache_path.is_file():
-        with Image.open(cache_path) as cached:
-            return cached.convert("RGBA")
 
     viewer = subprocess.Popen(
         [nr.VIEWER, "--stdout", str(json_path)],
@@ -142,7 +161,6 @@ def _render_first_frame(json_path: Path) -> Image.Image:
         # Abandon the stream early (we only want the first frame): the viewer
         # may be blocked writing the rest to a full pipe and is killed.
         nr._reap_viewer(viewer, drain, clean_exit_expected=False)
-    frame.save(cache_path)
     return frame
 
 

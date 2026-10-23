@@ -1609,19 +1609,39 @@ def _find_pack_dirs() -> list[Path]:
 
 
 def _pack_hash(
-    template: Path, *images: Path, front: Image.Image | None = None
+    template: Path, *images: Path, front_source: str = ""
 ) -> str:
     """The source hash of a finished pack image: the SHA-256 of its
-    template, input images and — when *front* is given — that in-memory front
-    (its pixels), every input byte the result depends on."""
+    template, input images and — when *front_source* is given — that hash of
+    the composed front's inputs (see :func:`packfront.front_source_hash`),
+    every input the result depends on. Using the front's *inputs* rather than
+    its pixels lets the hash be computed without rendering the front."""
     digest = hashlib.sha256()
     for path in (template, *images):
         if not path.is_file():
             raise GenerationError(f"pack template or image not found: {path}")
         digest.update(path.read_bytes())
-    if front is not None:
-        digest.update(front.convert("RGB").tobytes())
+    if front_source:
+        digest.update(front_source.encode())
     return digest.hexdigest()
+
+
+def _pack_output_up_to_date(
+    template: Path,
+    out_name: str,
+    pack_dir: Path,
+    images: tuple[Path, ...],
+    front_source: str,
+    out_base: Path,
+) -> bool:
+    """True when the pack's finished *out_name* already exists and its stored
+    hash matches the current inputs (template, *images*, and the front's
+    *front_source*) — computed without rendering the front, so the front's
+    render can be skipped when nothing has changed."""
+    pack_dir = pack_dir.resolve()
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / out_name
+    source_hash = _pack_hash(template, *images, front_source=front_source)
+    return out_path.is_file() and _stored_hash(out_path) == source_hash
 
 
 def _solve_linear(rows: list[list[float]]) -> list[float]:
@@ -1691,7 +1711,7 @@ def _pack_item_band(
 
 
 def _process_pack_material(
-    pack_dir: Path, out_base: Path, front: Image.Image
+    pack_dir: Path, out_base: Path, front: Image.Image, front_source: str
 ) -> tuple[Path, bool]:
     """Composite a pack's images onto the material template.
 
@@ -1703,14 +1723,14 @@ def _process_pack_material(
     placement: :data:`PACK_LOGO_WIDTH` the front's width, centered,
     :data:`PACK_LOGO_TOP` the front's height down. The finished material
     is written to ``<out>/<pack>/CardPack_Material.png`` (atomically,
-    with the SHA-256 of the template, the back and the front embedded,
-    like a finished card); returns ``(out_path, skipped)``, where
+    with the SHA-256 of the template, the back and the front's inputs
+    embedded, like a finished card); returns ``(out_path, skipped)``, where
     *skipped* is True when the output already exists and its stored hash
     matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
     back_path = pack_dir / PACK_BACK_NAME
-    source_hash = _pack_hash(PACK_TEMPLATE, back_path, PACK_LOGO, front=front)
+    source_hash = _pack_hash(PACK_TEMPLATE, back_path, PACK_LOGO, front_source=front_source)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
@@ -1798,7 +1818,7 @@ def _bottom_shade(front: Image.Image) -> Image.Image:
 
 
 def _process_pack_item(
-    pack_dir: Path, out_base: Path, front: Image.Image
+    pack_dir: Path, out_base: Path, front: Image.Image, front_source: str
 ) -> tuple[Path, bool]:
     """Composite a pack's front image — the in-memory *front*, composed on the
     fly and not stored — onto the item template.
@@ -1825,11 +1845,11 @@ def _process_pack_item(
     finished item keeps
     the template's transparency and is written to
     ``<out>/<pack>/CardPack_Item.png`` (atomically, with the SHA-256 of
-    the template and the front embedded, like a finished card); returns
-    ``(out_path, skipped)``.
+    the template and the front's inputs embedded, like a finished card);
+    returns ``(out_path, skipped)``.
     """
     pack_dir = pack_dir.resolve()
-    source_hash = _pack_hash(PACK_ITEM_TEMPLATE, PACK_LOGO, front=front)
+    source_hash = _pack_hash(PACK_ITEM_TEMPLATE, PACK_LOGO, front_source=front_source)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
@@ -2002,25 +2022,41 @@ def _generate(
     # An explicit selection renders those cards only; a full run also
     # produces each pack's artwork images (material and item).
     pack_dirs: list[Path] = [] if paths else _find_pack_dirs()
-    total = len(card_configs) + 2 * len(pack_dirs)
+    start = time.monotonic()
+    # Compose each pack's front in the main process: its featured NIKKES are
+    # GPU-rendered here, so the front is produced once and shared by the
+    # material and item workers below. It is transient — composed on the fly
+    # from the expansion's metadata and never written to disk. The front's
+    # inputs are hashed up front (without rendering it), so the render is
+    # skipped entirely when both the material and item are already up to date.
+    from nikke_reborn import packfront
+
+    fronts: dict[Path, Image.Image] = {}
+    front_sources: dict[Path, str] = {}
+    for pack_dir in pack_dirs:
+        front_source = packfront.front_source_hash(pack_dir)
+        front_sources[pack_dir] = front_source
+        back_path = pack_dir / PACK_BACK_NAME
+        material_ok = _pack_output_up_to_date(
+            PACK_TEMPLATE, PACK_MATERIAL_NAME, pack_dir,
+            (back_path, PACK_LOGO), front_source, out_base,
+        )
+        item_ok = _pack_output_up_to_date(
+            PACK_ITEM_TEMPLATE, PACK_ITEM_NAME, pack_dir,
+            (PACK_LOGO,), front_source, out_base,
+        )
+        if material_ok and item_ok:
+            continue  # nothing changed for this pack; skip the front's render
+        expansion = packfront.load_expansion(pack_dir)
+        fronts[pack_dir] = packfront.build_front(
+            pack_dir, expansion, packfront.front_size()
+        )
+    total = len(card_configs) + 2 * len(fronts)
     # Split the cores available to each card between the stages that run
     # in parallel: the frame compositing and the ffmpeg encode.
     per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
     ffmpeg_threads = max(2, min(MAX_STAGE_THREADS, per_card // 2))
     composite_workers = max(2, min(MAX_STAGE_THREADS, per_card - ffmpeg_threads))
-    start = time.monotonic()
-    # Compose each pack's front in the main process: its featured NIKKES are
-    # GPU-rendered here, so the front is produced once and shared by the
-    # material and item workers below. It is transient — composed on the fly
-    # from the expansion's metadata and never written to disk.
-    from nikke_reborn import packfront
-
-    fronts: dict[Path, Image.Image] = {}
-    for pack_dir in pack_dirs:
-        expansion = packfront.load_expansion(pack_dir)
-        fronts[pack_dir] = packfront.build_front(
-            pack_dir, expansion, packfront.front_size()
-        )
     notes = []
     if preset != DEFAULT_PRESET:
         notes.append(f"x264 preset '{preset}'")
@@ -2028,7 +2064,7 @@ def _generate(
         notes.append(f"{scale:g}x resolution")
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
     what = f"{len(card_configs)} card(s)" + (
-        f" and {2 * len(pack_dirs)} pack image(s)" if pack_dirs else ""
+        f" and {2 * len(fronts)} pack image(s)" if fronts else ""
     )
     if paths:
         print(
@@ -2061,17 +2097,19 @@ def _generate(
         futures.update(
             {
                 pool.submit(
-                    _process_pack_material, pack_dir, out_base, fronts[pack_dir]
+                    _process_pack_material,
+                    pack_dir, out_base, fronts[pack_dir], front_sources[pack_dir],
                 ): pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
-                for pack_dir in pack_dirs
+                for pack_dir in fronts
             }
         )
         futures.update(
             {
                 pool.submit(
-                    _process_pack_item, pack_dir, out_base, fronts[pack_dir]
+                    _process_pack_item,
+                    pack_dir, out_base, fronts[pack_dir], front_sources[pack_dir],
                 ): pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
-                for pack_dir in pack_dirs
+                for pack_dir in fronts
             }
         )
         for future in as_completed(futures):
