@@ -295,10 +295,17 @@ pub fn run(args: &[String]) -> Result<(), String> {
 }
 
 fn save_png(path: &Path, width: u32, height: u32, rgba: &[u8]) -> std::result::Result<(), String> {
-    let img = image::RgbaImage::from_raw(width, height, rgba.to_vec())
-        .ok_or_else(|| "invalid readback buffer (wrong size?)".to_string())?;
-    img.save(path)
-        .map_err(|e| format!("failed to write {}: {e}", path.display()))
+    // Encode as PNG explicitly: the output is a PNG no matter what
+    // extension (or lack of one) the path carries.
+    image::save_buffer_with_format(
+        path,
+        rgba,
+        width,
+        height,
+        image::ExtendedColorType::Rgba8,
+        image::ImageFormat::Png,
+    )
+    .map_err(|e| format!("failed to write {}: {e}", path.display()))
 }
 
 // --- argument parsing ------------------------------------------------------

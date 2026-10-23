@@ -19,12 +19,11 @@ its ``logo`` when the expansion names a placement; the back is the same
 ``background`` resized and left-cropped — and neither is stored. The
 material (``CardPack_Material.png``) has two pure-blue mask rectangles
 holding the composed back (left) and front (right); the item
-(``CardPack_Item.png``) is a perspective view whose single pure-blue mask
-is a slanted quadrilateral the front is perspective-warped to (corner to
-corner) and clipped into — its bottom border first carrying a thin dark
-gradient, biased toward the bottom-right corner. The white logo is
-stamped on the front in both, at the same placement: unslanted on the
-material's front rectangle, slanted over the item. The finished results are
+(``CardPack_Item.png``) is the pack's mesh
+(``assets/CardPackStatic_Mesh.asset``) textured with the finished
+material and rendered by the ``unity-viewer`` executable with its
+default camera — so it is generated after the material, which it
+reads from disk. The finished results are
 written under ``output/``, with
 the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
@@ -100,6 +99,7 @@ DATABASE_DIR = REPO_ROOT / "database"
 SHOP_DIR = IMAGES_DIR / "shop"
 
 VIEWER = "nikke-viewer"
+UNITY_VIEWER = "unity-viewer"
 ENCODER = "ffmpeg"
 PROBER = "ffprobe"
 
@@ -248,17 +248,16 @@ LOGO_PATHS = {
     True: IMAGES_DIR / "Logo_Black.png",
 }
 
-#: Pack artwork: ``images/`` holds a template per finished image written
-#: to ``<out>/<pack>/``. The material template carries two pure-blue mask
-#: rectangles, the left one holding the pack's back and the right one its
-#: front — both composed on the fly (see :mod:`nikke_reborn.pack`) — and
-#: the item template is a perspective view of the pack whose single
-#: pure-blue mask is a slanted quadrilateral that the front is
-#: perspective-warped to.
+#: Pack artwork: ``images/`` holds the material template, whose two
+#: pure-blue mask rectangles hold the pack's back (left) and front
+#: (right) — both composed on the fly (see :mod:`nikke_reborn.pack`) —
+#: written to ``<out>/<pack>/CardPack_Material.png``. The item
+#: (``CardPack_Item.png``) is rendered with :data:`UNITY_VIEWER` from
+#: :data:`PACK_MESH` textured with the finished material.
 PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
-PACK_ITEM_TEMPLATE = IMAGES_DIR / "CardPack_Item.png"
 PACK_MATERIAL_NAME = "CardPack_Material.png"
 PACK_ITEM_NAME = "CardPack_Item.png"
+PACK_MESH = REPO_ROOT / "assets" / "CardPackStatic_Mesh.asset"
 
 #: The white logo stamped on the pack's front, at the same placement in
 #: the material and the item: its width as a fraction of the front's
@@ -267,29 +266,6 @@ PACK_ITEM_NAME = "CardPack_Item.png"
 PACK_LOGO = IMAGES_DIR / "Logo_White.png"
 PACK_LOGO_WIDTH = 0.6
 PACK_LOGO_TOP = 0.04
-
-#: The item mask's corners are pulled this many px outward before the
-#: perspective warp: the warped front then over-covers the mask's
-#: anti-aliased edge (the mask clip trims it back), so no dark fringe
-#: shows where the warp falls a pixel short of the blue.
-PACK_ITEM_MARGIN = 3
-
-#: The item's front carries a thin dark gradient along its bottom
-#: border, biased toward the bottom-right corner: the strip hugs
-#: the bottom edge (:data:`PACK_BOTTOM_BAND` of the face height)
-#: and fades quadratically away from the edge, so the face above
-#: the strip is untouched; within the strip, the brightness falls
-#: along the edge from the bottom-left (down to
-#: :data:`PACK_BOTTOM_BIAS` of the corner dip) to the bottom-right
-#: corner, which drops to 1 - :data:`PACK_BOTTOM_SHADE` of its
-#: normal brightness. The shading is multiplicative (a plain
-#: gradient), so the art's texture is preserved everywhere — dark
-#: regions darken in proportion and are never crushed to flat
-#: black.
-PACK_BOTTOM_SHADE = 0.85
-PACK_BOTTOM_BAND = 0.05
-PACK_BOTTOM_BIAS = 0.45
-
 
 class GenerationError(RuntimeError):
     """A card definition could not be rendered or composed."""
@@ -1554,25 +1530,6 @@ def _pack_mask(template: Image.Image) -> Image.Image:
     return ImageChops.darker(ImageChops.darker(r, g), b)
 
 
-def _pack_item_mask(template: Image.Image, threshold: int = 15) -> Image.Image:
-    """The item template's blue region including its anti-aliased fringe.
-
-    The pure-blue placeholder sits on an opaque grey shadow and carries a
-    1px near-blue edge (anti-aliasing) that is *not* pure blue, so a plain
-    :func:`_pack_mask` would leave that rim behind. This mask is the
-    blue-dominant pixels (blue channel above the brighter of red/green by
-    *threshold*) restricted to a 1px dilation of the core, so it spans the
-    core plus the fringe while keeping out the grey shadow and any
-    isolated bluish specks elsewhere."""
-    r = template.getchannel("R")
-    g = template.getchannel("G")
-    b = template.getchannel("B")
-    ring = _pack_mask(template).filter(ImageFilter.MaxFilter(3))
-    excess = ImageChops.difference(b, ImageChops.lighter(r, g))
-    bluish = excess.point(lambda v: 255 if v >= threshold else 0)
-    return ImageChops.darker(bluish, ring)
-
-
 def _pack_mask_rects(mask: Image.Image) -> list[tuple[int, int, int, int]]:
     """Bounding boxes of the mask's solid rectangles, left to right.
 
@@ -1673,53 +1630,6 @@ def _solve_linear(rows: list[list[float]]) -> list[float]:
     return x
 
 
-def _pack_item_corners(mask: Image.Image) -> tuple[tuple[int, int], ...]:
-    """The mask's four corners (top-left, top-right, bottom-right, bottom-
-    left) as its diagonal extremes: the pixels minimizing/maximizing
-    ``x + y`` (top-left / bottom-right) and ``x - y`` (bottom-left /
-    top-right)."""
-    data = mask.convert("L").tobytes()
-    width, height = mask.size
-    tl = tr = br = bl = None
-    tl_s = math.inf
-    br_s = tr_s = -math.inf
-    bl_s = math.inf
-    for y in range(height):
-        row = data[y * width : (y + 1) * width]
-        for x, value in enumerate(row):
-            if value:
-                s, d = x + y, x - y
-                if s < tl_s:
-                    tl_s, tl = s, (x, y)
-                if s > br_s:
-                    br_s, br = s, (x, y)
-                if d > tr_s:
-                    tr_s, tr = d, (x, y)
-                if d < bl_s:
-                    bl_s, bl = d, (x, y)
-    if tl is None:
-        raise GenerationError("pack item template carries no pure-blue mask")
-    return tl, tr, br, bl
-
-
-def _pack_item_band(
-    corners: tuple[tuple[float, float], ...], front: tuple[int, int]
-) -> tuple[float, ...]:
-    """The ``Image.PERSPECTIVE`` band mapping the four *corners* (in
-    template order: top-left, top-right, bottom-right, bottom-left) to
-    the front's corners ``(0, 0), (W, 0), (W, H), (0, H)`` — the
-    perspective that projects the front onto the item's slanted
-    quadrilateral. The four point correspondences exactly determine the
-    8 degrees of freedom (with the last coefficient fixed to 1)."""
-    fw, fh = front
-    rows = []
-    for (x, y), (sx, sy) in zip(corners, ((0, 0), (fw, 0), (fw, fh), (0, fh))):
-        rows.append([x, y, 1, 0, 0, 0, -sx * x, -sx * y, sx])
-        rows.append([0, 0, 0, x, y, 1, -sy * x, -sy * y, sy])
-    h11, h12, h13, h21, h22, h23, h31, h32 = _solve_linear(rows)
-    return h11, h12, h13, h21, h22, h23, h31, h32, 1.0
-
-
 def _process_pack_material(
     pack_dir: Path,
     out_base: Path,
@@ -1789,183 +1699,68 @@ def _process_pack_material(
     return out_path, False
 
 
-def _bottom_shade(front: Image.Image) -> Image.Image:
-    """Darken a thin strip along the front's bottom border, biased
-    toward the bottom-right corner: the strip hugs the bottom edge
-    (:data:`PACK_BOTTOM_BAND` of the face height), fading
-    quadratically away from the edge (zero slope at the strip's
-    top, so no seam shows); within the strip, the brightness falls
-    along the edge from the bottom-left (down to
-    :data:`PACK_BOTTOM_BIAS` of the corner dip) to the bottom-right
-    corner (down to 1 - :data:`PACK_BOTTOM_SHADE` of the normal
-    brightness) — multiplicative, so the art's texture is
-    preserved everywhere. Applied before the perspective warp, so
-    it rides the warped face's bottom border."""
-    width, height = front.size
-    # Per-axis ramps; the dip is their product, so it hugs the
-    # bottom edge, biased to the right, fading away from the edge.
-    x = [
-        round(
-            255
-            * PACK_BOTTOM_SHADE
-            * (PACK_BOTTOM_BIAS + (1.0 - PACK_BOTTOM_BIAS) * i / (width - 1))
-        )
-        for i in range(width)
-    ]
-    y0 = round((1.0 - PACK_BOTTOM_BAND) * height)
-    span = max(1, height - 1 - y0)
-    y = [0 if j <= y0 else round(255 * ((j - y0) / span) ** 2) for j in range(height)]
-    ax = Image.new("L", (width, 1))
-    ax.putdata(x)
-    ay = Image.new("L", (1, height))
-    ay.putdata(y)
-    ax = ax.resize((width, height), Image.Resampling.NEAREST)
-    ay = ay.resize((width, height), Image.Resampling.NEAREST)
-    # factor = 255 * (1 - SHADE * a * b) = 255 - ax*ay/255
-    factor = ImageChops.invert(ImageChops.multiply(ax, ay))
-    return Image.merge(
-        "RGBA",
-        [ImageChops.multiply(front.getchannel(c), factor) for c in "RGB"]
-        + [front.getchannel("A")],
-    )
+def _viewer_hash(mesh: Path, material: Path) -> str:
+    """SHA-256 of the item's inputs: the pack's mesh and its generated
+    material (whose bytes change whenever the material does), so a
+    finished item whose stored hash matches them is up to date."""
+    digest = hashlib.sha256()
+    for path in (mesh, material):
+        if not path.is_file():
+            raise GenerationError(f"item input not found: {path}")
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
-def _process_pack_item(
-    pack_dir: Path, out_base: Path, front: Image.Image, front_source: str
-) -> tuple[Path, bool]:
-    """Composite a pack's front image — the in-memory *front*, composed on the
-    fly and not stored — onto the item template.
+def _viewer_output_up_to_date(mesh: Path, material: Path, out_path: Path) -> bool:
+    """True when the viewer's finished *out_path* already exists and its
+    stored hash matches the current *mesh* and *material* — computed
+    without rendering, so the render can be skipped when nothing has
+    changed. A missing output or input (the material not generated yet)
+    is simply not up to date."""
+    if not (mesh.is_file() and material.is_file() and out_path.is_file()):
+        return False
+    return _stored_hash(out_path) == _viewer_hash(mesh, material)
 
-    The white logo (:data:`PACK_LOGO_WIDTH` the front's width, centered,
-    :data:`PACK_LOGO_TOP` the front's height down — the material's
-    placement) is slanted on its own at 2x and composited over the
-    front, which is warped at 1x — so only the logo's edge is
-    anti-aliased by supersampling while the front's detail is left
-    untouched. The front's bottom border is darkened with a thin
-    gradient first (:func:`_bottom_shade`), biased toward the
-    bottom-right corner. The
-    template's pure-blue mask is a
-    slanted quadrilateral (the item is a slightly rotated 3D view of the
-    pack), so the front is perspective-warped to it — its four corners
-    mapped to the mask's four corners. That is the faithful 3D projection:
-    it shows the whole front (no cropping, unlike a flat rotate-and-scale)
-    and fills the mask exactly. The mask corners are pulled
-    :data:`PACK_ITEM_MARGIN` px outward first so the warp over-covers the
-    mask's anti-aliased edge. The front is given the quad's true coverage
-    as its alpha and composited over the placeholder's background (the
-    grey shadow, with the blue edge un-blended back to grey) so the
-    slanted edge is anti-aliased rather than a hard binary cut. The
-    finished item keeps
-    the template's transparency and is written to
-    ``<out>/<pack>/CardPack_Item.png`` (atomically, with the SHA-256 of
-    the template and the front's inputs embedded, like a finished card);
-    returns ``(out_path, skipped)``.
+
+def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
+    """Render a pack's item with :data:`UNITY_VIEWER`: the pack's mesh
+    (:data:`PACK_MESH`) textured with the pack's finished material
+    (``<out>/<pack>/CardPack_Material.png``), with the viewer's default
+    camera, size and settings. The material must have been generated
+    first — the item is rendered from its output file.
+
+    The viewer writes a plain PNG, which is re-saved with the SHA-256 of
+    the mesh and the material embedded (a PNG text chunk, like a finished
+    card) and moved into place atomically, so a finished item only ever
+    exists in its complete form; returns ``(out_path, skipped)``, where
+    *skipped* is True when the output already exists and its stored hash
+    matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
-    source_hash = _pack_hash(PACK_ITEM_TEMPLATE, PACK_LOGO, front_source=front_source)
+    material_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
+    source_hash = _viewer_hash(PACK_MESH, material_path)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
-    with Image.open(PACK_ITEM_TEMPLATE) as opened:
-        template = opened.convert("RGBA")
-        # Shade a thin strip along the front's bottom border
-        # (biased toward the bottom-right corner) before warping, so
-        # the gradient rides the warped face's bottom edge (the logo
-        # sits well above it, so it is unaffected).
-        front = _bottom_shade(front)
-        # The logo is NOT composited onto the front before warping: the
-        # front's own art is warped once at 1x (never supersampled), and
-        # the logo is slanted on its own and composited on top. That way
-        # only the logo's edge gets the supersampling anti-aliasing while
-        # the front's detail is left untouched.
-        logo = Image.open(PACK_LOGO).convert("RGBA")
-        fw, fh = front.size
-        logo_w = round(PACK_LOGO_WIDTH * fw)
-        logo_h = round(logo_w * logo.height / logo.width)
-        logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-        logo_pos = ((fw - logo_w) // 2, round(PACK_LOGO_TOP * fh))
-        mask = _pack_item_mask(template)
-        corners = _pack_item_corners(mask)
-        # Pull each corner outward from the quad's center so the warped
-        # front over-covers the mask's anti-aliased edge.
-        cx = sum(p[0] for p in corners) / 4
-        cy = sum(p[1] for p in corners) / 4
-        expanded = []
-        for x, y in corners:
-            dist = math.hypot(x - cx, y - cy)
-            expanded.append(
-                (
-                    x + PACK_ITEM_MARGIN * (x - cx) / dist,
-                    y + PACK_ITEM_MARGIN * (y - cy) / dist,
-                )
-            )
-        # The front art is warped once, at 1x: its detail is never
-        # supersampled.
-        band = _pack_item_band(tuple(expanded), front.size)
-        warped = front.transform(
-            template.size, Image.PERSPECTIVE, band, resample=Image.BICUBIC
-        ).convert("RGBA")
-        # The logo is slanted on its own at 2x and downscaled, so its
-        # anti-aliasing survives the slant. It sits on a front-sized
-        # transparent canvas at the logo's position; the 2x band (built
-        # from 2x corners, the same quad in the 2x output space) warps it
-        # onto the same face as the front.
-        logo_layer = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
-        logo_layer.alpha_composite(logo, logo_pos)
-        band2 = _pack_item_band(
-            tuple((2 * x, 2 * y) for x, y in expanded), (fw * 2, fh * 2)
-        )
-        warped_logo = (
-            logo_layer.resize((fw * 2, fh * 2), Image.LANCZOS)
-            .transform(
-                (template.size[0] * 2, template.size[1] * 2),
-                Image.PERSPECTIVE,
-                band2,
-                resample=Image.BICUBIC,
-            )
-            .resize(template.size, Image.LANCZOS)
-            .convert("RGBA")
-        )
-        warped.alpha_composite(warped_logo)
-        # Give the front the quad's true coverage as its alpha so the slanted
-        # edge is anti-aliased instead of a hard binary cut: where the
-        # placeholder is translucent (the edge against transparency) that is
-        # its alpha; where it is an opaque near-blue (the edge blended into
-        # the grey shadow) it is the blue fraction of that blend.
-        alpha = template.getchannel("A")
-        blueness = ImageChops.difference(
-            template.getchannel("B"),
-            ImageChops.lighter(template.getchannel("R"), template.getchannel("G")),
-        )
-        warped.putalpha(ImageChops.darker(ImageChops.darker(alpha, blueness), mask))
-        # Reveal the background the front composites over: keep the grey
-        # shadow, clear the placeholder, and un-blend the opaque near-blue
-        # edge back to the grey it was mixed from (fringe = t*blue + (1-t)*
-        # grey, so grey = (fringe - t*blue) / (1-t)).
-        background = template.copy()
-        background.putalpha(ImageChops.multiply(alpha, ImageChops.invert(mask)))
-        blue_d = mask.tobytes()
-        blue_n = blueness.tobytes()
-        alpha_n = alpha.tobytes()
-        src = template.load()
-        dst = background.load()
-        width, height = template.size
-        for y in range(height):
-            row = y * width
-            for x in range(width):
-                i = row + x
-                if blue_d[i] and alpha_n[i] == 255 and blue_n[i] < 255:
-                    inv = 255 - blue_n[i]
-                    r, g, b, _ = src[x, y]
-                    dst[x, y] = (
-                        round(r * 255 / inv),
-                        round(g * 255 / inv),
-                        round((b - blue_n[i]) * 255 / inv),
-                        255,
-                    )
-        background.alpha_composite(warped)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    _save_atomic(background, out_path, source_hash)
+    tmp_path = out_path.with_name(out_path.name + ".render")
+    try:
+        result = subprocess.run(
+            [UNITY_VIEWER, str(PACK_MESH), str(material_path), "--out", str(tmp_path)],
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(f"could not run {UNITY_VIEWER}: {exc}") from exc
+    if result.returncode != 0 or not tmp_path.is_file():
+        detail = result.stderr.strip()
+        detail = f" ({detail[-500:]})" if detail else ""
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}")
+    with Image.open(tmp_path) as rendered:
+        _save_atomic(rendered, out_path, source_hash)
+    tmp_path.unlink(missing_ok=True)
     return out_path, False
 
 
@@ -2035,11 +1830,11 @@ def _generate(
     pack_dirs: list[Path] = [] if paths else _find_pack_dirs()
     start = time.monotonic()
     # Compose each pack's front in the main process: its featured NIKKES are
-    # GPU-rendered here, so the front is produced once and shared by the
-    # material and item workers below. It is transient — composed on the fly
-    # from the expansion's metadata and never written to disk. The front's
-    # inputs are hashed up front (without rendering it), so the render is
-    # skipped entirely when both the material and item are already up to date.
+    # GPU-rendered here, so the front is produced once for the material
+    # worker. It is transient — composed on the fly from the expansion's
+    # metadata and never written to disk. The front's inputs are hashed up
+    # front (without rendering it), so the render is skipped entirely when
+    # both the material and the item are already up to date.
     from nikke_reborn import pack
 
     material_needs: set[Path] = set()
@@ -2060,13 +1855,10 @@ def _generate(
             front_source,
             back_source,
         )
-        item_ok = _pack_output_up_to_date(
-            PACK_ITEM_TEMPLATE,
-            PACK_ITEM_NAME,
-            pack_dir,
-            (PACK_LOGO,),
-            out_base,
-            front_source,
+        item_ok = _viewer_output_up_to_date(
+            PACK_MESH,
+            out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME,
+            out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME,
         )
         if material_ok and item_ok:
             continue  # nothing changed for this pack; skip the front's render
@@ -2074,13 +1866,12 @@ def _generate(
             material_needs.add(pack_dir)
         if not item_ok:
             item_needs.add(pack_dir)
-        expansion = pack.load_expansion(pack_dir)
-        # The front is shared by the material and the item: it is composed here
-        # (its featured NIKKES GPU-rendered) and handed to whichever worker
-        # needs it. The back is used only by the material.
-        fronts[pack_dir] = pack.build_front(pack_dir, expansion, pack.front_size())
-        front_sources[pack_dir] = front_source
+        # Only the material needs the composed front and back: the item
+        # is rendered by unity-viewer from the material's output file.
         if not material_ok:
+            expansion = pack.load_expansion(pack_dir)
+            fronts[pack_dir] = pack.build_front(pack_dir, expansion, pack.front_size())
+            front_sources[pack_dir] = front_source
             backs[pack_dir] = pack.build_back(pack_dir, expansion, pack.back_size())
             back_sources[pack_dir] = back_source
     total = len(card_configs) + len(material_needs) + len(item_needs)
@@ -2116,47 +1907,12 @@ def _generate(
     done = 0
     skipped = 0
     with ProcessPoolExecutor(max_workers=jobs) as pool:
-        futures: dict[Future[tuple[Path, bool]], Path] = {
-            pool.submit(
-                _process_card,
-                path,
-                ffmpeg_threads,
-                composite_workers,
-                preset,
-                scale,
-                out_base,
-            ): path.relative_to(CARDS_DIR)
-            for path in card_configs
-        }
-        futures.update(
-            {
-                pool.submit(
-                    _process_pack_material,
-                    pack_dir,
-                    out_base,
-                    fronts[pack_dir],
-                    front_sources[pack_dir],
-                    backs[pack_dir],
-                    back_sources[pack_dir],
-                ): pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
-                for pack_dir in material_needs
-            }
-        )
-        futures.update(
-            {
-                pool.submit(
-                    _process_pack_item,
-                    pack_dir,
-                    out_base,
-                    fronts[pack_dir],
-                    front_sources[pack_dir],
-                ): pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
-                for pack_dir in item_needs
-            }
-        )
-        for future in as_completed(futures):
+        # Report one finished future. Failures are collected here and
+        # reported (the run exits non-zero) once everything has had its
+        # turn, so one bad card never aborts the rest.
+        def report(future: Future[tuple[Path, bool]], label: Path) -> None:
+            nonlocal done, skipped
             done += 1
-            label = futures[future]
             try:
                 out_path, was_skipped, *rest = future.result()
                 timings = rest[0] if rest else None
@@ -2175,14 +1931,64 @@ def _generate(
                         flush=True,
                     )
             except Exception as exc:
-                # Let the other cards finish; failures are reported (and the
-                # run exits non-zero) once everything has had its retries.
                 failures.append((label, exc))
                 print(
                     f"[{done}/{total}] {label} FAILED: {exc}",
                     file=sys.stderr,
                     flush=True,
                 )
+
+        def material_label(pack_dir: Path) -> Path:
+            return pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
+
+        def item_label(pack_dir: Path) -> Path:
+            return pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
+
+        card_futures: dict[Future[tuple[Path, bool]], Path] = {
+            pool.submit(
+                _process_card,
+                path,
+                ffmpeg_threads,
+                composite_workers,
+                preset,
+                scale,
+                out_base,
+            ): path.relative_to(CARDS_DIR)
+            for path in card_configs
+        }
+        # The item is rendered from the material's output file, so each
+        # pack's item starts only after its material has finished. Packs
+        # whose material is already up to date need no wait: their item
+        # renders from the material that is already on disk.
+        item_futures: dict[Future[tuple[Path, bool]], Path] = {
+            pool.submit(_process_pack_item, pack_dir, out_base): item_label(pack_dir)
+            for pack_dir in sorted(item_needs - material_needs)
+        }
+        material_futures: dict[Future[tuple[Path, bool]], Path] = {
+            pool.submit(
+                _process_pack_material,
+                pack_dir,
+                out_base,
+                fronts[pack_dir],
+                front_sources[pack_dir],
+                backs[pack_dir],
+                back_sources[pack_dir],
+            ): pack_dir
+            for pack_dir in material_needs
+        }
+        for future in as_completed(material_futures):
+            pack_dir = material_futures[future]
+            report(future, material_label(pack_dir))
+            if future.exception() is not None:
+                continue  # no material -> no item for this pack
+            if pack_dir in item_needs:
+                item_futures[
+                    pool.submit(_process_pack_item, pack_dir, out_base)
+                ] = item_label(pack_dir)
+        for future in as_completed(card_futures):
+            report(future, card_futures[future])
+        for future in as_completed(item_futures):
+            report(future, item_futures[future])
     if failures:
         for label, exc in failures:
             print(f"error: {label}: {exc}", file=sys.stderr)
