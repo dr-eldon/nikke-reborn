@@ -19,13 +19,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use iced::theme;
 use iced::widget::shader::Action;
-use iced::widget::{
-    button, column, combo_box, container, image, responsive, row, rule, shader, slider, space, text,
-};
-use iced::{
-    Alignment, Background, Color, Font, Length, Point, Right, Task, Theme, Vector, Widget, widget,
-};
+use iced::widget::{button, column, combo_box, container, image, row, shader, slider, space, text};
+use iced::{Alignment, Bottom, Color, Fill, Font, Point, Right, Task, Theme, Vector, Widget};
 
 use scene::{Camera, Material, Primitive};
 use unity::Mesh;
@@ -102,12 +99,12 @@ struct App {
     error: Option<String>,
 }
 
-fn main() {
+fn main() -> iced::Result {
     let args: Vec<String> = std::env::args().collect();
     // With arguments we run the headless screenshot CLI; otherwise the GUI.
     if args.len() > 1 {
         match cli::run(&args[1..]) {
-            Ok(()) => return,
+            Ok(()) => return Ok(()),
             Err(e) => {
                 eprintln!("error: {e}");
                 eprintln!("run with --help for usage");
@@ -118,15 +115,12 @@ fn main() {
 
     tracing_subscriber::fmt::init();
 
-    if let Err(e) = iced::application(App::new, App::update, App::view)
+    iced::application(App::new, App::update, App::view)
+        .style(App::style)
         .font(Font::MONOSPACE)
         .theme(Theme::CatppuccinMocha)
         .window_size((1280.0, 860.0))
         .run()
-    {
-        eprintln!("error: {e}");
-        std::process::exit(1);
-    }
 }
 
 // --- scanning -------------------------------------------------------------
@@ -508,11 +502,9 @@ impl App {
     ) -> impl Widget<Message> + 'a {
         let value = value.clamp(*range.start(), *range.end());
         row![
-            text(label).size(11).width(44),
-            slider(range, value, on_change)
-                .width(Length::Fill)
-                .step(step),
-            text(display).size(11).width(56).align_x(Right),
+            text(label).size(12).width(44),
+            slider(range, value, on_change).width(Fill).step(step),
+            text(display).size(12).width(56).align_x(Right),
         ]
         .align_y(Alignment::Center)
     }
@@ -524,9 +516,17 @@ impl App {
         let pan_range = -2.0 * pan_radius..=2.0 * pan_radius;
         let pan_step = pan_radius / 100.0;
 
-        let sidebar = column![
-            text("Unity Viewer").size(18),
-            space::vertical(),
+        let details = column![
+            self.mesh_info(),
+            self.material_info(),
+            self.loading.then(|| text("Loading…").size(12)),
+            self.error
+                .as_ref()
+                .map(|error| text(error).color(Color::from_rgb8(235, 87, 87)).size(12))
+        ]
+        .spacing(4);
+
+        let selector = column![
             text("Mesh").size(12),
             combo_box(
                 &self.mesh_state,
@@ -543,47 +543,42 @@ impl App {
                     Message::MeshSelected(i)
                 },
             )
-            .width(Length::Fill),
-            space::vertical(),
+            .width(Fill)
+            .size(12),
             text("Material").size(12),
-            combo_box(
-                &self.material_state,
-                "select a texture…",
-                self.material_entries
-                    .get(self.selected_material)
-                    .map(|e| &e.label),
-                |label| {
-                    let i = self
-                        .material_entries
-                        .iter()
-                        .position(|e| e.label == label)
-                        .unwrap_or_default();
-                    Message::MaterialSelected(i)
-                },
-            )
-            .width(Length::Fill),
-            button(text("Open…").size(12))
-                .width(Length::Fill)
-                .on_press(Message::OpenMaterial),
-            space::vertical().height(8u32),
-            rule::horizontal(1u32),
-            space::vertical().height(8u32),
-            self.mesh_info(),
-            space::vertical().height(6u32),
-            self.material_info(),
-            if self.loading {
-                text("Loading…").size(11)
-            } else {
-                text(" ").size(1)
-            },
-            if let Some(error) = &self.error {
-                text(error).color(Color::from_rgb8(235, 87, 87)).size(11)
-            } else {
-                text(" ").size(1)
-            },
-            rule::horizontal(1u32),
-            space::vertical().height(8u32),
-            text("View").size(12),
+            row![
+                combo_box(
+                    &self.material_state,
+                    "select a texture…",
+                    self.material_entries
+                        .get(self.selected_material)
+                        .map(|e| &e.label),
+                    |label| {
+                        let i = self
+                            .material_entries
+                            .iter()
+                            .position(|e| e.label == label)
+                            .unwrap_or_default();
+                        Message::MaterialSelected(i)
+                    },
+                )
+                .width(Fill)
+                .size(12),
+                button(text("Open").size(12)).on_press(Message::OpenMaterial),
+            ]
+            .spacing(4),
+        ]
+        .spacing(4);
+
+        let controls = column![
+            row![
+                text("View").size(14),
+                space::horizontal(),
+                button(text("Reset").size(12))
+                    .on_press(Message::ResetView)
+                    .style(button::secondary)
+            ]
+            .align_y(Bottom),
             Self::slider_row(
                 "Yaw",
                 -180.0..=180.0,
@@ -640,51 +635,44 @@ impl App {
                 format!("{:.3}", self.camera.pan[2]),
                 |v| Message::PanChanged(2, v),
             ),
-            space::vertical().height(Length::Fill),
-            button(text("Reset view").size(12))
-                .width(Length::Fill)
-                .on_press(Message::ResetView),
-            space::vertical().height(6u32),
-            text("Left drag: rotate\nScroll: zoom\nRight drag: pan").size(11),
         ]
-        .spacing(6)
-        .padding(12);
+        .spacing(4);
 
-        let canvas = responsive(|size| {
-            let renderer = shader(Renderer {
-                mesh: &self.mesh,
-                material: &self.material,
-                camera: &self.camera,
-            });
-            container(renderer.width(Length::Fill).height(Length::Fill))
-                .width(size.width)
-                .height(size.height)
-                .style(|_| canvas_style())
-        });
-
-        row![
-            container(sidebar)
-                .width(300u32)
-                .height(Length::Fill)
-                .style(|_| panel_style()),
-            canvas,
+        let sidebar = column![
+            details,
+            selector,
+            controls,
+            space::vertical(),
+            text("Left drag: rotate\nScroll: zoom\nRight drag: pan").size(12),
         ]
+        .spacing(32)
+        .padding(8);
+
+        let canvas = shader(Renderer {
+            mesh: &self.mesh,
+            material: &self.material,
+            camera: &self.camera,
+        })
+        .width(Fill)
+        .height(Fill);
+
+        row![container(sidebar).width(300u32).height(Fill), canvas,]
     }
 
     fn mesh_info(&self) -> impl Widget<Message> {
         match &self.mesh {
             Some(m) => column![
-                text(m.name.clone()).size(13),
+                text(m.name.clone()).size(14),
                 text(format!(
                     "vertices {} · triangles {}",
                     m.vertices.len(),
                     m.triangle_count()
                 ))
-                .size(11),
+                .size(12),
                 if m.is_skinned {
-                    text(format!("skinned · {} bones (bind pose)", m.bone_count)).size(11)
+                    text(format!("skinned · {} bones (bind pose)", m.bone_count)).size(12)
                 } else {
-                    text("static").size(11)
+                    text("static").size(12)
                 },
                 text(format!(
                     "bounds {:.2} × {:.2} × {:.2}",
@@ -692,10 +680,10 @@ impl App {
                     m.extent[1] * 2.0,
                     m.extent[2] * 2.0
                 ))
-                .size(11),
+                .size(12),
             ]
             .spacing(2),
-            None => column![text("(no mesh loaded)").size(11)],
+            None => column![text("(no mesh loaded)").size(12)],
         }
     }
 
@@ -708,11 +696,18 @@ impl App {
         ) {
             (Some(label), Some(mat)) => column![
                 text(label).size(13),
-                text(format!("{} × {}", mat.width, mat.height)).size(11),
+                text(format!("{} × {}", mat.width, mat.height)).size(12),
             ]
             .spacing(2),
-            (Some(label), None) => column![text(format!("{label} (not loaded)")).size(11)],
-            (None, _) => column![text("(none)").size(11)],
+            (Some(label), None) => column![text(format!("{label} (not loaded)")).size(12)],
+            (None, _) => column![text("(none)").size(12)],
+        }
+    }
+
+    fn style(&self, theme: &Theme) -> theme::Style {
+        theme::Style {
+            background_color: Color::BLACK,
+            text_color: theme.seed().text,
         }
     }
 }
@@ -731,7 +726,7 @@ struct DragState {
     pan: Option<Point>,
 }
 
-impl widget::shader::Program<Message> for Renderer<'_> {
+impl shader::Program<Message> for Renderer<'_> {
     type State = DragState;
     type Primitive = Primitive;
 
@@ -838,21 +833,5 @@ impl widget::shader::Program<Message> for Renderer<'_> {
         } else {
             iced::mouse::Interaction::None
         }
-    }
-}
-
-// --- styles ------------------------------------------------------------------
-
-fn panel_style() -> widget::container::Style {
-    widget::container::Style {
-        background: Some(Background::Color(Color::from_rgb8(32, 34, 42))),
-        ..Default::default()
-    }
-}
-
-fn canvas_style() -> widget::container::Style {
-    widget::container::Style {
-        background: Some(Background::Color(Color::from_rgb8(0, 0, 0))),
-        ..Default::default()
     }
 }
