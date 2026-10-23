@@ -1482,7 +1482,10 @@ def _process_card(
 
     # A definition without a `time` renders an animation (mp4) plus its
     # first frame (png); one with a `time` renders a single frame (png).
-    animated = card.get("time") is None
+    # Video generation is disabled for now so it doesn't trigger while
+    # testing: every card renders only its first frame (PNG), no MP4.
+    # animated = card.get("time") is None
+    animated = False
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
     source_hash = _source_hash(json_path)
     up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
