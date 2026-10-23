@@ -153,7 +153,13 @@ pub fn run(args: &[String]) -> Result<(), String> {
 
         let size = iced::Size::new(width, height);
         let aspect = (width as f32 / height.max(1) as f32).max(1e-4);
-        pipeline.prepare(&device, &queue, &primitive, size, aspect);
+        let clip = iced::Rectangle {
+            x: 0,
+            y: 0,
+            width,
+            height,
+        };
+        pipeline.prepare(&device, &queue, &primitive, &clip, size, aspect);
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("screenshot target"),
@@ -181,10 +187,10 @@ pub fn run(args: &[String]) -> Result<(), String> {
             array_layer_count: Some(1),
         });
 
-        // Fully transparent clear: covered pixels get alpha 1.0 from the
-        // shader, so the PNG's alpha channel isolates the mesh and the shot
-        // composites cleanly onto any background.
-        let clear = wgpu::Color::TRANSPARENT;
+        // The scene renders into the pipeline's offscreen MSAA targets and
+        // blits the result onto this transparent target, so the PNG's alpha
+        // channel isolates the mesh and composites cleanly onto any
+        // background.
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         primitive.draw_frame(
@@ -197,7 +203,6 @@ pub fn run(args: &[String]) -> Result<(), String> {
                 width,
                 height,
             },
-            wgpu::LoadOp::Clear(clear),
         );
 
         // Read the rendered texture back into a buffer. `copy_texture_to_buffer`
@@ -245,6 +250,19 @@ pub fn run(args: &[String]) -> Result<(), String> {
         for y in 0..height {
             let start = (y as u64 * row_stride) as usize;
             rgba.extend_from_slice(&mapped[start..start + row_bytes as usize]);
+        }
+
+        // The MSAA-resolved silhouette edges are premultiplied by sample
+        // coverage (the resolve averages the drawn color against the
+        // transparent clear), but PNGs store straight alpha: divide the
+        // partially covered pixels back out.
+        for px in rgba.chunks_mut(4) {
+            let a = px[3];
+            if a > 0 && a < 255 {
+                for c in 0..3 {
+                    px[c] = (px[c] as u32 * 255 / a as u32).min(255) as u8;
+                }
+            }
         }
 
         save_png(&opts.out, width, height, &rgba)?;

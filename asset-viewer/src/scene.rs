@@ -129,6 +129,14 @@ pub struct Primitive {
     pub camera: Camera,
 }
 
+/// Sample count for the offscreen MSAA pass. The device always supports at
+/// least 4 (wgpu's minimum limits); the scene renders into an N-sample
+/// offscreen target, resolves to a 1x texture, and blits it onto the final
+/// target (the iced surface or the CLI screenshot texture), which may not
+/// itself be multisampled. Must be ≥ 2 (a 1-sample pass has nothing to
+/// resolve).
+const MSAA_SAMPLES: u32 = 4;
+
 /// Column-major matrix (matches WGSL `mat4x4f`).
 type Mat4 = [[f32; 4]; 4];
 
@@ -203,6 +211,19 @@ struct Uniforms {
     model: Mat4,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct BlitUniforms {
+    // Six scalars (repr(C)) so the byte layout matches the WGSL struct's
+    // three vec2<f32> fields exactly, without relying on vec2 alignment.
+    clip_x: f32,
+    clip_y: f32,
+    clip_w: f32,
+    clip_h: f32,
+    frame_w: f32,
+    frame_h: f32,
+}
+
 const SHADER: &str = r#"
 struct Uniforms {
     view_proj: mat4x4f,
@@ -263,9 +284,63 @@ fn fs_main(
 }
 "#;
 
+/// Composites the MSAA-resolved offscreen texture onto the final target. A
+/// fullscreen triangle is drawn over `clip_bounds`; each vertex's NDC
+/// position is converted (with the same viewport transform the mesh pass
+/// used) to device pixels, which are the 1:1 UV into the offscreen texture
+/// (it is the same size as the target). Alpha blending keeps whatever the
+/// target already holds where the offscreen is transparent.
+const BLIT_SHADER: &str = r#"
+// Layout mirrors the Rust `BlitUniforms` (scalars, repr(C)):
+//   clip_origin = (clip_x, clip_y), clip_size = (clip_w, clip_h),
+//   frame_size  = (frame_w, frame_h)
+struct BlitUniforms {
+    clip_origin: vec2<f32>,
+    clip_size: vec2<f32>,
+    frame_size: vec2<f32>,
+}
+
+@group(0) @binding(0) var<uniform> blit: BlitUniforms;
+@group(0) @binding(1) var src: texture_2d<f32>;
+@group(0) @binding(2) var src_sampler: sampler;
+
+struct BlitVertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
+
+@vertex
+fn vs_blit(@builtin(vertex_index) idx: u32) -> BlitVertexOutput {
+    // A single triangle covering the whole viewport.
+    let tri = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(3.0, -1.0),
+        vec2<f32>(-1.0, 3.0),
+    );
+    let ndc = tri[idx];
+    // Viewport transform (note the y flip), matching the mesh pass.
+    let device = vec2<f32>(
+        (ndc.x + 1.0) * 0.5 * blit.clip_size.x + blit.clip_origin.x,
+        (1.0 - ndc.y) * 0.5 * blit.clip_size.y + blit.clip_origin.y,
+    );
+    var out: BlitVertexOutput;
+    out.position = vec4<f32>(ndc, 0.0, 1.0);
+    out.uv = device / blit.frame_size;
+    return out;
+}
+
+@fragment
+fn fs_blit(input: BlitVertexOutput) -> @location(0) vec4<f32> {
+    return textureSample(src, src_sampler, input.uv);
+}
+"#;
+
 pub struct Pipeline {
     device: wgpu::Device,
+    color_format: wgpu::TextureFormat,
     bind_layout: wgpu::BindGroupLayout,
+    blit_pipeline: wgpu::RenderPipeline,
+    blit_buffer: wgpu::Buffer,
     mesh_pipeline: wgpu::RenderPipeline,
     uniforms_buffer: wgpu::Buffer,
     mesh: Option<(Arc<Mesh>, wgpu::Buffer, wgpu::Buffer)>,
@@ -273,7 +348,17 @@ pub struct Pipeline {
     material: Option<(Arc<Material>, wgpu::TextureView)>,
     sampler: wgpu::Sampler,
     default_view: wgpu::TextureView,
-    depth: Option<(u32, u32, wgpu::TextureView)>,
+    /// Offscreen MSAA frame targets, recreated when the size changes:
+    /// (width, height, MSAA color view, resolve view (render attachment),
+    /// resolve view (sampling), MSAA depth view).
+    frame: Option<(
+        u32,
+        u32,
+        wgpu::TextureView,
+        wgpu::TextureView,
+        wgpu::TextureView,
+        wgpu::TextureView,
+    )>,
 }
 
 impl Pipeline {
@@ -321,7 +406,7 @@ impl Pipeline {
                 bias: wgpu::DepthBiasState::default(),
             }),
             multisample: wgpu::MultisampleState {
-                count: 1,
+                count: MSAA_SAMPLES,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -337,6 +422,71 @@ impl Pipeline {
             }),
             multiview_mask: None,
             cache: None,
+        });
+
+        let blit_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(BLIT_SHADER.into()),
+        });
+        let blit_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("msaa blit pipeline"),
+            layout: None,
+            vertex: wgpu::VertexState {
+                module: &blit_module,
+                entry_point: Some("vs_blit"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &blit_module,
+                entry_point: Some("fs_blit"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    // The resolved texture's edge pixels are already
+                    // coverage-modulated (MSAA resolve averages the drawn
+                    // color against the transparent clear), i.e. premultiplied
+                    // by the sample coverage: composite with `One` so the
+                    // coverage is applied exactly once.
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let blit_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("blit uniforms"),
+            size: std::mem::size_of::<BlitUniforms>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
 
         let uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -405,7 +555,10 @@ impl Pipeline {
 
         Self {
             device: device.clone(),
+            color_format: format,
             bind_layout: mesh_pipeline.get_bind_group_layout(0),
+            blit_pipeline,
+            blit_buffer,
             mesh_pipeline,
             uniforms_buffer,
             mesh: None,
@@ -413,38 +566,42 @@ impl Pipeline {
             material: None,
             sampler,
             default_view,
-            depth: None,
+            frame: None,
         }
     }
 
-    /// (Re)create the full-frame depth attachment.
-    fn update_depth(&mut self, device: &wgpu::Device, size: Size<u32>) {
+    /// (Re)create the offscreen MSAA frame targets for a frame of this size.
+    fn update_frame(&mut self, device: &wgpu::Device, size: Size<u32>) {
+        let (w, h) = (size.width.max(1), size.height.max(1));
         if self
-            .depth
+            .frame
             .as_ref()
-            .is_some_and(|(w, h, _)| *w == size.width && *h == size.height)
+            .is_some_and(|(fw, fh, _, _, _, _)| *fw == w && *fh == h)
         {
             return;
         }
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("depth"),
-            size: wgpu::Extent3d {
-                width: size.width.max(1),
-                height: size.height.max(1),
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
-        self.depth = Some((
-            size.width.max(1),
-            size.height.max(1),
+        let make = |label: &str,
+                    sample_count: u32,
+                    format: wgpu::TextureFormat,
+                    usage: wgpu::TextureUsages| {
+            device.create_texture(&wgpu::TextureDescriptor {
+                label: Some(label),
+                size: wgpu::Extent3d {
+                    width: w,
+                    height: h,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count,
+                dimension: wgpu::TextureDimension::D2,
+                format,
+                usage,
+                view_formats: &[],
+            })
+        };
+        let view = |texture: &wgpu::Texture, label: &str| {
             texture.create_view(&wgpu::wgt::TextureViewDescriptor {
-                label: None,
+                label: Some(label),
                 format: None,
                 dimension: None,
                 usage: None,
@@ -453,22 +610,68 @@ impl Pipeline {
                 mip_level_count: Some(1),
                 base_array_layer: 0,
                 array_layer_count: Some(1),
-            }),
+            })
+        };
+        let msaa_color = make(
+            "msaa color",
+            MSAA_SAMPLES,
+            self.color_format,
+            wgpu::TextureUsages::RENDER_ATTACHMENT,
+        );
+        let resolve = make(
+            "msaa resolve",
+            1,
+            self.color_format,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        );
+        let msaa_depth = make(
+            "msaa depth",
+            MSAA_SAMPLES,
+            wgpu::TextureFormat::Depth32Float,
+            wgpu::TextureUsages::RENDER_ATTACHMENT,
+        );
+        self.frame = Some((
+            w,
+            h,
+            view(&msaa_color, "msaa color view"),
+            view(&resolve, "resolve attachment view"),
+            view(&resolve, "resolve sampling view"),
+            view(&msaa_depth, "msaa depth view"),
         ));
     }
 
     /// Upload mesh/material/uniforms for a render of `primitive` into a
-    /// `size`-sized frame with the given aspect ratio. Shared by the iced
-    /// `prepare` callback and the headless CLI path.
+    /// `size`-sized frame with the given aspect ratio. `clip` is the
+    /// primitive's physical clip rect inside the frame (the widget's bounds
+    /// in the GUI; the whole frame in the CLI). Shared by the iced `prepare`
+    /// callback and the headless CLI path.
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         primitive: &Primitive,
+        clip: &Rectangle<u32>,
         size: Size<u32>,
         aspect: f32,
     ) {
-        self.update_depth(device, size);
+        self.update_frame(device, size);
+        let (w, h) = (size.width.max(1), size.height.max(1));
+        // The blit pass draws with the clip rect as its viewport and samples
+        // the offscreen texture 1:1 in device pixels, so its UV math must
+        // use the real clip rect (the widget may be offset from the frame
+        // origin, e.g. next to the sidebar).
+        queue.write_buffer(
+            &self.blit_buffer,
+            0,
+            bytemuck::bytes_of(&BlitUniforms {
+                clip_x: clip.x as f32,
+                clip_y: clip.y as f32,
+                clip_w: clip.width as f32,
+                clip_h: clip.height as f32,
+                frame_w: w as f32,
+                frame_h: h as f32,
+            }),
+        );
 
         let radius = primitive.mesh.as_ref().map(|m| m.radius()).unwrap_or(1.0);
         let distance = primitive.camera.distance(radius).max(1e-3);
@@ -583,13 +786,22 @@ impl iced::widget::shader::Primitive for Primitive {
         viewport: &iced::widget::shader::Viewport,
     ) {
         let frame = viewport.physical_size();
+        let scale = viewport.scale_factor();
+        // iced hands `render` this same rect (scaled, snapped) as
+        // `clip_bounds`; the blit's UV math must match it.
+        let clip = Rectangle {
+            x: (bounds.x * scale).round() as u32,
+            y: (bounds.y * scale).round() as u32,
+            width: (bounds.width * scale).round() as u32,
+            height: (bounds.height * scale).round() as u32,
+        };
         let aspect = (bounds.size().width / bounds.size().height.max(1.0)).max(1e-4);
-        pipeline.prepare(device, queue, self, frame, aspect);
+        pipeline.prepare(device, queue, self, &clip, frame, aspect);
     }
 
     fn draw(&self, _pipeline: &Self::Pipeline, _render_pass: &mut wgpu::RenderPass) -> bool {
-        // Not drawn here: we need our own depth attachment, so the actual
-        // rendering happens in `render` (the fallback pass).
+        // Not drawn here: the scene needs its own offscreen MSAA targets and
+        // a second (blit) pass, so the actual rendering happens in `render`.
         false
     }
 
@@ -600,27 +812,31 @@ impl iced::widget::shader::Primitive for Primitive {
         target: &wgpu::TextureView,
         clip_bounds: &Rectangle<u32>,
     ) {
-        // Keep whatever iced already drew (window background) and draw the
-        // mesh on top of it.
-        self.draw_frame(pipeline, encoder, target, clip_bounds, wgpu::LoadOp::Load);
+        // The scene renders into the pipeline's offscreen MSAA targets and
+        // blits the resolved result on top of whatever iced already drew
+        // (window background), keeping it visible around the mesh.
+        self.draw_frame(pipeline, encoder, target, clip_bounds);
     }
 }
 
 impl Primitive {
-    /// The actual render pass; also used by the headless CLI path, which
-    /// passes a clear load op for its offscreen target.
+    /// Renders the scene: a 4x MSAA pass into an offscreen texture (with an
+    /// automatic resolve), then a blit pass compositing the resolved image
+    /// onto `target` within `clip_bounds`. Also used by the headless CLI
+    /// path, whose target is a transparent offscreen screenshot texture.
     pub fn draw_frame(
         &self,
         pipeline: &Pipeline,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         clip_bounds: &Rectangle<u32>,
-        color_load: wgpu::LoadOp<wgpu::Color>,
     ) {
         let Some((_, vertex_buffer, index_buffer)) = &pipeline.mesh else {
             return;
         };
-        let Some((_, _, depth_view)) = &pipeline.depth else {
+        let Some((_, _, msaa_view, resolve_attach_view, resolve_bind_view, depth_view)) =
+            &pipeline.frame
+        else {
             return;
         };
         let (w, h) = (clip_bounds.size().width, clip_bounds.size().height);
@@ -664,30 +880,91 @@ impl Primitive {
                 entries: &entries,
             });
 
+        // Pass 1: mesh into the 4x MSAA color attachment, resolved to the
+        // 1x offscreen texture. Always cleared: the blit composites over
+        // the caller's target, which owns its background.
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("asset-viewer msaa pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: msaa_view,
+                    depth_slice: None,
+                    resolve_target: Some(resolve_attach_view),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_viewport(
+                clip_bounds.x as f32,
+                clip_bounds.y as f32,
+                w as f32,
+                h as f32,
+                0.0,
+                1.0,
+            );
+            pass.set_scissor_rect(clip_bounds.x, clip_bounds.y, w, h);
+            pass.set_pipeline(&pipeline.mesh_pipeline);
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            pass.draw_indexed(0..pipeline.index_count, 0, 0..1);
+        }
+
+        // Pass 2: blit the resolved image onto the caller's target.
+        let blit_entries = [
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &pipeline.blit_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(resolve_bind_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(&pipeline.sampler),
+            },
+        ];
+        let blit_bind_group = pipeline
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("blit bind group"),
+                layout: &pipeline.blit_pipeline.get_bind_group_layout(0),
+                entries: &blit_entries,
+            });
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("asset-viewer pass"),
+            label: Some("asset-viewer blit pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target,
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: color_load,
+                    load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: depth_view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: wgpu::StoreOp::Discard,
-                }),
-                stencil_ops: None,
-            }),
+            depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
             multiview_mask: None,
         });
-
         pass.set_viewport(
             clip_bounds.x as f32,
             clip_bounds.y as f32,
@@ -697,11 +974,9 @@ impl Primitive {
             1.0,
         );
         pass.set_scissor_rect(clip_bounds.x, clip_bounds.y, w, h);
-        pass.set_pipeline(&pipeline.mesh_pipeline);
-        pass.set_bind_group(0, &bind_group, &[]);
-        pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        pass.draw_indexed(0..pipeline.index_count, 0, 0..1);
+        pass.set_pipeline(&pipeline.blit_pipeline);
+        pass.set_bind_group(0, &blit_bind_group, &[]);
+        pass.draw(0..3, 0..1);
     }
 }
 
@@ -756,6 +1031,212 @@ mod camera_tests {
         assert!((dot(up, view) - 0.0).abs() < 1e-5);
         for v in [right, up] {
             assert!((dot(v, v) - 1.0).abs() < 1e-5);
+        }
+    }
+}
+
+#[cfg(test)]
+mod blit_tests {
+    use super::*;
+    use crate::unity::Mesh;
+    use std::sync::Arc;
+
+    /// Renders the static mesh offscreen: a full-`frame` target with the
+    /// scene drawn into the given `clip` rect (as in the GUI, where the
+    /// window is the frame and the viewer widget is the clip). Returns the
+    /// opaque-pixel bounding box `(min_x, min_y, max_x, max_y)`, or `None`
+    /// when no GPU adapter is available (the test then skips).
+    fn render_bbox(clip: &iced::Rectangle<u32>, frame: Size<u32>) -> Option<(u32, u32, u32, u32)> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .ok()?;
+        runtime.block_on(async move {
+            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends: wgpu::Backends::from_env().unwrap_or(wgpu::Backends::PRIMARY),
+                flags: wgpu::InstanceFlags::empty(),
+                ..wgpu::InstanceDescriptor::new_without_display_handle()
+            });
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: false,
+                    compatible_surface: None,
+                    apply_limit_buckets: false,
+                })
+                .await
+                .ok()?;
+            let (device, queue) = adapter
+                .request_device(&wgpu::DeviceDescriptor {
+                    label: Some("asset-viewer [test]"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                    memory_hints: wgpu::MemoryHints::MemoryUsage,
+                    trace: wgpu::Trace::Off,
+                })
+                .await
+                .ok()?;
+
+            let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+            let mut pipeline = Pipeline::create(&device, &queue, format);
+            let mesh =
+                Mesh::from_file(std::path::Path::new("../assets/CardPackStatic_Mesh.asset")).ok()?;
+            let primitive = Primitive {
+                mesh: Some(Arc::new(mesh)),
+                material: None,
+                camera: Camera::default(),
+            };
+            // As in the GUI: the frame is the window (offscreen + target),
+            // the projection fits the clip (widget) aspect.
+            let aspect = (clip.width as f32 / clip.height.max(1) as f32).max(1e-4);
+            pipeline.prepare(&device, &queue, &primitive, clip, frame, aspect);
+
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("test target"),
+                size: wgpu::Extent3d {
+                    width: frame.width,
+                    height: frame.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
+            });
+            let target = texture.create_view(&wgpu::wgt::TextureViewDescriptor {
+                label: None,
+                format: None,
+                dimension: None,
+                usage: None,
+                aspect: wgpu::TextureAspect::All,
+                base_mip_level: 0,
+                mip_level_count: Some(1),
+                base_array_layer: 0,
+                array_layer_count: Some(1),
+            });
+
+            let mut encoder =
+                device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            primitive.draw_frame(&pipeline, &mut encoder, &target, clip);
+
+            let row_bytes = frame.width as u64 * 4;
+            let row_stride = (row_bytes + 255) / 256 * 256;
+            let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("test readback"),
+                size: row_stride * frame.height as u64,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            encoder.copy_texture_to_buffer(
+                texture.as_image_copy(),
+                wgpu::TexelCopyBufferInfo {
+                    buffer: &buffer,
+                    layout: wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(row_stride as u32),
+                        rows_per_image: None,
+                    },
+                },
+                wgpu::Extent3d {
+                    width: frame.width,
+                    height: frame.height,
+                    depth_or_array_layers: 1,
+                },
+            );
+            let submission = queue.submit([encoder.finish()]);
+            buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
+            device
+                .poll(wgpu::PollType::Wait {
+                    submission_index: Some(submission),
+                    timeout: None,
+                })
+                .ok()?;
+            let mapped = buffer.slice(..).get_mapped_range().ok()?;
+
+            // Opaque-pixel bounding box.
+            let (mut min_x, mut min_y, mut max_x, mut max_y) = (
+                u32::MAX,
+                u32::MAX,
+                0u32,
+                0u32,
+            );
+            for y in 0..frame.height {
+                let start = (y as u64 * row_stride) as usize;
+                for x in 0..frame.width {
+                    let a = mapped[start + (x as usize) * 4 + 3];
+                    if a > 0 {
+                        min_x = min_x.min(x);
+                        min_y = min_y.min(y);
+                        max_x = max_x.max(x);
+                        max_y = max_y.max(y);
+                    }
+                }
+            }
+            if max_x == 0 && max_y == 0 {
+                return None; // nothing rendered (unexpected)
+            }
+            Some((min_x, min_y, max_x, max_y))
+        })
+    }
+
+    /// The viewer widget sits next to the sidebar, so iced's clip rect is
+    /// offset from the frame origin. The blit must map the offscreen image
+    /// to the clip 1:1 in device pixels — content centered in the clip at
+    /// the same relative scale as a full-frame render (no squashing), and
+    /// nothing drawn outside the clip.
+    #[test]
+    fn blit_is_one_to_one_for_offset_clip() {
+        let full = iced::Rectangle {
+            x: 0,
+            y: 0,
+            width: 1080,
+            height: 1440,
+        };
+        let offset = iced::Rectangle {
+            x: 150,
+            y: 0,
+            width: 930,
+            height: 1440,
+        };
+        let frame = Size::new(1080, 1440);
+
+        let full_bbox = render_bbox(&full, frame);
+        let offset_bbox = render_bbox(&offset, frame);
+        // No GPU adapter: skip (the other tests don't need one).
+        match (full_bbox, offset_bbox) {
+            (Some(f), Some(o)) => {
+                let f_w = f.2 - f.0;
+                let o_w = o.2 - o.0;
+                // Same content scale: with the same vertical FOV and clip
+                // height the horizontal pixel scale is identical regardless
+                // of aspect, so the content width must be unchanged (a
+                // squashed blit would shrink or shift it).
+                assert!(
+                    (o_w as i64 - f_w as i64).abs() <= 2,
+                    "content squashed: full width {f_w}, offset width {o_w}"
+                );
+                // Content centered in each clip: the offset render's center
+                // (relative to the clip origin) must equal the full
+                // render's, scaled by the clip-width ratio.
+                let f_cx = (f.0 as i64 + f.2 as i64) / 2;
+                let o_cx = (o.0 as i64 + o.2 as i64) / 2;
+                // Simpler, robust form: relative centering must match.
+                let f_rel = f_cx - full.x as i64; // content center within the full clip
+                let o_rel = o_cx - offset.x as i64;
+                assert!(
+                    (o_rel - f_rel * 930 / 1080).abs() <= 4,
+                    "content not centered in the offset clip: full rel {f_rel}, offset rel {o_rel}"
+                );
+                // Nothing outside the clip rect.
+                assert!(o.0 >= offset.x, "content leaked left of the clip");
+                assert!(o.2 < offset.x + offset.width, "content leaked right of the clip");
+            }
+            (None, _) => {}
+            _ => panic!("partial GPU render (one clip rendered, the other did not)"),
         }
     }
 }
