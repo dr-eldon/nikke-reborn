@@ -1,5 +1,6 @@
-//! The wgpu side of the viewer: an orbit camera, a textured double-sided
-//! lambert pipeline, and iced's `Primitive`/`Pipeline` plumbing.
+//! The wgpu side of the viewer: a fixed-pose camera, the asset rotation
+//! (`Model`) that the yaw/pitch/roll controls drive, a textured
+//! double-sided lambert pipeline, and iced's `Primitive`/`Pipeline` plumbing.
 
 use std::sync::Arc;
 
@@ -12,15 +13,20 @@ use crate::unity::{Mesh, Vertex};
 /// Vertical field of view of the orbit camera.
 pub const FOV_Y: f32 = 40.0 * (std::f32::consts::PI / 180.0);
 
-/// Orbit camera. The mesh is origin-centered, so the camera orbits around
-/// `pan` (world offset, usually `[0; 3]`).
+/// Orbit camera with a fixed viewing pose. `yaw`/`pitch`/`roll` are the
+/// default in-game framing and are never user-adjustable — the
+/// yaw/pitch/roll controls rotate the *asset* (`Model`) instead, so
+/// the fixed world-space lights sweep across the model as it turns. The
+/// mesh is origin-centered and the camera looks at `pan` (world offset,
+/// usually `[0; 3]`); the user adjusts only `zoom` and `pan`.
 #[derive(Copy, Clone, Debug)]
 pub struct Camera {
-    /// Orbit angle around the Y axis (radians).
+    /// Viewing pose around the Y axis (radians) — fixed by `Default`.
     pub yaw: f32,
-    /// Camera elevation (radians).
+    /// Camera elevation (radians) — fixed by `Default`.
     pub pitch: f32,
-    /// Rotation of the camera about its view axis (radians).
+    /// Rotation of the camera about its view axis (radians) — fixed by
+    /// `Default`.
     pub roll: f32,
     /// Distance multiplier (1.0 = fitted to the mesh's bounding sphere).
     pub zoom: f32,
@@ -105,6 +111,48 @@ impl Camera {
     }
 }
 
+/// Rotation of the asset itself, as opposed to the camera. The lights are
+/// fixed in world space, so turning the model is how you aim the key light
+/// at a given face (pose the asset for a screenshot, not the view).
+///
+/// Gimbal order, applied as `Ry(yaw) * Rx(pitch) * Rz(roll)` (intrinsic:
+/// each angle rotates about the axis left by the previous angles):
+/// - `yaw` — turntable, around the world Y (up),
+/// - `pitch` — tilt, around the model's yawed X,
+/// - `roll` — twist, around the model's yawed-then-pitched Z (for a card
+///   pack this is the card's own axis, i.e. spinning it in its plane).
+#[derive(Copy, Clone, Debug)]
+pub struct Model {
+    /// Turntable: rotation around the world Y (radians).
+    pub yaw: f32,
+    /// Tilt: rotation around the model's (yawed) X (radians).
+    pub pitch: f32,
+    /// Twist: rotation around the model's (yawed, pitched) Z (radians).
+    pub roll: f32,
+}
+
+impl Default for Model {
+    fn default() -> Self {
+        Self {
+            yaw: 0.0,
+            pitch: 0.0,
+            roll: 0.0,
+        }
+    }
+}
+
+impl Model {
+    /// The world model matrix: `Ry(yaw) * Rx(pitch) * Rz(roll)`. It is a
+    /// pure rotation (no translation, no scale), so the vertex shader may
+    /// transform normals with it directly.
+    pub fn matrix(&self) -> Mat4 {
+        mul(
+            &rot_y(self.yaw),
+            &mul(&rot_x(self.pitch), &rot_z(self.roll)),
+        )
+    }
+}
+
 /// A decoded material texture (RGBA8, straight sRGB).
 #[derive(Debug)]
 pub struct Material {
@@ -154,6 +202,9 @@ pub struct Primitive {
     pub mesh: Option<Arc<Mesh>>,
     pub material: Option<Arc<Material>>,
     pub camera: Camera,
+    /// Rotation of the asset (identity by default). The lights are fixed in
+    /// world space, so this is what moves the light across the model.
+    pub rotation: Model,
 }
 
 /// Sample count for the offscreen MSAA pass. The device always supports at
@@ -167,10 +218,44 @@ const MSAA_SAMPLES: u32 = 4;
 /// Column-major matrix (matches WGSL `mat4x4f`).
 type Mat4 = [[f32; 4]; 4];
 
+#[cfg(test)]
 const fn identity() -> Mat4 {
     [
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
+
+/// Right-handed rotation of `a` radians about the X axis (column-major).
+fn rot_x(a: f32) -> Mat4 {
+    let (s, c) = (a.sin(), a.cos());
+    [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, c, s, 0.0],
+        [0.0, -s, c, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
+
+/// Right-handed rotation of `a` radians about the Y axis (column-major).
+fn rot_y(a: f32) -> Mat4 {
+    let (s, c) = (a.sin(), a.cos());
+    [
+        [c, 0.0, -s, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [s, 0.0, c, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
+
+/// Right-handed rotation of `a` radians about the Z axis (column-major).
+fn rot_z(a: f32) -> Mat4 {
+    let (s, c) = (a.sin(), a.cos());
+    [
+        [c, s, 0.0, 0.0],
+        [-s, c, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
         [0.0, 0.0, 0.0, 1.0],
     ]
@@ -232,6 +317,8 @@ fn look_at(eye: [f32; 3], target: [f32; 3], up: [f32; 3]) -> Mat4 {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Uniforms {
     view_proj: Mat4,
+    /// Asset rotation (a pure rotation; identity when the model is
+    /// unrotated).
     model: Mat4,
 }
 
@@ -270,13 +357,13 @@ struct VertexOutput {
 @group(0) @binding(1) var base_color: texture_2d<f32>;
 @group(0) @binding(2) var base_sampler: sampler;
 
-const LIGHT_DIR: vec3<f32> = normalize(vec3<f32>(0.45, 0.8, 0.4));
+const LIGHT_DIR: vec3<f32> = normalize(vec3<f32>(-0.2, -0.4, 0.8));
 const FILL_DIR: vec3<f32> = normalize(vec3<f32>(-0.4, -0.3, -0.5));
 // Bright enough that faces read close to the source texture; the key + fill
 // light only add gentle 3D shading on top.
-const AMBIENT: vec3<f32> = vec3<f32>(0.65, 0.67, 0.71);
-const DIFFUSE: vec3<f32> = vec3<f32>(0.55);
-const FILL: vec3<f32> = vec3<f32>(0.2);
+const AMBIENT: vec3<f32> = vec3<f32>(0.3, 0.32, 0.4);
+const DIFFUSE: vec3<f32> = vec3<f32>(0.75);
+const FILL: vec3<f32> = vec3<f32>(0.0);
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
@@ -297,11 +384,8 @@ fn fs_main(
     @builtin(front_facing) front: bool,
 ) -> @location(0) vec4<f32> {
     var n = normalize(input.normal);
-    if (front) {
-        n = -n;
-    }
     let albedo = textureSample(base_color, base_sampler, input.uv);
-    let ndotl = max(dot(n, LIGHT_DIR), 0.0);
+    let ndotl = max(dot(n, -LIGHT_DIR), 0.0);
     let ndotf = max(dot(n, FILL_DIR), 0.0);
     let color = albedo.rgb * (AMBIENT + DIFFUSE * ndotl + FILL * ndotf);
     return vec4<f32>(color, 1.0);
@@ -704,7 +788,7 @@ impl Pipeline {
         let view = look_at(eye, primitive.camera.pan, primitive.camera.up());
         let uniforms = Uniforms {
             view_proj: mul(&proj, &view),
-            model: identity(),
+            model: primitive.rotation.matrix(),
         };
         queue.write_buffer(&self.uniforms_buffer, 0, bytemuck::bytes_of(&uniforms));
 
@@ -1087,6 +1171,93 @@ mod camera_tests {
 }
 
 #[cfg(test)]
+mod model_tests {
+    use super::*;
+
+    /// Apply a column-major 4×4 to a 3-vector (rotation part only).
+    fn apply(m: &Mat4, v: [f32; 3]) -> [f32; 3] {
+        [
+            m[0][0] * v[0] + m[1][0] * v[1] + m[2][0] * v[2],
+            m[0][1] * v[0] + m[1][1] * v[1] + m[2][1] * v[2],
+            m[0][2] * v[0] + m[1][2] * v[1] + m[2][2] * v[2],
+        ]
+    }
+
+    fn close(a: [f32; 3], b: [f32; 3]) -> bool {
+        (a[0] - b[0]).abs() < 1e-4 && (a[1] - b[1]).abs() < 1e-4 && (a[2] - b[2]).abs() < 1e-4
+    }
+
+    #[test]
+    fn default_is_identity() {
+        assert_eq!(Model::default().matrix(), identity());
+    }
+
+    #[test]
+    fn base_rotations_follow_the_right_hand_rule() {
+        let d90 = std::f32::consts::FRAC_PI_2;
+        // Yaw (world Y): +Z → +X.
+        let yaw = Model {
+            yaw: d90,
+            ..Default::default()
+        }
+        .matrix();
+        assert!(close(apply(&yaw, [0.0, 0.0, 1.0]), [1.0, 0.0, 0.0]));
+        // Pitch (model X): +Y → +Z.
+        let pitch = Model {
+            pitch: d90,
+            ..Default::default()
+        }
+        .matrix();
+        assert!(close(apply(&pitch, [0.0, 1.0, 0.0]), [0.0, 0.0, 1.0]));
+        // Roll (model Z): +X → +Y.
+        let roll = Model {
+            roll: d90,
+            ..Default::default()
+        }
+        .matrix();
+        assert!(close(apply(&roll, [1.0, 0.0, 0.0]), [0.0, 1.0, 0.0]));
+    }
+
+    #[test]
+    fn composition_is_yaw_then_pitch_then_roll() {
+        // M = Ry(yaw) * Rx(pitch) * Rz(roll): the vector is rolled first,
+        // then pitched, then yawed in the world.
+        let d90 = std::f32::consts::FRAC_PI_2;
+        let m = Model {
+            yaw: d90,
+            pitch: d90,
+            roll: d90,
+        }
+        .matrix();
+        // Rz(90) keeps +Z; Rx(90) sends +Z → −Y; Ry(90) keeps −Y.
+        assert!(close(apply(&m, [0.0, 0.0, 1.0]), [0.0, -1.0, 0.0]));
+    }
+
+    #[test]
+    fn matrix_is_a_pure_rotation() {
+        // Whatever the angles, the result must be orthonormal (no shear or
+        // scale): normals transformed with it stay unit length.
+        let (mut yaw, mut pitch, mut roll) = (0.3f32, -1.1, 0.7);
+        for _ in 0..8 {
+            let m = Model { yaw, pitch, roll }.matrix();
+            for i in 0..3 {
+                for j in 0..3 {
+                    let ci = [m[i][0], m[i][1], m[i][2]];
+                    let cj = [m[j][0], m[j][1], m[j][2]];
+                    let dot = ci[0] * cj[0] + ci[1] * cj[1] + ci[2] * cj[2];
+                    let want = if i == j { 1.0 } else { 0.0 };
+                    assert!(
+                        (dot - want).abs() < 1e-4,
+                        "yaw={yaw} pitch={pitch} roll={roll}: col{i}·col{j} = {dot}"
+                    );
+                }
+            }
+            (yaw, pitch, roll) = (yaw + 0.4, pitch - 0.9, roll + 1.3);
+        }
+    }
+}
+
+#[cfg(test)]
 mod blit_tests {
     use super::*;
     use crate::unity::Mesh;
@@ -1138,6 +1309,7 @@ mod blit_tests {
                 mesh: Some(Arc::new(mesh)),
                 material: None,
                 camera: Camera::default(),
+                rotation: Model::default(),
             };
             // As in the GUI: the frame is the window (offscreen + target),
             // the projection fits the clip (widget) aspect.

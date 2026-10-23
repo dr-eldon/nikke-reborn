@@ -2,7 +2,10 @@
 //!
 //! Pick a `.asset` mesh from `../assets` and a PNG material (from `../images`
 //! or `../output/*`, or any file via "Open…") and the viewer renders it with
-//! an orbit camera: left-drag to rotate, scroll to zoom, right-drag to pan.
+//! a fixed camera: left-drag rotates the *asset* (turntable + tilt), so the
+//! fixed world-space lights sweep across the model as you aim it; scroll to
+//! zoom, right-drag to pan. The Yaw/Pitch/Roll sliders set the same asset
+//! rotation precisely (zoom/pan move the camera, not the asset).
 //!
 //! Skinned meshes are displayed in bind pose.
 //!
@@ -24,7 +27,7 @@ use iced::widget::shader::Action;
 use iced::widget::{button, column, combo_box, container, image, row, shader, slider, space, text};
 use iced::{Alignment, Bottom, Color, Fill, Font, Point, Right, Task, Theme, Vector, Widget};
 
-use scene::{Camera, Material, Primitive};
+use scene::{Camera, Material, Model, Primitive};
 use unity::Mesh;
 
 mod cli;
@@ -36,13 +39,40 @@ const ASSETS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets");
 const IMAGES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../images");
 const OUTPUT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../output");
 
-const ROTATE_SPEED: f32 = 0.008;
-const PITCH_LIMIT: f32 = 1.5;
-const PITCH_LIMIT_DEG: f32 = PITCH_LIMIT * 180.0 / std::f32::consts::PI;
+/// Sensitivity of the drag turntable/tilt: degrees of asset rotation
+/// produced by a drag spanning the full canvas width (a half turn — like
+/// grabbing the object). The per-pixel rate is this divided by the canvas
+/// width, so the feel is the same at any window size and stays gentle.
+const DRAG_DEG_PER_FULL_WIDTH: f32 = 180.0;
+/// Gimbal limit of the model's pitch (tilt) axis: ±90°.
+const MODEL_PITCH_LIMIT: f32 = std::f32::consts::FRAC_PI_2;
+const MODEL_PITCH_LIMIT_DEG: f32 = 90.0;
 const ZOOM_MIN: f32 = 0.05;
 const ZOOM_MAX: f32 = 16.0;
 const ZOOM_STEP_LINES: f32 = 0.12;
 const ZOOM_STEP_PIXELS: f32 = 0.0015;
+
+/// Normalize degrees to (−180, 180] — the dial value of a pose: what the
+/// yaw/roll sliders and readouts display. The state itself is unbounded
+/// (dragging accumulates full turns); the display wraps it.
+fn wrap_degrees(deg: f32) -> f32 {
+    let d = deg.rem_euclid(360.0);
+    if d > 180.0 {
+        d - 360.0
+    } else {
+        d
+    }
+}
+
+/// The equivalent of `target` (degrees, −180..180) the model is already
+/// closest to. Yaw/roll state is unbounded, so assigning `target` directly
+/// would spin the model the long way around; this keeps it at most 180°
+/// away from `current`.
+fn nearest_equivalent(current: f32, target: f32) -> f32 {
+    let t = std::f32::consts::TAU;
+    let target_rad = target.to_radians();
+    target_rad + ((current - target_rad) / t).round() * t
+}
 
 struct MeshEntry {
     label: String,
@@ -71,16 +101,23 @@ enum Message {
     MaterialLoaded(usize, Result<Arc<Material>, String>),
     OpenMaterial,
     MaterialPicked(Option<PathBuf>),
+    /// Asset turntable/tilt drag delta in degrees (Δyaw, Δpitch), already
+    /// scaled by the canvas width (see `DRAG_DEG_PER_FULL_WIDTH`).
     Rotate(Vector),
     Pan(Vector),
     Zoom(f32),
-    /// Slider values: yaw/pitch/roll in degrees, zoom as a distance factor.
+    /// Asset-rotation slider values: yaw/pitch/roll in degrees. The camera
+    /// stays put; turning the model aims the fixed world-space lights.
     YawChanged(f32),
     PitchChanged(f32),
     RollChanged(f32),
+    /// Camera slider values: zoom as a distance factor.
     ZoomChanged(f32),
     /// Pan axis (0 = X, 1 = Y, 2 = Z) and its new world value.
     PanChanged(usize, f32),
+    /// Reset the asset rotation (Model section).
+    ResetModel,
+    /// Reset the camera zoom/pan (View section; the viewing pose is fixed).
     ResetView,
 }
 
@@ -94,6 +131,10 @@ struct App {
     mesh: Option<Arc<Mesh>>,
     material: Option<Arc<Material>>,
     material_preview: Option<image::Handle>,
+    /// Rotation of the asset (the Yaw/Pitch/Roll sliders and the left drag
+    /// drive this; the lights are fixed in world space).
+    model_rotation: Model,
+    /// Fixed-pose camera; only zoom/pan are user-adjustable.
     camera: Camera,
     loading: bool,
     error: Option<String>,
@@ -251,6 +292,7 @@ impl App {
             mesh: None,
             material: None,
             material_preview: None,
+            model_rotation: Model::default(),
             camera: Camera::default(),
             loading: false,
             error: None,
@@ -307,7 +349,7 @@ impl App {
                 self.error = None;
                 if let Some(geo) = &self.mesh_entries[i].geometry {
                     self.mesh = Some(geo.clone());
-                    self.camera = Camera::default();
+                    self.reset_view_state();
                     return Task::none();
                 }
                 self.loading = true;
@@ -395,12 +437,22 @@ impl App {
             }
 
             Message::Rotate(delta) => {
-                // Screen y grows downward, and positive pitch = camera above
-                // the model, so a downward drag (delta.y > 0) must raise the
-                // camera to tilt the model's top toward you (grab feel).
-                self.camera.yaw -= delta.x as f32 * ROTATE_SPEED;
-                self.camera.pitch = (self.camera.pitch + delta.y as f32 * ROTATE_SPEED)
-                    .clamp(-PITCH_LIMIT, PITCH_LIMIT);
+                // Turntable + tilt of the *asset*, not a camera orbit: the
+                // lights are fixed in world space, so dragging sweeps them
+                // across the model. With the camera at its fixed pose a
+                // rightward drag must spin the model's front toward the
+                // screen right and a downward drag must tilt the model's
+                // top toward the camera (grab feel).
+                //
+                // Yaw accumulates without wrapping: the pose only depends
+                // on it modulo 360°, and wrapping the state would make the
+                // slider/readout snap end-to-end at ±180° on every half
+                // turn.
+                self.model_rotation.yaw += (delta.x as f32).to_radians();
+                self.model_rotation.pitch =
+                    (self.model_rotation.pitch.to_degrees() - delta.y as f32)
+                        .clamp(-MODEL_PITCH_LIMIT_DEG, MODEL_PITCH_LIMIT_DEG)
+                        .to_radians();
                 Task::none()
             }
 
@@ -419,17 +471,21 @@ impl App {
             }
 
             Message::YawChanged(deg) => {
-                self.camera.yaw = deg.to_radians();
+                // The slider shows the dial value (the pose modulo 360°),
+                // so snap to the nearest equivalent angle: the model moves
+                // the short way and lands exactly where the slider says.
+                self.model_rotation.yaw = nearest_equivalent(self.model_rotation.yaw, deg);
                 Task::none()
             }
 
             Message::PitchChanged(deg) => {
-                self.camera.pitch = deg.to_radians().clamp(-PITCH_LIMIT, PITCH_LIMIT);
+                self.model_rotation.pitch =
+                    deg.to_radians().clamp(-MODEL_PITCH_LIMIT, MODEL_PITCH_LIMIT);
                 Task::none()
             }
 
             Message::RollChanged(deg) => {
-                self.camera.roll = deg.to_radians();
+                self.model_rotation.roll = nearest_equivalent(self.model_rotation.roll, deg);
                 Task::none()
             }
 
@@ -443,11 +499,23 @@ impl App {
                 Task::none()
             }
 
+            Message::ResetModel => {
+                self.model_rotation = Model::default();
+                Task::none()
+            }
+
             Message::ResetView => {
                 self.camera = Camera::default();
                 Task::none()
             }
         }
+    }
+
+    /// Reset both the asset rotation and the camera zoom/pan (on mesh
+    /// change and implicitly via the section Reset buttons).
+    fn reset_view_state(&mut self) {
+        self.model_rotation = Model::default();
+        self.camera = Camera::default();
     }
 
     /// Cache the parsed mesh and activate it if it is the current selection.
@@ -459,7 +527,7 @@ impl App {
                 }
                 if self.selected_mesh == Some(i) {
                     self.mesh = Some(geo);
-                    self.camera = Camera::default();
+                    self.reset_view_state();
                 }
             }
             Ok(None) => {}
@@ -489,9 +557,9 @@ impl App {
     }
 
     /// A labeled slider row: name, slider, and the formatted current value.
-    /// The value is clamped into the range for display — e.g. yaw drifts
-    /// unboundedly when orbiting with the mouse, so the slider snaps to
-    /// its end when that happens.
+    /// The value is clamped into the range for display as a safety net: the
+    /// mutation paths already keep the values in range (`wrap_degrees` for
+    /// yaw/roll, clamping for pitch), so slider and readout never disagree.
     fn slider_row<'a>(
         label: &'a str,
         range: std::ops::RangeInclusive<f32>,
@@ -572,6 +640,49 @@ impl App {
 
         let controls = column![
             row![
+                text("Model").size(14),
+                space::horizontal(),
+                button(text("Reset").size(12))
+                    .on_press(Message::ResetModel)
+                    .style(button::secondary)
+            ]
+            .align_y(Bottom),
+            // Asset rotation, not the camera: the lights are fixed in world
+            // space, so these sliders aim the light at the model's faces.
+            // Yaw/roll are dials: the state accumulates full turns while
+            // dragging, the row shows the pose modulo 360°.
+            Self::slider_row(
+                "Yaw",
+                -180.0..=180.0,
+                wrap_degrees(self.model_rotation.yaw.to_degrees()),
+                1.0,
+                format!(
+                    "{:.0}°",
+                    wrap_degrees(self.model_rotation.yaw.to_degrees())
+                ),
+                |deg| Message::YawChanged(deg),
+            ),
+            Self::slider_row(
+                "Pitch",
+                -MODEL_PITCH_LIMIT_DEG..=MODEL_PITCH_LIMIT_DEG,
+                self.model_rotation.pitch.to_degrees(),
+                1.0,
+                format!("{:.0}°", self.model_rotation.pitch.to_degrees()),
+                |deg| Message::PitchChanged(deg),
+            ),
+            Self::slider_row(
+                "Roll",
+                -180.0..=180.0,
+                wrap_degrees(self.model_rotation.roll.to_degrees()),
+                1.0,
+                format!(
+                    "{:.0}°",
+                    wrap_degrees(self.model_rotation.roll.to_degrees())
+                ),
+                |deg| Message::RollChanged(deg),
+            ),
+            space::vertical().height(8),
+            row![
                 text("View").size(14),
                 space::horizontal(),
                 button(text("Reset").size(12))
@@ -579,30 +690,6 @@ impl App {
                     .style(button::secondary)
             ]
             .align_y(Bottom),
-            Self::slider_row(
-                "Yaw",
-                -180.0..=180.0,
-                self.camera.yaw.to_degrees(),
-                1.0,
-                format!("{:.0}°", self.camera.yaw.to_degrees()),
-                |deg| Message::YawChanged(deg),
-            ),
-            Self::slider_row(
-                "Pitch",
-                (-PITCH_LIMIT_DEG)..=(PITCH_LIMIT_DEG),
-                self.camera.pitch.to_degrees(),
-                1.0,
-                format!("{:.0}°", self.camera.pitch.to_degrees()),
-                |deg| Message::PitchChanged(deg),
-            ),
-            Self::slider_row(
-                "Roll",
-                -90.0..=90.0,
-                self.camera.roll.to_degrees(),
-                1.0,
-                format!("{:.0}°", self.camera.roll.to_degrees()),
-                |deg| Message::RollChanged(deg),
-            ),
             Self::slider_row(
                 "Zoom",
                 ZOOM_MIN..=ZOOM_MAX,
@@ -643,7 +730,7 @@ impl App {
             selector,
             controls,
             space::vertical(),
-            text("Left drag: rotate\nScroll: zoom\nRight drag: pan").size(12),
+            text("Left drag: rotate the asset\nScroll: zoom\nRight drag: pan").size(12),
         ]
         .spacing(32)
         .padding(8);
@@ -652,6 +739,7 @@ impl App {
             mesh: &self.mesh,
             material: &self.material,
             camera: &self.camera,
+            rotation: &self.model_rotation,
         })
         .width(Fill)
         .height(Fill);
@@ -717,6 +805,7 @@ impl App {
 struct Renderer<'a> {
     mesh: &'a Option<Arc<Mesh>>,
     material: &'a Option<Arc<Material>>,
+    rotation: &'a Model,
     camera: &'a Camera,
 }
 
@@ -763,9 +852,15 @@ impl shader::Program<Message> for Renderer<'_> {
                 let pos = cursor.position()?;
                 if let Some(last) = state.rotate {
                     state.rotate = Some(pos);
+                    // Scale by the canvas width so a full-width drag always
+                    // turns the asset by `DRAG_DEG_PER_FULL_WIDTH` (a half
+                    // turn), instead of a fixed degrees-per-pixel that would
+                    // feel different at each window size.
+                    let deg_per_px =
+                        DRAG_DEG_PER_FULL_WIDTH / bounds.size().width.max(1.0);
                     Some(Action::publish(Message::Rotate(Vector::new(
-                        pos.x - last.x,
-                        pos.y - last.y,
+                        (pos.x - last.x) * deg_per_px,
+                        (pos.y - last.y) * deg_per_px,
                     ))))
                 } else if let Some(last) = state.pan {
                     state.pan = Some(pos);
@@ -818,6 +913,7 @@ impl shader::Program<Message> for Renderer<'_> {
         Primitive {
             mesh: self.mesh.clone(),
             material: self.material.clone(),
+            rotation: *self.rotation,
             camera: *self.camera,
         }
     }
@@ -832,6 +928,55 @@ impl shader::Program<Message> for Renderer<'_> {
             iced::mouse::Interaction::Grabbing
         } else {
             iced::mouse::Interaction::None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f32::consts::TAU;
+
+    /// The pose depends on the angle only modulo 360°.
+    fn same_pose(a: f32, b: f32) -> bool {
+        (a - b).rem_euclid(TAU).min(TAU - (a - b).rem_euclid(TAU)) < 1e-3
+    }
+
+    #[test]
+    fn wrap_degrees_normalizes_to_the_dial_range() {
+        assert!((wrap_degrees(190.0) - (-170.0)).abs() < 1e-3);
+        assert!((wrap_degrees(-190.0) - 170.0).abs() < 1e-3);
+        assert!((wrap_degrees(360.0) - 0.0).abs() < 1e-3);
+        assert!((wrap_degrees(-360.0) - 0.0).abs() < 1e-3);
+        assert!((wrap_degrees(540.0) - 180.0).abs() < 1e-3);
+        assert!((wrap_degrees(180.0) - 180.0).abs() < 1e-3);
+        assert!((wrap_degrees(-179.9) - (-179.9)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn nearest_equivalent_keeps_the_pose_and_the_short_way() {
+        // 400° ≡ 40°; asking for 30° must not spin a full turn.
+        let got = nearest_equivalent(400.0 * std::f32::consts::PI / 180.0, 30.0);
+        assert!(same_pose(got, 30.0 * std::f32::consts::PI / 180.0));
+        assert!((got.to_degrees() - 390.0).abs() < 1e-3);
+
+        // The result must always be at most a half turn from `current`.
+        for current_deg in [
+            -720.0f32, -350.0, -190.0, -10.0, 5.0, 179.9, 181.0, 359.9, 400.0, 730.0,
+        ] {
+            for target in [-170.0, -90.0, 0.0, 45.0, 170.0] {
+                let current = current_deg.to_radians();
+                let got = nearest_equivalent(current, target);
+                assert!(
+                    same_pose(got, target.to_radians()),
+                    "current={current_deg} target={target}"
+                );
+                let away = (got - current).abs();
+                assert!(
+                    away <= std::f32::consts::PI + 1e-3,
+                    "current={current_deg} target={target}: moved {away} rad (> 180°)"
+                );
+            }
         }
     }
 }

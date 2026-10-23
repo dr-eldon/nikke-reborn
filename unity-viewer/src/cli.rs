@@ -5,13 +5,15 @@
 //! ```
 //!
 //! Renders the given mesh (with the given material) offscreen at the requested
-//! camera rotation and zoom, then writes the result as a PNG. No window is
-//! opened. Skinned meshes are rendered in bind pose, same as the GUI.
+//! asset rotation and zoom, then writes the result as a PNG. The camera keeps
+//! its fixed default viewing pose (only the zoom changes); rotating the asset
+//! is what aims the fixed world-space lights at the model's faces. No window
+//! is opened. Skinned meshes are rendered in bind pose, same as the GUI.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::scene::{Camera, Material, Pipeline, Primitive};
+use crate::scene::{Camera, Material, Model, Pipeline, Primitive};
 use crate::unity::Mesh;
 use iced::Rectangle;
 
@@ -32,9 +34,11 @@ fn fmt_deg(rad: f32) -> String {
     format!("{}", (rad * to_deg() * 100.0).round() / 100.0)
 }
 
-/// The usage text. The camera defaults come from `Camera::default` so the
-/// CLI and the GUI can never drift apart.
+/// The usage text. The asset-rotation defaults come from
+/// `Model::default` and the camera (zoom/pan) defaults from
+/// `Camera::default`, so the CLI and the GUI can never drift apart.
 pub fn help() -> String {
+    let model = Model::default();
     let cam = Camera::default();
     format!(
         "unity-viewer — take a headless screenshot of a mesh with a material
@@ -48,14 +52,21 @@ Arguments:
                     (use 'none' to render without a material)
 
 Options:
-      --rotation <deg>   Camera yaw in degrees (default {rotation})
-      --pitch <deg>      Camera pitch in degrees (default {pitch})
-      --roll <deg>       Camera roll in degrees (default {roll})
-      --zoom <factor>    Zoom factor (default {zoom}; 1.0 = fitted framing)
+      --rotation <deg>   Model yaw in degrees: turntable around world up
+                         (default {rotation})
+      --pitch <deg>      Model pitch in degrees: tilt of the asset
+                         (default {pitch})
+      --roll <deg>       Model roll in degrees: twist in the asset's plane
+                         (default {roll})
+      --zoom <factor>    Camera zoom factor (default {zoom}; 1.0 = fitted
+                         framing)
       --width <px>       Output width in pixels (default {DEFAULT_WIDTH})
       --height <px>      Output height in pixels (default {DEFAULT_HEIGHT})
       --out <path>       Output PNG path (default <mesh-stem>.png)
   -h, --help             Show this help
+
+The camera keeps its fixed default viewing pose; the rotation options turn
+the asset itself so the fixed world-space lights land where you want them.
 
 Examples:
   unity-viewer CardPackStatic_Mesh Cardback
@@ -63,9 +74,9 @@ Examples:
   unity-viewer assets/CardPack_Mesh.asset images/Cardback.png \\
       --rotation 20 --zoom 0.9 --pitch 10 --out /tmp/shot.png
 ",
-        rotation = fmt_deg(cam.yaw),
-        pitch = fmt_deg(cam.pitch),
-        roll = fmt_deg(cam.roll),
+        rotation = fmt_deg(model.yaw),
+        pitch = fmt_deg(model.pitch),
+        roll = fmt_deg(model.roll),
         zoom = cam.zoom,
     )
 }
@@ -118,18 +129,23 @@ pub fn run(args: &[String]) -> Result<(), String> {
             .unwrap_or_else(|| "(none)".to_string())
     );
 
-    // Unspecified fields (e.g. pan) inherit the GUI's default camera.
+    // The camera keeps the GUI's fixed viewing pose (only the zoom
+    // changes); the asset rotation is separate, so the fixed world-space
+    // lights can be aimed at any face.
     let camera = Camera {
+        zoom: opts.zoom,
+        ..Camera::default()
+    };
+    let rotation = Model {
         yaw: opts.rotation * DEG,
         pitch: opts.pitch * DEG,
         roll: opts.roll * DEG,
-        zoom: opts.zoom,
-        ..Camera::default()
     };
     let primitive = Primitive {
         mesh: Some(Arc::new(mesh)),
         material,
         camera,
+        rotation,
     };
 
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -363,11 +379,13 @@ fn parse(args: &[String]) -> Result<Options, String> {
             );
         }
     };
-    // Unspecified camera flags take the GUI's default camera.
+    // Unspecified rotation flags take the GUI's neutral asset pose; the
+    // camera keeps the GUI's fixed default (zoom only is user-settable).
+    let model = Model::default();
     let default = Camera::default();
-    let rotation = rotation.unwrap_or(default.yaw * to_deg());
-    let pitch = pitch.unwrap_or(default.pitch * to_deg());
-    let roll = roll.unwrap_or(default.roll * to_deg());
+    let rotation = rotation.unwrap_or(model.yaw * to_deg());
+    let pitch = pitch.unwrap_or(model.pitch * to_deg());
+    let roll = roll.unwrap_or(model.roll * to_deg());
     let zoom = zoom.unwrap_or(default.zoom);
     if zoom <= 0.0 {
         return Err("--zoom must be greater than 0".to_string());
@@ -486,8 +504,8 @@ mod tests {
         assert_eq!(o.material.as_deref(), Some("texture.png"));
         assert!((o.rotation - (-30.0)).abs() < 1e-3);
         assert!((o.zoom - 1.2).abs() < 1e-3);
-        assert!((o.pitch - Camera::default().pitch * to_deg()).abs() < 1e-3);
-        assert!((o.roll - Camera::default().roll * to_deg()).abs() < 1e-3);
+        assert!((o.pitch - Model::default().pitch * to_deg()).abs() < 1e-3);
+        assert!((o.roll - Model::default().roll * to_deg()).abs() < 1e-3);
         assert_eq!((o.width, o.height), (DEFAULT_WIDTH, DEFAULT_HEIGHT));
         assert_eq!(o.out, PathBuf::from("mesh.png"));
     }
@@ -499,13 +517,16 @@ mod tests {
     }
 
     #[test]
-    fn camera_defaults_match_the_gui() {
+    fn asset_defaults_match_the_gui() {
         let o = parse3("m t").unwrap();
+        let model = Model::default();
         let cam = Camera::default();
         let d = to_deg();
-        assert!((o.rotation - cam.yaw * d).abs() < 1e-3);
-        assert!((o.pitch - cam.pitch * d).abs() < 1e-3);
-        assert!((o.roll - cam.roll * d).abs() < 1e-3);
+        // The asset rotation defaults to the neutral pose (the GUI's Model
+        // section at zero), the zoom to the GUI's fixed camera.
+        assert!((o.rotation - model.yaw * d).abs() < 1e-3);
+        assert!((o.pitch - model.pitch * d).abs() < 1e-3);
+        assert!((o.roll - model.roll * d).abs() < 1e-3);
         assert!((o.zoom - cam.zoom).abs() < 1e-3);
     }
 
