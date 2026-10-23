@@ -1,0 +1,24 @@
+{
+  "id": "c181",
+  "title": "Maiden",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "idle",
+  "framerate": 0,
+  "time": 0.0,
+  "mipmapping": true,
+  "pan": [
+    -16.0641,
+    249.01
+  ],
+  "zoom": 1.15,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-night.png"
+}

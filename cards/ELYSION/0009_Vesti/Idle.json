@@ -1,0 +1,24 @@
+{
+  "id": "c091",
+  "title": "Vesti",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "idle",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    -8.062122,
+    337.73807
+  ],
+  "zoom": 1.52,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-night.png"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "c013",
+  "title": "Marian",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "idle",
+  "framerate": 0,
+  "time": 0.0,
+  "mipmapping": true,
+  "pan": [
+    -17.399242,
+    340.0695
+  ],
+  "zoom": 1.52,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-night.png"
+}

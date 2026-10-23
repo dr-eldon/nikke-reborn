@@ -1,0 +1,24 @@
+{
+  "id": "c300",
+  "title": "Soldier EG",
+  "subtitle": "",
+  "variant": "aim",
+  "skin": "default",
+  "animation": "aim_idle",
+  "framerate": 0,
+  "time": null,
+  "mipmapping": true,
+  "pan": [
+    -14.442485,
+    13.809677
+  ],
+  "zoom": 1.0,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/smoke-pink.png"
+}

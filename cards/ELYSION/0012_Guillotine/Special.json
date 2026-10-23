@@ -1,0 +1,24 @@
+{
+  "id": "c180",
+  "title": "Guillotine",
+  "subtitle": "",
+  "variant": "fb",
+  "skin": "default",
+  "animation": "delight",
+  "framerate": 0,
+  "time": 0.0,
+  "mipmapping": true,
+  "pan": [
+    112.11238,
+    297.49258
+  ],
+  "zoom": 1.25,
+  "invert_logo": false,
+  "invert_copyright": false,
+  "viewport": [
+    1640,
+    2048
+  ],
+  "padding": 50,
+  "background": "../../../images/backgrounds/sky-sunset.png"
+}
