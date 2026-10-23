@@ -21,8 +21,7 @@ use std::sync::Arc;
 
 use iced::widget::shader::Action;
 use iced::widget::{
-    button, column, combo_box, container, image, responsive, row, rule, shader, slider, space,
-    text,
+    button, column, combo_box, container, image, responsive, row, rule, shader, slider, space, text,
 };
 use iced::{
     Alignment, Background, Color, Font, Length, Point, Right, Task, Theme, Vector, Widget, widget,
@@ -510,11 +509,10 @@ impl App {
         let value = value.clamp(*range.start(), *range.end());
         row![
             text(label).size(11).width(44),
-            slider(range, value, on_change).width(Length::Fill).step(step),
-            text(display)
-                .size(11)
-                .width(56)
-                .align_x(Right),
+            slider(range, value, on_change)
+                .width(Length::Fill)
+                .step(step),
+            text(display).size(11).width(56).align_x(Right),
         ]
         .align_y(Alignment::Center)
     }
@@ -610,15 +608,13 @@ impl App {
                 format!("{:.0}°", self.camera.roll.to_degrees()),
                 |deg| Message::RollChanged(deg),
             ),
-            // Log-scale: the scroll wheel zooms multiplicatively, so a
-            // log10 slider matches that feel (1% per step).
             Self::slider_row(
                 "Zoom",
-                ZOOM_MIN.log10()..=ZOOM_MAX.log10(),
-                self.camera.zoom.log10(),
+                ZOOM_MIN..=ZOOM_MAX,
+                self.camera.zoom,
                 0.01,
                 format!("{:.2}×", self.camera.zoom),
-                |exp| Message::ZoomChanged(10f32.powf(exp)),
+                Message::ZoomChanged,
             ),
             Self::slider_row(
                 "Pan X",
