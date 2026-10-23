@@ -1,7 +1,7 @@
 //! Headless screenshot mode.
 //!
 //! ```text
-//! asset-viewer <mesh> <material> [options]
+//! unity-viewer <mesh> <material> [options]
 //! ```
 //!
 //! Renders the given mesh (with the given material) offscreen at the requested
@@ -37,10 +37,10 @@ fn fmt_deg(rad: f32) -> String {
 pub fn help() -> String {
     let cam = Camera::default();
     format!(
-        "asset-viewer — take a headless screenshot of a mesh with a material
+        "unity-viewer — take a headless screenshot of a mesh with a material
 
 Usage:
-  asset-viewer <mesh> <material> [options]
+  unity-viewer <mesh> <material> [options]
 
 Arguments:
   <mesh>            Path to a .asset mesh, or its name inside assets/
@@ -58,9 +58,9 @@ Options:
   -h, --help             Show this help
 
 Examples:
-  asset-viewer CardPackStatic_Mesh Cardback
-  asset-viewer CardPackStatic_Mesh Cardback --rotation -30 --zoom 1.2
-  asset-viewer assets/CardPack_Mesh.asset images/Cardback.png \\
+  unity-viewer CardPackStatic_Mesh Cardback
+  unity-viewer CardPackStatic_Mesh Cardback --rotation -30 --zoom 1.2
+  unity-viewer assets/CardPack_Mesh.asset images/Cardback.png \\
       --rotation 20 --zoom 0.9 --pitch 10 --out /tmp/shot.png
 ",
         rotation = fmt_deg(cam.yaw),
@@ -160,7 +160,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
-                label: Some("asset-viewer [cli]"),
+                label: Some("unity-viewer [cli]"),
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::default(),
                 experimental_features: wgpu::ExperimentalFeatures::disabled(),

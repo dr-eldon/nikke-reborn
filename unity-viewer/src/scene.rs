@@ -920,7 +920,7 @@ impl Primitive {
         // the caller's target, which owns its background.
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("asset-viewer msaa pass"),
+                label: Some("unity-viewer msaa pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: msaa_view,
                     depth_slice: None,
@@ -985,7 +985,7 @@ impl Primitive {
                 entries: &blit_entries,
             });
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("asset-viewer blit pass"),
+            label: Some("unity-viewer blit pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target,
                 depth_slice: None,
@@ -1136,7 +1136,7 @@ mod blit_tests {
                 .ok()?;
             let (device, queue) = adapter
                 .request_device(&wgpu::DeviceDescriptor {
-                    label: Some("asset-viewer [test]"),
+                    label: Some("unity-viewer [test]"),
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                     experimental_features: wgpu::ExperimentalFeatures::disabled(),
@@ -1319,7 +1319,7 @@ mod material_tests {
         // Top pixel (1,2,3,4), bottom pixel (5,6,7,8).
         let img = image::RgbaImage::from_raw(1, 2, vec![1, 2, 3, 4, 5, 6, 7, 8]).unwrap();
         let path =
-            std::env::temp_dir().join(format!("asset_viewer_flip_{}.png", std::process::id()));
+            std::env::temp_dir().join(format!("unity_viewer_flip_{}.png", std::process::id()));
         img.save(&path).unwrap();
         let mat = Material::from_file(&path).unwrap();
         std::fs::remove_file(&path).ok();

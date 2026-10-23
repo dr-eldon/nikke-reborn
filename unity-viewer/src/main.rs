@@ -10,7 +10,7 @@
 //! PNG screenshot (no window):
 //!
 //! ```text
-//! asset-viewer <mesh> <material> [options]
+//! unity-viewer <mesh> <material> [options]
 //! ```
 //!
 //! See `--help` for the full option list (`--rotation`, `--pitch`, `--roll`,
@@ -527,7 +527,7 @@ impl App {
         let pan_step = pan_radius / 100.0;
 
         let sidebar = column![
-            text("Asset Viewer").size(18),
+            text("Unity Viewer").size(18),
             space::vertical(),
             text("Mesh").size(12),
             combo_box(

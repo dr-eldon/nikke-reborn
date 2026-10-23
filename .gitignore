@@ -16,5 +16,5 @@ bundles/
 draft/
 effects/
 
-# Rust (asset-viewer)
-asset-viewer/target/
+# Rust (unity-viewer)
+unity-viewer/target/

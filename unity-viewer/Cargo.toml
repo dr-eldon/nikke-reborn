@@ -1,5 +1,5 @@
 [package]
-name = "asset-viewer"
+name = "unity-viewer"
 version = "0.1.0"
 edition = "2024"
 description = "Unity mesh + material viewer (wgpu + iced)"
