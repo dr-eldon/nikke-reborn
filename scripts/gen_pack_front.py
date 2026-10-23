@@ -14,6 +14,16 @@ metadata:
   NIKKE is animated, only its first frame is kept and the rest discarded.
 * the ``background`` field is resized to the front's height and then
   center-cropped to the front's exact width.
+* when the ``logo`` field names a placement, the expansion's logo
+  (``<pack>/Logo.png``) is composited on top at that placement with a glow:
+  the halo is screen-blended for a light bloom and the sharp mark is drawn
+  over it. The glow's tint is derived from the front's background color (its
+  hue and saturation, brightened), so the bloom matches the scene rather than
+  a fixed white.
+
+Everything is driven by the expansion's metadata (its ``pack`` characters,
+``background`` and ``logo``), so the same code composes any expansion's front
+without per-pack changes.
 
 The finished front is written to ``cards/<set>/CardPack_Front.png`` (replacing
 the hand-made one), so the existing material and item composition consume it
@@ -24,13 +34,14 @@ iterating — without re-rendering the set's cards.
 Rendered first-frames are cached on disk (keyed by the card definition's hash)
 so repeated runs do not pay the GPU render again.
 
-Run:  .venv/bin/python scripts/gen_pack_front.py ELYSION
-      .venv/bin/python scripts/gen_pack_front.py ELYSION --front-only
+Run:  .venv/bin/python scripts/gen_pack_front.py <pack>
+      .venv/bin/python scripts/gen_pack_front.py <pack> --front-only
 """
 
 from __future__ import annotations
 
 import argparse
+import colorsys
 import json
 import subprocess
 import sys
@@ -40,7 +51,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import nikke_reborn as nr
-from PIL import Image
+from PIL import Image, ImageChops, ImageFilter
 
 EXPANSION_NAME = "Expansion.json"
 FRONT_NAME = "CardPack_Front.png"
@@ -60,6 +71,23 @@ BACK_OFFSET_X = 0.34 # first flank's center offset from the middle (width frac)
 BACK_TIER_GAP = 0.5  # each further tier on a side steps out by this fraction
 BACK_TIER_SHRINK = 0.9  # each further tier shrinks by this factor
 ALPHA_TRIM = 24  # alpha threshold (0-255) for the content bounding box
+
+# --- expansion logo tuning --------------------------------------------------
+# The expansion's logo (``<pack>/Logo.png``) is composited over the front with
+# a glow, at the placement named by the expansion's ``logo`` field. Every value
+# is relative to the front, so it is the same for every expansion: the mark is
+# scaled to :data:`LOGO_WIDTH` the front's width, inset :data:`LOGO_MARGIN`
+# from the edge (top/bottom placements), and haloed with a glow tinted by the
+# front's own background color — its hue and saturation, brightened to
+# :data:`LOGO_GLOW_VALUE` — so the bloom matches the scene (a night sky glows
+# cool violet, a bright day scene glows warm) rather than a fixed white.
+LOGO_NAME = "Logo.png"  # the expansion's logo, relative to the pack directory
+LOGO_WIDTH = 0.5   # logo width as a fraction of the front width
+LOGO_MARGIN = 0.05  # gap from the front's top/bottom edge (height fraction)
+LOGO_GLOW_RADIUS = 0.012  # glow blur radius (fraction of the front height)
+LOGO_GLOW_INTENSITY = 1.0  # glow strength (alpha multiplier of the halo)
+LOGO_GLOW_VALUE = 0.9  # target brightness of the glow tint (0-1)
+LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo` field
 
 
 def _front_size() -> tuple[int, int]:
@@ -176,11 +204,111 @@ def _fit_background(background: Image.Image, size: tuple[int, int]) -> Image.Ima
     return background.crop((left, 0, left + width, height)).convert("RGBA")
 
 
+def _image_average(image: Image.Image) -> tuple[int, int, int]:
+    """The area-averaged RGB of *image* (a single box-filtered pixel) — the
+    image's representative color, cheap to compute at any size."""
+    return image.convert("RGB").resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+
+
+def _background_glow_color(
+    background: tuple[int, int, int], value: float = LOGO_GLOW_VALUE
+) -> tuple[int, int, int]:
+    """The glow tint from the front's *background* color: its hue and
+    saturation, brightened to *value*. Keeping the background's hue lets the
+    bloom match the scene's ambient color instead of a fixed white; a fixed
+    target brightness keeps it visible no matter how dark the background is.
+    A near-gray background yields a near-neutral glow."""
+    hue, sat, _ = colorsys.rgb_to_hsv(*(c / 255 for c in background))
+    r, g, b = colorsys.hsv_to_rgb(hue, sat, value)
+    return round(r * 255), round(g * 255), round(b * 255)
+
+
+def _logo_glow_layer(
+    logo: Image.Image, radius: int, color: tuple[int, int, int], intensity: float
+) -> tuple[Image.Image, int]:
+    """A soft halo around *logo*: its alpha blurred by *radius* px, tinted
+    *color*, scaled by *intensity*, on a transparent canvas padded by *radius*
+    on every side so the blur is not clipped at the mark's edges. Returns the
+    RGBA halo and the pad, so the caller can re-align it with the sharp mark."""
+    pad = max(1, radius)
+    halo = Image.new("L", (logo.width + 2 * pad, logo.height + 2 * pad), 0)
+    halo.paste(logo.getchannel("A"), (pad, pad))
+    halo = halo.filter(ImageFilter.GaussianBlur(radius))
+    halo = halo.point(lambda v: min(255, round(v * intensity)))
+    layer = Image.new("RGBA", halo.size, color + (0,))
+    layer.putalpha(halo)
+    return layer, pad
+
+
+def _screen_composite(base: Image.Image, overlay: Image.Image, pos: tuple[int, int]) -> None:
+    """Screen-blend *overlay*'s color onto *base* at *pos*, masked by the
+    overlay's alpha: the mark's bloom brightens the front without painting over
+    it (unlike an opaque alpha paste). Clipped to *base*'s bounds; *base* is
+    modified in place."""
+    base_w, base_h = base.size
+    over_w, over_h = overlay.size
+    x, y = pos
+    sx, sy = max(0, -x), max(0, -y)
+    ex, ey = min(over_w, base_w - x), min(over_h, base_h - y)
+    if ex <= sx or ey <= sy:
+        return
+    box = (x + sx, y + sy, x + ex, y + ey)
+    region = base.crop(box)
+    halo = overlay.crop((sx, sy, ex, ey))
+    mask = halo.getchannel("A")
+    blended = ImageChops.screen(region.convert("RGB"), halo.convert("RGB"))
+    base.paste(Image.composite(blended, region.convert("RGB"), mask), box)
+
+
+def _composite_logo(
+    canvas: Image.Image,
+    logo: Image.Image,
+    size: tuple[int, int],
+    placement: str,
+    glow_color: tuple[int, int, int],
+) -> None:
+    """Composite the expansion's *logo* over *canvas* at *placement* with a
+    glow: the halo (tinted *glow_color*) is screen-blended for a light bloom
+    and the sharp mark is drawn on top. The mark is scaled to :data:`LOGO_WIDTH`
+    the front's width and centered horizontally; top/bottom placements inset it
+    :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the front.
+    Modifies *canvas* in place."""
+    width, height = size
+    logo_width = round(LOGO_WIDTH * width)
+    if logo_width < 1:
+        return
+    logo = logo.resize(
+        (logo_width, round(logo_width * logo.height / logo.width)),
+        Image.Resampling.LANCZOS,
+    )
+    cx = width // 2
+    if placement == "top":
+        cy = round(LOGO_MARGIN * height) + logo.height // 2
+    elif placement == "bottom":
+        cy = round(height - LOGO_MARGIN * height) - logo.height // 2
+    elif placement == "center":
+        cy = height // 2
+    else:
+        raise nr.GenerationError(
+            f"unknown logo placement {placement!r}; "
+            f"expected one of {', '.join(LOGO_PLACEMENTS)}"
+        )
+    x = cx - logo.width // 2
+    y = cy - logo.height // 2
+    halo, pad = _logo_glow_layer(
+        logo, round(LOGO_GLOW_RADIUS * height), glow_color, LOGO_GLOW_INTENSITY
+    )
+    _screen_composite(canvas, halo, (x - pad, y - pad))
+    canvas.alpha_composite(logo, (x, y))
+
+
 def build_front(
     pack_dir: Path, expansion: dict, size: tuple[int, int]
 ) -> Image.Image:
-    """Compose the pack front: the expansion's background with the featured
-    NIKKES drawn over it (backs first, the hero on top)."""
+    """Compose the pack front entirely from the expansion's metadata: its
+    background, the featured NIKKES drawn over it (backs first, the hero on
+    top), and — when the expansion names a ``logo`` placement — the expansion's
+    logo (``<pack>/Logo.png``) with its glow on top, at the named placement."""
     width, height = size
 
     bg_rel = expansion.get("background")
@@ -190,6 +318,9 @@ def build_front(
     if not bg_path.is_file():
         raise nr.GenerationError(f"{pack_dir.name}: background not found: {bg_rel}")
     canvas = _fit_background(Image.open(bg_path).convert("RGBA"), size)
+    # Sample the background's color now — before the NIKKES are composited — so
+    # the logo's glow is tinted by the scene, not by the characters on top of it.
+    glow_color = _background_glow_color(_image_average(canvas))
 
     pack_rel = expansion.get("pack")
     if not pack_rel:
@@ -221,6 +352,26 @@ def build_front(
         feet_y=HERO_FEET_Y * height,
         height=round(HERO_HEIGHT * height),
     )
+
+    # The expansion's logo (only when the expansion names a placement): the
+    # mark's image comes from the pack directory, its placement from the
+    # expansion — nothing here is specific to any one expansion.
+    placement = expansion.get("logo")
+    if placement is not None:
+        logo_path = pack_dir / LOGO_NAME
+        if not logo_path.is_file():
+            raise nr.GenerationError(
+                f"{pack_dir.name}: logo placement {placement!r} is set but "
+                f"{LOGO_NAME!r} is missing"
+            )
+        _composite_logo(
+            canvas,
+            Image.open(logo_path).convert("RGBA"),
+            size,
+            placement,
+            glow_color,
+        )
+
     return canvas
 
 
@@ -236,7 +387,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate a pack's CardPack_Front.png from Expansion.json"
     )
-    parser.add_argument("pack", nargs="?", default="ELYSION", help="pack name (default: %(default)s)")
+    parser.add_argument("pack", help="pack name (a subdirectory of cards/)")
     parser.add_argument(
         "--front-only",
         action="store_true",
