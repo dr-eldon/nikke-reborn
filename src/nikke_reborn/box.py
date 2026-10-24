@@ -17,8 +17,9 @@ material composition, and its inputs are hashed (see
 :func:`front_source_hash`) into the finished material so the render is
 skipped when nothing changed.
 
-The box material template's other two mask rectangles (red top, green side)
-are still placeholders; only the blue (front) rectangle is filled.
+The green (side) rectangle is filled with the expansion's background
+(fitted to cover the side, taking the scene's right side); the red (top)
+rectangle is still a placeholder.
 """
 
 from __future__ import annotations
@@ -26,7 +27,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import nikke_reborn as nr
-from nikke_reborn.expansion import compose_front, front_source_digest
+from nikke_reborn.expansion import (
+    _fit_cover_bottom,
+    compose_front,
+    front_source_digest,
+    load_background,
+)
 from PIL import Image
 
 # --- the white NIKKE logo -----------------------------------------------------
@@ -72,6 +78,23 @@ def front_size() -> tuple[int, int]:
         raise nr.GenerationError(
             f"{nr.BOX_TEMPLATE.name} carries {len(rects)} pure-blue mask "
             f"rectangle(s), expected 1 (front)"
+        )
+    rect = rects[0]
+    return rect[2] - rect[0], rect[3] - rect[1]
+
+
+def side_size() -> tuple[int, int]:
+    """The box side's target size: the box material template's green mask
+    rectangle (the pure-green placeholder, detected the way the front is
+    detected in blue). Composing at exactly this size means the material
+    composition pastes it with no rescale."""
+    with Image.open(nr.BOX_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+    rects = nr._pack_mask_rects(nr._box_side_mask(template))
+    if len(rects) != 1:
+        raise nr.GenerationError(
+            f"{nr.BOX_TEMPLATE.name} carries {len(rects)} pure-green mask "
+            f"rectangle(s), expected 1 (side)"
         )
     rect = rects[0]
     return rect[2] - rect[0], rect[3] - rect[1]
@@ -138,3 +161,17 @@ def build_front(
         back_height=BOX_BACK_HEIGHT,
         back_offset_x=BOX_BACK_OFFSET_X,
     )
+
+
+def build_side(
+    pack_dir: Path, expansion: dict, size: tuple[int, int]
+) -> Image.Image:
+    """The box side: the expansion's background fitted to cover the side
+    (like the front's ``"cover-bottom"``), but right-aligned instead of
+    center-cropped — the side takes the scene's right side. The result is
+    returned in memory, like the front: it is the box material's green
+    rectangle and is never written to disk. The side's inputs (the
+    background and the template) are a subset of the front's, so the
+    front's source hash (see :func:`front_source_hash`) covers it."""
+    background = load_background(pack_dir, expansion)
+    return _fit_cover_bottom(background, size, align="right")

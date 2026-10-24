@@ -171,13 +171,19 @@ def fit_background(
     return background.crop((left, 0, left + width, height)).convert("RGBA")
 
 
-def _fit_cover_bottom(background: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """Fit *background* over the box front: scaled down just enough for it
-    to cover the whole front (the larger of the two dimension ratios — the
-    width for a portrait background), then bottom-aligned: the bottom of the
-    background touches the bottom edge of the front and any excess height is
-    cropped off the top. Horizontally it is center-cropped (a no-op when the
-    width is the binding dimension)."""
+def _fit_cover_bottom(
+    background: Image.Image,
+    size: tuple[int, int],
+    align: str = "center",
+) -> Image.Image:
+    """Fit *background* over the box's front (or side): scaled down just
+    enough for it to cover the whole region (the larger of the two
+    dimension ratios — the width for a portrait background), then
+    bottom-aligned: the bottom of the background touches the bottom edge
+    and any excess height is cropped off the top. Horizontally it is
+    *align*-cropped: ``"center"`` (the front — a no-op when the width is
+    the binding dimension) or ``"right"`` (the side, which takes the
+    scene's right side)."""
     width, height = size
     scale = max(width / background.width, height / background.height)
     if scale != 1.0:
@@ -185,7 +191,14 @@ def _fit_cover_bottom(background: Image.Image, size: tuple[int, int]) -> Image.I
             (round(background.width * scale), round(background.height * scale)),
             Image.Resampling.LANCZOS,
         )
-    left = (background.width - width) // 2
+    if align == "left":
+        left = 0
+    elif align == "right":
+        left = background.width - width
+    elif align == "center":
+        left = (background.width - width) // 2
+    else:
+        raise nr.GenerationError(f"unknown background alignment {align!r}")
     top = background.height - height
     return background.crop((left, top, left + width, top + height)).convert("RGBA")
 
