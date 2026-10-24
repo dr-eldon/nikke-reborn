@@ -436,10 +436,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let world = uniforms.model * vec4<f32>(-input.position.x, input.position.yz, 1.0);
     out.position = uniforms.view_proj * world;
     out.normal = (uniforms.model * vec4<f32>(-input.normal.x, input.normal.yz, 0.0)).xyz;
-    // Unity UVs use a bottom-left origin (v=0 = image bottom), but wgpu/Vulkan
-    // textures place v=0 at the top (first row). Flip V so the UVs line up with
-    // the artwork.
-    out.uv = vec2<f32>(input.uv.x, 1.0 - input.uv.y);
+    out.uv = input.uv;
     return out;
 }
 
@@ -1453,7 +1450,6 @@ mod model_tests {
 #[cfg(test)]
 mod blit_tests {
     use super::*;
-    use crate::unity::Mesh;
     use std::sync::Arc;
 
     /// Renders the static mesh offscreen: a full-`frame` target with the
@@ -1496,7 +1492,7 @@ mod blit_tests {
 
             let format = wgpu::TextureFormat::Rgba8UnormSrgb;
             let mut pipeline = Pipeline::create(&device, &queue, format);
-            let mesh = Mesh::from_file(std::path::Path::new("../assets/CardPackStatic_Mesh.asset"))
+            let mesh = crate::mesh::load(std::path::Path::new("../assets/CardPackStatic_Mesh.obj"))
                 .ok()?;
             let primitive = Primitive {
                 mesh: Some(Arc::new(mesh)),

@@ -19,10 +19,9 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::scene::{Camera, Material, Model, Pipeline, Primitive};
-use crate::unity::Mesh;
 use iced::Rectangle;
 
-use crate::{ASSETS_DIR, IMAGES_DIR, OUTPUT_DIR, ROOT};
+use crate::{mesh, ASSETS_DIR, IMAGES_DIR, OUTPUT_DIR, ROOT};
 
 const DEFAULT_WIDTH: u32 = 1024;
 const DEFAULT_HEIGHT: u32 = 1024;
@@ -52,7 +51,7 @@ Usage:
   unity-viewer <mesh> <material> [options]
 
 Arguments:
-  <mesh>            Path to a .asset mesh, or its name inside assets/
+  <mesh>            Path to a .asset or .obj mesh, or its name inside assets/
   <material>        Path to a PNG, or its name inside images/ or output/
                     (use 'none' to render without a material)
 
@@ -79,7 +78,7 @@ the asset itself so the fixed world-space lights land where you want them.
 Examples:
   unity-viewer CardPackStatic_Mesh Cardback
   unity-viewer CardPackStatic_Mesh Cardback --rotation -30 --zoom 1.2
-  unity-viewer assets/CardPack_Mesh.asset images/Cardback.png \\
+  unity-viewer assets/CardPack_Mesh.obj images/Cardback.png \\
       --rotation 20 --zoom 0.9 --pitch 10 --out /tmp/shot.png
 ",
         rotation = fmt_deg(model.yaw),
@@ -112,7 +111,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         None => None,
     };
 
-    let mesh = Mesh::from_file(&mesh_path).map_err(|e| e.to_string())?;
+    let mesh = mesh::load(&mesh_path)?;
     let material = match material_path {
         Some(p) => Some(Material::from_file(&p)?),
         None => None,
@@ -469,6 +468,7 @@ fn resolve_mesh(name: &str) -> Result<PathBuf, String> {
         Path::new(ROOT).join(name),
         Path::new(ASSETS_DIR).join(name),
         Path::new(ASSETS_DIR).join(format!("{name}.asset")),
+        Path::new(ASSETS_DIR).join(format!("{name}.obj")),
     ];
     candidates
         .iter()

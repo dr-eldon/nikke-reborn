@@ -1,7 +1,8 @@
 //! A small Unity mesh + material viewer.
 //!
-//! Pick a `.asset` mesh from `../assets` and a PNG material (from `../images`
-//! or `../output/*`, or any file via "Open…") and the viewer renders it with
+//! Pick a `.asset` or `.obj` mesh from `../assets` and a PNG material (from
+//! `../images` or `../output/*`, or any file via "Open…") and the viewer
+//! renders it with
 //! a fixed camera: left-drag grabs and rotates the *asset* (a trackball —
 //! the drag spins it about the screen's up/right axes, which are fixed to
 //! the view, not to the model's own rotation), so the fixed world-space
@@ -33,19 +34,10 @@ use iced::widget::shader::Action;
 use iced::widget::{button, column, combo_box, container, image, row, shader, slider, space, text};
 use iced::{Alignment, Bottom, Color, Fill, Font, Point, Right, Task, Theme, Vector, Widget};
 
-use config::Config;
-use scene::{Camera, Material, Model, Primitive};
-use unity::Mesh;
-
-mod cli;
-mod config;
-mod scene;
-mod unity;
-
-const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
-const ASSETS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets");
-const IMAGES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../images");
-const OUTPUT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../output");
+use unity_viewer::cli;
+use unity_viewer::config::Config;
+use unity_viewer::scene::{Camera, FOV_Y, Material, Model, Primitive};
+use unity_viewer::{mesh, unity::Mesh, ASSETS_DIR, IMAGES_DIR, OUTPUT_DIR, ROOT};
 
 /// Sensitivity of the drag trackball: degrees of asset rotation produced by
 /// a drag spanning the full canvas width (a half turn — like grabbing the
@@ -189,7 +181,10 @@ fn scan_meshes() -> Vec<MeshEntry> {
     let mut entries: Vec<MeshEntry> = rd
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|e| e == "asset"))
+        .filter(|p| {
+            p.extension()
+                .is_some_and(|e| e == "asset" || e == "obj")
+        })
         .filter_map(|p| {
             let label = p.file_stem()?.to_string_lossy().into_owned();
             Some(MeshEntry {
@@ -256,13 +251,9 @@ fn relative(p: &Path) -> String {
 // --- async loading ---------------------------------------------------------
 
 async fn load_mesh(path: PathBuf) -> Result<Arc<Mesh>, String> {
-    tokio::task::spawn_blocking(move || {
-        Mesh::from_file(&path)
-            .map(Arc::new)
-            .map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("mesh load failed: {e}"))?
+    tokio::task::spawn_blocking(move || mesh::load(&path).map(Arc::new))
+        .await
+        .map_err(|e| format!("mesh load failed: {e}"))?
 }
 
 async fn load_material(path: PathBuf) -> Result<Arc<Material>, String> {
@@ -974,7 +965,7 @@ impl shader::Program<Message> for Renderer<'_> {
                     let h = bounds.size().height.max(1.0);
                     let radius = self.mesh.as_ref().map(|m| m.radius()).unwrap_or(1.0);
                     let distance = self.camera.distance(radius);
-                    let world_per_px = 2.0_f32 * distance * (scene::FOV_Y * 0.5).tan() / h;
+                    let world_per_px = 2.0_f32 * distance * (FOV_Y * 0.5).tan() / h;
                     Some(Action::publish(Message::Pan(Vector::new(
                         (pos.x - last.x) * world_per_px,
                         (pos.y - last.y) * world_per_px,

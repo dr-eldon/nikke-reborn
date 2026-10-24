@@ -20,7 +20,7 @@ its ``logo`` when the expansion names a placement; the back is the same
 material (``CardPack_Material.png``) has two pure-blue mask rectangles
 holding the composed back (left) and front (right); the item
 (``CardPack_Item.png``) is the pack's mesh
-(``assets/CardPackStatic_Mesh.asset``) textured with the finished
+(``assets/CardPackStatic_Mesh.obj``) textured with the finished
 material and rendered by the ``unity-viewer`` executable with the
 model rotation and camera zoom/pan from
 ``assets/CardPackStatic_Mesh.json`` — so it is generated after the
@@ -30,7 +30,7 @@ rectangles (blue front, red top, green side), the top (a center-cropped
 background with the expansion's logo and the white NIKKE logo) in the red
 one and the side (the background with the expansion's logo and the white
 NIKKE logo) in the green one; the box's item (``CardBox_Item.png``) is the
-box's mesh (``assets/CardBox_Mesh.asset``) textured with the finished
+box's mesh (``assets/CardBox_Mesh.obj``) textured with the finished
 material and rendered by the ``unity-viewer`` executable with the model
 rotation and camera zoom/pan from ``assets/CardBox_Mesh.json``, so it is
 generated after the box's material, which it reads from disk. The finished results are
@@ -267,7 +267,7 @@ LOGO_PATHS = {
 PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
 PACK_MATERIAL_NAME = "CardPack_Material.png"
 PACK_ITEM_NAME = "CardPack_Item.png"
-PACK_MESH = REPO_ROOT / "assets" / "CardPackStatic_Mesh.asset"
+PACK_MESH = REPO_ROOT / "assets" / "CardPackStatic_Mesh.obj"
 
 #: The item's viewer configuration (model rotation and camera zoom/pan
 #: as a JSON file, exported by the viewer's GUI), passed to
@@ -286,7 +286,7 @@ PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
 BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
 BOX_MATERIAL_NAME = "CardBox_Material.png"
 BOX_ITEM_NAME = "CardBox_Item.png"
-BOX_MESH = REPO_ROOT / "assets" / "CardBox_Mesh.asset"
+BOX_MESH = REPO_ROOT / "assets" / "CardBox_Mesh.obj"
 
 #: The box item's viewer configuration (model rotation and camera
 #: zoom/pan, as a JSON file exported by the viewer's GUI), passed to

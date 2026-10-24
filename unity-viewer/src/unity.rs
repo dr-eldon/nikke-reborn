@@ -1,5 +1,6 @@
-//! Minimal parser for Unity `Mesh` asset files (as produced by the Nikke
-//! Reborn card pipeline).
+//! Minimal parser for Unity `Mesh` asset files (the original mesh format
+//! of the Nikke Reborn card pipeline; the pipeline now ships the meshes
+//! as `.obj`, parsed by [`crate::obj`] and converted with `mesh-convert`).
 //!
 //! The files are plain YAML with two hex blobs:
 //!
@@ -255,7 +256,11 @@ impl Mesh {
                     position[2] - center[2],
                 ],
                 normal,
-                uv: [uv[0], uv[1]],
+
+                // Unity UVs use a bottom-left origin (v=0 = image bottom), but wgpu/Vulkan
+                // textures place v=0 at the top (first row). Flip V so the UVs line up with
+                // the artwork.
+                uv: [uv[0], 1.0 - uv[1]],
             });
         }
         if out_of_bounds > vertex_count / 50 {
@@ -504,6 +509,7 @@ fn decode_u16_le(hex: &str, expected: usize, vertex_count: usize) -> Result<Vec<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::obj;
     use std::path::PathBuf;
 
     fn repo_assets(name: &str) -> PathBuf {
@@ -546,39 +552,52 @@ mod tests {
         );
     }
 
+    /// The OBJ parser explodes one vertex per face corner (a `v/vt/vn`
+    /// triple): the box's 24-vertex, 12-triangle mesh becomes 36 vertices.
     #[test]
-    fn parses_cardpack_static_mesh() {
-        let mesh = Mesh::from_file(&repo_assets("CardPackStatic_Mesh.asset")).unwrap();
+    fn parses_cardbox_obj_mesh() {
+        let mesh = obj::from_file(&repo_assets("CardBox_Mesh.obj")).unwrap();
         println!(
-            "static: name={} verts={} tris={} skinned={} bones={} extent={:?}",
+            "box obj: name={} verts={} tris={} extent={:?}",
             mesh.name,
             mesh.vertices.len(),
             mesh.triangle_count(),
-            mesh.is_skinned,
-            mesh.bone_count,
             mesh.extent
         );
-        assert_eq!(mesh.vertices.len(), 525, "static mesh vertex count");
+        assert_eq!(mesh.indices.len() / 3, 12, "box triangle count");
+        assert_eq!(mesh.vertices.len(), 36, "box face corners");
         assert!(!mesh.is_skinned);
-        assert_sane(&mesh, 525);
+        assert_sane(&mesh, mesh.vertices.len());
     }
 
     #[test]
-    fn parses_cardpack_skinned_mesh() {
-        let mesh = Mesh::from_file(&repo_assets("CardPack_Mesh.asset")).unwrap();
+    fn parses_cardpack_obj_mesh() {
+        let mesh = obj::from_file(&repo_assets("CardPack_Mesh.obj")).unwrap();
         println!(
-            "skinned: name={} verts={} tris={} skinned={} bones={} extent={:?}",
+            "cardpack obj: name={} verts={} tris={} extent={:?}",
             mesh.name,
             mesh.vertices.len(),
             mesh.triangle_count(),
-            mesh.is_skinned,
-            mesh.bone_count,
             mesh.extent
         );
-        assert_eq!(mesh.vertices.len(), 1325, "skinned mesh vertex count");
-        assert!(mesh.is_skinned);
-        assert_eq!(mesh.bone_count, 7);
-        assert_sane(&mesh, 1325);
+        assert_eq!(mesh.indices.len() / 3, 1950, "cardpack triangle count");
+        assert_sane(&mesh, mesh.vertices.len());
+    }
+
+    /// A third-party (Blender) OBJ in the standard convention: shared
+    /// vertices with per-corner UVs/normals.
+    #[test]
+    fn parses_bata_obj_mesh() {
+        let mesh = obj::from_file(&repo_assets("BatA_Mesh.obj")).unwrap();
+        println!(
+            "bat obj: name={} verts={} tris={} extent={:?}",
+            mesh.name,
+            mesh.vertices.len(),
+            mesh.triangle_count(),
+            mesh.extent
+        );
+        assert_eq!(mesh.indices.len() / 3, 6942, "bat triangle count");
+        assert_sane(&mesh, mesh.vertices.len());
     }
 }
 

@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 description = "Unity mesh + material viewer (wgpu + iced)"
 
+[[bin]]
+name = "mesh-convert"
+path = "src/bin/mesh_convert.rs"
+
 [dependencies]
 bytemuck = { version = "1", features = ["derive"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
