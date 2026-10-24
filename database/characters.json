@@ -1,1208 +1,2179 @@
 [
     {
-        "id": "c102",
-        "name": "Maxwell",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c140",
-        "name": "Sugar",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c210",
-        "name": "Exia",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c191",
-        "name": "Alice",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c090",
-        "name": "Emma",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c160",
-        "name": "Yuni",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c170",
-        "name": "Privaty",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c270",
-        "name": "Blanc",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c271",
-        "name": "Noir",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c142",
-        "name": "Frima",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c082",
-        "name": "Liter",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c220",
-        "name": "Snow White",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c231",
-        "name": "Isabel",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c150",
-        "name": "Julia",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c022",
-        "name": "Signal",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c030",
-        "name": "Poli",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c032",
-        "name": "Miranda",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c070",
-        "name": "Brid",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c071",
-        "name": "Soline",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c072",
-        "name": "Diesel",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c080",
-        "name": "Centi",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c091",
-        "name": "Vesti",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c092",
-        "name": "Eunhwa",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c101",
-        "name": "Drake",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c110",
-        "name": "Crow",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c130",
-        "name": "Mary",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c131",
-        "name": "Pepper",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c141",
-        "name": "Milk",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c171",
-        "name": "Yulha",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c172",
-        "name": "Admi",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c180",
-        "name": "Guillotine",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c181",
-        "name": "Maiden",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c190",
-        "name": "Lucilla",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c200",
-        "name": "Rupee",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c201",
-        "name": "Yan",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c202",
-        "name": "Dolla",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c212",
-        "name": "Novel",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c241",
-        "name": "Epinel",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c242",
-        "name": "Folkwang",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c221",
-        "name": "Rapunzel",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c222",
-        "name": "Scarlet",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c230",
-        "name": "Harran",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c232",
-        "name": "Noah",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c290",
-        "name": "Mana",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c111",
-        "name": "Jackal",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c240",
-        "name": "Rumani",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c040",
-        "name": "D",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c041",
-        "name": "Agent K",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c100",
-        "name": "Laplace",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c282",
-        "name": "Sakura",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c281",
-        "name": "_Moran",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c112",
-        "name": "Viper",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c280",
-        "name": "Rosanna",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c260",
-        "name": "Modernia",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c310",
-        "name": "Aid",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c321",
-        "name": "Marchana",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c272",
-        "name": "_Rouge",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c311",
-        "name": "Cocoa",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c312",
-        "name": "Soda",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c331",
-        "name": "_Chime",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c361",
-        "name": "Kilo",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c381",
-        "name": "Biscuit",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c400",
-        "name": "Guilty",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c261",
-        "name": "Nihilister",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c401",
-        "name": "Sin",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c371",
-        "name": "Endless",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c233",
-        "name": "Dorothy",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c262",
-        "name": "Liberelli",
-        "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c351",
-        "name": "Anchor",
-        "manufacturer": "ELYSION",
-        "rarity": "SR"
-    },
-    {
         "id": "c010",
         "name": "Rapi",
         "manufacturer": "ELYSION",
-        "rarity": "SR"
+        "rarity": "SR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c011",
         "name": "Neon",
         "manufacturer": "ELYSION",
-        "rarity": "SR"
-    },
-    {
-        "id": "c020",
-        "name": "Delta",
-        "manufacturer": "ELYSION",
-        "rarity": "SR"
+        "rarity": "SR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c012",
         "name": "Anis",
         "manufacturer": "TETRA",
-        "rarity": "SR"
-    },
-    {
-        "id": "c161",
-        "name": "Mihara",
-        "manufacturer": "MISSILIS",
-        "rarity": "SR"
-    },
-    {
-        "id": "c120",
-        "name": "N102",
-        "manufacturer": "MISSILIS",
-        "rarity": "SR"
-    },
-    {
-        "id": "c291",
-        "name": "Ether",
-        "manufacturer": "MISSILIS",
-        "rarity": "SR"
+        "rarity": "SR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c013",
-        "name": "_Marian",
+        "name": "Marian",
         "manufacturer": "ELYSION",
-        "rarity": "SR"
-    },
-    {
-        "id": "c060",
-        "name": "Belorta",
-        "manufacturer": "TETRA",
-        "rarity": "SR"
-    },
-    {
-        "id": "c061",
-        "name": "Mica",
-        "manufacturer": "TETRA",
-        "rarity": "SR"
-    },
-    {
-        "id": "c300",
-        "name": "Soldier EG",
-        "manufacturer": "ELYSION",
-        "rarity": "R"
-    },
-    {
-        "id": "c301",
-        "name": "Soldier FA",
-        "manufacturer": "ELYSION",
-        "rarity": "R"
-    },
-    {
-        "id": "c302",
-        "name": "Product 08",
-        "manufacturer": "MISSILIS",
-        "rarity": "R"
-    },
-    {
-        "id": "c303",
-        "name": "Product 12",
-        "manufacturer": "MISSILIS",
-        "rarity": "R"
-    },
-    {
-        "id": "c304",
-        "name": "iDoll Flower",
-        "manufacturer": "TETRA",
-        "rarity": "R"
-    },
-    {
-        "id": "c305",
-        "name": "iDoll Ocean",
-        "manufacturer": "TETRA",
-        "rarity": "R"
-    },
-    {
-        "id": "c306",
-        "name": "Soldier OW",
-        "manufacturer": "ELYSION",
-        "rarity": "R"
-    },
-    {
-        "id": "c307",
-        "name": "Product 23",
-        "manufacturer": "MISSILIS",
-        "rarity": "R"
-    },
-    {
-        "id": "c308",
-        "name": "iDoll Sun",
-        "manufacturer": "TETRA",
-        "rarity": "R"
-    },
-    {
-        "id": "c352",
-        "name": "Helm",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c432",
-        "name": "Aria",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c430",
-        "name": "Noise",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c431",
-        "name": "Volume",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c193",
-        "name": "Neve",
-        "manufacturer": "TETRA",
-        "rarity": "SR"
-    },
-    {
-        "id": "c203",
-        "name": "Rupee: Winter Shopper",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c121",
-        "name": "Anne: Miracle Fairy",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c402",
-        "name": "Quency",
-        "manufacturer": "MISSILIS",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c802",
-        "name": "Himeno",
-        "manufacturer": "ABNORMAL",
-        "rarity": "SR"
-    },
-    {
-        "id": "c801",
-        "name": "Power",
-        "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c800",
-        "name": "Makima",
-        "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c392",
-        "name": "Rei",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c132",
-        "name": "Mary: Bay Goddess",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c014",
         "name": "Neon: Blue Ocean",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c380",
-        "name": "Nero",
-        "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c350",
-        "name": "Mast",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-06-22"
     },
     {
         "id": "c015",
         "name": "Anis: Sparkling Summer",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c353",
-        "name": "Helm: Aquamarine",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-08-03"
     },
     {
         "id": "c016",
         "name": "Rapi: Red Hood",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-01-01"
     },
     {
         "id": "c017",
         "name": "Anis: Star",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-04-23"
     },
     {
         "id": "c018",
         "name": "Neon: Vision Eye",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-04-30"
+    },
+    {
+        "id": "c020",
+        "name": "Delta",
+        "manufacturer": "ELYSION",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c022",
+        "name": "Signal",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c023",
         "name": "Delta: Ninja Thief",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-10-16"
+    },
+    {
+        "id": "c030",
+        "name": "Poli",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c032",
+        "name": "Miranda",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c033",
         "name": "Quiry",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-10-19"
+    },
+    {
+        "id": "c040",
+        "name": "D",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2023-04-13"
+    },
+    {
+        "id": "c041",
+        "name": "K",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2025-05-29"
     },
     {
         "id": "c043",
         "name": "D: Killer Wife",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-03-07"
+    },
+    {
+        "id": "c060",
+        "name": "Belorta",
+        "manufacturer": "TETRA",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c061",
+        "name": "Mica",
+        "manufacturer": "TETRA",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c062",
         "name": "Mica: Snow Buddy",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-12-14"
     },
     {
         "id": "c063",
         "name": "Belorta: Pumpkin Witch",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-10-08"
+    },
+    {
+        "id": "c070",
+        "name": "Brid",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c071",
+        "name": "Soline",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c072",
+        "name": "Diesel",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c073",
         "name": "Brid: Silent Track",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-12-11"
     },
     {
         "id": "c074",
         "name": "Soline: Frost Ticket",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-11-20"
     },
     {
         "id": "c075",
         "name": "Diesel: Winter Sweets",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-12-04"
+    },
+    {
+        "id": "c080",
+        "name": "Centi",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c082",
+        "name": "Liter",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c090",
+        "name": "Emma",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c091",
+        "name": "Vesti",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c092",
+        "name": "Eunhwa",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c093",
         "name": "Emma: Tactical Upgrade",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-08-07"
     },
     {
         "id": "c094",
         "name": "Vesti: Tactical Upgrade",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-08-21"
     },
     {
         "id": "c095",
         "name": "Eunhwa: Tactical Upgrade",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-08-14"
+    },
+    {
+        "id": "c100",
+        "name": "Laplace",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-24"
+    },
+    {
+        "id": "c101",
+        "name": "Drake",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c102",
+        "name": "Maxwell",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c103",
         "name": "Laplace: Ultimate Hero",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-07-23"
     },
     {
         "id": "c104",
         "name": "Drake: Great Villain",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-09-03"
     },
     {
         "id": "c105",
         "name": "Maxwell: Ordinary Mechanic",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-07-30"
+    },
+    {
+        "id": "c110",
+        "name": "Crow",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c111",
+        "name": "Jackal",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2023-01-12"
+    },
+    {
+        "id": "c112",
+        "name": "Viper",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-01-19"
     },
     {
         "id": "c113",
         "name": "E.H.",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-03-05"
+    },
+    {
+        "id": "c120",
+        "name": "N102",
+        "manufacturer": "MISSILIS",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c121",
+        "name": "Anne: Miracle Fairy",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-12-15"
+    },
+    {
+        "id": "c130",
+        "name": "Mary",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c131",
+        "name": "Pepper",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c132",
+        "name": "Mary: Bay Goddess",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-06-15"
+    },
+    {
+        "id": "c140",
+        "name": "Sugar",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c141",
+        "name": "Milk",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c142",
+        "name": "Frima",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c143",
         "name": "Milk: Blooming Bunny",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-09-11"
+    },
+    {
+        "id": "c150",
+        "name": "Julia",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c160",
+        "name": "Yuni",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c161",
+        "name": "Mihara",
+        "manufacturer": "MISSILIS",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c162",
         "name": "Mihara: Bonding Chain",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-05-01"
+    },
+    {
+        "id": "c170",
+        "name": "Privaty",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c171",
+        "name": "Yulha",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c172",
+        "name": "Admi",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c180",
+        "name": "Guillotine",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c181",
+        "name": "Maiden",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c182",
         "name": "Guillotine: Winter Slayer",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-12-12"
     },
     {
         "id": "c183",
         "name": "Maiden: Ice Rose",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-12-05"
+    },
+    {
+        "id": "c190",
+        "name": "Ludmilla",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c191",
+        "name": "Alice",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c192",
         "name": "Tove",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-11-23"
+    },
+    {
+        "id": "c193",
+        "name": "Neve",
+        "manufacturer": "TETRA",
+        "rarity": "SR",
+        "release_date": "2022-12-08"
     },
     {
         "id": "c194",
         "name": "Ludmilla: Winter Owner",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-12-07"
     },
     {
         "id": "c195",
         "name": "Alice: Wonderland Bunny",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-06-06"
+    },
+    {
+        "id": "c200",
+        "name": "Rupee",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c201",
+        "name": "Yan",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c202",
+        "name": "Dolla",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c203",
+        "name": "Rupee: Winter Shopper",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-12-08"
+    },
+    {
+        "id": "c210",
+        "name": "Exia",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c212",
+        "name": "Novel",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c220",
+        "name": "Snow White",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c221",
+        "name": "Rapunzel",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c222",
+        "name": "Scarlet",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c223",
         "name": "Nayuta",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-10-30"
     },
     {
         "id": "c224",
         "name": "Snow White: Innocent Days",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-11-02"
     },
     {
         "id": "c225",
         "name": "Scarlet: Black Shadow",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-01-01"
     },
     {
         "id": "c226",
         "name": "Rapunzel: Pure Grace",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-10-31"
+    },
+    {
+        "id": "c227",
+        "name": "Pinocchio",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c230",
+        "name": "Harran",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c231",
+        "name": "Isabel",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c232",
+        "name": "Noah",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c233",
+        "name": "Dorothy",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2023-04-27"
     },
     {
         "id": "c234",
         "name": "Dorothy: Serendipity",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-07-17"
+    },
+    {
+        "id": "c240",
+        "name": "Rumani",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2024-10-17"
+    },
+    {
+        "id": "c241",
+        "name": "Epinel",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c242",
+        "name": "Folkwang",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c250",
+        "name": "Mass Produced Red",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c251",
+        "name": "Mass Produced Blue",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c252",
+        "name": "Mass Produced Orange",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c253",
+        "name": "Mass Produced Green",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c254",
+        "name": "Mass Produced Purple",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c255",
+        "name": "Mass Produced White",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c260",
+        "name": "Modernia",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2023-01-01"
+    },
+    {
+        "id": "c261",
+        "name": "Nihilister",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2023-03-30"
+    },
+    {
+        "id": "c262",
+        "name": "Liberalio",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2025-11-06"
+    },
+    {
+        "id": "c263",
+        "name": "Indivilia",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c270",
+        "name": "Blanc",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-05-18"
+    },
+    {
+        "id": "c271",
+        "name": "Noir",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-05-25"
+    },
+    {
+        "id": "c272",
+        "name": "Rouge",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2024-09-19"
+    },
+    {
+        "id": "c280",
+        "name": "Rosanna",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-06-01"
+    },
+    {
+        "id": "c281",
+        "name": "Moran",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2024-01-25"
+    },
+    {
+        "id": "c282",
+        "name": "Sakura",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-03-30"
     },
     {
         "id": "c283",
         "name": "Rosanna: Chic Ocean",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-07-11"
     },
     {
         "id": "c284",
         "name": "Sakura: Bloom in Summer",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-07-04"
+    },
+    {
+        "id": "c290",
+        "name": "Mana",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2025-01-16"
+    },
+    {
+        "id": "c291",
+        "name": "Ether",
+        "manufacturer": "MISSILIS",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c300",
+        "name": "Soldier EG",
+        "manufacturer": "ELYSION",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c301",
+        "name": "Soldier FA",
+        "manufacturer": "ELYSION",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c302",
+        "name": "Product 08",
+        "manufacturer": "MISSILIS",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c303",
+        "name": "Product 12",
+        "manufacturer": "MISSILIS",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c304",
+        "name": "iDoll Flower",
+        "manufacturer": "TETRA",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c305",
+        "name": "iDoll Ocean",
+        "manufacturer": "TETRA",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c306",
+        "name": "Soldier OW",
+        "manufacturer": "ELYSION",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c307",
+        "name": "Product 23",
+        "manufacturer": "MISSILIS",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c308",
+        "name": "iDoll Sun",
+        "manufacturer": "TETRA",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c310",
+        "name": "Ade",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2024-02-15"
+    },
+    {
+        "id": "c311",
+        "name": "Cocoa",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-02-01"
+    },
+    {
+        "id": "c312",
+        "name": "Soda",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-02-01"
     },
     {
         "id": "c313",
         "name": "Privaty: Unkind Maid",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-02-05"
     },
     {
         "id": "c314",
         "name": "Soda: Twinkling Bunny",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-05-30"
     },
     {
         "id": "c315",
         "name": "Ade: Agent Bunny",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-09-04"
     },
     {
         "id": "c316",
         "name": "Velvet",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-01-29"
+    },
+    {
+        "id": "c321",
+        "name": "Marciana",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2023-09-21"
     },
     {
         "id": "c322",
         "name": "Marciana: Marine Study",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-07-09"
     },
     {
         "id": "c330",
         "name": "Crown",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-04-25"
+    },
+    {
+        "id": "c331",
+        "name": "Chime",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2025-10-30"
+    },
+    {
+        "id": "c350",
+        "name": "Mast",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2023-07-20"
+    },
+    {
+        "id": "c351",
+        "name": "Anchor",
+        "manufacturer": "ELYSION",
+        "rarity": "SR",
+        "release_date": "2023-08-03"
+    },
+    {
+        "id": "c352",
+        "name": "Helm",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2022-11-10"
+    },
+    {
+        "id": "c353",
+        "name": "Helm: Aquamarine",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2023-08-10"
     },
     {
         "id": "c354",
         "name": "Mast: Romantic Maid",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-01-30"
     },
     {
         "id": "c355",
         "name": "Anchor: Innocent Maid",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-02-06"
+    },
+    {
+        "id": "c361",
+        "name": "Kilo",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2024-04-25"
+    },
+    {
+        "id": "c370",
+        "name": "Eternity",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c371",
+        "name": "Endless",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": null
+    },
+    {
+        "id": "c380",
+        "name": "Nero",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-07-06"
+    },
+    {
+        "id": "c381",
+        "name": "Biscuit",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-03-15"
     },
     {
         "id": "c382",
         "name": "Leona",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-01-11"
     },
     {
         "id": "c390",
         "name": "Zwei",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-08-08"
     },
     {
         "id": "c391",
         "name": "Ein",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-07-25"
+    },
+    {
+        "id": "c392",
+        "name": "Rei",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2023-04-27"
+    },
+    {
+        "id": "c400",
+        "name": "Guilty",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2023-01-12"
+    },
+    {
+        "id": "c401",
+        "name": "Sin",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2023-01-12"
+    },
+    {
+        "id": "c402",
+        "name": "Quency",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2023-01-12"
     },
     {
         "id": "c403",
         "name": "Quency: Escape Queen",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-10-03"
     },
     {
         "id": "c404",
         "name": "Guilty: Mighty Bunny",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-09-17"
     },
     {
         "id": "c405",
         "name": "Sin: Swift Bunny",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-09-24"
     },
     {
         "id": "c411",
         "name": "Flora",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-11-21"
     },
     {
         "id": "c412",
         "name": "Trina",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-03-13"
+    },
+    {
+        "id": "c430",
+        "name": "Noise",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c431",
+        "name": "Volume",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c432",
+        "name": "Aria",
+        "manufacturer": "TETRA",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c440",
+        "name": "Eyeri",
+        "manufacturer": "ELYSION",
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c441",
         "name": "Avistar",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-04-23"
     },
     {
         "id": "c450",
         "name": "Naga",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-10-05"
     },
     {
         "id": "c451",
         "name": "Tia",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-10-12"
     },
     {
         "id": "c470",
         "name": "Red Hood",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-11-02"
     },
     {
         "id": "c471",
         "name": "Snow White: Heavy Arms",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-01-01"
+    },
+    {
+        "id": "c472",
+        "name": "Scarlet",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c473",
+        "name": "Rapunzel",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c480",
+        "name": "Liveryn",
+        "manufacturer": "ELYSION",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c481",
+        "name": "Fragile",
+        "manufacturer": "ELYSION",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c482",
+        "name": "Logey",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c490",
+        "name": "Hammering",
+        "manufacturer": "ELYSION",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c491",
+        "name": "Drilley",
+        "manufacturer": "{{manufacturer",
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c500",
         "name": "Elegg",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-02-22"
     },
     {
         "id": "c501",
         "name": "Trony",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-05-16"
     },
     {
         "id": "c502",
         "name": "Elegg: Boom and Shock",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-07-24"
+    },
+    {
+        "id": "c510",
+        "name": "Grave",
+        "manufacturer": "PILGRIM",
+        "rarity": "SSR",
+        "release_date": "2024-11-07"
     },
     {
         "id": "c511",
         "name": "Cinderella",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-10-31"
     },
     {
         "id": "c513",
         "name": "Little Mermaid",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-04-24"
     },
     {
         "id": "c514",
         "name": "Grave",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-11-07"
     },
     {
         "id": "c515",
         "name": "Cinderella: Crystal Wave",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-07-02"
     },
     {
         "id": "c520",
         "name": "Bready",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-03-27"
     },
     {
         "id": "c521",
         "name": "Crust",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-04-10"
+    },
+    {
+        "id": "c530",
+        "name": "Sky",
+        "manufacturer": "ELYSION",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c531",
+        "name": "Cielo",
+        "manufacturer": "ELYSION",
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c532",
         "name": "Sora",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-07-03"
     },
     {
         "id": "c550",
         "name": "Bay",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-04-11"
     },
     {
         "id": "c551",
         "name": "Clay",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-06-20"
+    },
+    {
+        "id": "c560",
+        "name": "Behemoth",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c561",
+        "name": "Ziz",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c562",
+        "name": "Leviathan",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c563",
+        "name": "Bahamut",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c570",
         "name": "Ark Ranger Black",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-06-11"
+    },
+    {
+        "id": "c571",
+        "name": "Ark Ranger Red",
+        "manufacturer": "TETRA",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c572",
+        "name": "Ark Ranger Blue",
+        "manufacturer": "TETRA",
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c580",
         "name": "Phantom",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-10-10"
     },
     {
         "id": "c581",
         "name": "Arcana",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-05-15"
     },
     {
         "id": "c582",
         "name": "Label",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-01-15"
     },
     {
         "id": "c583",
         "name": "Arcana: Fortune Mate",
         "manufacturer": "ELYSION",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-03-19"
+    },
+    {
+        "id": "c590",
+        "name": "Mori",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2025-04-24"
     },
     {
         "id": "c600",
         "name": "Mint",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-05-14"
     },
     {
         "id": "c601",
         "name": "Prika",
         "manufacturer": "TETRA",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-05-28"
+    },
+    {
+        "id": "c610",
+        "name": "Mekami Shifty",
+        "manufacturer": null,
+        "rarity": "R",
+        "release_date": "2026-04-01"
     },
     {
         "id": "c620",
         "name": "Snow Crane",
         "manufacturer": "MISSILIS",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-04-09"
+    },
+    {
+        "id": "c800",
+        "name": "Makima",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR",
+        "release_date": "2023-02-22"
+    },
+    {
+        "id": "c801",
+        "name": "Power",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR",
+        "release_date": "2023-02-22"
+    },
+    {
+        "id": "c802",
+        "name": "Himeno",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR",
+        "release_date": "2023-02-22"
+    },
+    {
+        "id": "c803",
+        "name": "Denji",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c804",
+        "name": "Aki Hayakawa",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c810",
         "name": "2B",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-09-01"
     },
     {
         "id": "c811",
         "name": "A2",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2023-09-08"
+    },
+    {
+        "id": "c812",
+        "name": "Pascal",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR",
+        "release_date": "2023-09-01"
+    },
+    {
+        "id": "c813",
+        "name": "9S",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c820",
         "name": "Rem",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-03-28"
     },
     {
         "id": "c821",
         "name": "Emilia",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-03-21"
+    },
+    {
+        "id": "c822",
+        "name": "Ram",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR",
+        "release_date": "2024-03-21"
     },
     {
         "id": "c830",
-        "name": "Asuka",
+        "name": "Asuka Shikinami Langley",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-08-22"
     },
     {
         "id": "c831",
         "name": "Rei Ayanami",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-08-29"
     },
     {
         "id": "c832",
-        "name": "Mari",
+        "name": "Mari Makinami Illustrious",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2024-09-05"
+    },
+    {
+        "id": "c833",
+        "name": "Misato Katsuragi",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SR",
+        "release_date": "2024-08-22"
     },
     {
         "id": "c834",
         "name": "Rei Ayanami (Tentative Name)",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-02-27"
     },
     {
         "id": "c835",
         "name": "Asuka: WILLE",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-02-20"
+    },
+    {
+        "id": "c836",
+        "name": "Sakura",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c840",
-        "name": "Ada",
+        "name": "Ada Wong",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-09-24"
     },
     {
         "id": "c841",
-        "name": "Jill",
+        "name": "Jill Valentine",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-10-02"
     },
     {
         "id": "c842",
-        "name": "Claire",
+        "name": "Claire Redfield",
         "manufacturer": "ABNORMAL",
-        "rarity": "SR"
+        "rarity": "SR",
+        "release_date": "2025-09-24"
     },
     {
         "id": "c850",
         "name": "EVE",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-06-12"
     },
     {
         "id": "c851",
         "name": "Raven",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2025-06-19"
     },
     {
         "id": "c852",
         "name": "Lily",
         "manufacturer": "ABNORMAL",
-        "rarity": "SR"
+        "rarity": "SR",
+        "release_date": "2025-06-12"
+    },
+    {
+        "id": "c853",
+        "name": "Adam",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c860",
-        "name": "Chisato",
+        "name": "Chisato Nishikigi",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-02-12"
     },
     {
         "id": "c861",
-        "name": "Takina",
+        "name": "Takina Inoue",
         "manufacturer": "ABNORMAL",
-        "rarity": "SSR"
+        "rarity": "SSR",
+        "release_date": "2026-02-19"
     },
     {
         "id": "c862",
         "name": "Kurumi",
         "manufacturer": "ABNORMAL",
-        "rarity": "SR"
+        "rarity": "SR",
+        "release_date": "2026-02-12"
+    },
+    {
+        "id": "c870",
+        "name": "Queen (Makoto Niijima)",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR",
+        "release_date": "2026-08-13"
+    },
+    {
+        "id": "c871",
+        "name": "Yukiko Amagi",
+        "manufacturer": "ABNORMAL",
+        "rarity": "SSR",
+        "release_date": "2026-08-20"
     },
     {
         "id": "c872",
         "name": "Aigis",
         "manufacturer": "ABNORMAL",
-        "rarity": "SR"
+        "rarity": "SR",
+        "release_date": "2026-08-13"
+    },
+    {
+        "id": "c900",
+        "name": "Ingrid",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c901",
         "name": "Syuen",
         "manufacturer": "MISSILIS",
-        "rarity": "R"
+        "rarity": "R",
+        "release_date": "2024-04-01"
+    },
+    {
+        "id": "c902",
+        "name": "Mustang",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c903",
+        "name": "Andersen",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c904",
+        "name": "Enikk",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c905",
+        "name": "Rian",
+        "manufacturer": "MISSILIS",
+        "rarity": null,
+        "release_date": null
     },
     {
         "id": "c907",
         "name": "Shifty",
         "manufacturer": "ELYSION",
-        "rarity": "R"
+        "rarity": "R",
+        "release_date": "2023-04-01"
+    },
+    {
+        "id": "c908",
+        "name": "Papillon",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c910",
+        "name": "Hologram",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c911",
+        "name": "Faceless Man",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c912",
+        "name": "Faceless Woman",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c914",
+        "name": "Burningum",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c915",
+        "name": "Raptilion",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c916",
+        "name": "Faceless NPC 1",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c917",
+        "name": "Faceless NPC 2",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c918",
+        "name": "Faceless NPC 3",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c919",
+        "name": "Faceless NPC 4",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c920",
+        "name": "Faceless NPC 5",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c921",
+        "name": "Faceless NPC 6",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c922",
+        "name": "Faceless NPC 7",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c923",
+        "name": "Faceless NPC 8",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c924",
+        "name": "Faceless NPC 9",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c925",
+        "name": "Johan",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c928",
+        "name": "Einkk",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c929",
+        "name": "Cecil",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c930",
+        "name": "Beatrice",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c931",
+        "name": "Collection Robot",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c932",
+        "name": "Bolt Junior",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c933",
+        "name": "Bolt",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c934",
+        "name": "Angelina",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c935",
+        "name": "Joseph",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c936",
+        "name": "Max",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c937",
+        "name": "Booboo",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c939",
+        "name": "Doban",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c940",
+        "name": "E.H.",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2026-03-05"
+    },
+    {
+        "id": "c941",
+        "name": "Pinne",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c942",
+        "name": "Commander (GODDESS)",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c943",
+        "name": "Liliweiss",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c945",
+        "name": "Katie",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c946",
+        "name": "Ruru",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c947",
+        "name": "Faceless NPC 10",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c948",
+        "name": "Faceless NPC 11",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c951",
+        "name": "Faceless NPC 12",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c952",
+        "name": "Faceless NPC 13",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c960",
+        "name": "Freesia",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c961",
+        "name": "Oswald",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c962",
+        "name": "Product 12",
+        "manufacturer": "MISSILIS",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c963",
+        "name": "Product 12",
+        "manufacturer": "MISSILIS",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c964",
+        "name": "Product 12",
+        "manufacturer": "MISSILIS",
+        "rarity": "R",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c967",
+        "name": "Ghost - Lumi",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c968",
+        "name": "Ghost - Lua",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c969",
+        "name": "Ghost - Lena",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c970",
+        "name": "Lumi",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c971",
+        "name": "Rose",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c973",
+        "name": "Jien",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c974",
+        "name": "Mass Produced Melee",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c975",
+        "name": "Timi",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c976",
+        "name": "Trony",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2024-05-16"
+    },
+    {
+        "id": "c977",
+        "name": "Kilo",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2024-04-25"
+    },
+    {
+        "id": "c979",
+        "name": "Abe",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c980",
+        "name": "Hansel",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c981",
+        "name": "Gretel",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c982",
+        "name": "Red Shoes",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c983",
+        "name": "Nadia",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c985",
+        "name": "Yuni",
+        "manufacturer": "MISSILIS",
+        "rarity": "SSR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c988",
+        "name": "Chloe - Village Guardian",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c989",
+        "name": "Rapi",
+        "manufacturer": "ELYSION",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c990",
+        "name": "Rapi",
+        "manufacturer": "ELYSION",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c991",
+        "name": "D",
+        "manufacturer": "ELYSION",
+        "rarity": "SSR",
+        "release_date": "2023-04-13"
+    },
+    {
+        "id": "c992",
+        "name": "Rapi",
+        "manufacturer": "ELYSION",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
     },
     {
         "id": "c993",
         "name": "Mecha Shifty",
         "manufacturer": "ELYSION",
-        "rarity": "R"
+        "rarity": "R",
+        "release_date": "2025-04-01"
+    },
+    {
+        "id": "c994",
+        "name": "Rapi",
+        "manufacturer": "ELYSION",
+        "rarity": "SR",
+        "release_date": "2022-11-04"
+    },
+    {
+        "id": "c996",
+        "name": "Leviathan",
+        "manufacturer": "PILGRIM",
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c997",
+        "name": "Only One",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
+    },
+    {
+        "id": "c998",
+        "name": "Hermin",
+        "manufacturer": null,
+        "rarity": null,
+        "release_date": null
     }
 ]
