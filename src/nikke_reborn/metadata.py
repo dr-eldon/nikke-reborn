@@ -1,5 +1,6 @@
 RARITIES = [
     "Common",
+    "Clean",
     "Rare",
     "Special",
     "Idle",
@@ -61,6 +62,7 @@ def expansion(set, cards) -> dict:
 
 def pack(set) -> dict:
     def slot(
+        clean,
         rare,
         special=0,
         idle=0,
@@ -72,6 +74,7 @@ def pack(set) -> dict:
     ) -> dict:
         return {
             "Common": 100
+            - clean
             - rare
             - special
             - idle
@@ -80,6 +83,7 @@ def pack(set) -> dict:
             - exotic
             - goddess
             - classified,
+            "Clean": clean,
             "Rare": rare,
             "Special": special,
             "Idle": idle,
@@ -90,17 +94,19 @@ def pack(set) -> dict:
             "Classified": classified,
         }
 
-    common = slot(rare=1)
+    common = slot(clean=1, rare=0.5)
 
     uncommon = slot(
-        rare=4,
+        clean=4,
+        rare=1,
         special=1.5,
         aim=0.01,
         cover=0.01,
     )
 
     rare = slot(
-        rare=8,
+        clean=8,
+        rare=4,
         special=2,
         idle=1,
         aim=0.1,
@@ -178,9 +184,10 @@ def card(name, variant, rarity, sprite) -> dict:
 
     VARIANT_BORDER = {
         "Common": 0,
-        "Rare": 0,
+        "Clean": 1,
+        "Rare": 1,
         "Special": 1,
-        "Idle": 4,
+        "Idle": 2,
         "Aim": 2,
         "Cover": 2,
         "Exotic": 3,
