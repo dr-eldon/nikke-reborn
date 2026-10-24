@@ -95,7 +95,7 @@ from pathlib import Path
 from typing import Iterator
 from nikke_reborn import bundler, metadata
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from PIL.PngImagePlugin import PngInfo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -124,6 +124,22 @@ DEFAULT_FRAMERATE = 60
 #: Variant stems that never carry the card name: the ``Goddess`` and
 #: ``Classified`` presentations are generated without title and subtitle.
 NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
+
+# --- the Common presentation --------------------------------------------
+# The ``Common`` card is derived from a card's ``Clean`` definition (there is
+# no ``Common.json`` on disk): the background is diluted with its own dominant
+# tint, the card mask is composited on top, and the character is rendered with
+# the viewer's ``--full-body`` flag (the full body, ignoring the Clean
+# definition's pan/zoom). The name, subtitle and logo overlays are applied as
+# usual, like the other rarities. Everything is composited in memory — no
+# intermediate frame touches the disk; only the finished card is written
+# (atomically).
+#: The ``Common`` card's mask (composited over the diluted background, under
+#: the character), next to its GIMP source.
+COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
+#: Opacity of the dominant-tint layer laid over the background: 0.8 dilutes
+#: the background toward a flat wash of its own main color.
+COMMON_TINT_OPACITY = 0.8
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -304,18 +320,32 @@ def generate() -> None:
     args = _parse_args()
     draft = args.draft
     out_dir = DRAFT_DIR if draft else OUTPUT_DIR
+    preset = DRAFT_PRESET if draft else DEFAULT_PRESET
+    scale = DRAFT_SCALE if draft else DEFAULT_SCALE
+    # --- TEMPORARY ITERATION SCOPE --------------------------------------
+    # For now, generate every variant of ``ELYSION/0001`` — its new
+    # ``Common`` card, derived from its ``Clean`` variant (rendered by
+    # :func:`_generate_common`), plus its regular variants (rendered by
+    # :func:`_generate_variants`) — so the Common recipe can be iterated
+    # quickly against the rest of the card. To lift the scope to every card
+    # (and their ``Common`` derivatives) plus each pack's artwork and the
+    # metadata bundles, replace this with:
+    #     _generate_common(None, args.jobs, preset, scale, out_dir)
+    #     _generate_variants(args.paths, args.jobs, preset, scale, out_dir)
+    #     _write_metadata(out_dir)
+    scope = sorted((CARDS_DIR / "ELYSION" / "0001_Rapi").glob("*.json"))
     try:
-        _generate(
-            args.paths,
-            args.jobs,
-            DRAFT_PRESET if draft else DEFAULT_PRESET,
-            DRAFT_SCALE if draft else DEFAULT_SCALE,
-            out_dir,
-        )
+        _generate_common(scope, args.jobs, preset, scale, out_dir)
+        _generate_variants(scope, args.jobs, preset, scale, out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+
+def _write_metadata(out_dir: Path) -> None:
+    """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
+    set's shared assets (foilmask, cardback, box mesh, shop images) to
+    ``<out>/<set>/``."""
     characters = json.load((DATABASE_DIR / "characters.json").open())
     characters = {character["id"]: character for character in characters}
 
@@ -450,6 +480,17 @@ def _source_hash(json_path: Path) -> str:
     """SHA-256 of the card definition file: the input the finished
     card embeds under :data:`SOURCE_HASH_KEY`."""
     return hashlib.sha256(json_path.read_bytes()).hexdigest()
+
+
+def _common_source_hash(clean_path: Path) -> str:
+    """SHA-256 of the ``Common`` card's inputs — the ``Clean`` definition it
+    is derived from and the card mask (the two files its pixels depend on).
+    Embedded under :data:`SOURCE_HASH_KEY` so an unchanged ``Common`` card is
+    skipped instead of re-rendered."""
+    digest = hashlib.sha256()
+    digest.update(clean_path.read_bytes())
+    digest.update(COMMON_MASK_PATH.read_bytes())
+    return digest.hexdigest()
 
 
 def _stored_hash(out_path: Path) -> str | None:
@@ -739,6 +780,34 @@ def _fit_background(background: Image.Image, size: tuple[int, int]) -> Image.Ima
     left = (background.width - width) // 2
     top = (background.height - height) // 2
     return background.crop((left, top, left + width, top + height)).convert("RGBA")
+
+
+def _dominant_color(image: Image.Image) -> tuple[int, int, int]:
+    """The main color tint of *image*: its mean RGB, sampled on a small
+    downscale so a busy background still yields a stable representative
+    tint."""
+    small = image.convert("RGB").resize((32, 32))
+    return tuple(round(channel) for channel in ImageStat.Stat(small).mean)
+
+
+def _common_base(background: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """The ``Common`` card's base, composed in memory: the (fitted)
+    *background* diluted with its own dominant tint (at
+    :data:`COMMON_TINT_OPACITY`), with the ``Common`` card mask
+    (:data:`COMMON_MASK_PATH`) composited on top. Nothing touches the disk."""
+    base = _fit_background(background, size)
+    tint = Image.new(
+        "RGBA",
+        base.size,
+        (*_dominant_color(base), round(COMMON_TINT_OPACITY * 255)),
+    )
+    base = Image.alpha_composite(base, tint)
+    with Image.open(COMMON_MASK_PATH) as opened:
+        mask = opened.convert("RGBA")
+    if mask.size != base.size:
+        mask = mask.resize(base.size, Image.Resampling.LANCZOS)
+    base.alpha_composite(mask)
+    return base
 
 
 def _scale_logo(logo: Image.Image, card_width: int) -> Image.Image:
@@ -1308,9 +1377,20 @@ def _render_and_finish(
     scale: float,
     out_base: Path,
     source_hash: str,
+    base: Image.Image | None = None,
+    render_path: Path | None = None,
+    stem: str | None = None,
+    full_body: bool = False,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render *json_path* via the viewer's ``--stdout`` raw stream and write
     the final PNG, or the MP4 alongside its first frame as a PNG.
+
+    *base* overrides the composited-over background (defaults to
+    ``_fit_background(background, size)``); *render_path* is the config the
+    viewer reads (defaults to *json_path* itself); *stem* overrides the
+    variant in the output filename (defaults to the definition's stem);
+    *full_body* passes the viewer's ``--full-body`` flag, which ignores the
+    config's pan/zoom to render the full body (the ``Common`` card).
 
     Nothing intermediate touches the disk: the viewer's raw RGBA frames are
     piped straight into the in-memory compositing and (for animations) the
@@ -1331,7 +1411,12 @@ def _render_and_finish(
     the viewer itself; for the viewer's own cost, run it with its stdout
     redirected to /dev/null.
     """
-    base = _fit_background(background, size)
+    if base is None:
+        base = _fit_background(background, size)
+    if render_path is None:
+        render_path = json_path
+    if stem is None:
+        stem = json_path.stem
     # The logo and copyright line sit on top of the art, not under it:
     # pre-stamp them onto a transparent layer and let _stream_composited
     # apply it to each frame after the art is composited over the
@@ -1345,11 +1430,17 @@ def _render_and_finish(
     stream_end: list[float] = [0.0]
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
-    # files). stderr is drained in a thread so it never blocks the viewer.
+    # files). --full-body, when set, ignores the config's pan/zoom and
+    # renders the full body. stderr is drained in a thread so it never
+    # blocks the viewer.
     render_started = time.perf_counter()
+    viewer_args = [VIEWER]
+    if full_body:
+        viewer_args.append("--full-body")
+    viewer_args += ["--stdout", str(render_path)]
     try:
         viewer = subprocess.Popen(
-            [VIEWER, "--stdout", str(json_path)],
+            viewer_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -1373,7 +1464,9 @@ def _render_and_finish(
         stream_end,
     )
 
-    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
+    out_path = _card_out_path(
+        out_base, json_path, "mp4" if animated else "png", stem
+    )
     try:
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
@@ -1403,7 +1496,7 @@ def _render_and_finish(
             # exactly).
             _save_atomic(
                 first_frame[0].convert("RGB"),
-                _card_out_path(out_base, json_path, "png"),
+                _card_out_path(out_base, json_path, "png", stem),
                 source_hash,
             )
         else:
@@ -1431,17 +1524,26 @@ def _render_and_finish(
     }
 
 
-def _card_out_path(out_base: Path, json_path: Path, suffix: str) -> Path:
+def _card_out_path(
+    out_base: Path, json_path: Path, suffix: str, stem: str | None = None
+) -> Path:
     """The flat output path for a card definition: the card's
     directory is folded into the filename, so
     ``cards/<set>/<card>/<variant>.json`` renders to
     ``<out_base>/<set>/<card>_<variant>.<suffix>`` (deeper nesting,
-    if ever used, is folded the same way, one dash per directory)."""
+    if ever used, is folded the same way, one dash per directory).
+
+    *stem* overrides the variant in the filename (defaults to the
+    definition's own stem); the ``Common`` card, derived from a
+    ``Clean.json``, writes out as ``<card>_Common.<suffix>``.
+    """
+    if stem is None:
+        stem = json_path.stem
     card_rel = json_path.parent.relative_to(CARDS_DIR)
     return (
         out_base
         / card_rel.parts[0]
-        / f"{'_'.join(card_rel.parts[1:])}_{json_path.stem}.{suffix}"
+        / f"{'_'.join(card_rel.parts[1:])}_{stem}.{suffix}"
     )
 
 
@@ -1551,6 +1653,126 @@ def _process_card(
                 ) from exc
             print(
                 f"    ! {json_path.name}: {exc}; re-rendering "
+                f"(attempt {attempt}/{RENDER_ATTEMPTS})",
+                flush=True,
+            )
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _process_common_card(
+    json_path: Path,
+    ffmpeg_threads: int = 1,
+    composite_workers: int = 4,
+    preset: str = DEFAULT_PRESET,
+    scale: float = DEFAULT_SCALE,
+    out_base: Path = OUTPUT_DIR,
+) -> tuple[Path, bool]:
+    """Render the ``Common`` card derived from *json_path* (a ``Clean``
+    definition): its background is diluted with its dominant tint, the card
+    mask is composited on top, and the character is rendered with the
+    viewer's ``--full-body`` flag (the full body). The name, subtitle and
+    logo overlays are applied as usual, like the other rarities.
+
+    Everything is composited in memory — the viewer's raw frames stream
+    straight into the pipeline and nothing intermediate touches the disk
+    (only the finished card is written). Returns ``(out_path, skipped,
+    timings)`` like :func:`_process_card` (written out as
+    ``<card>_Common.<suffix>``).
+    """
+    total_started = time.perf_counter()
+    json_path = json_path.resolve()
+    card = _load_card(json_path)
+    background = Image.open(_background_path(card, json_path)).convert("RGBA")
+
+    # The Common presentation always carries the black logo and black
+    # copyright — the Common card's white mask would wash out the white
+    # versions — while the name stays white, as the other rarities.
+    logo_path = LOGO_PATHS[True]
+    if not logo_path.is_file():
+        raise GenerationError(f"logo not found: {logo_path}")
+    logo = Image.open(logo_path).convert("RGBA")
+    if not FONT.is_file():
+        raise GenerationError(f"font not found: {FONT}")
+    if not FONT_NAME.is_file():
+        raise GenerationError(f"font not found: {FONT_NAME}")
+    # The Common presentation carries the card name, as the other rarities do
+    # (the Clean definition is never nameless).
+    if "title" not in card:
+        raise GenerationError(f"{json_path.name}: missing 'title'")
+    name = str(card["title"])
+    subtitle = str(card.get("subtitle", ""))
+    padding = card["padding"]
+    margin = round(LOGO_PADDING_FACTOR * padding)
+    copyright_color = (0, 0, 0, 255)
+    framerate = card["framerate"] or DEFAULT_FRAMERATE
+
+    viewport = card.get("viewport")
+    if not viewport:
+        raise GenerationError(
+            f"{json_path.name}: missing 'viewport' (needed to size the raw "
+            f"frames streamed by {VIEWER} --stdout)"
+        )
+    size = (int(viewport[0]), int(viewport[1]))
+
+    # A definition without a `time` renders an animation (mp4) plus its first
+    # frame (png); one with a `time` renders a single frame (png).
+    animated = card.get("time") is None
+    stem = "Common"
+    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
+    source_hash = _common_source_hash(json_path)
+    up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
+    if up_to_date and animated:
+        # The animation's first frame is kept alongside it; a missing or
+        # stale copy forces the card to be re-rendered.
+        first_frame_path = _card_out_path(out_base, json_path, "png", stem)
+        up_to_date = (
+            first_frame_path.is_file() and _stored_hash(first_frame_path) == source_hash
+        )
+    if up_to_date:
+        # The Clean definition and the mask are unchanged since the card was
+        # written: skip the render.
+        return out_path, True, None
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # The diluted, masked base is prepared once, ahead of the render (a
+    # failure at any stage re-renders from scratch, up to RENDER_ATTEMPTS
+    # times; the viewer's --full-body flag renders the full body directly,
+    # so nothing intermediate is written to disk in between).
+    base = _common_base(background, size)
+    for attempt in range(1, RENDER_ATTEMPTS + 1):
+        try:
+            finished, timings = _render_and_finish(
+                json_path,
+                size,
+                animated,
+                background,
+                logo,
+                margin,
+                padding,
+                copyright_color,
+                name,
+                subtitle,
+                framerate,
+                ffmpeg_threads,
+                composite_workers,
+                preset,
+                scale,
+                out_base,
+                source_hash,
+                base=base,
+                stem=stem,
+                full_body=True,
+            )
+            timings["total"] = time.perf_counter() - total_started
+            return finished, False, timings
+        except Exception as exc:
+            if attempt >= RENDER_ATTEMPTS:
+                raise GenerationError(
+                    f"render of {json_path.name} (Common) still failing after "
+                    f"{RENDER_ATTEMPTS} attempts: {exc}"
+                ) from exc
+            print(
+                f"    ! {json_path.name} (Common): {exc}; re-rendering "
                 f"(attempt {attempt}/{RENDER_ATTEMPTS})",
                 flush=True,
             )
@@ -1998,7 +2220,110 @@ def _timings_suffix(timings: dict[str, float | None] | None) -> str:
     return f" ({', '.join(parts)})" if parts else ""
 
 
-def _generate(
+def _generate_common(
+    paths: list[Path] | None,
+    jobs: int,
+    preset: str,
+    scale: float,
+    out_base: Path,
+) -> None:
+    """Render the ``Common`` cards derived from the selection's ``Clean``
+    definitions, in a pool of worker processes.
+
+    *paths* is passed to :func:`_find_card_configs` (a ``None`` selects every
+    card definition); from the result only the ``Clean.json`` variants are
+    kept — each one has a ``Common`` card derived from it (see
+    :func:`_process_common_card`). No pack artwork or metadata is produced.
+    """
+    _require_executable(VIEWER)
+    _require_executable(ENCODER)
+    _require_executable(PROBER)
+    clean_configs = [path for path in _find_card_configs(paths) if path.stem == "Clean"]
+    if not clean_configs:
+        raise GenerationError("no Clean.json to derive a Common card from")
+    start = time.monotonic()
+    total = len(clean_configs)
+    # Split the cores available to each card between the stages that run in
+    # parallel: the frame compositing and the ffmpeg encode.
+    per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
+    ffmpeg_threads = max(2, min(MAX_STAGE_THREADS, per_card // 2))
+    composite_workers = max(2, min(MAX_STAGE_THREADS, per_card - ffmpeg_threads))
+    notes = []
+    if preset != DEFAULT_PRESET:
+        notes.append(f"x264 preset '{preset}'")
+    if scale != 1.0:
+        notes.append(f"{scale:g}x resolution")
+    notes_text = f", {', '.join(notes)} (draft)" if notes else ""
+    print(
+        f"Rendering {total} Common card(s) (derived from Clean) "
+        f"with {jobs} worker(s){notes_text} ..."
+    )
+    for path in clean_configs:
+        print(f"  - {path.relative_to(REPO_ROOT)}")
+
+    failures: list[tuple[Path, Exception]] = []
+    done = 0
+    skipped = 0
+    with ProcessPoolExecutor(max_workers=jobs) as pool:
+        # Report one finished future. Failures are collected here and reported
+        # (the run exits non-zero) once everything has had its turn, so one
+        # bad card never aborts the rest.
+        def report(future: Future[tuple[Path, bool]], label: Path) -> None:
+            nonlocal done, skipped
+            done += 1
+            try:
+                out_path, was_skipped, *rest = future.result()
+                timings = rest[0] if rest else None
+                if was_skipped:
+                    skipped += 1
+                    print(
+                        f"[{done}/{total}] {label} (Common) unchanged, "
+                        f"kept {out_path.relative_to(REPO_ROOT)}",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"[{done}/{total}] {label} (Common) -> "
+                        f"{out_path.relative_to(REPO_ROOT)}"
+                        f"{_timings_suffix(timings)}",
+                        flush=True,
+                    )
+            except Exception as exc:
+                failures.append((label, exc))
+                print(
+                    f"[{done}/{total}] {label} (Common) FAILED: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        card_futures: dict[Future[tuple[Path, bool]], Path] = {
+            pool.submit(
+                _process_common_card,
+                path,
+                ffmpeg_threads,
+                composite_workers,
+                preset,
+                scale,
+                out_base,
+            ): path
+            for path in clean_configs
+        }
+        for future in as_completed(card_futures):
+            report(future, card_futures[future].relative_to(CARDS_DIR))
+
+    if failures:
+        for label, exc in failures:
+            print(f"error: {label} (Common): {exc}", file=sys.stderr)
+        sys.exit(1)
+    word = "drafts" if out_base == DRAFT_DIR else "final cards"
+    skipped_text = f", {skipped} unchanged" if skipped else ""
+    print(
+        f"Done. {total} Common card(s) in {time.monotonic() - start:.1f}s, "
+        f"{word} written to {out_base.relative_to(REPO_ROOT)}/{skipped_text}"
+    )
+
+
+def _generate_variants(
     paths: list[Path],
     jobs: int,
     preset: str,

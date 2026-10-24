@@ -1,2 +1,4 @@
 # Large PNG assets are tracked with Git LFS
 *.png filter=lfs diff=lfs merge=lfs -text
+# GIMP source files are tracked with Git LFS
+*.xcf filter=lfs diff=lfs merge=lfs -text

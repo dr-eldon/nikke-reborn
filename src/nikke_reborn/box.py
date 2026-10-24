@@ -12,7 +12,7 @@ the latter two sized by the front's height rather than its width (the box's
 front is landscape, where the pack's width-based sizing is far too big).
 
 Like the pack's front it is built procedurally — never stored:
-:func:`nikke_reborn._generate` composes it in memory and hands it to the
+:func:`nikke_reborn._generate_variants` composes it in memory and hands it to the
 material composition, and its inputs are hashed (see
 :func:`front_source_hash`) into the finished material so the render is
 skipped when nothing changed.

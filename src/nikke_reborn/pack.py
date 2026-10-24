@@ -2,7 +2,7 @@
 its ``Expansion.json``.
 
 The front and back are built procedurally from the expansion's metadata —
-neither is stored: :func:`nikke_reborn._generate` composes them in memory and
+neither is stored: :func:`nikke_reborn._generate_variants` composes them in memory and
 hands them to the material composition. The shared front composition
 (background, the featured NIKKES, the expansion's logo with its glow) lives in
 :mod:`nikke_reborn.expansion`; this module adds the pack's own pieces: the
