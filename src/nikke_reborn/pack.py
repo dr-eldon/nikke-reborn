@@ -16,6 +16,8 @@ expansion's front and back without per-pack changes.
   NIKKE is animated, only its first frame is kept and the rest discarded.
 * the ``background`` field is resized to the front's height and then
   center-cropped to the front's exact width.
+The box's front (``CardBox_Material``) reuses :func:`build_front` with the
+box's background fit (``fit="cover-bottom"``); see :mod:`nikke_reborn.box`.
 * when the ``logo`` field names a placement, the expansion's logo
   (``<pack>/Logo.png``) is composited on top at that placement with a glow:
   the halo is screen-blended for a light bloom and the sharp mark is drawn
@@ -127,13 +129,13 @@ def load_expansion(pack_dir: Path) -> dict:
         raise nr.GenerationError(f"cannot read {path}: {exc}") from exc
 
 
-def front_source_hash(pack_dir: Path) -> str:
+def front_source_hash(pack_dir: Path, template: Path | None = None) -> str:
     """A hash of the front's *inputs* — everything the composed front depends
     on: its ``Expansion.json``, the featured NIKKE definitions it lists, its
     background and (when a placement is set) its logo, and the material
-    template that sizes it. It is computed without rendering the front, so the
-    finished material and item can be skipped (and the front's render avoided)
-    when those inputs are unchanged."""
+    template that sizes it (*template*, the pack's by default). It is computed
+    without rendering the front, so the finished material and item can be
+    skipped (and the front's render avoided) when those inputs are unchanged."""
     expansion = load_expansion(pack_dir)
     digest = hashlib.sha256()
     digest.update((pack_dir / EXPANSION_NAME).read_bytes())
@@ -146,7 +148,7 @@ def front_source_hash(pack_dir: Path) -> str:
         logo_path = pack_dir / LOGO_NAME
         if logo_path.is_file():
             digest.update(logo_path.read_bytes())
-    digest.update(nr.PACK_TEMPLATE.read_bytes())
+    digest.update((nr.PACK_TEMPLATE if template is None else template).read_bytes())
     return digest.hexdigest()
 
 
@@ -252,6 +254,25 @@ def _fit_background(
     return background.crop((left, 0, left + width, height)).convert("RGBA")
 
 
+def _fit_box_background(background: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Fit *background* over the box front: scaled down just enough for it
+    to cover the whole front (the larger of the two dimension ratios — the
+    width for a portrait background), then bottom-aligned: the bottom of the
+    background touches the bottom edge of the front and any excess height is
+    cropped off the top. Horizontally it is center-cropped (a no-op when the
+    width is the binding dimension)."""
+    width, height = size
+    scale = max(width / background.width, height / background.height)
+    if scale != 1.0:
+        background = background.resize(
+            (round(background.width * scale), round(background.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+    left = (background.width - width) // 2
+    top = background.height - height
+    return background.crop((left, top, left + width, top + height)).convert("RGBA")
+
+
 def _image_average(image: Image.Image) -> tuple[int, int, int]:
     """The area-averaged RGB of *image* (a single box-filtered pixel) — the
     image's representative color, cheap to compute at any size."""
@@ -351,14 +372,23 @@ def _composite_logo(
 
 
 def build_front(
-    pack_dir: Path, expansion: dict, size: tuple[int, int]
+    pack_dir: Path,
+    expansion: dict,
+    size: tuple[int, int],
+    fit: str = "crop",
 ) -> Image.Image:
     """Compose the pack front entirely from the expansion's metadata: its
     background, the featured NIKKES drawn over it (backs first, the hero on
     top), and — when the expansion names a ``logo`` placement — the expansion's
     logo (``<pack>/Logo.png``) with its glow on top, at the named placement.
     The result is returned in memory; it is the material's right rectangle and
-    is never written to disk."""
+    is never written to disk.
+
+    *fit* selects the background's fit: ``"crop"`` (default, the pack's
+    front) resizes the background to the front's height and center-crops it
+    to the front's width; ``"cover-bottom"`` (the box's front) scales it down
+    just enough to cover the whole front and bottom-aligns it, so its bottom
+    touches the front's bottom edge and any excess is cropped off the top."""
     width, height = size
 
     bg_rel = expansion.get("background")
@@ -367,7 +397,13 @@ def build_front(
     bg_path = (pack_dir / bg_rel).resolve()
     if not bg_path.is_file():
         raise nr.GenerationError(f"{pack_dir.name}: background not found: {bg_rel}")
-    canvas = _fit_background(Image.open(bg_path).convert("RGBA"), size)
+    background = Image.open(bg_path).convert("RGBA")
+    if fit == "crop":
+        canvas = _fit_background(background, size)
+    elif fit == "cover-bottom":
+        canvas = _fit_box_background(background, size)
+    else:
+        raise nr.GenerationError(f"unknown background fit {fit!r}")
     # Sample the background's color now — before the NIKKES are composited — so
     # the logo's glow is tinted by the scene, not by the characters on top of it.
     glow_color = _background_glow_color(_image_average(canvas))

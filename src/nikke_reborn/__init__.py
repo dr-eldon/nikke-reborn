@@ -24,7 +24,10 @@ holding the composed back (left) and front (right); the item
 material and rendered by the ``unity-viewer`` executable with the
 model rotation and camera zoom/pan from
 ``assets/CardPackStatic_Mesh.json`` — so it is generated after the
-material, which it reads from disk. The finished results are
+material, which it reads from disk. The box (``CardBox_Material.png``)
+holds the same composed front in the blue rectangle of its three mask
+rectangles (blue front, red top, green side); the top and side are still
+placeholders, so the box's item is not rendered yet. The finished results are
 written under ``output/``, with
 the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
@@ -272,6 +275,13 @@ PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
 PACK_LOGO = IMAGES_DIR / "Logo_White.png"
 PACK_LOGO_WIDTH = 0.6
 PACK_LOGO_TOP = 0.04
+
+#: The box's material template: its three solid mask rectangles mark the
+#: paste regions — blue for the front (the same composition as the pack's
+#: front), red for the top and green for the side (still placeholders).
+#: The finished material is written to ``<out>/<pack>/CardBox_Material.png``.
+BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
+BOX_MATERIAL_NAME = "CardBox_Material.png"
 
 class GenerationError(RuntimeError):
     """A card definition could not be rendered or composed."""
@@ -1705,6 +1715,66 @@ def _process_pack_material(
     return out_path, False
 
 
+def _process_box_material(
+    pack_dir: Path,
+    out_base: Path,
+    front: Image.Image,
+    front_source: str,
+) -> tuple[Path, bool]:
+    """Composite the box's front onto the box material template.
+
+    The template's blue mask rectangle marks the paste region (its red and
+    green masks — the top's and side's placeholders — are left in place),
+    and the white logo is composited onto the front unslanted at the pack's
+    placement: :data:`PACK_LOGO_WIDTH` the front's width, centered,
+    :data:`PACK_LOGO_TOP` the front's height down. The finished material is
+    written to ``<out>/<pack>/CardBox_Material.png`` (atomically, with the
+    SHA-256 of the template, the logo and the front's inputs embedded, like
+    a finished card); returns ``(out_path, skipped)``, where *skipped* is
+    True when the output already exists and its stored hash matches the
+    current inputs.
+    """
+    pack_dir = pack_dir.resolve()
+    source_hash = _pack_hash(BOX_TEMPLATE, PACK_LOGO, front_source=front_source)
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
+    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    with Image.open(BOX_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+        rects = _pack_mask_rects(_pack_mask(template))
+        if len(rects) != 1:
+            raise GenerationError(
+                f"box material template {BOX_TEMPLATE.name} carries "
+                f"{len(rects)} pure-blue mask rectangle(s), expected 1 (front)"
+            )
+        # The front is the in-memory image (composed on the fly), already
+        # sized to the blue rectangle.
+        front_target = (rects[0][2] - rects[0][0], rects[0][3] - rects[0][1])
+        if front.size != front_target:
+            front = front.resize(front_target, Image.Resampling.LANCZOS)
+        template.alpha_composite(front, (rects[0][0], rects[0][1]))
+        # The white logo on the front, at the pack's placement
+        # (unslanted, since the material is the flat view):
+        # PACK_LOGO_WIDTH the front's width, centered, PACK_LOGO_TOP the
+        # front's height down.
+        rx0, ry0, rx1, ry1 = rects[0]
+        rw, rh = rx1 - rx0, ry1 - ry0
+        with Image.open(PACK_LOGO) as opened:
+            logo = opened.convert("RGBA")
+        logo_w = round(PACK_LOGO_WIDTH * rw)
+        logo = logo.resize(
+            (logo_w, round(logo_w * logo.height / logo.width)),
+            Image.Resampling.LANCZOS,
+        )
+        template.alpha_composite(
+            logo, (rx0 + (rw - logo_w) // 2, ry0 + round(PACK_LOGO_TOP * rh))
+        )
+        final = template.convert("RGB")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _save_atomic(final, out_path, source_hash)
+    return out_path, False
+
+
 def _viewer_hash(mesh: Path, material: Path, config: Path) -> str:
     """SHA-256 of the item's inputs: the pack's mesh, its generated
     material (whose bytes change whenever the material does), and the
@@ -1853,23 +1923,29 @@ def _generate(
     # produces each pack's artwork images (material and item).
     pack_dirs: list[Path] = [] if paths else _find_pack_dirs()
     start = time.monotonic()
-    # Compose each pack's front in the main process: its featured NIKKES are
-    # GPU-rendered here, so the front is produced once for the material
-    # worker. It is transient — composed on the fly from the expansion's
-    # metadata and never written to disk. The front's inputs are hashed up
-    # front (without rendering it), so the render is skipped entirely when
-    # both the material and the item are already up to date.
-    from nikke_reborn import pack
+    # Compose each pack's fronts in the main process: its featured NIKKES
+    # are GPU-rendered here, so a front is produced once per material that
+    # needs it (the pack's front for the pack's material, the box's front —
+    # a different size — for the box's material). They are transient —
+    # composed on the fly from the expansion's metadata and never written
+    # to disk. The fronts' inputs are hashed up front (without rendering
+    # them), so the renders are skipped entirely when the material, the
+    # item and the box's material are all already up to date.
+    from nikke_reborn import box, pack
 
     material_needs: set[Path] = set()
     item_needs: set[Path] = set()
+    box_needs: set[Path] = set()
     fronts: dict[Path, Image.Image] = {}
     front_sources: dict[Path, str] = {}
     backs: dict[Path, Image.Image] = {}
     back_sources: dict[Path, str] = {}
+    box_fronts: dict[Path, Image.Image] = {}
+    box_front_sources: dict[Path, str] = {}
     for pack_dir in pack_dirs:
         front_source = pack.front_source_hash(pack_dir)
         back_source = pack.back_source_hash(pack_dir)
+        box_front_source = box.front_source_hash(pack_dir)
         material_ok = _pack_output_up_to_date(
             PACK_TEMPLATE,
             PACK_MATERIAL_NAME,
@@ -1885,21 +1961,39 @@ def _generate(
             PACK_CONFIG,
             out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME,
         )
-        if material_ok and item_ok:
-            continue  # nothing changed for this pack; skip the front's render
+        box_ok = _pack_output_up_to_date(
+            BOX_TEMPLATE,
+            BOX_MATERIAL_NAME,
+            pack_dir,
+            (PACK_LOGO,),
+            out_base,
+            box_front_source,
+        )
+        if material_ok and item_ok and box_ok:
+            continue  # nothing changed for this pack; skip the fronts' renders
         if not material_ok:
             material_needs.add(pack_dir)
         if not item_ok:
             item_needs.add(pack_dir)
-        # Only the material needs the composed front and back: the item
-        # is rendered by unity-viewer from the material's output file.
-        if not material_ok:
+        if not box_ok:
+            box_needs.add(pack_dir)
+        # The materials need the composed fronts (the item is rendered by
+        # unity-viewer from the material's output file): the pack's front
+        # and back, and the box's front — its own size, the box template's
+        # blue rectangle, so its own composition.
+        if not material_ok or not box_ok:
             expansion = pack.load_expansion(pack_dir)
-            fronts[pack_dir] = pack.build_front(pack_dir, expansion, pack.front_size())
-            front_sources[pack_dir] = front_source
-            backs[pack_dir] = pack.build_back(pack_dir, expansion, pack.back_size())
-            back_sources[pack_dir] = back_source
-    total = len(card_configs) + len(material_needs) + len(item_needs)
+            if not material_ok:
+                fronts[pack_dir] = pack.build_front(pack_dir, expansion, pack.front_size())
+                front_sources[pack_dir] = front_source
+                backs[pack_dir] = pack.build_back(pack_dir, expansion, pack.back_size())
+                back_sources[pack_dir] = back_source
+            if not box_ok:
+                box_fronts[pack_dir] = box.build_front(
+                    pack_dir, expansion, box.front_size()
+                )
+                box_front_sources[pack_dir] = box_front_source
+    total = len(card_configs) + len(material_needs) + len(item_needs) + len(box_needs)
     # Split the cores available to each card between the stages that run
     # in parallel: the frame compositing and the ffmpeg encode.
     per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
@@ -1912,8 +2006,8 @@ def _generate(
         notes.append(f"{scale:g}x resolution")
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
     what = f"{len(card_configs)} card(s)" + (
-        f" and {len(material_needs) + len(item_needs)} pack image(s)"
-        if material_needs or item_needs
+        f" and {len(material_needs) + len(item_needs) + len(box_needs)} pack image(s)"
+        if material_needs or item_needs or box_needs
         else ""
     )
     if paths:
@@ -1969,6 +2063,9 @@ def _generate(
         def item_label(pack_dir: Path) -> Path:
             return pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
 
+        def box_label(pack_dir: Path) -> Path:
+            return pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
+
         card_futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
                 _process_card,
@@ -2001,6 +2098,18 @@ def _generate(
             ): pack_dir
             for pack_dir in material_needs
         }
+        # The box's material is independent of the pack's: it starts at
+        # once, from its own composed front.
+        box_futures: dict[Future[tuple[Path, bool]], Path] = {
+            pool.submit(
+                _process_box_material,
+                pack_dir,
+                out_base,
+                box_fronts[pack_dir],
+                box_front_sources[pack_dir],
+            ): box_label(pack_dir)
+            for pack_dir in sorted(box_needs)
+        }
         for future in as_completed(material_futures):
             pack_dir = material_futures[future]
             report(future, material_label(pack_dir))
@@ -2010,6 +2119,8 @@ def _generate(
                 item_futures[
                     pool.submit(_process_pack_item, pack_dir, out_base)
                 ] = item_label(pack_dir)
+        for future in as_completed(box_futures):
+            report(future, box_futures[future])
         for future in as_completed(card_futures):
             report(future, card_futures[future])
         for future in as_completed(item_futures):
