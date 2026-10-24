@@ -121,6 +121,13 @@ impl Camera {
 /// - `pitch` — tilt, around the model's yawed X,
 /// - `roll` — twist, around the model's yawed-then-pitched Z (for a card
 ///   pack this is the card's own axis, i.e. spinning it in its plane).
+///
+/// The angles are the canonical decomposition of the pose's rotation
+/// matrix (`from_matrix`): pitch in [−90°, 90°], yaw/roll in (−180°,
+/// 180°]. The left drag updates the pose with `trackball` — a
+/// view-space composition, not an angle increment — so the drag axes
+/// stay fixed to the screen instead of tilting with the model's own
+/// rotation.
 #[derive(Copy, Clone, Debug)]
 pub struct Model {
     /// Turntable: rotation around the world Y (radians).
@@ -150,6 +157,54 @@ impl Model {
             &rot_y(self.yaw),
             &mul(&rot_x(self.pitch), &rot_z(self.roll)),
         )
+    }
+
+    /// The (yaw, pitch, roll) decomposition of the rotation matrix `m` —
+    /// the angles whose `matrix()` reproduces it (`m = Ry(yaw) *
+    /// Rx(pitch) * Rz(roll)`). The pitch always lands in [−90°, 90°] and
+    /// yaw/roll in (−180°, 180°]; at the two gimbal-lock pitches the roll
+    /// is unidentifiable and pinned to 0 (the yaw then carries the whole
+    /// twist, and the recomposed matrix is still exactly `m`).
+    pub fn from_matrix(m: &Mat4) -> Self {
+        // Column-major storage: M[r][c] = m[c][r].
+        let (m00, m01, m02) = (m[0][0], m[1][0], m[2][0]);
+        let (m10, m11, m12) = (m[0][1], m[1][1], m[2][1]);
+        let m22 = m[2][2];
+        // cos(pitch) — non-negative by construction of the decomposition.
+        let c_b = m02.hypot(m22);
+        let pitch = (-m12).atan2(c_b);
+        if c_b > 1e-4 {
+            Self {
+                yaw: m02.atan2(m22),
+                pitch,
+                roll: m10.atan2(m11),
+            }
+        } else {
+            // Gimbal lock (|pitch| = 90°): only yaw ± roll is determined;
+            // pin the roll at 0 and put the whole twist in the yaw.
+            Self {
+                yaw: (-m12 * m01).atan2(m00),
+                pitch,
+                roll: 0.0,
+            }
+        }
+    }
+
+    /// Rotate the pose the way a trackball does: `dx` and `dy` are the
+    /// drag deltas in radians (screen right = +x, screen down = +y), and
+    /// `up`/`right` the view's screen axes in world space. The deltas
+    /// spin the model about those fixed screen axes — `dx` about `up`,
+    /// `dy` about `right` — composed in front of the current pose, so a
+    /// rightward drag moves the model's camera-facing side to the screen
+    /// right and a downward drag pulls it toward the viewer, no matter
+    /// how the model is already turned (incrementing the angles instead
+    /// would tilt the drag axes with the model's own rotation).
+    pub fn trackball(&self, up: [f32; 3], right: [f32; 3], dx: f32, dy: f32) -> Self {
+        let m = self.matrix();
+        Self::from_matrix(&mul(
+            &rot_axis(right, dy),
+            &mul(&rot_axis(up, dx), &m),
+        ))
     }
 }
 
@@ -257,6 +312,19 @@ fn rot_z(a: f32) -> Mat4 {
         [c, s, 0.0, 0.0],
         [-s, c, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
+
+/// Right-handed rotation of `a` radians about the unit axis (column-major),
+/// Rodrigues' formula. Matches `rot_x`/`rot_y`/`rot_z` on the axes.
+fn rot_axis([x, y, z]: [f32; 3], a: f32) -> Mat4 {
+    let (s, c) = (a.sin(), a.cos());
+    let t = 1.0 - c;
+    [
+        [c + x * x * t, x * y * t + z * s, x * z * t - y * s, 0.0],
+        [x * y * t - z * s, c + y * y * t, y * z * t + x * s, 0.0],
+        [x * z * t + y * s, y * z * t - x * s, c + z * z * t, 0.0],
         [0.0, 0.0, 0.0, 1.0],
     ]
 }
@@ -1231,6 +1299,151 @@ mod model_tests {
         .matrix();
         // Rz(90) keeps +Z; Rx(90) sends +Z → −Y; Ry(90) keeps −Y.
         assert!(close(apply(&m, [0.0, 0.0, 1.0]), [0.0, -1.0, 0.0]));
+    }
+
+    fn mat_close(a: &Mat4, b: &Mat4) -> bool {
+        (0..4)
+            .all(|c| (0..3).all(|r| (a[c][r] - b[c][r]).abs() < 1e-4))
+    }
+
+    /// Wrap an angle to (−π, π] so decomposed and given angles compare.
+    fn wrap(a: f32) -> f32 {
+        let d = a.rem_euclid(2.0 * std::f32::consts::PI);
+        if d > std::f32::consts::PI {
+            d - 2.0 * std::f32::consts::PI
+        } else {
+            d
+        }
+    }
+
+    #[test]
+    fn rot_axis_matches_the_axis_rotations() {
+        let a = 0.7;
+        assert!(mat_close(&rot_axis([1.0, 0.0, 0.0], a), &rot_x(a)));
+        assert!(mat_close(&rot_axis([0.0, 1.0, 0.0], a), &rot_y(a)));
+        assert!(mat_close(&rot_axis([0.0, 0.0, 1.0], a), &rot_z(a)));
+    }
+
+    #[test]
+    fn trackball_composes_in_view_space() {
+        // A drag delta must compose in FRONT of the pose (about the fixed
+        // view axes), not increment the angles: from any pose, a pure
+        // horizontal drag is exactly a rotation about the up axis and a
+        // pure vertical drag a rotation about −right (down pulls the
+        // model's near side toward the viewer).
+        let m0 = Model {
+            yaw: 0.7,
+            pitch: -0.4,
+            roll: 0.3,
+        };
+        let (up, right) = ([0.0, 1.0, 0.0], [1.0, 0.0, 0.0]);
+        let m = m0.matrix();
+        let h = m0.trackball(up, right, 0.5, 0.0);
+        assert!(mat_close(&h.matrix(), &mul(&rot_axis(up, 0.5), &m)));
+        let v = m0.trackball(up, right, 0.0, 0.5);
+        assert!(mat_close(&v.matrix(), &mul(&rot_axis(right, 0.5), &m)));
+    }
+
+    #[test]
+    fn trackball_at_identity_matches_the_drag_axes() {
+        // With the view looking down −Z (up = world Y, right = world X),
+        // a drag from the identity pose is a rotation about the world
+        // axes, moving the camera-facing side with the cursor.
+        let (up, right) = ([0.0, 1.0, 0.0], [1.0, 0.0, 0.0]);
+        let m = Model::default();
+        let h = m.trackball(up, right, 0.4, 0.0);
+        assert!(mat_close(&h.matrix(), &rot_y(0.4)));
+        let v = m.trackball(up, right, 0.0, 0.3);
+        assert!(mat_close(&v.matrix(), &rot_x(0.3)));
+    }
+
+    #[test]
+    fn trackball_grabs_the_model_relative_to_the_screen() {
+        // Against the viewer's actual fixed camera, a drag must move the
+        // model's camera-facing side with the cursor — right for a
+        // rightward drag, down for a downward drag — with no cross-axis
+        // drift, and the same for any already-turned pose. The expected
+        // magnitude is d·(q·d_eye), q being the pose-rotated near side:
+        // it shrinks when the pose turns that side off-axis.
+        let cam = Camera::default();
+        let (right, up) = cam.screen_axes();
+        let (sy, cy) = (cam.yaw.sin(), cam.yaw.cos());
+        let (sp, cp) = (cam.pitch.sin(), cam.pitch.cos());
+        let d_eye = [cp * sy, sp, cp * cy]; // target → eye (the near side)
+        let d = 0.02;
+        for (yaw, pitch, roll) in [
+            (0.0f32, 0.0, 0.0),
+            (1.0, 0.3, -0.2),
+            (-0.7, 0.5, 0.4),
+        ] {
+            let m0 = Model { yaw, pitch, roll };
+            let q = apply(&m0.matrix(), d_eye);
+            let expected =
+                d * (q[0] * d_eye[0] + q[1] * d_eye[1] + q[2] * d_eye[2]);
+            let screen_delta = |m1: &Model| {
+                let p1 = apply(&m1.matrix(), d_eye);
+                let v = [p1[0] - q[0], p1[1] - q[1], p1[2] - q[2]];
+                (
+                    v[0] * right[0] + v[1] * right[1] + v[2] * right[2], // → right
+                    -(v[0] * up[0] + v[1] * up[1] + v[2] * up[2]),     // → down
+                )
+            };
+            let (h_x, h_y) = screen_delta(&m0.trackball(up, right, d, 0.0));
+            assert!(
+                (h_x - expected).abs() < 1e-3 && h_y.abs() < 1e-3,
+                "horiz: {h_x} {h_y} (want {expected})"
+            );
+            let (v_x, v_y) = screen_delta(&m0.trackball(up, right, 0.0, d));
+            assert!(
+                v_x.abs() < 1e-3 && (v_y - expected).abs() < 1e-3,
+                "vert: {v_x} {v_y} (want {expected})"
+            );
+        }
+    }
+
+    #[test]
+    fn from_matrix_round_trips() {
+        // The decomposition is the inverse of the composition (yaw/roll
+        // up to 2π, pitch exactly in [−90°, 90°]).
+        for (yaw, pitch, roll) in [
+            (0.3f32, -0.7, 0.9),
+            (-2.0, 1.1, 2.5),
+            (5.0, 0.02, -3.3),
+            (0.1, -1.55, 0.05),
+        ] {
+            let m = Model {
+                yaw,
+                pitch,
+                roll,
+            }
+            .matrix();
+            let d = Model::from_matrix(&m);
+            assert!((wrap(d.yaw) - wrap(yaw)).abs() < 1e-4, "yaw: {yaw}");
+            assert!((d.pitch - pitch).abs() < 1e-4, "pitch: {pitch}");
+            assert!((wrap(d.roll) - wrap(roll)).abs() < 1e-4, "roll: {roll}");
+            assert!(mat_close(&d.matrix(), &m));
+        }
+    }
+
+    #[test]
+    fn from_matrix_at_gimbal_lock_recomposes() {
+        // At |pitch| = 90° the roll is unidentifiable; the decomposition
+        // pins it at 0 and the recomposed matrix must still be exact.
+        for pitch in [
+            std::f32::consts::FRAC_PI_2,
+            -std::f32::consts::FRAC_PI_2,
+        ] {
+            for (yaw, roll) in [(1.0f32, 0.4), (-0.6, 1.2)] {
+                let m = mul(
+                    &rot_y(yaw),
+                    &mul(&rot_x(pitch), &rot_z(roll)),
+                );
+                let d = Model::from_matrix(&m);
+                assert!((d.pitch - pitch).abs() < 1e-4);
+                assert_eq!(d.roll, 0.0);
+                assert!(mat_close(&d.matrix(), &m));
+            }
+        }
     }
 
     #[test]

@@ -2,10 +2,12 @@
 //!
 //! Pick a `.asset` mesh from `../assets` and a PNG material (from `../images`
 //! or `../output/*`, or any file via "Open…") and the viewer renders it with
-//! a fixed camera: left-drag rotates the *asset* (turntable + tilt), so the
-//! fixed world-space lights sweep across the model as you aim it; scroll to
-//! zoom, right-drag to pan. The Yaw/Pitch/Roll sliders set the same asset
-//! rotation precisely (zoom/pan move the camera, not the asset).
+//! a fixed camera: left-drag grabs and rotates the *asset* (a trackball —
+//! the drag spins it about the screen's up/right axes, which are fixed to
+//! the view, not to the model's own rotation), so the fixed world-space
+//! lights sweep across the model as you aim it; scroll to zoom, right-drag
+//! to pan. The Yaw/Pitch/Roll sliders set the same asset rotation precisely
+//! (zoom/pan move the camera, not the asset).
 //!
 //! The asset rotation and camera zoom/pan can be imported from or exported
 //! to a JSON configuration file (the Import/Export buttons in the sidebar;
@@ -45,12 +47,14 @@ const ASSETS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets");
 const IMAGES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../images");
 const OUTPUT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../output");
 
-/// Sensitivity of the drag turntable/tilt: degrees of asset rotation
-/// produced by a drag spanning the full canvas width (a half turn — like
-/// grabbing the object). The per-pixel rate is this divided by the canvas
-/// width, so the feel is the same at any window size and stays gentle.
+/// Sensitivity of the drag trackball: degrees of asset rotation produced by
+/// a drag spanning the full canvas width (a half turn — like grabbing the
+/// object). The per-pixel rate is this divided by the canvas width, so the
+/// feel is the same at any window size and stays gentle.
 const DRAG_DEG_PER_FULL_WIDTH: f32 = 180.0;
-/// Gimbal limit of the model's pitch (tilt) axis: ±90°.
+/// Range of the pitch slider: ±90°. The pitch of the pose's canonical
+/// decomposition always lies in this range, so the slider covers every
+/// pose exactly.
 const MODEL_PITCH_LIMIT: f32 = std::f32::consts::FRAC_PI_2;
 const MODEL_PITCH_LIMIT_DEG: f32 = 90.0;
 const ZOOM_MIN: f32 = 0.05;
@@ -58,9 +62,10 @@ const ZOOM_MAX: f32 = 16.0;
 const ZOOM_STEP_LINES: f32 = 0.12;
 const ZOOM_STEP_PIXELS: f32 = 0.0015;
 
-/// Normalize degrees to (−180, 180] — the dial value of a pose: what the
-/// yaw/roll sliders and readouts display. The state itself is unbounded
-/// (dragging accumulates full turns); the display wraps it.
+/// Normalize degrees to (−180, 180] — the dial value: what the yaw/roll
+/// sliders and readouts display. The state holds the pose's canonical
+/// decomposition (yaw/roll in (−180°, 180°], pitch in [−90°, 90°]), so the
+/// display is already in range and this only normalizes stragglers.
 fn wrap_degrees(deg: f32) -> f32 {
     let d = deg.rem_euclid(360.0);
     if d > 180.0 {
@@ -116,7 +121,7 @@ enum Message {
     /// A destination was chosen for the configuration (or the dialog
     /// cancelled).
     ConfigExported(Option<PathBuf>),
-    /// Asset turntable/tilt drag delta in degrees (Δyaw, Δpitch), already
+    /// Asset trackball drag delta in degrees (Δx right, Δy down), already
     /// scaled by the canvas width (see `DRAG_DEG_PER_FULL_WIDTH`).
     Rotate(Vector),
     Pan(Vector),
@@ -519,22 +524,20 @@ impl App {
             Message::ConfigExported(None) => Task::none(),
 
             Message::Rotate(delta) => {
-                // Turntable + tilt of the *asset*, not a camera orbit: the
-                // lights are fixed in world space, so dragging sweeps them
-                // across the model. With the camera at its fixed pose a
-                // rightward drag must spin the model's front toward the
-                // screen right and a downward drag must tilt the model's
-                // top toward the camera (grab feel).
-                //
-                // Yaw accumulates without wrapping: the pose only depends
-                // on it modulo 360°, and wrapping the state would make the
-                // slider/readout snap end-to-end at ±180° on every half
-                // turn.
-                self.model_rotation.yaw += (delta.x as f32).to_radians();
-                self.model_rotation.pitch =
-                    (self.model_rotation.pitch.to_degrees() - delta.y as f32)
-                        .clamp(-MODEL_PITCH_LIMIT_DEG, MODEL_PITCH_LIMIT_DEG)
-                        .to_radians();
+                // Trackball of the *asset*, not a camera orbit: the drag
+                // spins the model about the camera's screen axes (horiz.
+                // about screen up, vert. about screen right), composed in
+                // front of the current pose, so the model's camera-facing
+                // side always moves with the cursor — no matter how the
+                // model is already turned. The lights are fixed in world
+                // space, so dragging sweeps them across the model.
+                let (right, up) = self.camera.screen_axes();
+                self.model_rotation = self.model_rotation.trackball(
+                    up,
+                    right,
+                    (delta.x as f32).to_radians(),
+                    (delta.y as f32).to_radians(),
+                );
                 Task::none()
             }
 
@@ -600,15 +603,15 @@ impl App {
         self.camera = Camera::default();
     }
 
-    /// Apply an imported configuration. The sliders can only represent the
-    /// gimbal/zoom ranges, so import clamps into them (the CLI applies the
-    /// file as-is).
+    /// Apply an imported configuration. The pose is normalized to its
+    /// canonical decomposition, which the sliders can always represent
+    /// exactly (decomposed pitch lies in ±90°, yaw/roll in ±180° — even
+    /// when the file's angles do not); the camera keeps its fixed pose and
+    /// zoom is clamped to the slider range (the CLI applies the file
+    /// as-is).
     fn apply_config(&mut self, config: Config) {
         let (model, mut camera) = config.to_state();
-        self.model_rotation = Model {
-            pitch: model.pitch.clamp(-MODEL_PITCH_LIMIT, MODEL_PITCH_LIMIT),
-            ..model
-        };
+        self.model_rotation = Model::from_matrix(&model.matrix());
         camera.zoom = camera.zoom.clamp(ZOOM_MIN, ZOOM_MAX);
         self.camera = camera;
     }

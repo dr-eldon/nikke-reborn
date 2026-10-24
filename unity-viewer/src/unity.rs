@@ -505,35 +505,6 @@ fn decode_u16_le(hex: &str, expected: usize, vertex_count: usize) -> Result<Vec<
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    #[test]
-    fn uv_dirs_per_face() {
-        let m = Mesh::from_file(&repo_assets("CardBoxMesh.asset")).unwrap();
-        let v = &m.vertices;
-        let cross = |a:[f32;3],b:[f32;3]| [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
-        let norm3 = |a:[f32;3]| { let l=(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]).sqrt(); if l<1e-9 {[0.0,0.0,0.0]} else {[a[0]/l,a[1]/l,a[2]/l] } };
-        let dot3 = |a:[f32;3],b:[f32;3]| a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
-        let ntri = m.indices.len()/3;
-        let tri_n: Vec<[f32;3]> = (0..ntri).map(|t| {
-            let a=v[m.indices[3*t] as usize].position; let b=v[m.indices[3*t+1] as usize].position; let c=v[m.indices[3*t+2] as usize].position;
-            norm3(cross([b[0]-a[0],b[1]-a[1],b[2]-a[2]],[c[0]-a[0],c[1]-a[1],c[2]-a[2]]))
-        }).collect();
-        for t in 0..ntri {
-            let a=v[m.indices[3*t] as usize]; let b=v[m.indices[3*t+1] as usize]; let c=v[m.indices[3*t+2] as usize];
-            let (e1,f1)=(b.uv[0]-a.uv[0],b.uv[1]-a.uv[1]); let (e2,f2)=(c.uv[0]-a.uv[0],c.uv[1]-a.uv[1]);
-            let d1=[b.position[0]-a.position[0],b.position[1]-a.position[1],b.position[2]-a.position[2]];
-            let d2=[c.position[0]-a.position[0],c.position[1]-a.position[1],c.position[2]-a.position[2]];
-            let det=e1*f2-e2*f1;
-            if det.abs()<1e-9 { continue; }
-            let Ud=[(f2*d1[0]-f1*d2[0])/det,(f2*d1[1]-f1*d2[1])/det,(f2*d1[2]-f1*d2[2])/det];
-            let Vd=[(e1*d2[0]-e2*d1[0])/det,(e1*d2[1]-e2*d1[1])/det,(e1*d2[2]-e2*d1[2])/det];
-            let Ud=norm3(Ud); let Vd=norm3(Vd); let n=tri_n[t];
-            // How horizontal (X-aligned) vs vertical (Y-aligned) is each UV axis?
-            println!("tri{t}: N={:3.0},{:3.0},{:3.0}  U={:4.0},{:4.0},{:4.0} (U.x={:+.1})  V={:4.0},{:4.0},{:4.0} (V.x={:+.1})",
-                n[0]*100.,n[1]*100.,n[2]*100.,
-                Ud[0]*100.,Ud[1]*100.,Ud[2]*100., Ud[0]*100.,
-                Vd[0]*100.,Vd[1]*100.,Vd[2]*100., Vd[0]*100.);
-        }
-    }
 
     fn repo_assets(name: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
