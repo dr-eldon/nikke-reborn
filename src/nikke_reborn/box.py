@@ -55,7 +55,7 @@ BOX_EXPANSION_LOGO_HEIGHT = 1 / 3
 #: closer to the hero than the pack's offset. The hero/back ratio is kept
 #: roughly constant, so the group still reads as being behind the hero.
 BOX_HERO_HEIGHT = 0.9
-BOX_BACK_HEIGHT = 0.6
+BOX_BACK_HEIGHT = 0.7
 BOX_BACK_OFFSET_X = 0.30
 
 
