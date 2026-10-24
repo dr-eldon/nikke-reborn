@@ -181,9 +181,8 @@ def _fit_cover_bottom(
     dimension ratios — the width for a portrait background), then
     bottom-aligned: the bottom of the background touches the bottom edge
     and any excess height is cropped off the top. Horizontally it is
-    *align*-cropped: ``"center"`` (the front — a no-op when the width is
-    the binding dimension) or ``"right"`` (the side, which takes the
-    scene's right side)."""
+    *align*-cropped: ``"center"`` (the default — the front and the side)
+    or ``"left"``/``"right"`` (taking the scene's left or right side)."""
     width, height = size
     scale = max(width / background.width, height / background.height)
     if scale != 1.0:

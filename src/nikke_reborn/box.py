@@ -18,7 +18,7 @@ material composition, and its inputs are hashed (see
 skipped when nothing changed.
 
 The green (side) rectangle is filled with the expansion's background
-(fitted to cover the side, taking the scene's right side), the
+(fitted to cover the side, taking the scene's center), the
 expansion's logo center-center and the white NIKKE logo bottom-center;
 the red (top) rectangle is still a placeholder.
 """
@@ -225,9 +225,8 @@ def build_side(
     pack_dir: Path, expansion: dict, size: tuple[int, int]
 ) -> Image.Image:
     """The box side: the expansion's background fitted to cover the side
-    (like the front's ``"cover-bottom"``), but right-aligned instead of
-    center-cropped — the side takes the scene's right side — with the
-    expansion's logo center-center (see
+    (like the front — scaled to cover, bottom-aligned, center-cropped),
+    with the expansion's logo center-center (see
     :func:`place_side_expansion_logo`) and the white NIKKE logo
     bottom-center (see :func:`place_side_logo`). The result is returned in
     memory, like the front: it is the box material's green rectangle and is
@@ -236,7 +235,7 @@ def build_side(
     template) are a subset of the front's, so the front's source hash (see
     :func:`front_source_hash`) covers it."""
     background = load_background(pack_dir, expansion)
-    side = _fit_cover_bottom(background, size, align="right")
+    side = _fit_cover_bottom(background, size, align="center")
     place_side_expansion_logo(side, pack_dir, expansion)
     place_side_logo(side)
     return side

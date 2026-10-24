@@ -1710,7 +1710,7 @@ def _process_box_material(
     The template's blue mask rectangle marks the front's paste region and
     its green mask rectangle the side's — the front is composed on the
     fly, with its white logo placed by :func:`box.place_logo`, and the
-    side is the background's right slice with the expansion's logo
+    side is the background's center slice with the expansion's logo
     center-center and the white logo bottom-center (its red mask — the
     top's placeholder — is left in place). The finished material is
     written to
