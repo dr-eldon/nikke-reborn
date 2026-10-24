@@ -21,7 +21,8 @@ The green (side) rectangle is filled with the expansion's background
 (fitted to cover the side, taking the scene's center), the
 expansion's logo center-center and the white NIKKE logo bottom-center;
 the red (top) rectangle — shared with the bottom face — is filled with
-the expansion's background (fitted to cover the top, center-cropped).
+the expansion's background (fitted to cover the top, center-cropped) and
+the white NIKKE logo top-right.
 """
 
 from __future__ import annotations
@@ -42,11 +43,11 @@ from nikke_reborn.expansion import (
 from PIL import Image
 
 # --- the white NIKKE logo -----------------------------------------------------
-#: The white logo stamped on the box's front (top-left) and side
-#: (bottom-center): its height as a fraction of the face's height, its
-#: corner inset by that margin (a fraction of the face's height). Sized by
-#: height — the box's front is landscape, where the pack's width-based
-#: sizing is far too big.
+#: The white logo stamped on the box's front (top-left), side
+#: (bottom-center) and top (top-right): its height as a fraction of the
+#: face's height, its corner inset by that margin (a fraction of the
+#: face's height). Sized by height — the box's front is landscape, where
+#: the pack's width-based sizing is far too big.
 BOX_LOGO = nr.IMAGES_DIR / "Logo_White.png"
 BOX_LOGO_HEIGHT = 0.15
 BOX_LOGO_MARGIN = 0.05
@@ -166,6 +167,23 @@ def place_side_logo(side: Image.Image) -> None:
     side.alpha_composite(logo, (x, y))
 
 
+def place_top_logo(top: Image.Image) -> None:
+    """Composite the white logo onto the top, top-right: its height is
+    :data:`BOX_LOGO_HEIGHT` the top's height, placed at the top's
+    top-right with its corner inset :data:`BOX_LOGO_MARGIN` the top's
+    height — unslanted, since the material is the flat view. Modifies
+    *top* in place."""
+    with Image.open(BOX_LOGO) as opened:
+        logo = opened.convert("RGBA")
+    logo_h = round(BOX_LOGO_HEIGHT * top.height)
+    logo = logo.resize(
+        (round(logo_h * logo.width / logo.height), logo_h),
+        Image.Resampling.LANCZOS,
+    )
+    margin = round(BOX_LOGO_MARGIN * top.height)
+    top.alpha_composite(logo, (top.width - margin - logo.width, margin))
+
+
 def place_side_expansion_logo(
     side: Image.Image, pack_dir: Path, expansion: dict
 ) -> None:
@@ -265,13 +283,16 @@ def build_top(
 ) -> Image.Image:
     """The box top: the expansion's background fitted to cover the top —
     like the front's and side's cover fit, but centered vertically as well
-    as horizontally (see :func:`nikke_reborn.expansion._fit_cover`). It
-    also serves the bottom face, which shares the red rectangle. The
-    result is returned in memory, like the front: it is the box
-    material's red rectangle and is never written to disk. The top's
-    inputs (the background and the template) are a subset of the front's,
-    so the front's source hash (see :func:`front_source_hash`) covers
-    it."""
-    return _fit_cover(
+    as horizontally (see :func:`nikke_reborn.expansion._fit_cover`) — with
+    the white NIKKE logo top-right (see :func:`place_top_logo`). It also
+    serves the bottom face, which shares the red rectangle. The result is
+    returned in memory, like the front: it is the box material's red
+    rectangle and is never written to disk. The top's inputs (the
+    background, the white logo and the template) are a subset of the
+    front's, so the front's source hash (see :func:`front_source_hash`)
+    covers it."""
+    top = _fit_cover(
         load_background(pack_dir, expansion), size, v_align="center"
     )
+    place_top_logo(top)
+    return top

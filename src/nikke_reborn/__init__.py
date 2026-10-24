@@ -1723,7 +1723,8 @@ def _process_box_material(
     fly, with its white logo placed by :func:`box.place_logo`, and the
     side is the background's center slice with the expansion's logo
     center-center and the white logo bottom-center; the top (shared with
-    the bottom) is the background center-cropped. The finished material is
+    the bottom) is the background center-cropped with the white logo
+    top-right. The finished material is
     written to
     ``<out>/<pack>/CardBox_Material.png`` (atomically, with the SHA-256 of
     the template and the front's inputs embedded, like a finished card —
