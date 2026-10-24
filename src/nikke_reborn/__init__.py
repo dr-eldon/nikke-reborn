@@ -268,13 +268,6 @@ PACK_MESH = REPO_ROOT / "assets" / "CardPackStatic_Mesh.asset"
 #: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
 PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
 
-#: The white logo stamped on the pack's front, at the same placement in
-#: the material and the item: its width as a fraction of the front's
-#: width (centered horizontally) and its top inset as a fraction of the
-#: front's height.
-PACK_LOGO = IMAGES_DIR / "Logo_White.png"
-PACK_LOGO_WIDTH = 0.6
-PACK_LOGO_TOP = 0.04
 
 #: The box's material template: its three solid mask rectangles mark the
 #: paste regions — blue for the front (the same composition as the pack's
@@ -282,6 +275,7 @@ PACK_LOGO_TOP = 0.04
 #: The finished material is written to ``<out>/<pack>/CardBox_Material.png``.
 BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
 BOX_MATERIAL_NAME = "CardBox_Material.png"
+
 
 class GenerationError(RuntimeError):
     """A card definition could not be rendered or composed."""
@@ -483,12 +477,12 @@ def _find_card_configs(paths: list[Path] | None = None) -> list[Path]:
     :data:`CARDS_DIR`, are de-duplicated and returned in the given order.
     """
     if not paths:
-        from nikke_reborn import pack
+        from nikke_reborn import expansion
 
         return sorted(
             path
             for path in CARDS_DIR.rglob("*.json")
-            if path.name != pack.EXPANSION_NAME
+            if path.name != expansion.EXPANSION_NAME
         )
     configs: list[Path] = []
     seen: set[Path] = set()
@@ -1573,32 +1567,31 @@ def _find_pack_dirs() -> list[Path]:
     """``cards/`` subdirectories carrying an ``Expansion.json`` (the pack's
     inputs). The front and back are composed from the expansion on the fly
     (see :mod:`nikke_reborn.pack`), so neither is stored."""
-    from nikke_reborn import pack
+    from nikke_reborn import expansion
 
     return sorted(
         pack_dir
         for pack_dir in CARDS_DIR.iterdir()
-        if pack_dir.is_dir() and (pack_dir / pack.EXPANSION_NAME).is_file()
+        if pack_dir.is_dir() and (pack_dir / expansion.EXPANSION_NAME).is_file()
     )
 
 
 def _pack_hash(
     template: Path,
-    *images: Path,
     front_source: str = "",
     back_source: str = "",
 ) -> str:
     """The source hash of a finished pack image: the SHA-256 of its
-    template, input images and — when *front_source* / *back_source* are
-    given — those hashes of the composed front's and back's inputs (see
-    :func:`pack.front_source_hash` / :func:`pack.back_source_hash`), every
-    input the result depends on. Using the front's and back's *inputs* rather
-    than their pixels lets the hash be computed without rendering them."""
+    template and — when *front_source* / *back_source* are given — those
+    hashes of the composed front's and back's inputs (see
+    :func:`pack.front_source_hash` / :func:`pack.back_source_hash` /
+    :func:`box.front_source_hash`), every input the result depends on.
+    Using the front's and back's *inputs* rather than their pixels lets the
+    hash be computed without rendering them."""
     digest = hashlib.sha256()
-    for path in (template, *images):
-        if not path.is_file():
-            raise GenerationError(f"pack template or image not found: {path}")
-        digest.update(path.read_bytes())
+    if not template.is_file():
+        raise GenerationError(f"pack template not found: {template}")
+    digest.update(template.read_bytes())
     if front_source:
         digest.update(front_source.encode())
     if back_source:
@@ -1610,19 +1603,18 @@ def _pack_output_up_to_date(
     template: Path,
     out_name: str,
     pack_dir: Path,
-    images: tuple[Path, ...],
     out_base: Path,
     front_source: str = "",
     back_source: str = "",
 ) -> bool:
     """True when the pack's finished *out_name* already exists and its stored
-    hash matches the current inputs (template, *images*, and the front's and
-    back's *sources*) — computed without rendering the front or back, so their
+    hash matches the current inputs (the template and the front's and back's
+    *sources*) — computed without rendering the front or back, so their
     renders can be skipped when nothing has changed."""
     pack_dir = pack_dir.resolve()
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / out_name
     source_hash = _pack_hash(
-        template, *images, front_source=front_source, back_source=back_source
+        template, front_source=front_source, back_source=back_source
     )
     return out_path.is_file() and _stored_hash(out_path) == source_hash
 
@@ -1658,19 +1650,17 @@ def _process_pack_material(
 
     The template's pure-blue mask rectangles mark the paste regions: the
     left one holds the pack's back and the right one its front — both
-    in-memory images composed on the fly and never stored — and the white
-    logo is composited onto the front unslanted (the material is the flat
-    view of the pack) at the item's placement: :data:`PACK_LOGO_WIDTH` the
-    front's width, centered, :data:`PACK_LOGO_TOP` the front's height down.
-    The finished material is written to
-    ``<out>/<pack>/CardPack_Material.png`` (atomically, with the SHA-256 of
-    the template and the back's and front's inputs embedded, like a finished
-    card); returns ``(out_path, skipped)``, where *skipped* is True when the
-    output already exists and its stored hash matches the current inputs.
+    in-memory images composed on the fly (the front with its white logo,
+    placed by :func:`pack.place_logo`) and never stored. The finished
+    material is written to ``<out>/<pack>/CardPack_Material.png``
+    (atomically, with the SHA-256 of the template and the back's and
+    front's inputs embedded, like a finished card); returns
+    ``(out_path, skipped)``, where *skipped* is True when the output
+    already exists and its stored hash matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
     source_hash = _pack_hash(
-        PACK_TEMPLATE, PACK_LOGO, front_source=front_source, back_source=back_source
+        PACK_TEMPLATE, front_source=front_source, back_source=back_source
     )
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
@@ -1693,22 +1683,6 @@ def _process_pack_material(
         if front.size != front_target:
             front = front.resize(front_target, Image.Resampling.LANCZOS)
         template.alpha_composite(front, (rects[1][0], rects[1][1]))
-        # The white logo on the front, at the item's placement
-        # (unslanted, since the material is the flat view):
-        # PACK_LOGO_WIDTH the front's width, centered, PACK_LOGO_TOP the
-        # front's height down.
-        rx0, ry0, rx1, ry1 = rects[1]
-        rw, rh = rx1 - rx0, ry1 - ry0
-        with Image.open(PACK_LOGO) as opened:
-            logo = opened.convert("RGBA")
-        logo_w = round(PACK_LOGO_WIDTH * rw)
-        logo = logo.resize(
-            (logo_w, round(logo_w * logo.height / logo.width)),
-            Image.Resampling.LANCZOS,
-        )
-        template.alpha_composite(
-            logo, (rx0 + (rw - logo_w) // 2, ry0 + round(PACK_LOGO_TOP * rh))
-        )
         final = template.convert("RGB")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     _save_atomic(final, out_path, source_hash)
@@ -1723,19 +1697,17 @@ def _process_box_material(
 ) -> tuple[Path, bool]:
     """Composite the box's front onto the box material template.
 
-    The template's blue mask rectangle marks the paste region (its red and
-    green masks — the top's and side's placeholders — are left in place),
-    and the white logo is composited onto the front unslanted at the pack's
-    placement: :data:`PACK_LOGO_WIDTH` the front's width, centered,
-    :data:`PACK_LOGO_TOP` the front's height down. The finished material is
-    written to ``<out>/<pack>/CardBox_Material.png`` (atomically, with the
-    SHA-256 of the template, the logo and the front's inputs embedded, like
-    a finished card); returns ``(out_path, skipped)``, where *skipped* is
-    True when the output already exists and its stored hash matches the
-    current inputs.
+    The template's blue mask rectangle marks the front's paste region — the
+    front is composed on the fly, with its white logo placed by
+    :func:`box.place_logo` (its red and green masks — the top's and side's
+    placeholders — are left in place). The finished material is written to
+    ``<out>/<pack>/CardBox_Material.png`` (atomically, with the SHA-256 of
+    the template and the front's inputs embedded, like a finished card);
+    returns ``(out_path, skipped)``, where *skipped* is True when the output
+    already exists and its stored hash matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
-    source_hash = _pack_hash(BOX_TEMPLATE, PACK_LOGO, front_source=front_source)
+    source_hash = _pack_hash(BOX_TEMPLATE, front_source=front_source)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
@@ -1753,22 +1725,6 @@ def _process_box_material(
         if front.size != front_target:
             front = front.resize(front_target, Image.Resampling.LANCZOS)
         template.alpha_composite(front, (rects[0][0], rects[0][1]))
-        # The white logo on the front, at the pack's placement
-        # (unslanted, since the material is the flat view):
-        # PACK_LOGO_WIDTH the front's width, centered, PACK_LOGO_TOP the
-        # front's height down.
-        rx0, ry0, rx1, ry1 = rects[0]
-        rw, rh = rx1 - rx0, ry1 - ry0
-        with Image.open(PACK_LOGO) as opened:
-            logo = opened.convert("RGBA")
-        logo_w = round(PACK_LOGO_WIDTH * rw)
-        logo = logo.resize(
-            (logo_w, round(logo_w * logo.height / logo.width)),
-            Image.Resampling.LANCZOS,
-        )
-        template.alpha_composite(
-            logo, (rx0 + (rw - logo_w) // 2, ry0 + round(PACK_LOGO_TOP * rh))
-        )
         final = template.convert("RGB")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     _save_atomic(final, out_path, source_hash)
@@ -1931,7 +1887,7 @@ def _generate(
     # to disk. The fronts' inputs are hashed up front (without rendering
     # them), so the renders are skipped entirely when the material, the
     # item and the box's material are all already up to date.
-    from nikke_reborn import box, pack
+    from nikke_reborn import box, expansion, pack
 
     material_needs: set[Path] = set()
     item_needs: set[Path] = set()
@@ -1950,7 +1906,6 @@ def _generate(
             PACK_TEMPLATE,
             PACK_MATERIAL_NAME,
             pack_dir,
-            (PACK_LOGO,),
             out_base,
             front_source,
             back_source,
@@ -1965,7 +1920,6 @@ def _generate(
             BOX_TEMPLATE,
             BOX_MATERIAL_NAME,
             pack_dir,
-            (PACK_LOGO,),
             out_base,
             box_front_source,
         )
@@ -1982,15 +1936,15 @@ def _generate(
         # and back, and the box's front — its own size, the box template's
         # blue rectangle, so its own composition.
         if not material_ok or not box_ok:
-            expansion = pack.load_expansion(pack_dir)
+            data = expansion.load_expansion(pack_dir)
             if not material_ok:
-                fronts[pack_dir] = pack.build_front(pack_dir, expansion, pack.front_size())
+                fronts[pack_dir] = pack.build_front(pack_dir, data, pack.front_size())
                 front_sources[pack_dir] = front_source
-                backs[pack_dir] = pack.build_back(pack_dir, expansion, pack.back_size())
+                backs[pack_dir] = pack.build_back(pack_dir, data, pack.back_size())
                 back_sources[pack_dir] = back_source
             if not box_ok:
                 box_fronts[pack_dir] = box.build_front(
-                    pack_dir, expansion, box.front_size()
+                    pack_dir, data, box.front_size()
                 )
                 box_front_sources[pack_dir] = box_front_source
     total = len(card_configs) + len(material_needs) + len(item_needs) + len(box_needs)

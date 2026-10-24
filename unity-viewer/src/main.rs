@@ -68,11 +68,7 @@ const ZOOM_STEP_PIXELS: f32 = 0.0015;
 /// display is already in range and this only normalizes stragglers.
 fn wrap_degrees(deg: f32) -> f32 {
     let d = deg.rem_euclid(360.0);
-    if d > 180.0 {
-        d - 360.0
-    } else {
-        d
-    }
+    if d > 180.0 { d - 360.0 } else { d }
 }
 
 /// The equivalent of `target` (degrees, −180..180) the model is already
@@ -235,7 +231,9 @@ fn scan_materials() -> Vec<(String, PathBuf)> {
                         None => continue,
                     };
                     if p.extension().is_some_and(|e| e == "png")
-                        && (name == "Cardback.png" || name.starts_with("CardPack_"))
+                        && (name == "Cardback.png"
+                            || name.starts_with("CardPack_")
+                            || name.starts_with("CardBox_"))
                     {
                         out.push((relative(&p), p));
                     }
@@ -564,8 +562,9 @@ impl App {
             }
 
             Message::PitchChanged(deg) => {
-                self.model_rotation.pitch =
-                    deg.to_radians().clamp(-MODEL_PITCH_LIMIT, MODEL_PITCH_LIMIT);
+                self.model_rotation.pitch = deg
+                    .to_radians()
+                    .clamp(-MODEL_PITCH_LIMIT, MODEL_PITCH_LIMIT);
                 Task::none()
             }
 
@@ -768,10 +767,7 @@ impl App {
                 -180.0..=180.0,
                 wrap_degrees(self.model_rotation.yaw.to_degrees()),
                 1.0,
-                format!(
-                    "{:.0}°",
-                    wrap_degrees(self.model_rotation.yaw.to_degrees())
-                ),
+                format!("{:.0}°", wrap_degrees(self.model_rotation.yaw.to_degrees())),
                 |deg| Message::YawChanged(deg),
             ),
             Self::slider_row(
@@ -968,8 +964,7 @@ impl shader::Program<Message> for Renderer<'_> {
                     // turns the asset by `DRAG_DEG_PER_FULL_WIDTH` (a half
                     // turn), instead of a fixed degrees-per-pixel that would
                     // feel different at each window size.
-                    let deg_per_px =
-                        DRAG_DEG_PER_FULL_WIDTH / bounds.size().width.max(1.0);
+                    let deg_per_px = DRAG_DEG_PER_FULL_WIDTH / bounds.size().width.max(1.0);
                     Some(Action::publish(Message::Rotate(Vector::new(
                         (pos.x - last.x) * deg_per_px,
                         (pos.y - last.y) * deg_per_px,
