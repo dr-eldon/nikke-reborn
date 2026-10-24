@@ -21,8 +21,8 @@ The green (side) rectangle is filled with the expansion's background
 (fitted to cover the side, taking the scene's center), the
 expansion's logo center-center and the white NIKKE logo bottom-center;
 the red (top) rectangle — shared with the bottom face — is filled with
-the expansion's background (fitted to cover the top, center-cropped) and
-the white NIKKE logo top-right.
+the expansion's background (fitted to cover the top, center-cropped), the
+expansion's logo center-center and the white NIKKE logo top-right.
 """
 
 from __future__ import annotations
@@ -58,6 +58,10 @@ BOX_LOGO_MARGIN = 0.05
 #: — sized by height, where the pack's width-based sizing is far too big on
 #: the landscape front.
 BOX_EXPANSION_LOGO_HEIGHT = 1 / 3
+
+#: The expansion's logo on the box's top: its width as a fraction of the
+#: top's width (its height proportional).
+BOX_TOP_EXPANSION_LOGO_WIDTH = 2 / 5
 
 # --- the featured NIKKES (the hero and the group behind it) -------------------
 #: The sizing on the box's front, as fractions of the front — in place of the
@@ -184,19 +188,22 @@ def place_top_logo(top: Image.Image) -> None:
     top.alpha_composite(logo, (top.width - margin - logo.width, margin))
 
 
-def place_side_expansion_logo(
-    side: Image.Image, pack_dir: Path, expansion: dict
+def place_center_expansion_logo(
+    face: Image.Image,
+    pack_dir: Path,
+    expansion: dict,
+    width_fraction: float | None = None,
 ) -> None:
-    """Composite the expansion's logo (``<pack>/Logo.png``) onto the side,
-    center-center — the same glow treatment as the front's (see
-    :func:`nikke_reborn.expansion._composite_logo`): its height is
-    :data:`BOX_EXPANSION_LOGO_HEIGHT` the side's height (the same physical
-    size as on the front, since both faces share the box's vertical
-    extent), centered on the side both horizontally and vertically. Only
-    when the expansion names a ``logo`` placement; the side's placement is
-    always ``"center"``. The glow is sampled from the side before the
-    logos are composited, so it is tinted by the scene. Modifies *side* in
-    place."""
+    """Composite the expansion's logo (``<pack>/Logo.png``) onto a face
+    (the side or the top), center-center — the same glow treatment as the
+    front's (see :func:`nikke_reborn.expansion._composite_logo`): its
+    height is :data:`BOX_EXPANSION_LOGO_HEIGHT` the face's height (the
+    side), or, when *width_fraction* is given (the top), its width is that
+    fraction of the face's width (its height proportional) — centered on
+    the face both horizontally and vertically. Only when the expansion
+    names a ``logo`` placement; the placement is always ``"center"``. The
+    glow is sampled from the face before the logos are composited, so it
+    is tinted by the scene. Modifies *face* in place."""
     placement = expansion.get("logo")
     if placement is None:
         return
@@ -206,15 +213,25 @@ def place_side_expansion_logo(
             f"{pack_dir.name}: logo placement {placement!r} is set but "
             f"{LOGO_NAME!r} is missing"
         )
-    glow_color = _background_glow_color(_image_average(side))
-    _composite_logo(
-        side,
-        Image.open(logo_path).convert("RGBA"),
-        (side.width, side.height),
-        "center",
-        glow_color,
-        mark_height=BOX_EXPANSION_LOGO_HEIGHT,
-    )
+    glow_color = _background_glow_color(_image_average(face))
+    if width_fraction is None:
+        _composite_logo(
+            face,
+            Image.open(logo_path).convert("RGBA"),
+            (face.width, face.height),
+            "center",
+            glow_color,
+            mark_height=BOX_EXPANSION_LOGO_HEIGHT,
+        )
+    else:
+        _composite_logo(
+            face,
+            Image.open(logo_path).convert("RGBA"),
+            (face.width, face.height),
+            "center",
+            glow_color,
+            width_fraction=width_fraction,
+        )
 
 
 def front_source_hash(pack_dir: Path) -> str:
@@ -264,7 +281,7 @@ def build_side(
     """The box side: the expansion's background fitted to cover the side
     (like the front — scaled to cover, bottom-aligned, center-cropped),
     with the expansion's logo center-center (see
-    :func:`place_side_expansion_logo`) and the white NIKKE logo
+    :func:`place_center_expansion_logo`) and the white NIKKE logo
     bottom-center (see :func:`place_side_logo`). The result is returned in
     memory, like the front: it is the box material's green rectangle and is
     never written to disk. The side's inputs (the background, the
@@ -273,7 +290,7 @@ def build_side(
     :func:`front_source_hash`) covers it."""
     background = load_background(pack_dir, expansion)
     side = _fit_cover(background, size)
-    place_side_expansion_logo(side, pack_dir, expansion)
+    place_center_expansion_logo(side, pack_dir, expansion)
     place_side_logo(side)
     return side
 
@@ -284,15 +301,22 @@ def build_top(
     """The box top: the expansion's background fitted to cover the top —
     like the front's and side's cover fit, but centered vertically as well
     as horizontally (see :func:`nikke_reborn.expansion._fit_cover`) — with
-    the white NIKKE logo top-right (see :func:`place_top_logo`). It also
-    serves the bottom face, which shares the red rectangle. The result is
-    returned in memory, like the front: it is the box material's red
-    rectangle and is never written to disk. The top's inputs (the
-    background, the white logo and the template) are a subset of the
-    front's, so the front's source hash (see :func:`front_source_hash`)
-    covers it."""
+    the expansion's logo center-center (see
+    :func:`place_center_expansion_logo`, sized by the top's width:
+    :data:`BOX_TOP_EXPANSION_LOGO_WIDTH`) and the white NIKKE logo
+    top-right (see :func:`place_top_logo`). It also serves the bottom
+    face, which shares the red rectangle. The result is returned in
+    memory, like the front: it is the box material's red rectangle and is
+    never written to disk. The top's inputs (the background, the
+    expansion's logo when a placement is set, the white logo and the
+    template) are a subset of the front's, so the front's source hash (see
+    :func:`front_source_hash`) covers it."""
     top = _fit_cover(
         load_background(pack_dir, expansion), size, v_align="center"
+    )
+    place_center_expansion_logo(
+        top, pack_dir, expansion,
+        width_fraction=BOX_TOP_EXPANSION_LOGO_WIDTH,
     )
     place_top_logo(top)
     return top

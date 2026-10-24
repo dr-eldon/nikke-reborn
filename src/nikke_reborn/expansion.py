@@ -451,6 +451,7 @@ def _composite_logo(
     placement: str,
     glow_color: tuple[int, int, int],
     mark_height: float | None = None,
+    width_fraction: float | None = None,
 ) -> None:
     """Composite the expansion's *logo* over *canvas* at *placement* with a
     glow: the halo (tinted *glow_color*) is screen-blended for a light bloom,
@@ -460,13 +461,17 @@ def _composite_logo(
     (a tight drop-shadow that reads as a small diagonal trail), which is
     then drawn on top. The mark is scaled to
     :data:`LOGO_WIDTH` the front's width (or, when *mark_height* is given —
-    the box's front — to that fraction of the front's height, its width
-    proportional) and centered horizontally; top/bottom placements inset it
+    the box's front and side — to that fraction of the face's height, its
+    width proportional; or, when *width_fraction* is given — the box's
+    top — to that fraction of the face's width, its height proportional)
+    and centered horizontally; top/bottom placements inset it
     :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the front.
     Modifies *canvas* in place."""
     width, height = size
     if mark_height is None:
-        logo_w = round(LOGO_WIDTH * width)
+        logo_w = round(
+            (LOGO_WIDTH if width_fraction is None else width_fraction) * width
+        )
         if logo_w < 1:
             return
         logo = logo.resize(
