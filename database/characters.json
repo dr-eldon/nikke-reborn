@@ -330,12 +330,6 @@
         "rarity": "SSR"
     },
     {
-        "id": "c320",
-        "name": "Bibli",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
         "id": "c321",
         "name": "Marchana",
         "manufacturer": "ELYSION",
@@ -387,18 +381,6 @@
         "id": "c261",
         "name": "Nihilister",
         "manufacturer": "PILGRIM",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c340",
-        "name": "Siren",
-        "manufacturer": "ELYSION",
-        "rarity": "SSR"
-    },
-    {
-        "id": "c342",
-        "name": "Pin",
-        "manufacturer": "ELYSION",
         "rarity": "SSR"
     },
     {
@@ -490,18 +472,6 @@
         "name": "Mica",
         "manufacturer": "TETRA",
         "rarity": "SR"
-    },
-    {
-        "id": "c081",
-        "name": "Acre",
-        "manufacturer": "MISSILIS",
-        "rarity": "R"
-    },
-    {
-        "id": "c053",
-        "name": "liqueur",
-        "manufacturer": "TETRA",
-        "rarity": "R"
     },
     {
         "id": "c300",
