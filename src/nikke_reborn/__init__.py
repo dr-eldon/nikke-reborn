@@ -1710,9 +1710,10 @@ def _process_box_material(
     The template's blue mask rectangle marks the front's paste region and
     its green mask rectangle the side's — the front is composed on the
     fly, with its white logo placed by :func:`box.place_logo`, and the
-    side is the background's right slice with the white logo
-    bottom-center (its red mask — the top's placeholder — is left in
-    place). The finished material is written to
+    side is the background's right slice with the expansion's logo
+    top-centered and the white logo bottom-center (its red mask — the
+    top's placeholder — is left in place). The finished material is
+    written to
     ``<out>/<pack>/CardBox_Material.png`` (atomically, with the SHA-256 of
     the template and the front's inputs embedded, like a finished card —
     the side's inputs are a subset of the front's); returns
