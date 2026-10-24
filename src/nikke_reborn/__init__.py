@@ -21,9 +21,10 @@ material (``CardPack_Material.png``) has two pure-blue mask rectangles
 holding the composed back (left) and front (right); the item
 (``CardPack_Item.png``) is the pack's mesh
 (``assets/CardPackStatic_Mesh.asset``) textured with the finished
-material and rendered by the ``unity-viewer`` executable with its
-default camera — so it is generated after the material, which it
-reads from disk. The finished results are
+material and rendered by the ``unity-viewer`` executable with the
+model rotation and camera zoom/pan from
+``assets/CardPackStatic_Mesh.json`` — so it is generated after the
+material, which it reads from disk. The finished results are
 written under ``output/``, with
 the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
@@ -258,6 +259,11 @@ PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
 PACK_MATERIAL_NAME = "CardPack_Material.png"
 PACK_ITEM_NAME = "CardPack_Item.png"
 PACK_MESH = REPO_ROOT / "assets" / "CardPackStatic_Mesh.asset"
+
+#: The item's viewer configuration (model rotation and camera zoom/pan
+#: as a JSON file, exported by the viewer's GUI), passed to
+#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
+PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
 
 #: The white logo stamped on the pack's front, at the same placement in
 #: the material and the item: its width as a fraction of the front's
@@ -1699,35 +1705,45 @@ def _process_pack_material(
     return out_path, False
 
 
-def _viewer_hash(mesh: Path, material: Path) -> str:
-    """SHA-256 of the item's inputs: the pack's mesh and its generated
-    material (whose bytes change whenever the material does), so a
+def _viewer_hash(mesh: Path, material: Path, config: Path) -> str:
+    """SHA-256 of the item's inputs: the pack's mesh, its generated
+    material (whose bytes change whenever the material does), and the
+    viewer configuration (model rotation and camera zoom/pan), so a
     finished item whose stored hash matches them is up to date."""
     digest = hashlib.sha256()
-    for path in (mesh, material):
+    for path in (mesh, material, config):
         if not path.is_file():
             raise GenerationError(f"item input not found: {path}")
         digest.update(path.read_bytes())
     return digest.hexdigest()
 
 
-def _viewer_output_up_to_date(mesh: Path, material: Path, out_path: Path) -> bool:
+def _viewer_output_up_to_date(
+    mesh: Path, material: Path, config: Path, out_path: Path
+) -> bool:
     """True when the viewer's finished *out_path* already exists and its
-    stored hash matches the current *mesh* and *material* — computed
-    without rendering, so the render can be skipped when nothing has
-    changed. A missing output or input (the material not generated yet)
-    is simply not up to date."""
-    if not (mesh.is_file() and material.is_file() and out_path.is_file()):
+    stored hash matches the current *mesh*, *material* and *config* —
+    computed without rendering, so the render can be skipped when
+    nothing has changed. A missing output or input (the material not
+    generated yet) is simply not up to date."""
+    if not (
+        mesh.is_file()
+        and material.is_file()
+        and config.is_file()
+        and out_path.is_file()
+    ):
         return False
-    return _stored_hash(out_path) == _viewer_hash(mesh, material)
+    return _stored_hash(out_path) == _viewer_hash(mesh, material, config)
 
 
 def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     """Render a pack's item with :data:`UNITY_VIEWER`: the pack's mesh
     (:data:`PACK_MESH`) textured with the pack's finished material
-    (``<out>/<pack>/CardPack_Material.png``), with the viewer's default
-    camera, size and settings. The material must have been generated
-    first — the item is rendered from its output file.
+    (``<out>/<pack>/CardPack_Material.png``), posed by the viewer
+    configuration (:data:`PACK_CONFIG`): the model rotation and camera
+    zoom/pan from that JSON file, the camera's fixed viewing pose and
+    the viewer's default output size. The material must have been
+    generated first — the item is rendered from its output file.
 
     The viewer writes a plain PNG, which is re-saved with the SHA-256 of
     the mesh and the material embedded (a PNG text chunk, like a finished
@@ -1738,7 +1754,7 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     """
     pack_dir = pack_dir.resolve()
     material_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
-    source_hash = _viewer_hash(PACK_MESH, material_path)
+    source_hash = _viewer_hash(PACK_MESH, material_path, PACK_CONFIG)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
     if out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
@@ -1746,7 +1762,15 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     tmp_path = out_path.with_name(out_path.name + ".render")
     try:
         result = subprocess.run(
-            [UNITY_VIEWER, str(PACK_MESH), str(material_path), "--out", str(tmp_path)],
+            [
+                UNITY_VIEWER,
+                str(PACK_MESH),
+                str(material_path),
+                "--config",
+                str(PACK_CONFIG),
+                "--out",
+                str(tmp_path),
+            ],
             capture_output=True,
             text=True,
         )
@@ -1858,6 +1882,7 @@ def _generate(
         item_ok = _viewer_output_up_to_date(
             PACK_MESH,
             out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME,
+            PACK_CONFIG,
             out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME,
         )
         if material_ok and item_ok:
