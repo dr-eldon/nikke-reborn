@@ -380,10 +380,12 @@ def _logo_glow_layer(
     logo: Image.Image, radius: int, color: tuple[int, int, int], intensity: float
 ) -> tuple[Image.Image, int]:
     """A soft halo around *logo*: its alpha blurred by *radius* px, tinted
-    *color*, scaled by *intensity*, on a transparent canvas padded by *radius*
-    on every side so the blur is not clipped at the mark's edges. Returns the
-    RGBA halo and the pad, so the caller can re-align it with the sharp mark."""
-    pad = max(1, radius)
+    *color*, scaled by *intensity*, on a transparent canvas padded by the
+    blur's full visible extent (three sigma) on every side, so the Gaussian
+    decays to zero inside the canvas and the halo is not clipped at the
+    mark's edges. Returns the RGBA halo and the pad, so the caller can
+    re-align it with the sharp mark."""
+    pad = max(1, 3 * radius)
     halo = Image.new("L", (logo.width + 2 * pad, logo.height + 2 * pad), 0)
     halo.paste(logo.getchannel("A"), (pad, pad))
     halo = halo.filter(ImageFilter.GaussianBlur(radius))
