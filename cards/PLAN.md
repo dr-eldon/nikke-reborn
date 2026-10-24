@@ -2,7 +2,7 @@
 
 *Status: planning · drafted 2025-10-21 · updated 2026-10-24 (the ELYSION base pack stands at 19 — the *Bibli* reserve top-up is dropped, base packs carry launch-day NIKKEs only) · the `cards/Alpha` set is a dev prototype (see data notes)*
 
-Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022 to Oct 2026, in release order. **Packs 1–3 are the base packs: they carry the 63 NIKKEs released with the game (all 2022-11-04 per the [Release dates](#release-dates) section), grouped by manufacturer — ELYSION (19) first, as it carries the set's face, then TETRA (22), MISSILIS (22) — and release before every other pack. Every pack carries 20–30 NIKKEs (ELYSION stands at 19 — a base pack carries launch-day NIKKEs only).** Each NIKKE in a pack gets the three card variants — static, idle animated, and a skill-cut full art where the NIKKE has a cut-in (all roster NIKKEs are SR/SSR and do).
+Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022 to Oct 2026, in release order. **Packs 1–3 are the base packs: they carry the 63 NIKKEs released with the game (all 2022-11-04 per `release_date` in `database/characters.json`), grouped by manufacturer — ELYSION (19) first, as it carries the set's face, then TETRA (22), MISSILIS (22) — and release before every other pack. Every pack carries 20–30 NIKKEs (ELYSION stands at 19 — a base pack carries launch-day NIKKEs only).** Each NIKKE in a pack gets the three card variants — static, idle animated, and a skill-cut full art where the NIKKE has a cut-in (all roster NIKKEs are SR/SSR and do).
 
 ## How a pack is built
 
@@ -22,10 +22,10 @@ Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022
 
 - Banner history: <https://lootandwaifus.com/nikke-banner-history/> (GLOBAL server list — 165 banners: 120 first appearances + 45 re-runs, Nov 2022 – Oct 2026). Fetched 2025-10-21; raw parse kept in `database/banners.json`. Portrait paths resolve to the viewer model ids (`mi_c405_00` → `c405`); four legacy-portrait banners were resolved against the database (c103, c105, c322, c515).
 - Renderable roster: `database/characters.json` — 311 entries, one per base model id in the viewer's current catalog (`c`-prefixed ids, as used by card JSON `id` fields): 222 playable NIKKEs with wiki pages, 40 story characters with wiki pages, 49 models with no wiki page (story/boss/NPC — Faceless NPC 1–13, the Mass Produced line, etc.); every entry carries `release_date` (ISO, null where unverified). The launch roster's manufacturer split (TETRA 22 / ELYSION 19 / MISSILIS 16 / PILGRIM 6) also comes from here. 2026-10-24: completed against the current catalog (`../nikke-viewer/database/src/utils/json/l2d.json`, 310 base c-ids) and cross-checked page-by-page with the wiki — the catalog snapshot predates *Belorta: Pumpkin Witch* (c063, 2026-10-08), carried with wiki data — and five stale entries dropped (Siren c340 — the mined alias of *Little Mermaid* c513, which is listed under its own id — plus liqueur c053, Acre c081, Bibli c320, and Pin c342, none of which has a model in the current catalog), so cards referencing them fail loudly at build time instead of silently inheriting SSR. The four data-mined collab models with client models but no wiki page — Denji (c803), Aki Hayakawa (c804), 9S (c813), Adam (c853) — are unreleased.
-- Launch roster: the [Release dates](#release-dates) section below — the 63 NIKKEs dated 11/04/2022 are exactly the NIKKEs released with the game; that list is used here for the launch roster only.
+- Launch roster: `database/characters.json` — the 63 NIKKEs with `release_date` 2022-11-04 are exactly the NIKKEs released with the game; the field is used here for the launch roster only.
 - Cross-check: <https://nikke.gg/characters/> (client-rendered; its latest-48 roster confirmed the same id scheme).
-- Release status: `../nikke-viewer` — `assets/js/json/released_units.js` (the release flag, 262 units; everything it lists is released, though it may lag recent releases) plus the banner tracker and the Release dates list (both incomplete), cross-checked against the International fandom wiki (below).
-- Release dates cross-check: <https://nikke-goddess-of-victory-international.fandom.com> — character-page infoboxes carry release dates (verified 2026-10-24): resolved Lily (06/12/2025), Mecha Shifty (04/01/2025), Kurumi (02/12/2026), Avistar (04/23/2026), Aigis (08/13/2026), Claire (09/24/2025), Chime (10/30/2025), Syuen (04/01/2024), Shifty (04/01/2023), Rapunzel (11/04/2022), Queen (Makoto Niijima) (08/13/2026), Yukiko Amagi (08/20/2026), Belorta: Pumpkin Witch (10/08/2026), and Ludmilla (11/04/2022); confirmed no pages for Bibli, liqueur, Acre, Pin — and for the data-mined Denji (c803), Aki Hayakawa (c804), 9S (c813), Adam (c853); *Endless* is a story NPC (deceased), not a playable NIKKE. Model list: the current one is `database/src/utils/json/l2d.json` (740 models — a full client dump including story/boss/NPC/TTS models, so *presence* is not evidence of release); `assets/js/json/l2d.json` (267) is the stale Rust-viewer list, and its 5 extra named models (liqueur, Acre, Bibli, Pin; Siren c340 = the data-mined entry for the released *Little Mermaid* c513, whose in-story nickname is "Siren") plus its raw-id placeholders (c122, c211, c913; c250 renamed *Mass Produced Red*; *Self*/*Choice* on sentinel id c9999) are absent from the current catalog. Absence from the banner tracker or the Release dates list is *not* evidence of release.
+- Release status: `../nikke-viewer` — `assets/js/json/released_units.js` (the release flag, 262 units; everything it lists is released, though it may lag recent releases) plus the banner tracker (incomplete) and `database/characters.json`'s `release_date` field, cross-checked against the International fandom wiki (below).
+- Release dates cross-check: <https://nikke-goddess-of-victory-international.fandom.com> — character-page infoboxes carry release dates (verified 2026-10-24): resolved Lily (06/12/2025), Mecha Shifty (04/01/2025), Kurumi (02/12/2026), Avistar (04/23/2026), Aigis (08/13/2026), Claire (09/24/2025), Chime (10/30/2025), Syuen (04/01/2024), Shifty (04/01/2023), Rapunzel (11/04/2022), Queen (Makoto Niijima) (08/13/2026), Yukiko Amagi (08/20/2026), Belorta: Pumpkin Witch (10/08/2026), and Ludmilla (11/04/2022); confirmed no pages for Bibli, liqueur, Acre, Pin — and for the data-mined Denji (c803), Aki Hayakawa (c804), 9S (c813), Adam (c853); *Endless* is a story NPC (deceased), not a playable NIKKE. Model list: the current one is `database/src/utils/json/l2d.json` (740 models — a full client dump including story/boss/NPC/TTS models, so *presence* is not evidence of release); `assets/js/json/l2d.json` (267) is the stale Rust-viewer list, and its 5 extra named models (liqueur, Acre, Bibli, Pin; Siren c340 = the data-mined entry for the released *Little Mermaid* c513, whose in-story nickname is "Siren") plus its raw-id placeholders (c122, c211, c913; c250 renamed *Mass Produced Red*; *Self*/*Choice* on sentinel id c9999) are absent from the current catalog. Absence from the banner tracker — or a null `release_date` in `database/characters.json` — is *not* evidence of release (null means unverified, not unreleased).
 
 ## Packs
 
@@ -319,7 +319,7 @@ Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022
 
 **Base forms (0)**: — (the pack's former base forms — Delta, Soline, Milk — are launch NIKKEs, now in packs 1–2)
 
-**Collab (1)**: Claire (c842 — Resident Evil, matching the pack's RE collab; **released 2025-09-24** — *Claire Redfield* (B.S.T.), the RE collab trio with Ada (c840) and Jill (c841), inside the pack's window (2025-09-04 – 2025-11-20); absent from the banner tracker and Release dates list, both proven incomplete — no banner, so never in the New table); drawn from the commons reserve.
+**Collab (1)**: Claire (c842 — Resident Evil, matching the pack's RE collab; **released 2025-09-24** — *Claire Redfield* (B.S.T.), the RE collab trio with Ada (c840) and Jill (c841), inside the pack's window (2025-09-04 – 2025-11-20); absent from the banner tracker (proven incomplete) — no banner, so never in the New table); drawn from the commons reserve.
 
 **Reserve (0)**: —
 
@@ -422,18 +422,17 @@ Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022
 | c907 | Shifty | R |
 | c993 | Mecha Shifty | R |
 
-‡ Unreleased — data-mined: no release flag (`released_units.js`), no banner, no Release dates entry, no wiki page. Audited against the viewer's **current** model catalog — `../nikke-viewer`'s `database/src/utils/json/l2d.json` (740 models, a full client dump including story/boss/NPC/TTS models, so *presence* is not evidence of release; the older `assets/js/json/l2d.json` (267) is stale and is not used for release inference) and the International fandom wiki (verified 2026-10-24). 4 of the 15 reserve members are ‡: liqueur (c053), Acre (c081), Bibli (c320), Pin (c342) — no model in the current catalog (present in the stale assets list, since removed), no wiki page; not cardable until a model is restored. *Endless* (c371) is a story NPC (deceased; Chapter 39: Gene debut) — not a playable NIKKE, but NPCs are card-able and she stays in the pool (her SSR is the viewer database's value, not an in-game rarity). The other 10 are released, dated where available: Rapunzel 11/04/2022 (base; Pure Grace skin c226 undated), Shifty 04/01/2023, Syuen 04/01/2024, Kilo 04/25/2024, Mecha Shifty 04/01/2025, Lily 06/12/2025 (Stellar Blade), Chime 10/30/2025, Kurumi 02/12/2026 (Oshi no Ko), Avistar 04/23/2026, Aigis 08/13/2026 (Persona 3). ‡ members count toward the reserve only as filler, and a "Classics" reissue pack would not carry them. Of the seven drawn top-ups, no unreleased pick remains: Claire (c842, drawn for pack 10) is released — *Claire Redfield* (B.S.T.), released 09/24/2025, inside the pack's window (2025-09-04 – 2025-11-20); Siren (c340, drawn for pack 5) is confirmed as *Little Mermaid*'s in-story nickname ("also known as Siren"; the mined c340 entry predates the 04/24/2025 release), and Little Mermaid is already on the pack 12 roster — so that pick duplicates a roster NIKKE and is replaced (recommend: Shifty c907 — before the window; Himeno is reserved for the Genesis pack with the Chainsaw Man trio).
+‡ Unreleased — data-mined: no release flag (`released_units.js`), no banner, no `characters.json` entry, no wiki page. Audited against the viewer's **current** model catalog — `../nikke-viewer`'s `database/src/utils/json/l2d.json` (740 models, a full client dump including story/boss/NPC/TTS models, so *presence* is not evidence of release; the older `assets/js/json/l2d.json` (267) is stale and is not used for release inference) and the International fandom wiki (verified 2026-10-24). 4 of the 15 reserve members are ‡: liqueur (c053), Acre (c081), Bibli (c320), Pin (c342) — no model in the current catalog (present in the stale assets list, since removed), no wiki page; not cardable until a model is restored. *Endless* (c371) is a story NPC (deceased; Chapter 39: Gene debut) — not a playable NIKKE, but NPCs are card-able and she stays in the pool (her SSR is the viewer database's value, not an in-game rarity). The other 10 are released, dated where available: Rapunzel 11/04/2022 (base; Pure Grace skin c226 undated), Shifty 04/01/2023, Syuen 04/01/2024, Kilo 04/25/2024, Mecha Shifty 04/01/2025, Lily 06/12/2025 (Stellar Blade), Chime 10/30/2025, Kurumi 02/12/2026 (Oshi no Ko), Avistar 04/23/2026, Aigis 08/13/2026 (Persona 3). ‡ members count toward the reserve only as filler, and a "Classics" reissue pack would not carry them. Of the seven drawn top-ups, no unreleased pick remains: Claire (c842, drawn for pack 10) is released — *Claire Redfield* (B.S.T.), released 09/24/2025, inside the pack's window (2025-09-04 – 2025-11-20); Siren (c340, drawn for pack 5) is confirmed as *Little Mermaid*'s in-story nickname ("also known as Siren"; the mined c340 entry predates the 04/24/2025 release), and Little Mermaid is already on the pack 12 roster — so that pick duplicates a roster NIKKE and is replaced (recommend: Shifty c907 — before the window; Himeno is reserved for the Genesis pack with the Chainsaw Man trio).
 
 ## Data notes
 
 - Packs 4–5 begin with the KR-launch era (Nov 2022 – Mar 2023); the tracker's history is the true release order across servers.
 - Name conventions: `database/characters.json` uses the wiki's official names (2026-10-24 cross-check: c321 *Marciana*, c310 *Ade*, c041 *K*, c262 *Liberalio*, c190 *Ludmilla*, and the collabs by full name — *Ada Wong*, *Jill Valentine*, *Claire Redfield*, *Asuka Shikinami Langley*, *Mari Makinami Illustrious*, *Chisato Nishikigi*, *Takina Inoue*, *Queen (Makoto Niijima)*, *Yukiko Amagi*). Pack rosters keep the catalog names (*Marchana*, *Aid*, *Agent K*, *Liberelli*) since cards render by model id; banner names are preserved in `database/banners.json`.
-- The launch roster (the base packs' 63 NIKKEs, all 11/04/2022) comes from the Release dates section; the tracker's first banner (Helm, 11/10/2022) postdates the game's launch by a week — the standard launch banners are untracked (see build status).
+- The launch roster (the base packs' 63 NIKKEs, all 2022-11-04) comes from `database/characters.json`'s `release_date`; the tracker's first banner (Helm, 2022-11-10) postdates the game's launch by a week — the standard launch banners are untracked (see build status).
 - The 63 launch NIKKEs split by manufacturer as TETRA 22, ELYSION 19, MISSILIS 16, PILGRIM 6 (*Ludmilla* c190 — TETRA — confirmed in the current catalog). The base packs keep single-manufacturer rosters: MISSILIS pairs with the 6 PILGRIM fairy-tale NIKKEs (22), and ELYSION stands at 19: its candidate reserve top-up (*Bibli*, c320 — also ELYSION) is dropped because a base pack carries launch-day NIKKEs only (purity beats the 20 lower bound; she is unreleased — data-mined, with no model in the current viewer catalog — and not launch-day), and she remains in the commons reserve.
 - *Alice* (c191) is the only NIKKE who is both a launch NIKKE (11/04/2022) and a banner first appearance (2023-04-12, pack 4's window); she is counted once, in the TETRA base pack, and her banner is covered there.
 - All 63 launch NIKKEs are in the viewer database (the 2026-10-24 audit confirmed base *Ludmilla* c190 in the current catalog). *Marian*'s catalog name carries a leading underscore (`_Marian`, c013); `characters.json` and pack rosters use the clean name, as throughout.
 - Pack 12's re-appearances: the concurrent re-run window nominally carries 14 NIKKEs; three (Mary: Bay Goddess c132, Rosanna: Chic Ocean c283, Elegg: Boom and Shock c502) are trimmed to keep the roster at 27. Drop the trim if 20–30 is a soft bound (roster 30).
-- The Release dates list ends at *Ein* (07/25/2024) and names two NIKKEs outside the renderable roster (*Pascal*, *Ram*); it is used here for the 11/04/2022 launch roster only.
 - `cards/Alpha` is the dev prototype (Rapi + Neon, including sub-flavor viewer ids like `c010_02` White Promise and `c016_01` Red Hood Red Flavor that sit outside the top-level database). Its NIKKEs are covered by pack 2 (Neon c011, Rapi c010) and pack 8 (Rapi: Red Hood c016); sub-flavors are a future per-card option, not part of this plan.
 
 ## Alternatives considered
@@ -443,141 +442,8 @@ Twelve card packs (expansions) covering every NIKKE banner release from Nov 2022
 - **11 packs**: merge 9 (Tactical) + 10 (Outbreak) — 16 new + 21 re-appear slots (several NIKKEs re-listed from both packs) + 2 base forms = 39, trimmed to 30 by dropping 9 re-appears; the 7 reserve top-ups apply to the 12-pack plan only.
 - **13 packs**: split 7 (Neon Genesis) at the NERV collab — Jun–Aug 2024 (8 new + 4 re + 2 base = 14, topped up from the reserve to 20) and Sep–Nov 2024 (the NERV trio, Rouge, Quency: Escape Queen, Phantom, Rumani, Cinderella, Grave, Flora: 8 new + 2 re + 1 base = 11, topped up to 20).
 
-## Release dates
-
-+	Name	Release Date
-1	Admi	11/04/2022
-2	Alice	11/04/2022
-3	Anis	11/04/2022
-4	Aria	11/04/2022
-5	Belorta	11/04/2022
-6	Brid	11/04/2022
-7	Centi	11/04/2022
-8	Crow	11/04/2022
-9	Delta	11/04/2022
-10	Diesel	11/04/2022
-11	Dolla	11/04/2022
-12	Drake	11/04/2022
-13	Emma	11/04/2022
-14	Epinel	11/04/2022
-15	Ether	11/04/2022
-16	Eunhwa	11/04/2022
-17	Exia	11/04/2022
-18	Folkwang	11/04/2022
-19	Frima	11/04/2022
-20	Guillotine	11/04/2022
-21	Harran	11/04/2022
-22	iDoll Flower	11/04/2022
-23	iDoll Ocean	11/04/2022
-24	iDoll Sun	11/04/2022
-25	Isabel	11/04/2022
-26	Julia	11/04/2022
-27	Liter	11/04/2022
-28	Ludmilla	11/04/2022
-29	Maiden	11/04/2022
-30	Marian	11/04/2022
-31	Mary	11/04/2022
-32	Maxwell	11/04/2022
-33	Mica	11/04/2022
-34	Mihara	11/04/2022
-35	Milk	11/04/2022
-36	Miranda	11/04/2022
-37	N102	11/04/2022
-38	Neon	11/04/2022
-39	Noah	11/04/2022
-40	Noise	11/04/2022
-41	Novel	11/04/2022
-42	Pepper	11/04/2022
-43	Poli	11/04/2022
-44	Privaty	11/04/2022
-45	Product 08	11/04/2022
-46	Product 12	11/04/2022
-47	Product 23	11/04/2022
-48	Rapi	11/04/2022
-49	Rapunzel	11/04/2022
-50	Rupee	11/04/2022
-51	Scarlet	11/04/2022
-52	Signal	11/04/2022
-53	Snow White	11/04/2022
-54	Soldier EG	11/04/2022
-55	Soldier FA	11/04/2022
-56	Soldier OW	11/04/2022
-57	Soline	11/04/2022
-58	Sugar	11/04/2022
-59	Vesti	11/04/2022
-60	Volume	11/04/2022
-61	Yan	11/04/2022
-62	Yulha	11/04/2022
-63	Yuni	11/04/2022
-64	Helm	11/10/2022
-65	Laplace	11/24/2022
-66	Neve	12/08/2022
-67	Rupee: Winter Shopper	12/08/2022
-68	Anne: Miracle Fairy	12/15/2022
-69	Modernia	01/01/2023
-70	Guilty	01/12/2023
-71	Jackal	01/12/2023
-72	Quency	01/12/2023
-73	Sin	01/12/2023
-74	Viper	01/19/2023
-75	Cocoa	02/01/2023
-76	Soda	02/01/2023
-77	Himeno	02/22/2023
-78	Makima	02/22/2023
-79	Power	02/22/2023
-80	Biscuit	03/15/2023
-81	Nihilister	03/30/2023
-82	Sakura	03/30/2023
-83	D	04/13/2023
-84	Dorothy	04/27/2023
-85	Rei	04/27/2023
-86	Blanc	05/18/2023
-87	Noir	05/25/2023
-88	Rosanna	06/01/2023
-89	Nero	06/06/2023
-90	Mary: Bay Goddess	06/15/2023
-91	Neon: Blue Ocean	06/22/2023
-92	Mast	07/20/2023
-93	Anchor	08/03/2023
-94	Anis: Sparkling Summer	08/03/2023
-95	Helm: Aquamarine	08/10/2023
-96	2B	09/01/2023
-97	Pascal	09/01/2023
-98	A2	09/08/2023
-99	Marciana	09/21/2023
-100	Naga	10/05/2023
-101	Tia	10/12/2023
-102	Quiry	10/19/2023
-103	Red Hood	11/02/2023
-104	Snow White: Innocent Days	11/02/2023
-105	Tove	11/23/2023
-106	Ludmilla: Winter Owner	12/07/2023
-107	Mica: Snow Buddy	12/14/2023
-108	Scarlet:Black Shadow	01/01/2024
-109	Leona	01/11/2024
-110	Moran	01/25/2024
-111	Privaty: Unkind Maid	02/05/2024
-112	Ade	02/15/2024
-113	Elegg	02/22/2024
-114	D: Killer Wife	03/07/2024
-115	Emilia	03/21/2024
-116	Ram	03/21/2024
-117	Rem	03/28/2024
-118	Bay	04/11/2024
-119	Crown	04/25/2024
-120	Kilo	04/25/2024
-121	Trony	05/16/2024
-122	Soda: Twinkling Bunny	05/30/2024
-123	Alice: Wonderland Bunny	06/06/2024
-124	Clay	06/20/2024
-125	Sakura: Bloom In Summer	07/04/2024
-126	Rosanna: Chic Ocean	07/11/2024
-127	Ein	07/25/2024
-
-**The base packs' launch roster:** entries 1–63 (all dated 11/04/2022 — the NIKKEs released with the game) form the three base packs (ELYSION, TETRA, MISSILIS) and release before every other pack; entries 64 onward are post-launch releases already covered by the packs above (the list ends at Ein, 07/25/2024).
-
 ## Changelog
 
-- 2026-10-24: the ELYSION base pack stands at 19 — the *Bibli* (c320) reserve top-up is dropped, base packs carry launch-day NIKKEs only (purity beats the 20 lower bound); *Bibli* returns to the commons reserve (16 → 17), reserve top-ups 7 → 6, total roster 259 → 258. Release-status audit via the viewer (`../nikke-viewer`), corrected: the current model catalog is `database/src/utils/json/l2d.json` (740 models, full client dump) — `assets/js/json/l2d.json` (267), used for an interim flip, is stale, and its 5 extra named models (liqueur, Acre, Bibli, Siren, Pin) are absent from the current catalog; that interim "stale flag → released" flip is therefore retracted except for Kilo (dated 04/25/2024 in the Release dates list). The ‡ mark now covers 10 reserve members — 4 with no current model (liqueur, Acre, Bibli, Pin) and 6 with client models but no release trace (Endless, Avistar, Lily, Kurumi, Aigis, Mecha Shifty) — plus both pack picks (Siren c340 → pack 5, Claire c842 → pack 10), keep-or-replace pending; *Bibli* is unreleased (data-mined) after all — the pack 1 exclusion stands on both grounds (unreleased and not launch-day). Siren c340 (pack 5 pick) resolved the same day: it is the data-mined pre-release alias of *Little Mermaid* (c513, released 2025-04-24, pack 12 roster) — the pick duplicates a roster NIKKE, so it is replaced (recommend Himeno c802, the only dated released reserve member before the pack's 2023 window); c340 itself has no model in the current catalog. Claire c842 (pack 10 pick) resolved the same day: likely released — a Resident Evil collab character of the Outbreak period (the trio with Ada c840 and Jill c841); its absence from the banner tracker and Release dates list is source incompleteness, not non-release; the pick stands. The International fandom wiki (verified 2026-10-24) then resolved the rest: all five remaining ‡ reserve members are released with dates (Mecha Shifty 04/01/2025, Lily 06/12/2025, Kurumi 02/12/2026, Avistar 04/23/2026, Aigis 08/13/2026) — the reserve's ‡ set is now just the 4 no-model names (liqueur, Acre, Bibli, Pin, confirmed page-less); *Endless* (c371) is removed from the reserve — a story NPC (deceased), not a playable NIKKE (17 → 16); *Siren* confirmed as *Little Mermaid*'s in-story nickname rather than a pre-release alias. *Endless* (c371) is restored to the reserve (16 → 17) — NPCs are card-able. The five stale `characters.json` entries (Siren c340 and the four no-model ‡ names) are dropped from the file (206 → 201). *Himeno* (c802) is confirmed a Chainsaw Man/Devil Hunter collab NIKKE (wiki: same 02/22/2023 wave as Makima c800 and Power c801) — drawn to the Genesis pack instead of Abyss filler (Reserve 2 → 3; pack 20 → 21; top-ups 6 → 7; total 258 → 259), leaving the commons reserve (17 → 16); the pack 5 replacement recommendation becomes *Shifty* (c907, ELYSION R, 04/01/2023). A `Collab` grouping is added (new summary-table column + per-pack line, footnote ⁴): collab NIKKES released in-window with no banner in the tracker are classified as Collab rather than Reserve — *Himeno* moves from Genesis's Reserve to its Collab line (Genesis 3 → 2 Reserve, 1 Collab) and *Claire* (c842, Resident Evil — the only other ABNORMAL among the drawn top-ups) from Outbreak's Reserve to its Collab line (Outbreak 1 → 0 Reserve, 1 Collab); totals unchanged (Reserve 7 → 5, Collab 2, 259). The commons reserve table is reformatted to one member per row (cosmetic). `database/characters.json` is completed and re-sourced (201 → 311): every base c-id of the current catalog (310) plus *Belorta: Pumpkin Witch* (c063, which postdates the snapshot) — 222 playable NIKKEs / 40 story characters / 49 no-wiki models — with a new `release_date` field (wiki-verified ISO dates, null otherwise). The wiki cross-check corrects 16 existing entries: c190 *Lucilla* → *Ludmilla*, c262 *Liberelli* → *Liberalio*, c321 *Marchana* → *Marciana*, c310 *Aid* → *Ade*, c041 *Agent K* → *K*, the underscored names (_Marian/_Rouge/_Moran/_Chime) cleaned, and the collabs by full name (*Ada Wong*, *Jill Valentine*, *Claire Redfield*, *Asuka Shikinami Langley*, *Mari Makinami Illustrious*, *Chisato Nishikigi*, *Takina Inoue*). Consequences: base *Ludmilla* (c190) is confirmed in the current catalog — the TETRA launch placeholder is filled with c190, the pack-12 ‡ marks on the Kuroko's pair drop (wiki-dates 08/13 + 08/20/2026, one day later than the roster's 08/12 + 08/19), and *Ludmilla* leaves the commons reserve (15 — she is on the TETRA roster; the pool split is now 39 launch + 7 drawn). Four data-mined collab models are newly identified as unreleased (client model, no wiki page): Denji (c803), Aki Hayakawa (c804), 9S (c813), Adam (c853). Follow-up audit of the no-page entries: *Rei Ayanami (Tentative Name)* (c834) is confirmed as the second collab Rei (wiki: Abnormal, NERV, SSR, 2025-02-27) and is already on the Red Hood roster (New, 2025-02-27, from the banner tracker — the roster was right; no change needed); *Asuka: WILLE* (c835) gets its file `release_date` 2025-02-20 from the banner roster (its wiki page is a redirect); c836 *Sakura* had borrowed c282's *Sakura* NIKKE data via a name collision and is nulled (identity unverified — collab-range model with no page, banner, or roster reference).
+- 2026-10-24: the ELYSION base pack stands at 19 — the *Bibli* (c320) reserve top-up is dropped, base packs carry launch-day NIKKEs only (purity beats the 20 lower bound); *Bibli* returns to the commons reserve (16 → 17), reserve top-ups 7 → 6, total roster 259 → 258. Release-status audit via the viewer (`../nikke-viewer`), corrected: the current model catalog is `database/src/utils/json/l2d.json` (740 models, full client dump) — `assets/js/json/l2d.json` (267), used for an interim flip, is stale, and its 5 extra named models (liqueur, Acre, Bibli, Siren, Pin) are absent from the current catalog; that interim "stale flag → released" flip is therefore retracted except for Kilo (dated 04/25/2024 in the Release dates list). The ‡ mark now covers 10 reserve members — 4 with no current model (liqueur, Acre, Bibli, Pin) and 6 with client models but no release trace (Endless, Avistar, Lily, Kurumi, Aigis, Mecha Shifty) — plus both pack picks (Siren c340 → pack 5, Claire c842 → pack 10), keep-or-replace pending; *Bibli* is unreleased (data-mined) after all — the pack 1 exclusion stands on both grounds (unreleased and not launch-day). Siren c340 (pack 5 pick) resolved the same day: it is the data-mined pre-release alias of *Little Mermaid* (c513, released 2025-04-24, pack 12 roster) — the pick duplicates a roster NIKKE, so it is replaced (recommend Himeno c802, the only dated released reserve member before the pack's 2023 window); c340 itself has no model in the current catalog. Claire c842 (pack 10 pick) resolved the same day: likely released — a Resident Evil collab character of the Outbreak period (the trio with Ada c840 and Jill c841); its absence from the banner tracker and Release dates list is source incompleteness, not non-release; the pick stands. The International fandom wiki (verified 2026-10-24) then resolved the rest: all five remaining ‡ reserve members are released with dates (Mecha Shifty 04/01/2025, Lily 06/12/2025, Kurumi 02/12/2026, Avistar 04/23/2026, Aigis 08/13/2026) — the reserve's ‡ set is now just the 4 no-model names (liqueur, Acre, Bibli, Pin, confirmed page-less); *Endless* (c371) is removed from the reserve — a story NPC (deceased), not a playable NIKKE (17 → 16); *Siren* confirmed as *Little Mermaid*'s in-story nickname rather than a pre-release alias. *Endless* (c371) is restored to the reserve (16 → 17) — NPCs are card-able. The five stale `characters.json` entries (Siren c340 and the four no-model ‡ names) are dropped from the file (206 → 201). *Himeno* (c802) is confirmed a Chainsaw Man/Devil Hunter collab NIKKE (wiki: same 02/22/2023 wave as Makima c800 and Power c801) — drawn to the Genesis pack instead of Abyss filler (Reserve 2 → 3; pack 20 → 21; top-ups 6 → 7; total 258 → 259), leaving the commons reserve (17 → 16); the pack 5 replacement recommendation becomes *Shifty* (c907, ELYSION R, 04/01/2023). A `Collab` grouping is added (new summary-table column + per-pack line, footnote ⁴): collab NIKKES released in-window with no banner in the tracker are classified as Collab rather than Reserve — *Himeno* moves from Genesis's Reserve to its Collab line (Genesis 3 → 2 Reserve, 1 Collab) and *Claire* (c842, Resident Evil — the only other ABNORMAL among the drawn top-ups) from Outbreak's Reserve to its Collab line (Outbreak 1 → 0 Reserve, 1 Collab); totals unchanged (Reserve 7 → 5, Collab 2, 259). The commons reserve table is reformatted to one member per row (cosmetic). `database/characters.json` is completed and re-sourced (201 → 311): every base c-id of the current catalog (310) plus *Belorta: Pumpkin Witch* (c063, which postdates the snapshot) — 222 playable NIKKEs / 40 story characters / 49 no-wiki models — with a new `release_date` field (wiki-verified ISO dates, null otherwise). The wiki cross-check corrects 16 existing entries: c190 *Lucilla* → *Ludmilla*, c262 *Liberelli* → *Liberalio*, c321 *Marchana* → *Marciana*, c310 *Aid* → *Ade*, c041 *Agent K* → *K*, the underscored names (_Marian/_Rouge/_Moran/_Chime) cleaned, and the collabs by full name (*Ada Wong*, *Jill Valentine*, *Claire Redfield*, *Asuka Shikinami Langley*, *Mari Makinami Illustrious*, *Chisato Nishikigi*, *Takina Inoue*). Consequences: base *Ludmilla* (c190) is confirmed in the current catalog — the TETRA launch placeholder is filled with c190, the pack-12 ‡ marks on the Kuroko's pair drop (wiki-dates 08/13 + 08/20/2026, one day later than the roster's 08/12 + 08/19), and *Ludmilla* leaves the commons reserve (15 — she is on the TETRA roster; the pool split is now 39 launch + 7 drawn). Four data-mined collab models are newly identified as unreleased (client model, no wiki page): Denji (c803), Aki Hayakawa (c804), 9S (c813), Adam (c853). Follow-up audit of the no-page entries: *Rei Ayanami (Tentative Name)* (c834) is confirmed as the second collab Rei (wiki: Abnormal, NERV, SSR, 2025-02-27) and is already on the Red Hood roster (New, 2025-02-27, from the banner tracker — the roster was right; no change needed); *Asuka: WILLE* (c835) gets its file `release_date` 2025-02-20 from the banner roster (its wiki page is a redirect); c836 *Sakura* had borrowed c282's *Sakura* NIKKE data via a name collision and is nulled (identity unverified — collab-range model with no page, banner, or roster reference). The *Release dates* section (127 entries, MM/DD/YYYY, ending at *Ein* 07/25/2024) is removed — fully superseded by `database/characters.json`'s `release_date`: every listed name and date is present in the file except *Nero* (c380), where the list's 06/06/2023 (June) conflicts with the wiki's 6 July 2023 — the file keeps the wiki date. References now point at the file.
 - 2026-10-22: launch roster (the 63 base NIKKEs, per the new Release dates section) split into three base packs before all the others — ELYSION (20, the set's face Rapi leading as 0001), TETRA (22, incl. Ludmilla †), MISSILIS (16 MISSILIS + 6 PILGRIM) — grouped by manufacturer (ELYSION first as the face-card line, then by launch-line size), ordered SSR → SR → R (ties by NIKKE id; Rapi leads ELYSION as 0001) instead of alphabetical; the 22 launch NIKKEs previously printed as base forms in the other packs move to the base packs; 7 reserve top-ups (ELYSION ×1, Genesis ×2, Abyss ×3, Outbreak ×1) hold those packs at 20; commons reserve 61 → 16; 12-pack structure with every pack inside 20–30.
 - 2025-10-21: plan drafted from the banner history (165 banners) and the 206-skin viewer database; 9-pack structure settled at 20–30 NIKKEs per pack.
