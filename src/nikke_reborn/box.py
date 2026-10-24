@@ -6,10 +6,10 @@ The box's front is the shared front composition (see
 box's own pieces: the box's background fit (``"cover-bottom"``: the
 background scaled down just enough to cover the whole front and
 bottom-aligned, so its bottom touches the front's bottom edge and any excess
-height is cropped off the top), the box's white NIKKE logo, and the box's
-expansion-logo sizing — both sized by the front's height rather than its
-width (the box's front is landscape, where the pack's width-based sizing is
-far too big).
+height is cropped off the top), the box's white NIKKE logo, the box's
+expansion-logo sizing, and the box's character sizing (hero and group) —
+the latter two sized by the front's height rather than its width (the box's
+front is landscape, where the pack's width-based sizing is far too big).
 
 Like the pack's front it is built procedurally — never stored:
 :func:`nikke_reborn._generate` composes it in memory and hands it to the
@@ -36,15 +36,27 @@ from PIL import Image
 #: box's front is landscape, where the pack's width-based sizing is far too
 #: big.
 BOX_LOGO = nr.IMAGES_DIR / "Logo_White.png"
-BOX_LOGO_HEIGHT = 0.25
-BOX_LOGO_MARGIN = 0.1
+BOX_LOGO_HEIGHT = 0.15
+BOX_LOGO_MARGIN = 0.05
 
 # --- the expansion's logo -----------------------------------------------------
 #: The expansion's logo (``<pack>/Logo.png``) on the box's front: its height
 #: as a fraction of the front's height (its width proportional) — sized by
 #: height, where the pack's width-based sizing is far too big on the
 #: landscape front.
-BOX_EXPANSION_LOGO_HEIGHT = 0.25
+BOX_EXPANSION_LOGO_HEIGHT = 1 / 3
+
+# --- the featured NIKKES (the hero and the group behind it) -------------------
+#: The sizing on the box's front, as fractions of the front — in place of the
+#: shared :data:`nikke_reborn.expansion.HERO_HEIGHT`,
+#: :data:`nikke_reborn.expansion.BACK_HEIGHT` and
+#: :data:`nikke_reborn.expansion.BACK_OFFSET_X` (the pack's portrait front):
+#: the box's landscape front wants bigger characters, and the group a bit
+#: closer to the hero than the pack's offset. The hero/back ratio is kept
+#: roughly constant, so the group still reads as being behind the hero.
+BOX_HERO_HEIGHT = 0.9
+BOX_BACK_HEIGHT = 0.6
+BOX_BACK_OFFSET_X = 0.30
 
 
 def front_size() -> tuple[int, int]:
@@ -105,10 +117,16 @@ def build_front(
 ) -> Image.Image:
     """The box front: the shared front composition
     (:func:`nikke_reborn.expansion.compose_front`) with the box's background
-    fit, the box's white NIKKE logo, and the box's expansion-logo sizing
+    fit, the box's white NIKKE logo, the box's expansion-logo sizing
     (:data:`BOX_EXPANSION_LOGO_HEIGHT` the front's height, instead of the
-    pack's width-based sizing). The result is returned in memory; it is the
-    box material's blue rectangle and is never written to disk."""
+    pack's width-based sizing), and the box's character sizing
+    (:data:`BOX_HERO_HEIGHT`, :data:`BOX_BACK_HEIGHT` and
+    :data:`BOX_BACK_OFFSET_X`, instead of the shared
+    :data:`nikke_reborn.expansion.HERO_HEIGHT`,
+    :data:`nikke_reborn.expansion.BACK_HEIGHT` and
+    :data:`nikke_reborn.expansion.BACK_OFFSET_X`). The result is returned in
+    memory; it is the box material's blue rectangle and is never written to
+    disk."""
     return compose_front(
         pack_dir,
         expansion,
@@ -116,4 +134,7 @@ def build_front(
         fit="cover-bottom",
         place_logo=place_logo,
         expansion_logo_height=BOX_EXPANSION_LOGO_HEIGHT,
+        hero_height=BOX_HERO_HEIGHT,
+        back_height=BOX_BACK_HEIGHT,
+        back_offset_x=BOX_BACK_OFFSET_X,
     )

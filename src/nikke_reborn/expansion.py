@@ -189,6 +189,9 @@ def compose_front(
     fit: str,
     place_logo: Callable[[Image.Image, tuple[int, int, int, int]], None],
     expansion_logo_height: float | None = None,
+    hero_height: float | None = None,
+    back_height: float | None = None,
+    back_offset_x: float | None = None,
 ) -> Image.Image:
     """Compose an expansion's front: its background (fitted per *fit*), the
     featured NIKKES drawn over it (backs first, the hero on top), and — when
@@ -207,7 +210,16 @@ def compose_front(
     *expansion_logo_height*, when given (the box's front), sizes the
     expansion's logo by height — that fraction of the front's height, its
     width proportional — instead of by width (:data:`LOGO_WIDTH` the front's
-    width, the pack's front)."""
+    width, the pack's front).
+
+    *hero_height*, when given (the box's front), sets the hero's body height
+    to that fraction of the front's height instead of the shared
+    :data:`HERO_HEIGHT` — the box's landscape front wants a bigger hero than
+    the pack's portrait one. *back_height* does the same for the group
+    behind the hero (instead of the shared :data:`BACK_HEIGHT` base), and
+    *back_offset_x* sets the group's center offset from the middle (width
+    fraction, instead of the shared :data:`BACK_OFFSET_X` — smaller brings
+    the group closer to the hero)."""
     width, height = size
 
     background = load_background(pack_dir, expansion)
@@ -231,25 +243,28 @@ def compose_front(
 
     # Backs first (behind the hero), left/right alternating, stepping further
     # out and shrinking per tier so any number of featured NIKKES lays out.
+    back_scale = back_height if back_height is not None else BACK_HEIGHT
+    offset_scale = back_offset_x if back_offset_x is not None else BACK_OFFSET_X
     for index, body in enumerate(bodies[1:], start=1):
         side = -1 if (index - 1) % 2 == 0 else 1  # left, right, left, ...
         tier = (index - 1) // 2  # 0 for the inner pair, 1 for the next, ...
-        offset = BACK_OFFSET_X * width * (1.0 + BACK_TIER_GAP * tier)
+        offset = offset_scale * width * (1.0 + BACK_TIER_GAP * tier)
         scale = BACK_TIER_SHRINK**tier
         _paste_body(
             canvas,
             body,
             center_x=width / 2 + side * offset,
             feet_y=BACK_FEET_Y * height,
-            height=round(BACK_HEIGHT * height * scale),
+            height=round(back_scale * height * scale),
         )
     # The hero on top: centered, the largest.
+    hero_scale = hero_height if hero_height is not None else HERO_HEIGHT
     _paste_body(
         canvas,
         bodies[0],
         center_x=width / 2,
         feet_y=HERO_FEET_Y * height,
-        height=round(HERO_HEIGHT * height),
+        height=round(hero_scale * height),
     )
 
     # The expansion's logo (only when the expansion names a placement): the
