@@ -201,10 +201,7 @@ impl Model {
     /// would tilt the drag axes with the model's own rotation).
     pub fn trackball(&self, up: [f32; 3], right: [f32; 3], dx: f32, dy: f32) -> Self {
         let m = self.matrix();
-        Self::from_matrix(&mul(
-            &rot_axis(right, dy),
-            &mul(&rot_axis(up, dx), &m),
-        ))
+        Self::from_matrix(&mul(&rot_axis(right, dy), &mul(&rot_axis(up, dx), &m)))
     }
 }
 
@@ -1302,8 +1299,7 @@ mod model_tests {
     }
 
     fn mat_close(a: &Mat4, b: &Mat4) -> bool {
-        (0..4)
-            .all(|c| (0..3).all(|r| (a[c][r] - b[c][r]).abs() < 1e-4))
+        (0..4).all(|c| (0..3).all(|r| (a[c][r] - b[c][r]).abs() < 1e-4))
     }
 
     /// Wrap an angle to (−π, π] so decomposed and given angles compare.
@@ -1371,21 +1367,16 @@ mod model_tests {
         let (sp, cp) = (cam.pitch.sin(), cam.pitch.cos());
         let d_eye = [cp * sy, sp, cp * cy]; // target → eye (the near side)
         let d = 0.02;
-        for (yaw, pitch, roll) in [
-            (0.0f32, 0.0, 0.0),
-            (1.0, 0.3, -0.2),
-            (-0.7, 0.5, 0.4),
-        ] {
+        for (yaw, pitch, roll) in [(0.0f32, 0.0, 0.0), (1.0, 0.3, -0.2), (-0.7, 0.5, 0.4)] {
             let m0 = Model { yaw, pitch, roll };
             let q = apply(&m0.matrix(), d_eye);
-            let expected =
-                d * (q[0] * d_eye[0] + q[1] * d_eye[1] + q[2] * d_eye[2]);
+            let expected = d * (q[0] * d_eye[0] + q[1] * d_eye[1] + q[2] * d_eye[2]);
             let screen_delta = |m1: &Model| {
                 let p1 = apply(&m1.matrix(), d_eye);
                 let v = [p1[0] - q[0], p1[1] - q[1], p1[2] - q[2]];
                 (
                     v[0] * right[0] + v[1] * right[1] + v[2] * right[2], // → right
-                    -(v[0] * up[0] + v[1] * up[1] + v[2] * up[2]),     // → down
+                    -(v[0] * up[0] + v[1] * up[1] + v[2] * up[2]),       // → down
                 )
             };
             let (h_x, h_y) = screen_delta(&m0.trackball(up, right, d, 0.0));
@@ -1411,12 +1402,7 @@ mod model_tests {
             (5.0, 0.02, -3.3),
             (0.1, -1.55, 0.05),
         ] {
-            let m = Model {
-                yaw,
-                pitch,
-                roll,
-            }
-            .matrix();
+            let m = Model { yaw, pitch, roll }.matrix();
             let d = Model::from_matrix(&m);
             assert!((wrap(d.yaw) - wrap(yaw)).abs() < 1e-4, "yaw: {yaw}");
             assert!((d.pitch - pitch).abs() < 1e-4, "pitch: {pitch}");
@@ -1429,15 +1415,9 @@ mod model_tests {
     fn from_matrix_at_gimbal_lock_recomposes() {
         // At |pitch| = 90° the roll is unidentifiable; the decomposition
         // pins it at 0 and the recomposed matrix must still be exact.
-        for pitch in [
-            std::f32::consts::FRAC_PI_2,
-            -std::f32::consts::FRAC_PI_2,
-        ] {
+        for pitch in [std::f32::consts::FRAC_PI_2, -std::f32::consts::FRAC_PI_2] {
             for (yaw, roll) in [(1.0f32, 0.4), (-0.6, 1.2)] {
-                let m = mul(
-                    &rot_y(yaw),
-                    &mul(&rot_x(pitch), &rot_z(roll)),
-                );
+                let m = mul(&rot_y(yaw), &mul(&rot_x(pitch), &rot_z(roll)));
                 let d = Model::from_matrix(&m);
                 assert!((d.pitch - pitch).abs() < 1e-4);
                 assert_eq!(d.roll, 0.0);
