@@ -20,10 +20,12 @@ here: the shared code is written once.
   discarded.
 * when the ``logo`` field names a placement, the expansion's logo
   (``<pack>/Logo.png``) is composited on top at that placement with a glow:
-  the halo is screen-blended for a light bloom and the sharp mark is drawn
-  over it. The glow's tint is derived from the front's background color (its
-  hue and saturation, brightened), so the bloom matches the scene rather than
-  a fixed white.
+  the halo is screen-blended for a light bloom, a solid trail in a
+  darkened glow tint — the mark's own silhouette, offset slightly
+  down-right — sits behind it, and the sharp mark is drawn over both. The
+  glow's tint is derived from the front's background color (its hue and
+  saturation, brightened), so the bloom matches the scene rather than a
+  fixed white.
 * the background's fit is the caller's to choose (:func:`compose_front`'s
   *fit*): the pack's front resizes the background to the front's height and
   center-crops it to the front's exact width; the box's front scales it down
@@ -83,6 +85,13 @@ LOGO_MARGIN = 0.05  # gap from the front's top/bottom edge (height fraction)
 LOGO_GLOW_RADIUS = 0.012  # glow blur radius (fraction of the front height)
 LOGO_GLOW_INTENSITY = 1.0  # glow strength (alpha multiplier of the halo)
 LOGO_GLOW_VALUE = 0.9  # target brightness of the glow tint (0-1)
+LOGO_TRAIL = 0.008  # the solid diagonal trail: the mark's own silhouette,
+                   # filled solid (a darkened glow tint) and offset
+                   # down-right by this fraction of the mark's height, drawn
+                   # behind the mark — a tight drop-shadow that reads as a
+                   # small trail
+LOGO_TRAIL_DARKEN = 0.7  # how much the trail's tint is darkened relative to
+                         # the glow's tint (1.0 would be the full glow tint)
 LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo` field
 
 
@@ -424,12 +433,17 @@ def _composite_logo(
     mark_height: float | None = None,
 ) -> None:
     """Composite the expansion's *logo* over *canvas* at *placement* with a
-    glow: the halo (tinted *glow_color*) is screen-blended for a light bloom
-    and the sharp mark is drawn on top. The mark is scaled to :data:`LOGO_WIDTH`
-    the front's width (or, when *mark_height* is given — the box's front — to
-    that fraction of the front's height, its width proportional) and centered
-    horizontally; top/bottom placements inset it :data:`LOGO_MARGIN` from the
-    edge, ``center`` centers it in the front. Modifies *canvas* in place."""
+    glow: the halo (tinted *glow_color*) is screen-blended for a light bloom,
+    and a solid trail — the mark's own silhouette filled with a darkened
+    glow tint (:data:`LOGO_TRAIL_DARKEN` of *glow_color*), offset down-right
+    by :data:`LOGO_TRAIL` the mark's height — is drawn behind the sharp mark
+    (a tight drop-shadow that reads as a small diagonal trail), which is
+    then drawn on top. The mark is scaled to
+    :data:`LOGO_WIDTH` the front's width (or, when *mark_height* is given —
+    the box's front — to that fraction of the front's height, its width
+    proportional) and centered horizontally; top/bottom placements inset it
+    :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the front.
+    Modifies *canvas* in place."""
     width, height = size
     if mark_height is None:
         logo_w = round(LOGO_WIDTH * width)
@@ -465,4 +479,14 @@ def _composite_logo(
         logo, round(LOGO_GLOW_RADIUS * height), glow_color, LOGO_GLOW_INTENSITY
     )
     _screen_composite(canvas, halo, (x - pad, y - pad))
+    # The solid trail, behind the mark: the mark's own silhouette in a
+    # darkened glow tint (solid, no bloom), offset down-right (the trail
+    # runs top-left to bottom-right), so a sliver of it shows along the
+    # mark's bottom-right edge; the rest is painted over by the mark.
+    trail_offset = round(LOGO_TRAIL * logo.height)
+    if trail_offset > 0:
+        trail_tint = tuple(int(c * LOGO_TRAIL_DARKEN) for c in glow_color)
+        trail = Image.new("RGBA", logo.size, trail_tint + (255,))
+        trail.putalpha(logo.getchannel("A"))
+        canvas.alpha_composite(trail, (x + trail_offset, y + trail_offset))
     canvas.alpha_composite(logo, (x, y))
