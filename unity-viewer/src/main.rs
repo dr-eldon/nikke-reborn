@@ -7,6 +7,10 @@
 //! zoom, right-drag to pan. The Yaw/Pitch/Roll sliders set the same asset
 //! rotation precisely (zoom/pan move the camera, not the asset).
 //!
+//! The asset rotation and camera zoom/pan can be imported from or exported
+//! to a JSON configuration file (the Import/Export buttons in the sidebar;
+//! the CLI takes the same file with `--config`).
+//!
 //! Skinned meshes are displayed in bind pose.
 //!
 //! With command-line arguments the app instead runs headless and writes a
@@ -27,10 +31,12 @@ use iced::widget::shader::Action;
 use iced::widget::{button, column, combo_box, container, image, row, shader, slider, space, text};
 use iced::{Alignment, Bottom, Color, Fill, Font, Point, Right, Task, Theme, Vector, Widget};
 
+use config::Config;
 use scene::{Camera, Material, Model, Primitive};
 use unity::Mesh;
 
 mod cli;
+mod config;
 mod scene;
 mod unity;
 
@@ -101,6 +107,15 @@ enum Message {
     MaterialLoaded(usize, Result<Arc<Material>, String>),
     OpenMaterial,
     MaterialPicked(Option<PathBuf>),
+    /// Open a file dialog to import the model/camera configuration.
+    ImportConfig,
+    /// A configuration file was picked (or the dialog cancelled).
+    ConfigImported(Option<PathBuf>),
+    /// Open a file dialog to export the current model/camera configuration.
+    ExportConfig,
+    /// A destination was chosen for the configuration (or the dialog
+    /// cancelled).
+    ConfigExported(Option<PathBuf>),
     /// Asset turntable/tilt drag delta in degrees (Δyaw, Δpitch), already
     /// scaled by the canvas width (see `DRAG_DEG_PER_FULL_WIDTH`).
     Rotate(Vector),
@@ -436,6 +451,73 @@ impl App {
                 Task::none()
             }
 
+            Message::ImportConfig => Task::perform(
+                async {
+                    tokio::task::spawn_blocking(|| {
+                        rfd::FileDialog::new()
+                            .set_title("Import view configuration")
+                            .add_filter("JSON configuration", &["json"])
+                            .pick_file()
+                    })
+                    .await
+                    .ok()
+                    .flatten()
+                },
+                Message::ConfigImported,
+            ),
+
+            Message::ConfigImported(Some(path)) => {
+                self.error = None;
+                match Config::load(&path) {
+                    Ok(config) => self.apply_config(config),
+                    Err(e) => self.error = Some(e),
+                }
+                Task::none()
+            }
+
+            Message::ConfigImported(None) => Task::none(),
+
+            Message::ExportConfig => {
+                // Default the file name to the loaded mesh's (with a
+                // .json suffix), so the configuration sits next to it.
+                let file_name = self
+                    .selected_mesh
+                    .and_then(|i| self.mesh_entries.get(i))
+                    .map(|e| {
+                        Path::new(&e.label)
+                            .with_extension("json")
+                            .to_string_lossy()
+                            .into_owned()
+                    })
+                    .unwrap_or_else(|| "view.json".to_string());
+                Task::perform(
+                    async {
+                        tokio::task::spawn_blocking(|| {
+                            rfd::FileDialog::new()
+                                .set_title("Export view configuration")
+                                .set_file_name(file_name)
+                                .add_filter("JSON configuration", &["json"])
+                                .save_file()
+                        })
+                        .await
+                        .ok()
+                        .flatten()
+                    },
+                    Message::ConfigExported,
+                )
+            }
+
+            Message::ConfigExported(Some(path)) => {
+                let config = Config::capture(self.model_rotation, self.camera);
+                match config.save(&path) {
+                    Ok(()) => self.error = None,
+                    Err(e) => self.error = Some(e),
+                }
+                Task::none()
+            }
+
+            Message::ConfigExported(None) => Task::none(),
+
             Message::Rotate(delta) => {
                 // Turntable + tilt of the *asset*, not a camera orbit: the
                 // lights are fixed in world space, so dragging sweeps them
@@ -516,6 +598,19 @@ impl App {
     fn reset_view_state(&mut self) {
         self.model_rotation = Model::default();
         self.camera = Camera::default();
+    }
+
+    /// Apply an imported configuration. The sliders can only represent the
+    /// gimbal/zoom ranges, so import clamps into them (the CLI applies the
+    /// file as-is).
+    fn apply_config(&mut self, config: Config) {
+        let (model, mut camera) = config.to_state();
+        self.model_rotation = Model {
+            pitch: model.pitch.clamp(-MODEL_PITCH_LIMIT, MODEL_PITCH_LIMIT),
+            ..model
+        };
+        camera.zoom = camera.zoom.clamp(ZOOM_MIN, ZOOM_MAX);
+        self.camera = camera;
     }
 
     /// Cache the parsed mesh and activate it if it is the current selection.
@@ -639,6 +734,20 @@ impl App {
         .spacing(4);
 
         let controls = column![
+            // The asset rotation and camera zoom/pan as a JSON file
+            // (shared with the CLI's --config).
+            row![
+                text("Config").size(14),
+                space::horizontal(),
+                button(text("Import").size(12))
+                    .on_press(Message::ImportConfig)
+                    .style(button::secondary),
+                button(text("Export").size(12))
+                    .on_press(Message::ExportConfig)
+                    .style(button::secondary),
+            ]
+            .spacing(4)
+            .align_y(Bottom),
             row![
                 text("Model").size(14),
                 space::horizontal(),

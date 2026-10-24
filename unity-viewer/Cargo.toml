@@ -8,6 +8,8 @@ description = "Unity mesh + material viewer (wgpu + iced)"
 bytemuck = { version = "1", features = ["derive"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 rfd = "0.17"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
 thiserror = "2"
 tracing-subscriber = "0.3"
 wgpu = "30"

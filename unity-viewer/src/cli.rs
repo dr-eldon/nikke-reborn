@@ -9,10 +9,15 @@
 //! its fixed default viewing pose (only the zoom changes); rotating the asset
 //! is what aims the fixed world-space lights at the model's faces. No window
 //! is opened. Skinned meshes are rendered in bind pose, same as the GUI.
+//!
+//! `--config` loads the asset rotation and camera zoom/pan from the same
+//! JSON file the GUI's Import/Export buttons use; explicit flags override
+//! the file's values.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::config::Config;
 use crate::scene::{Camera, Material, Model, Pipeline, Primitive};
 use crate::unity::Mesh;
 use iced::Rectangle;
@@ -58,6 +63,9 @@ Options:
                          (default {pitch})
       --roll <deg>       Model roll in degrees: twist in the asset's plane
                          (default {roll})
+      --config <path>    Load model/camera settings from a JSON file (the
+                         GUI's Import/Export format); explicit flags
+                         override the file's values
       --zoom <factor>    Camera zoom factor (default {zoom}; 1.0 = fitted
                          framing)
       --width <px>       Output width in pixels (default {DEFAULT_WIDTH})
@@ -336,6 +344,8 @@ fn parse(args: &[String]) -> Result<Options, String> {
     let mut height: u32 = DEFAULT_HEIGHT;
     let mut out: Option<PathBuf> = None;
 
+    let mut config_path: Option<PathBuf> = None;
+
     let mut i = 0;
     while i < args.len() {
         let arg = args[i].as_str();
@@ -355,6 +365,9 @@ fn parse(args: &[String]) -> Result<Options, String> {
             "--zoom" => zoom = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
             "--pitch" => pitch = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
             "--roll" => roll = Some(parse_num(flag_value(args, &mut i, flag, inline)?, flag)?),
+            "--config" => {
+                config_path = Some(PathBuf::from(flag_value(args, &mut i, flag, inline)?))
+            }
             "--width" => width = parse_num(flag_value(args, &mut i, flag, inline)?, flag)?,
             "--height" => height = parse_num(flag_value(args, &mut i, flag, inline)?, flag)?,
             "--out" => out = Some(PathBuf::from(flag_value(args, &mut i, flag, inline)?)),
@@ -379,14 +392,19 @@ fn parse(args: &[String]) -> Result<Options, String> {
             );
         }
     };
-    // Unspecified rotation flags take the GUI's neutral asset pose; the
-    // camera keeps the GUI's fixed default (zoom only is user-settable).
-    let model = Model::default();
+    // Precedence: explicit flag > --config file > the GUI's defaults
+    // (neutral asset pose, fixed camera with its default zoom).
+    let config = config_path
+        .as_ref()
+        .map(|path| Config::load(path))
+        .transpose()?;
+    let angles = config.as_ref().map(|c| c.model).unwrap_or_default();
     let default = Camera::default();
-    let rotation = rotation.unwrap_or(model.yaw * to_deg());
-    let pitch = pitch.unwrap_or(model.pitch * to_deg());
-    let roll = roll.unwrap_or(model.roll * to_deg());
-    let zoom = zoom.unwrap_or(default.zoom);
+    let rotation = rotation.unwrap_or(angles.yaw);
+    let pitch = pitch.unwrap_or(angles.pitch);
+    let roll = roll.unwrap_or(angles.roll);
+    let zoom = zoom
+        .unwrap_or(config.map(|c| c.camera.zoom).unwrap_or(default.zoom));
     if zoom <= 0.0 {
         return Err("--zoom must be greater than 0".to_string());
     }
@@ -539,5 +557,38 @@ mod tests {
         assert!((o.pitch - 5.0).abs() < 1e-3);
         assert_eq!((o.width, o.height), (800, 600));
         assert_eq!(o.out, PathBuf::from("x.png"));
+    }
+
+    fn write_temp_config(name: &str, json: &str) -> String {
+        let path = std::env::temp_dir().join(format!(
+            "unity-viewer-cli-config-{name}-{}.json",
+            std::process::id()
+        ));
+        std::fs::write(&path, json).expect("write temp config");
+        path.to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn config_file_provides_defaults_and_flags_override() {
+        let json = r#"{"model":{"yaw":30.0,"pitch":10.0,"roll":-5.0},"camera":{"zoom":1.5,"pan":[1.0,2.0,3.0]}}"#;
+        let path = write_temp_config("defaults", json);
+        let o = parse3(&format!("m t --config {path}")).unwrap();
+        assert!((o.rotation - 30.0).abs() < 1e-3);
+        assert!((o.pitch - 10.0).abs() < 1e-3);
+        assert!((o.roll - (-5.0)).abs() < 1e-3);
+        assert!((o.zoom - 1.5).abs() < 1e-3);
+        // Explicit flags win over the file; unspecified values still come
+        // from the file.
+        let o = parse3(&format!("m t --config {path} --rotation 90 --zoom 2")).unwrap();
+        assert!((o.rotation - 90.0).abs() < 1e-3);
+        assert!((o.zoom - 2.0).abs() < 1e-3);
+        assert!((o.pitch - 10.0).abs() < 1e-3);
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn missing_config_file_is_an_error() {
+        let e = parse3("m t --config /nonexistent/uv-config.json").unwrap_err();
+        assert!(e.contains("/nonexistent/uv-config.json"), "{e}");
     }
 }
