@@ -26,8 +26,14 @@ model rotation and camera zoom/pan from
 ``assets/CardPackStatic_Mesh.json`` — so it is generated after the
 material, which it reads from disk. The box (``CardBox_Material.png``)
 holds the same composed front in the blue rectangle of its three mask
-rectangles (blue front, red top, green side); the top and side are still
-placeholders, so the box's item is not rendered yet. The finished results are
+rectangles (blue front, red top, green side), the top (a center-cropped
+background with the expansion's logo and the white NIKKE logo) in the red
+one and the side (the background with the expansion's logo and the white
+NIKKE logo) in the green one; the box's item (``CardBox_Item.png``) is the
+box's mesh (``assets/CardBox_Mesh.asset``) textured with the finished
+material and rendered by the ``unity-viewer`` executable with the model
+rotation and camera zoom/pan from ``assets/CardBox_Mesh.json``, so it is
+generated after the box's material, which it reads from disk. The finished results are
 written under ``output/``, with
 the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
@@ -271,10 +277,21 @@ PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
 
 #: The box's material template: its three solid mask rectangles mark the
 #: paste regions — blue for the front (the same composition as the pack's
-#: front), red for the top and green for the side (still placeholders).
-#: The finished material is written to ``<out>/<pack>/CardBox_Material.png``.
+#: front), red for the top and green for the side (see
+#: :mod:`nikke_reborn.box`). The finished material is written to
+#: ``<out>/<pack>/CardBox_Material.png``. The item
+#: (``CardBox_Item.png``) is rendered with :data:`UNITY_VIEWER` from
+#: :data:`BOX_MESH` textured with the finished material, the way the
+#: pack's item is.
 BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
 BOX_MATERIAL_NAME = "CardBox_Material.png"
+BOX_ITEM_NAME = "CardBox_Item.png"
+BOX_MESH = REPO_ROOT / "assets" / "CardBox_Mesh.asset"
+
+#: The box item's viewer configuration (model rotation and camera
+#: zoom/pan, as a JSON file exported by the viewer's GUI), passed to
+#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
+BOX_CONFIG = REPO_ROOT / "assets" / "CardBox_Mesh.json"
 
 
 class GenerationError(RuntimeError):
@@ -1868,6 +1885,58 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     return out_path, False
 
 
+def _process_box_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
+    """Render the box's item with :data:`UNITY_VIEWER`: the box's mesh
+    (:data:`BOX_MESH`) textured with the box's finished material
+    (``<out>/<pack>/CardBox_Material.png``), posed by the box's viewer
+    configuration (:data:`BOX_CONFIG`): the model rotation and camera
+    zoom/pan from that JSON file, the camera's fixed viewing pose and
+    the viewer's default output size. The material must have been
+    generated first — the item is rendered from its output file.
+
+    The viewer writes a plain PNG, which is re-saved with the SHA-256 of
+    the mesh and the material embedded (a PNG text chunk, like a finished
+    card) and moved into place atomically, so a finished item only ever
+    exists in its complete form; returns ``(out_path, skipped)``, where
+    *skipped* is True when the output already exists and its stored hash
+    matches the current inputs.
+    """
+    pack_dir = pack_dir.resolve()
+    material_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
+    source_hash = _viewer_hash(BOX_MESH, material_path, BOX_CONFIG)
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_ITEM_NAME
+    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = out_path.with_name(out_path.name + ".render")
+    try:
+        result = subprocess.run(
+            [
+                UNITY_VIEWER,
+                str(BOX_MESH),
+                str(material_path),
+                "--config",
+                str(BOX_CONFIG),
+                "--out",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(f"could not run {UNITY_VIEWER}: {exc}") from exc
+    if result.returncode != 0 or not tmp_path.is_file():
+        detail = result.stderr.strip()
+        detail = f" ({detail[-500:]})" if detail else ""
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}")
+    with Image.open(tmp_path) as rendered:
+        _save_atomic(rendered, out_path, source_hash)
+    tmp_path.unlink(missing_ok=True)
+    return out_path, False
+
+
 def _default_jobs() -> int:
     """A sensible default pool size: up to 8 cards at once, 1 per 4 cores."""
     return min(8, max(1, (os.cpu_count() or 4) // 4))
@@ -1939,13 +2008,14 @@ def _generate(
     # a different size — for the box's material). They are transient —
     # composed on the fly from the expansion's metadata and never written
     # to disk. The fronts' inputs are hashed up front (without rendering
-    # them), so the renders are skipped entirely when the material, the
-    # item and the box's material are all already up to date.
+    # them), so the renders are skipped entirely when the materials and
+    # the items — the pack's and the box's — are all already up to date.
     from nikke_reborn import box, expansion, pack
 
     material_needs: set[Path] = set()
     item_needs: set[Path] = set()
     box_needs: set[Path] = set()
+    box_item_needs: set[Path] = set()
     fronts: dict[Path, Image.Image] = {}
     front_sources: dict[Path, str] = {}
     backs: dict[Path, Image.Image] = {}
@@ -1979,7 +2049,13 @@ def _generate(
             out_base,
             box_front_source,
         )
-        if material_ok and item_ok and box_ok:
+        box_item_ok = _viewer_output_up_to_date(
+            BOX_MESH,
+            out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME,
+            BOX_CONFIG,
+            out_base / pack_dir.relative_to(CARDS_DIR) / BOX_ITEM_NAME,
+        )
+        if material_ok and item_ok and box_ok and box_item_ok:
             continue  # nothing changed for this pack; skip the fronts' renders
         if not material_ok:
             material_needs.add(pack_dir)
@@ -1987,6 +2063,8 @@ def _generate(
             item_needs.add(pack_dir)
         if not box_ok:
             box_needs.add(pack_dir)
+        if not box_item_ok:
+            box_item_needs.add(pack_dir)
         # The materials need the composed fronts (the item is rendered by
         # unity-viewer from the material's output file): the pack's front
         # and back, and the box's front — its own size, the box template's
@@ -2009,7 +2087,13 @@ def _generate(
                     pack_dir, data, box.top_size()
                 )
                 box_front_sources[pack_dir] = box_front_source
-    total = len(card_configs) + len(material_needs) + len(item_needs) + len(box_needs)
+    total = (
+        len(card_configs)
+        + len(material_needs)
+        + len(item_needs)
+        + len(box_needs)
+        + len(box_item_needs)
+    )
     # Split the cores available to each card between the stages that run
     # in parallel: the frame compositing and the ffmpeg encode.
     per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
@@ -2022,8 +2106,8 @@ def _generate(
         notes.append(f"{scale:g}x resolution")
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
     what = f"{len(card_configs)} card(s)" + (
-        f" and {len(material_needs) + len(item_needs) + len(box_needs)} pack image(s)"
-        if material_needs or item_needs or box_needs
+        f" and {len(material_needs) + len(item_needs) + len(box_needs) + len(box_item_needs)} pack image(s)"
+        if material_needs or item_needs or box_needs or box_item_needs
         else ""
     )
     if paths:
@@ -2082,6 +2166,9 @@ def _generate(
         def box_label(pack_dir: Path) -> Path:
             return pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
 
+        def box_item_label(pack_dir: Path) -> Path:
+            return pack_dir.relative_to(CARDS_DIR) / BOX_ITEM_NAME
+
         card_futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
                 _process_card,
@@ -2101,6 +2188,12 @@ def _generate(
         item_futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(_process_pack_item, pack_dir, out_base): item_label(pack_dir)
             for pack_dir in sorted(item_needs - material_needs)
+        }
+        # The box's item is rendered from the box material's output file,
+        # so each box's item starts only after its material has finished.
+        box_item_futures: dict[Future[tuple[Path, bool]], Path] = {
+            pool.submit(_process_box_item, pack_dir, out_base): box_item_label(pack_dir)
+            for pack_dir in sorted(box_item_needs - box_needs)
         }
         material_futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
@@ -2138,11 +2231,20 @@ def _generate(
                     pool.submit(_process_pack_item, pack_dir, out_base)
                 ] = item_label(pack_dir)
         for future in as_completed(box_futures):
-            report(future, box_futures[future])
+            pack_dir = box_futures[future]
+            report(future, box_label(pack_dir))
+            if future.exception() is not None:
+                continue  # no box material -> no box item for this pack
+            if pack_dir in box_item_needs:
+                box_item_futures[
+                    pool.submit(_process_box_item, pack_dir, out_base)
+                ] = box_item_label(pack_dir)
         for future in as_completed(card_futures):
             report(future, card_futures[future])
         for future in as_completed(item_futures):
             report(future, item_futures[future])
+        for future in as_completed(box_item_futures):
+            report(future, box_item_futures[future])
     if failures:
         for label, exc in failures:
             print(f"error: {label}: {exc}", file=sys.stderr)
