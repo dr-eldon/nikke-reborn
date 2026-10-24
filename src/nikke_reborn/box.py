@@ -33,8 +33,7 @@ from nikke_reborn.expansion import (
     LOGO_NAME,
     _background_glow_color,
     _composite_logo,
-    _fit_cover_bottom,
-    _fit_cover_center,
+    _fit_cover,
     _image_average,
     compose_front,
     front_source_digest,
@@ -255,7 +254,7 @@ def build_side(
     template) are a subset of the front's, so the front's source hash (see
     :func:`front_source_hash`) covers it."""
     background = load_background(pack_dir, expansion)
-    side = _fit_cover_bottom(background, size, align="center")
+    side = _fit_cover(background, size)
     place_side_expansion_logo(side, pack_dir, expansion)
     place_side_logo(side)
     return side
@@ -266,11 +265,13 @@ def build_top(
 ) -> Image.Image:
     """The box top: the expansion's background fitted to cover the top —
     like the front's and side's cover fit, but centered vertically as well
-    as horizontally (see
-    :func:`nikke_reborn.expansion._fit_cover_center`). It also serves the
-    bottom face, which shares the red rectangle. The result is returned in
-    memory, like the front: it is the box material's red rectangle and is
-    never written to disk. The top's inputs (the background and the
-    template) are a subset of the front's, so the front's source hash (see
-    :func:`front_source_hash`) covers it."""
-    return _fit_cover_center(load_background(pack_dir, expansion), size)
+    as horizontally (see :func:`nikke_reborn.expansion._fit_cover`). It
+    also serves the bottom face, which shares the red rectangle. The
+    result is returned in memory, like the front: it is the box
+    material's red rectangle and is never written to disk. The top's
+    inputs (the background and the template) are a subset of the front's,
+    so the front's source hash (see :func:`front_source_hash`) covers
+    it."""
+    return _fit_cover(
+        load_background(pack_dir, expansion), size, v_align="center"
+    )

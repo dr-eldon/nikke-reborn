@@ -171,18 +171,19 @@ def fit_background(
     return background.crop((left, 0, left + width, height)).convert("RGBA")
 
 
-def _fit_cover_bottom(
+def _fit_cover(
     background: Image.Image,
     size: tuple[int, int],
-    align: str = "center",
+    h_align: str = "center",
+    v_align: str = "bottom",
 ) -> Image.Image:
-    """Fit *background* over the box's front (or side): scaled down just
-    enough for it to cover the whole region (the larger of the two
-    dimension ratios — the width for a portrait background), then
-    bottom-aligned: the bottom of the background touches the bottom edge
-    and any excess height is cropped off the top. Horizontally it is
-    *align*-cropped: ``"center"`` (the default — the front and the side)
-    or ``"left"``/``"right"`` (taking the scene's left or right side)."""
+    """Fit *background* over the box's faces: scaled down just enough for
+    it to cover the whole region (the larger of the two dimension ratios —
+    the width for a portrait background), then cropped: horizontally per
+    *h_align* (``"left"``, ``"center"`` or ``"right"``) and vertically per
+    *v_align* (``"top"``, ``"center"`` or ``"bottom"``) — the front and the
+    side are bottom-aligned and the top top-aligned, the excess cropped
+    off the opposite side."""
     width, height = size
     scale = max(width / background.width, height / background.height)
     if scale != 1.0:
@@ -190,38 +191,22 @@ def _fit_cover_bottom(
             (round(background.width * scale), round(background.height * scale)),
             Image.Resampling.LANCZOS,
         )
-    if align == "left":
+    if h_align == "left":
         left = 0
-    elif align == "right":
-        left = background.width - width
-    elif align == "center":
+    elif h_align == "center":
         left = (background.width - width) // 2
+    elif h_align == "right":
+        left = background.width - width
     else:
-        raise nr.GenerationError(f"unknown background alignment {align!r}")
-    top = background.height - height
-    return background.crop((left, top, left + width, top + height)).convert("RGBA")
-
-
-def _fit_cover_center(
-    background: Image.Image,
-    size: tuple[int, int],
-) -> Image.Image:
-    """Fit *background* over the box's top (or bottom) face: scaled down
-    just enough for it to cover the whole region (the larger of the two
-    dimension ratios — the width for a portrait background), then
-    center-cropped: excess on every side is trimmed evenly, so the
-    background's center lands on the region's center (like
-    :func:`_fit_cover_bottom`, but centered vertically instead of
-    bottom-aligned)."""
-    width, height = size
-    scale = max(width / background.width, height / background.height)
-    if scale != 1.0:
-        background = background.resize(
-            (round(background.width * scale), round(background.height * scale)),
-            Image.Resampling.LANCZOS,
-        )
-    left = (background.width - width) // 2
-    top = (background.height - height) // 2
+        raise nr.GenerationError(f"unknown horizontal alignment {h_align!r}")
+    if v_align == "top":
+        top = 0
+    elif v_align == "center":
+        top = (background.height - height) // 2
+    elif v_align == "bottom":
+        top = background.height - height
+    else:
+        raise nr.GenerationError(f"unknown vertical alignment {v_align!r}")
     return background.crop((left, top, left + width, top + height)).convert("RGBA")
 
 
@@ -270,7 +255,7 @@ def compose_front(
     if fit == "crop":
         canvas = fit_background(background, size)
     elif fit == "cover-bottom":
-        canvas = _fit_cover_bottom(background, size)
+        canvas = _fit_cover(background, size)
     else:
         raise nr.GenerationError(f"unknown background fit {fit!r}")
     # Sample the background's color now — before the NIKKES are composited — so
