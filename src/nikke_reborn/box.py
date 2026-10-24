@@ -19,7 +19,7 @@ skipped when nothing changed.
 
 The green (side) rectangle is filled with the expansion's background
 (fitted to cover the side, taking the scene's right side), the
-expansion's logo top-centered and the white NIKKE logo bottom-center;
+expansion's logo center-center and the white NIKKE logo bottom-center;
 the red (top) rectangle is still a placeholder.
 """
 
@@ -151,15 +151,15 @@ def place_side_expansion_logo(
     side: Image.Image, pack_dir: Path, expansion: dict
 ) -> None:
     """Composite the expansion's logo (``<pack>/Logo.png``) onto the side,
-    top-centered — the same glow treatment as the front's (see
+    center-center — the same glow treatment as the front's (see
     :func:`nikke_reborn.expansion._composite_logo`): its height is
     :data:`BOX_EXPANSION_LOGO_HEIGHT` the side's height (the same physical
     size as on the front, since both faces share the box's vertical
-    extent), inset :data:`nikke_reborn.expansion.LOGO_MARGIN` the side's
-    height from the top edge. Only when the expansion names a ``logo``
-    placement; the side's placement is always ``"top"``. The glow is
-    sampled from the side before the logos are composited, so it is tinted
-    by the scene. Modifies *side* in place."""
+    extent), centered on the side both horizontally and vertically. Only
+    when the expansion names a ``logo`` placement; the side's placement is
+    always ``"center"``. The glow is sampled from the side before the
+    logos are composited, so it is tinted by the scene. Modifies *side* in
+    place."""
     placement = expansion.get("logo")
     if placement is None:
         return
@@ -174,7 +174,7 @@ def place_side_expansion_logo(
         side,
         Image.open(logo_path).convert("RGBA"),
         (side.width, side.height),
-        "top",
+        "center",
         glow_color,
         mark_height=BOX_EXPANSION_LOGO_HEIGHT,
     )
@@ -227,7 +227,7 @@ def build_side(
     """The box side: the expansion's background fitted to cover the side
     (like the front's ``"cover-bottom"``), but right-aligned instead of
     center-cropped — the side takes the scene's right side — with the
-    expansion's logo top-centered (see
+    expansion's logo center-center (see
     :func:`place_side_expansion_logo`) and the white NIKKE logo
     bottom-center (see :func:`place_side_logo`). The result is returned in
     memory, like the front: it is the box material's green rectangle and is

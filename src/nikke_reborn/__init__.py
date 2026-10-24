@@ -1711,7 +1711,7 @@ def _process_box_material(
     its green mask rectangle the side's — the front is composed on the
     fly, with its white logo placed by :func:`box.place_logo`, and the
     side is the background's right slice with the expansion's logo
-    top-centered and the white logo bottom-center (its red mask — the
+    center-center and the white logo bottom-center (its red mask — the
     top's placeholder — is left in place). The finished material is
     written to
     ``<out>/<pack>/CardBox_Material.png`` (atomically, with the SHA-256 of
