@@ -202,6 +202,29 @@ def _fit_cover_bottom(
     return background.crop((left, top, left + width, top + height)).convert("RGBA")
 
 
+def _fit_cover_center(
+    background: Image.Image,
+    size: tuple[int, int],
+) -> Image.Image:
+    """Fit *background* over the box's top (or bottom) face: scaled down
+    just enough for it to cover the whole region (the larger of the two
+    dimension ratios — the width for a portrait background), then
+    center-cropped: excess on every side is trimmed evenly, so the
+    background's center lands on the region's center (like
+    :func:`_fit_cover_bottom`, but centered vertically instead of
+    bottom-aligned)."""
+    width, height = size
+    scale = max(width / background.width, height / background.height)
+    if scale != 1.0:
+        background = background.resize(
+            (round(background.width * scale), round(background.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+    left = (background.width - width) // 2
+    top = (background.height - height) // 2
+    return background.crop((left, top, left + width, top + height)).convert("RGBA")
+
+
 def compose_front(
     pack_dir: Path,
     expansion: dict,

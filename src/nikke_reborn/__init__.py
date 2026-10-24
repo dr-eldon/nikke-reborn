@@ -1549,6 +1549,15 @@ def _box_side_mask(template: Image.Image) -> Image.Image:
     return ImageChops.darker(ImageChops.darker(r, g), b)
 
 
+def _box_top_mask(template: Image.Image) -> Image.Image:
+    """A binary mask of the template's pure-red placeholder pixels (the
+    box's top, shared with its bottom)."""
+    r = template.getchannel("R").point(lambda v: 255 if v == 255 else 0)
+    g = template.getchannel("G").point(lambda v: 255 if v == 0 else 0)
+    b = template.getchannel("B").point(lambda v: 255 if v == 0 else 0)
+    return ImageChops.darker(ImageChops.darker(r, g), b)
+
+
 def _pack_mask_rects(mask: Image.Image) -> list[tuple[int, int, int, int]]:
     """Bounding boxes of the mask's solid rectangles, left to right.
 
@@ -1704,19 +1713,21 @@ def _process_box_material(
     front: Image.Image,
     front_source: str,
     side: Image.Image,
+    top: Image.Image,
 ) -> tuple[Path, bool]:
-    """Composite the box's front and side onto the box material template.
+    """Composite the box's front, side and top onto the box material
+    template.
 
     The template's blue mask rectangle marks the front's paste region and
     its green mask rectangle the side's — the front is composed on the
     fly, with its white logo placed by :func:`box.place_logo`, and the
     side is the background's center slice with the expansion's logo
-    center-center and the white logo bottom-center (its red mask — the
-    top's placeholder — is left in place). The finished material is
+    center-center and the white logo bottom-center; the top (shared with
+    the bottom) is the background center-cropped. The finished material is
     written to
     ``<out>/<pack>/CardBox_Material.png`` (atomically, with the SHA-256 of
     the template and the front's inputs embedded, like a finished card —
-    the side's inputs are a subset of the front's); returns
+    the side's and top's inputs are subsets of the front's); returns
     ``(out_path, skipped)``, where *skipped* is True when the output
     already exists and its stored hash matches the current inputs.
     """
@@ -1739,6 +1750,14 @@ def _process_box_material(
                 f"box material template {BOX_TEMPLATE.name} carries "
                 f"{len(side_rects)} pure-green mask rectangle(s), expected 1 (side)"
             )
+        # Detected on the untouched template, like the blue and green ones:
+        # the composed content may itself carry pure-red pixels.
+        top_rects = _pack_mask_rects(_box_top_mask(template))
+        if len(top_rects) != 1:
+            raise GenerationError(
+                f"box material template {BOX_TEMPLATE.name} carries "
+                f"{len(top_rects)} pure-red mask rectangle(s), expected 1 (top)"
+            )
         # The front and side are the in-memory images (composed on the
         # fly), each already sized to its rectangle.
         front_target = (rects[0][2] - rects[0][0], rects[0][3] - rects[0][1])
@@ -1753,6 +1772,11 @@ def _process_box_material(
         if side.size != side_target:
             side = side.resize(side_target, Image.Resampling.LANCZOS)
         template.alpha_composite(side, (side_rect[0], side_rect[1]))
+        top_rect = top_rects[0]
+        top_target = (top_rect[2] - top_rect[0], top_rect[3] - top_rect[1])
+        if top.size != top_target:
+            top = top.resize(top_target, Image.Resampling.LANCZOS)
+        template.alpha_composite(top, (top_rect[0], top_rect[1]))
         final = template.convert("RGB")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     _save_atomic(final, out_path, source_hash)
@@ -1927,6 +1951,7 @@ def _generate(
     box_fronts: dict[Path, Image.Image] = {}
     box_front_sources: dict[Path, str] = {}
     box_sides: dict[Path, Image.Image] = {}
+    box_tops: dict[Path, Image.Image] = {}
     for pack_dir in pack_dirs:
         front_source = pack.front_source_hash(pack_dir)
         back_source = pack.back_source_hash(pack_dir)
@@ -1977,6 +2002,9 @@ def _generate(
                 )
                 box_sides[pack_dir] = box.build_side(
                     pack_dir, data, box.side_size()
+                )
+                box_tops[pack_dir] = box.build_top(
+                    pack_dir, data, box.top_size()
                 )
                 box_front_sources[pack_dir] = box_front_source
     total = len(card_configs) + len(material_needs) + len(item_needs) + len(box_needs)
@@ -2094,6 +2122,7 @@ def _generate(
                 box_fronts[pack_dir],
                 box_front_sources[pack_dir],
                 box_sides[pack_dir],
+                box_tops[pack_dir],
             ): box_label(pack_dir)
             for pack_dir in sorted(box_needs)
         }

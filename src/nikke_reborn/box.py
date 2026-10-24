@@ -20,7 +20,8 @@ skipped when nothing changed.
 The green (side) rectangle is filled with the expansion's background
 (fitted to cover the side, taking the scene's center), the
 expansion's logo center-center and the white NIKKE logo bottom-center;
-the red (top) rectangle is still a placeholder.
+the red (top) rectangle — shared with the bottom face — is filled with
+the expansion's background (fitted to cover the top, center-cropped).
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from nikke_reborn.expansion import (
     _background_glow_color,
     _composite_logo,
     _fit_cover_bottom,
+    _fit_cover_center,
     _image_average,
     compose_front,
     front_source_digest,
@@ -100,6 +102,24 @@ def side_size() -> tuple[int, int]:
         raise nr.GenerationError(
             f"{nr.BOX_TEMPLATE.name} carries {len(rects)} pure-green mask "
             f"rectangle(s), expected 1 (side)"
+        )
+    rect = rects[0]
+    return rect[2] - rect[0], rect[3] - rect[1]
+
+
+def top_size() -> tuple[int, int]:
+    """The box top's target size: the box material template's red mask
+    rectangle (the pure-red placeholder, detected the way the front is
+    detected in blue and the side in green). It marks the top's paste
+    region, which the bottom face shares. Composing at exactly this size
+    means the material composition pastes it with no rescale."""
+    with Image.open(nr.BOX_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+    rects = nr._pack_mask_rects(nr._box_top_mask(template))
+    if len(rects) != 1:
+        raise nr.GenerationError(
+            f"{nr.BOX_TEMPLATE.name} carries {len(rects)} pure-red mask "
+            f"rectangle(s), expected 1 (top)"
         )
     rect = rects[0]
     return rect[2] - rect[0], rect[3] - rect[1]
@@ -239,3 +259,18 @@ def build_side(
     place_side_expansion_logo(side, pack_dir, expansion)
     place_side_logo(side)
     return side
+
+
+def build_top(
+    pack_dir: Path, expansion: dict, size: tuple[int, int]
+) -> Image.Image:
+    """The box top: the expansion's background fitted to cover the top —
+    like the front's and side's cover fit, but centered vertically as well
+    as horizontally (see
+    :func:`nikke_reborn.expansion._fit_cover_center`). It also serves the
+    bottom face, which shares the red rectangle. The result is returned in
+    memory, like the front: it is the box material's red rectangle and is
+    never written to disk. The top's inputs (the background and the
+    template) are a subset of the front's, so the front's source hash (see
+    :func:`front_source_hash`) covers it."""
+    return _fit_cover_center(load_background(pack_dir, expansion), size)
