@@ -95,10 +95,11 @@ from pathlib import Path
 from typing import Iterator
 from nikke_reborn import bundler, metadata
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from PIL.PngImagePlugin import PngInfo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+ASSETS_DIR = REPO_ROOT / "assets"
 CARDS_DIR = REPO_ROOT / "cards"
 IMAGES_DIR = REPO_ROOT / "images"
 FONTS_DIR = REPO_ROOT / "fonts"
@@ -332,6 +333,10 @@ def generate() -> None:
         else:
             copy(IMAGES_DIR / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
 
+        copy(
+            ASSETS_DIR / "CardBox_Mesh.obj", out_dir / set_dir.stem / "CardBox_Mesh.obj"
+        )
+
         for file in SHOP_DIR.iterdir():
             if not file.is_file():
                 continue
@@ -383,7 +388,10 @@ def generate() -> None:
 
         expansion = metadata.expansion(set_dir.stem, cards)
         pack = metadata.pack(set_dir.stem)
-        bundle = metadata.bundle(set_dir.stem, items=[pack], expansions=[expansion])
+        box = metadata.box(set_dir.stem)
+        bundle = metadata.bundle(
+            set_dir.stem, items=[pack, box], expansions=[expansion]
+        )
 
         with (out_dir / f"{set_dir.stem}.json").open(
             "w", newline="\n", encoding="utf-8"
@@ -1878,7 +1886,9 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         detail = result.stderr.strip()
         detail = f" ({detail[-500:]})" if detail else ""
         tmp_path.unlink(missing_ok=True)
-        raise GenerationError(f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}")
+        raise GenerationError(
+            f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}"
+        )
     with Image.open(tmp_path) as rendered:
         _save_atomic(rendered, out_path, source_hash)
     tmp_path.unlink(missing_ok=True)
@@ -1930,7 +1940,9 @@ def _process_box_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
         detail = result.stderr.strip()
         detail = f" ({detail[-500:]})" if detail else ""
         tmp_path.unlink(missing_ok=True)
-        raise GenerationError(f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}")
+        raise GenerationError(
+            f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}"
+        )
     with Image.open(tmp_path) as rendered:
         _save_atomic(rendered, out_path, source_hash)
     tmp_path.unlink(missing_ok=True)
@@ -2077,15 +2089,9 @@ def _generate(
                 backs[pack_dir] = pack.build_back(pack_dir, data, pack.back_size())
                 back_sources[pack_dir] = back_source
             if not box_ok:
-                box_fronts[pack_dir] = box.build_front(
-                    pack_dir, data, box.front_size()
-                )
-                box_sides[pack_dir] = box.build_side(
-                    pack_dir, data, box.side_size()
-                )
-                box_tops[pack_dir] = box.build_top(
-                    pack_dir, data, box.top_size()
-                )
+                box_fronts[pack_dir] = box.build_front(pack_dir, data, box.front_size())
+                box_sides[pack_dir] = box.build_side(pack_dir, data, box.side_size())
+                box_tops[pack_dir] = box.build_top(pack_dir, data, box.top_size())
                 box_front_sources[pack_dir] = box_front_source
     total = (
         len(card_configs)
@@ -2227,18 +2233,18 @@ def _generate(
             if future.exception() is not None:
                 continue  # no material -> no item for this pack
             if pack_dir in item_needs:
-                item_futures[
-                    pool.submit(_process_pack_item, pack_dir, out_base)
-                ] = item_label(pack_dir)
+                item_futures[pool.submit(_process_pack_item, pack_dir, out_base)] = (
+                    item_label(pack_dir)
+                )
         for future in as_completed(box_futures):
             pack_dir = box_futures[future]
             report(future, box_label(pack_dir))
             if future.exception() is not None:
                 continue  # no box material -> no box item for this pack
             if pack_dir in box_item_needs:
-                box_item_futures[
-                    pool.submit(_process_box_item, pack_dir, out_base)
-                ] = box_item_label(pack_dir)
+                box_item_futures[pool.submit(_process_box_item, pack_dir, out_base)] = (
+                    box_item_label(pack_dir)
+                )
         for future in as_completed(card_futures):
             report(future, card_futures[future])
         for future in as_completed(item_futures):

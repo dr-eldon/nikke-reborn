@@ -220,3 +220,57 @@ def card(name, variant, rarity, sprite) -> dict:
         "FoilMask": "",
         "CardBack": "",
     }
+
+
+def box(set) -> dict:
+    return {
+        "Name": f"{set} Box",
+        "Material": "CardBox_Material",
+        "SpriteName": "CardBox_Icon",
+        "ItemType": f"NIKKE_{set}_CardBox_Item",
+        "SpawnsPackType": f"NIKKE_{set}_CardPack_Item",
+        "ItemCategory": "TCG",
+        "BaseCost": 0,
+        "AddItemAsAccessory": False,
+        "AddItemAsFigurine": False,
+        "AddItemAsBoardGame": False,
+        "PhoneAppId": "NIKKE",
+        "UsesBaseGameMesh": False,
+        "MeshToUse": "",
+        "Mesh": "CardBox_Mesh",
+        "MaterialList": [],
+        "IsBigBox": True,
+        "BigBoxHideTillUnlocked": False,
+        "LicensePrice": 50,  # TODO
+        "LicenseLevelRequirement": 1,  # TODO
+        "IgnoreDoubleImage": False,
+        "HasSmallBox": True,
+        "SmallBoxHideTillUnlocked": False,
+        "SmallBoxLicensePrice": 50,  # TODO
+        "SmallBoxLicenseLevelRequirement": 1,  # TODO
+        "SmallBoxIgnoreDoubleImage": False,
+        "IsBulkBox": False,
+        "MinMarketPricePercent": 1,
+        "MaxMarketPricePercent": 1.20000005,
+        "FollowItemPrice": "None",
+        "AutoSetBoxPrice": True,
+        "IsTallItem": False,
+        "InBoxOffsetY": 0,
+        "InBoxOffsetScale": 0,
+        "ItemDeminsion": {"x": 1, "y": 1, "z": 1},
+        "CollidorPosOffset": {"x": 0, "y": 0, "z": 0},
+        "ColliderScale": {"x": 1, "y": 1, "z": 1},
+        "PriceAffectedBy": [],
+        "IsCardPack": False,
+        "IsCardBox": True,
+        "MinValue": 0,
+        "CardExpansion": "",
+        "CanHaveDuplicates": False,
+        "CanHaveGodPacks": False,
+        "GodPackPercentage": 0.0,
+        "PackGenerationStrategy": "Guaranteed",
+        "PackType": "",
+        "NormalWeights": {},
+        "GodWeights": {},
+        "SlotWeights": {},
+    }
