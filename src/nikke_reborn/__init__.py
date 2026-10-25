@@ -123,19 +123,25 @@ DEFAULT_FRAMERATE = 60
 #: ``Classified`` presentations are generated without title and subtitle.
 NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 
-# --- the Common presentation --------------------------------------------
-# The ``Common`` card is derived from a card's ``Clean`` definition (there is
-# no ``Common.json`` on disk): the background is a monochrome of its own
+# --- the profile presentation -------------------------------------------
+# The profile cards render a rarity through the shared profile pipeline:
+# the ``Aim`` and ``Cover`` rarities from their own definitions, and the
+# ``Common`` card derived from a card's ``Clean`` definition (there is no
+# ``Common.json`` on disk). The background is a monochrome of its own
 # dominant tint, the face framing (the viewer's ``--face`` at
 # :data:`COMMON_FACE_ZOOM`) animates over it, under the dominant tint wash,
 # as a monochrome of the same hue, shifted aside from the body so it is not
-# occluded, and the full body (the viewer's ``--full-body`` flag, ignoring the
-# Clean definition's pan/zoom) animates over the card mask — the
-# two framings
-# are streamed in lockstep from the same definition. The name, subtitle and logo
-# overlays are applied as usual, like the other rarities. Everything is
+# occluded, and the full body (the viewer's ``--full-body`` flag, ignoring
+# the definition's pan/zoom) animates over the card mask — the two framings
+# are streamed in lockstep from the same definition. The name, subtitle and
+# logo overlays are applied as usual, like the other rarities. Everything is
 # composited in memory — no intermediate frame touches the disk; only the
 # finished card is written (atomically).
+#: Rarity stems rendered through the profile presentation instead of the
+#: standard pipeline: their own definitions render directly (the ``Common``
+#: card, derived from the ``Clean`` definitions, renders through the same
+#: pipeline).
+PROFILE_RARITIES = frozenset({"Aim", "Cover"})
 #: The ``Common`` card's mask (composited over the diluted background, under
 #: the character), next to its GIMP source.
 COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
@@ -153,9 +159,8 @@ COMMON_TINT_BOTTOM_OPACITY = 1.0
 #: darkens linearly toward the bottom of the card.
 COMMON_TINT_BOTTOM_FACTOR = 0.4
 #: The ``--face`` zoom that renders the face framing composited over the
-#: ``Common`` card's background, under its tint wash (ahead of the full
-#: body).
-COMMON_FACE_ZOOM = 2.5
+#: profile card's background, under its tint wash (ahead of the full body).
+COMMON_FACE_ZOOM = 2
 #: The face framing's vertical centre, as a fraction of the frame height
 #: (0.1). :func:`_face_offset` treats the face as a square of side
 #: ``height * COMMON_FACE_CENTER_Y * COMMON_FACE_ZOOM`` centred at that height
@@ -380,19 +385,20 @@ def generate() -> None:
     preset = DRAFT_PRESET if draft else DEFAULT_PRESET
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
     # --- TEMPORARY ITERATION SCOPE --------------------------------------
-    # For now, generate every variant of ``ELYSION/0001`` — its new
-    # ``Common`` card, derived from its ``Clean`` variant (rendered by
-    # :func:`_generate_common`), plus its regular variants (rendered by
-    # :func:`_generate_variants`) — so the Common recipe can be iterated
+    # For now, generate every variant of ``ELYSION/0001`` — its profile
+    # cards (the ``Aim`` and ``Cover`` rarities and the ``Common`` card,
+    # derived from its ``Clean`` variant, rendered by
+    # :func:`_generate_profiles`) plus its regular variants (rendered by
+    # :func:`_generate_variants`) — so the profile recipe can be iterated
     # quickly against the rest of the card. To lift the scope to every card
-    # (and their ``Common`` derivatives) plus each pack's artwork and the
-    # metadata bundles, replace this with:
-    #     _generate_common(None, args.jobs, preset, scale, out_dir)
+    # (and their profile cards) plus each pack's artwork and the metadata
+    # bundles, replace this with:
+    #     _generate_profiles(None, args.jobs, preset, scale, out_dir)
     #     _generate_variants(args.paths, args.jobs, preset, scale, out_dir)
     #     _write_metadata(out_dir)
     scope = sorted((CARDS_DIR / "ELYSION" / "0001_Rapi").glob("*.json"))
     try:
-        _generate_common(scope, args.jobs, preset, scale, out_dir)
+        _generate_profiles(scope, args.jobs, preset, scale, out_dir)
         _generate_variants(scope, args.jobs, preset, scale, out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -539,13 +545,14 @@ def _source_hash(json_path: Path) -> str:
     return hashlib.sha256(json_path.read_bytes()).hexdigest()
 
 
-def _common_source_hash(clean_path: Path) -> str:
-    """SHA-256 of the ``Common`` card's inputs — the ``Clean`` definition it
-    is derived from and the card mask (the two files its pixels depend on).
-    Embedded under :data:`SOURCE_HASH_KEY` so an unchanged ``Common`` card is
-    skipped instead of re-rendered."""
+def _profile_source_hash(json_path: Path) -> str:
+    """SHA-256 of the profile card's inputs — the definition it renders
+    (the ``Clean`` definition for the derived ``Common`` card) and the card
+    mask (the two files its pixels depend on). Embedded under
+    :data:`SOURCE_HASH_KEY` so an unchanged profile card is skipped instead
+    of re-rendered."""
     digest = hashlib.sha256()
-    digest.update(clean_path.read_bytes())
+    digest.update(json_path.read_bytes())
     digest.update(COMMON_MASK_PATH.read_bytes())
     return digest.hexdigest()
 
@@ -844,7 +851,7 @@ def _stream_dual_composited(
     stream_end: list[float],
 ) -> Iterator[Image.Image]:
     """Composite the two synchronized viewer streams and yield the frames in
-    presentation order — the ``Common`` card, where the ``--face`` framing
+    presentation order — the profile card, where the ``--face`` framing
     animates (as a monochrome of the tint's hue) over the background, under
     the tint wash, and the ``--full-body`` framing animates over the mask.
 
@@ -1011,7 +1018,7 @@ def _monochrome(
 
 
 def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.Image:
-    """The ``Common`` card's wash layer (built once, static): a vertical
+    """The profile card's wash layer (built once, static): a vertical
     linear gradient from *tint_rgb* at the top edge to the tint scaled by
     :data:`COMMON_TINT_BOTTOM_FACTOR` at the bottom edge, with the alpha
     ramping from :data:`COMMON_TINT_TOP_OPACITY` to
@@ -1032,13 +1039,13 @@ def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.I
     return Image.merge("RGBA", (*channels, alpha))
 
 
-def _common_layers(
+def _profile_layers(
     background: Image.Image, size: tuple[int, int]
 ) -> tuple[Image.Image, Image.Image, Image.Image]:
-    """The ``Common`` card's static layers, composed in memory: the (fitted)
+    """The profile card's static layers, composed in memory: the (fitted)
     *background* — a monochrome of its own dominant tint — the dominant-tint
     wash (a gradient from the background's dominant color to a darker, more
-    opaque version of it), and the ``Common`` card
+    opaque version of it), and the profile card
     mask (:data:`COMMON_MASK_PATH`). The (animated) face framing is
     composited between the background and the tint, per frame and collapsed
     to a monochrome of the same tint's hue, by
@@ -1703,7 +1710,7 @@ def _render_and_finish(
     viewer reads (defaults to *json_path* itself); *stem* overrides the
     variant in the output filename (defaults to the definition's stem);
     *full_body* passes the viewer's ``--full-body`` flag, which ignores the
-    config's pan/zoom to render the full body (the ``Common`` card).
+    config's pan/zoom to render the full body (the profile cards).
 
     Nothing intermediate touches the disk: the viewer's raw RGBA frames are
     piped straight into the in-memory compositing and (for animations) the
@@ -1951,7 +1958,7 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     return -COMMON_FACE_OFFSET_LEFT if left <= right else COMMON_FACE_OFFSET_RIGHT
 
 
-def _render_common(
+def _render_profile(
     json_path: Path,
     size: tuple[int, int],
     animated: bool,
@@ -1973,22 +1980,23 @@ def _render_common(
     source_hash: str,
     face_zoom: float,
 ) -> tuple[Path, dict[str, float | None]]:
-    """Render the ``Common`` card (a presentation of *json_path*, a ``Clean``
-    definition): the ``--face <face_zoom>`` framing animates (as a monochrome
-    of the tint's hue, shifted aside from the body) over the background,
-    under the tint wash, and the ``--full-body`` framing animates over the
-    mask, both streamed from the
-    same definition so the two stay in lockstep. The name, subtitle and logo
-    overlays are applied as usual, like the other rarities.
+    """Render the profile card (a presentation of *json_path* — the
+    ``Aim``/``Cover`` rarity's own definition, or the ``Clean`` definition
+    of its derived ``Common`` card): the ``--face <face_zoom>`` framing
+    animates (as a monochrome of the tint's hue, shifted aside from the
+    body) over the background, under the tint wash, and the ``--full-body``
+    framing animates over the mask, both streamed from the same definition
+    so the two stay in lockstep. The name, subtitle and logo overlays are
+    applied as usual, like the other rarities.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the disk —
     the two raw RGBA streams are piped straight into the in-memory
     compositing and (for animations) the ffmpeg encode; only the finished
-    card is written (atomically, as ``<card>_Common.<suffix>``). Returns the
+    card is written (atomically, as ``<card>_<stem>.<suffix>``). Returns the
     finished card's path and the stage timings (see
     :func:`_write_final_card`).
     """
-    stem = "Common"
+    stem = _profile_stem(json_path)
     # The logo and copyright line sit on top of the art: pre-stamp them onto
     # a transparent layer and let the compositor apply it to each frame.
     overlay, overlay_pos = _logo_copyright_overlay(
@@ -2090,8 +2098,9 @@ def _card_out_path(
     if ever used, is folded the same way, one dash per directory).
 
     *stem* overrides the variant in the filename (defaults to the
-    definition's own stem); the ``Common`` card, derived from a
-    ``Clean.json``, writes out as ``<card>_Common.<suffix>``.
+    definition's own stem) — the profile cards pass their output stem, so
+    the ``Common`` card, derived from a ``Clean.json``, writes out as
+    ``<card>_Common.<suffix>``.
     """
     if stem is None:
         stem = json_path.stem
@@ -2213,7 +2222,14 @@ def _process_card(
     raise AssertionError("unreachable")  # pragma: no cover
 
 
-def _process_common_card(
+def _profile_stem(json_path: Path) -> str:
+    """The output stem of the profile card rendered from *json_path*: the
+    variant's own stem (``Aim``, ``Cover``) — except that a ``Clean``
+    definition yields its derived ``Common`` card."""
+    return "Common" if json_path.stem == "Clean" else json_path.stem
+
+
+def _process_profile_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
@@ -2221,26 +2237,27 @@ def _process_common_card(
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
 ) -> tuple[Path, bool]:
-    """Render the ``Common`` card derived from *json_path* (a ``Clean``
-    definition): the ``--face`` framing animates (as a monochrome of the
-    tint's hue) over the background, under its dominant tint wash, and the
-    ``--full-body`` framing animates over the card mask (both streamed in
-    lockstep from the same definition). The name, subtitle and logo overlays
-    are applied as usual, like the other rarities.
+    """Render the profile card for *json_path* — the ``Aim`` or ``Cover``
+    rarity from its own definition, or the ``Common`` card derived from a
+    ``Clean`` definition: the ``--face`` framing animates (as a monochrome
+    of the tint's hue) over the background, under its dominant tint wash,
+    and the ``--full-body`` framing animates over the card mask (both
+    streamed in lockstep from the same definition). The name, subtitle and
+    logo overlays are applied as usual, like the other rarities.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
     (only the finished card is written). Returns ``(out_path, skipped,
     timings)`` like :func:`_process_card` (written out as
-    ``<card>_Common.<suffix>``).
+    ``<card>_<stem>.<suffix>``).
     """
     total_started = time.perf_counter()
     json_path = json_path.resolve()
     card = _load_card(json_path)
     background = Image.open(_background_path(card, json_path)).convert("RGBA")
 
-    # The Common presentation always carries the black logo and black
-    # copyright — the Common card's white mask would wash out the white
+    # The profile presentation always carries the black logo and black
+    # copyright — the profile card's white mask would wash out the white
     # versions — while the name stays white, as the other rarities.
     logo_path = LOGO_PATHS[True]
     if not logo_path.is_file():
@@ -2250,11 +2267,9 @@ def _process_common_card(
         raise GenerationError(f"font not found: {FONT}")
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
-    # The Common presentation carries the card name, as the other rarities do
-    # (the Clean definition is never nameless).
-    if "title" not in card:
-        raise GenerationError(f"{json_path.name}: missing 'title'")
-    name = str(card["title"])
+    # The profile presentation carries the card name, as the other rarities
+    # do (a nameless definition renders without the name stack).
+    name = str(card.get("title", ""))
     subtitle = str(card.get("subtitle", ""))
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
@@ -2272,9 +2287,9 @@ def _process_common_card(
     # A definition without a `time` renders an animation (mp4) plus its first
     # frame (png); one with a `time` renders a single frame (png).
     animated = card.get("time") is None
-    stem = "Common"
+    stem = _profile_stem(json_path)
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
-    source_hash = _common_source_hash(json_path)
+    source_hash = _profile_source_hash(json_path)
     up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
     if up_to_date and animated:
         # The animation's first frame is kept alongside it; a missing or
@@ -2284,7 +2299,7 @@ def _process_common_card(
             first_frame_path.is_file() and _stored_hash(first_frame_path) == source_hash
         )
     if up_to_date:
-        # The Clean definition and the mask are unchanged since the card was
+        # The definition and the mask are unchanged since the card was
         # written: skip the render.
         return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2294,10 +2309,10 @@ def _process_common_card(
     # re-renders from scratch, up to RENDER_ATTEMPTS times; the two viewer
     # framings stream directly, so nothing intermediate is written to disk in
     # between).
-    base, tint, mask = _common_layers(background, size)
+    base, tint, mask = _profile_layers(background, size)
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
-            finished, timings = _render_common(
+            finished, timings = _render_profile(
                 json_path,
                 size,
                 animated,
@@ -2324,11 +2339,11 @@ def _process_common_card(
         except Exception as exc:
             if attempt >= RENDER_ATTEMPTS:
                 raise GenerationError(
-                    f"render of {json_path.name} (Common) still failing after "
+                    f"render of {json_path.name} ({stem}) still failing after "
                     f"{RENDER_ATTEMPTS} attempts: {exc}"
                 ) from exc
             print(
-                f"    ! {json_path.name} (Common): {exc}; re-rendering "
+                f"    ! {json_path.name} ({stem}): {exc}; re-rendering "
                 f"(attempt {attempt}/{RENDER_ATTEMPTS})",
                 flush=True,
             )
@@ -2776,29 +2791,36 @@ def _timings_suffix(timings: dict[str, float | None] | None) -> str:
     return f" ({', '.join(parts)})" if parts else ""
 
 
-def _generate_common(
+def _generate_profiles(
     paths: list[Path] | None,
     jobs: int,
     preset: str,
     scale: float,
     out_base: Path,
 ) -> None:
-    """Render the ``Common`` cards derived from the selection's ``Clean``
-    definitions, in a pool of worker processes.
+    """Render the profile cards — the ``Aim`` and ``Cover`` rarities from
+    their own definitions, and the ``Common`` card derived from each card's
+    ``Clean`` definition (there is no ``Common.json`` on disk) — in a pool
+    of worker processes.
 
     *paths* is passed to :func:`_find_card_configs` (a ``None`` selects every
-    card definition); from the result only the ``Clean.json`` variants are
-    kept — each one has a ``Common`` card derived from it (see
-    :func:`_process_common_card`). No pack artwork or metadata is produced.
+    card definition); from the result the ``Aim``/``Cover`` variants and the
+    ``Clean.json`` definitions (each one has a ``Common`` card derived from
+    it) are kept (see :func:`_process_profile_card`). No pack artwork or
+    metadata is produced.
     """
     _require_executable(VIEWER)
     _require_executable(ENCODER)
     _require_executable(PROBER)
-    clean_configs = [path for path in _find_card_configs(paths) if path.stem == "Clean"]
-    if not clean_configs:
-        raise GenerationError("no Clean.json to derive a Common card from")
+    profile_configs = [
+        path
+        for path in _find_card_configs(paths)
+        if path.stem in PROFILE_RARITIES or path.stem == "Clean"
+    ]
+    if not profile_configs:
+        raise GenerationError("no profile card definitions to render")
     start = time.monotonic()
-    total = len(clean_configs)
+    total = len(profile_configs)
     # Split the cores available to each card between the stages that run in
     # parallel: the frame compositing and the ffmpeg encode.
     per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
@@ -2811,10 +2833,10 @@ def _generate_common(
         notes.append(f"{scale:g}x resolution")
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
     print(
-        f"Rendering {total} Common card(s) (derived from Clean) "
-        f"with {jobs} worker(s){notes_text} ..."
+        f"Rendering {total} profile card(s) (Aim, Cover and the Common "
+        f"derivatives) with {jobs} worker(s){notes_text} ..."
     )
-    for path in clean_configs:
+    for path in profile_configs:
         print(f"  - {path.relative_to(REPO_ROOT)}")
 
     failures: list[tuple[Path, Exception]] = []
@@ -2827,19 +2849,24 @@ def _generate_common(
         def report(future: Future[tuple[Path, bool]], label: Path) -> None:
             nonlocal done, skipped
             done += 1
+            # The derived Common card is the only profile output whose stem
+            # differs from its definition's (Clean -> Common); tag it.
+            tag = ""
+            if _profile_stem(label) != label.stem:
+                tag = f" ({_profile_stem(label)})"
             try:
                 out_path, was_skipped, *rest = future.result()
                 timings = rest[0] if rest else None
                 if was_skipped:
                     skipped += 1
                     print(
-                        f"[{done}/{total}] {label} (Common) unchanged, "
+                        f"[{done}/{total}] {label}{tag} unchanged, "
                         f"kept {out_path.relative_to(REPO_ROOT)}",
                         flush=True,
                     )
                 else:
                     print(
-                        f"[{done}/{total}] {label} (Common) -> "
+                        f"[{done}/{total}] {label}{tag} -> "
                         f"{out_path.relative_to(REPO_ROOT)}"
                         f"{_timings_suffix(timings)}",
                         flush=True,
@@ -2847,14 +2874,14 @@ def _generate_common(
             except Exception as exc:
                 failures.append((label, exc))
                 print(
-                    f"[{done}/{total}] {label} (Common) FAILED: {exc}",
+                    f"[{done}/{total}] {label}{tag} FAILED: {exc}",
                     file=sys.stderr,
                     flush=True,
                 )
 
         card_futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
-                _process_common_card,
+                _process_profile_card,
                 path,
                 ffmpeg_threads,
                 composite_workers,
@@ -2862,19 +2889,19 @@ def _generate_common(
                 scale,
                 out_base,
             ): path
-            for path in clean_configs
+            for path in profile_configs
         }
         for future in as_completed(card_futures):
             report(future, card_futures[future].relative_to(CARDS_DIR))
 
     if failures:
         for label, exc in failures:
-            print(f"error: {label} (Common): {exc}", file=sys.stderr)
+            print(f"error: {label} ({_profile_stem(label)}): {exc}", file=sys.stderr)
         sys.exit(1)
     word = "drafts" if out_base == DRAFT_DIR else "final cards"
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(
-        f"Done. {total} Common card(s) in {time.monotonic() - start:.1f}s, "
+        f"Done. {total} profile card(s) in {time.monotonic() - start:.1f}s, "
         f"{word} written to {out_base.relative_to(REPO_ROOT)}/{skipped_text}"
     )
 
@@ -2890,7 +2917,11 @@ def _generate_variants(
     _require_executable(VIEWER)
     _require_executable(ENCODER)
     _require_executable(PROBER)
-    card_configs = _find_card_configs(paths)
+    # The profile rarities render through the profile pipeline (see
+    # :func:`_generate_profiles`), not the standard one.
+    card_configs = [
+        path for path in _find_card_configs(paths) if path.stem not in PROFILE_RARITIES
+    ]
     # An explicit selection renders those cards only; a full run also
     # produces each pack's artwork images (material and item).
     pack_dirs: list[Path] = [] if paths else _find_pack_dirs()
