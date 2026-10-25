@@ -1,5 +1,13 @@
+import math
+
 RARITIES = [
-    "Common",
+    "ClassicProfile",
+    "RareProfile",
+    "SpecialProfile",
+    "IdleProfile",
+    "CoverProfile",
+    "AimProfile",
+    "ExoticProfile",
     "Classic",
     "Rare",
     "Special",
@@ -66,43 +74,39 @@ def pack(set) -> dict:
         rare,
         special=0,
         idle=0,
-        aim=0,
         cover=0,
+        aim=0,
         exotic=0,
         goddess=0,
         classified=0,
+        profile_factor=2,
     ) -> dict:
         return {
-            "Common": 100
+            "ClassicProfile": 100
             - classic
-            - rare
-            - special
-            - idle
-            - aim
-            - cover
-            - exotic
+            - (rare + special + idle + exotic + cover + aim)
+            * (profile_factor + 1)
             - goddess
             - classified,
+            "RareProfile": rare * profile_factor,
+            "SpecialProfile": special * profile_factor,
+            "IdleProfile": idle * profile_factor,
+            "CoverProfile": cover * profile_factor,
+            "AimProfile": aim * profile_factor,
+            "ExoticProfile": exotic * profile_factor,
             "Classic": classic,
             "Rare": rare,
             "Special": special,
             "Idle": idle,
-            "Aim": aim,
             "Cover": cover,
+            "Aim": aim,
             "Exotic": exotic,
             "Goddess": goddess,
             "Classified": classified,
         }
 
     common = slot(classic=1, rare=0.5)
-
-    uncommon = slot(
-        classic=4,
-        rare=1,
-        special=1.5,
-        aim=0.01,
-        cover=0.01,
-    )
+    uncommon = slot(classic=4, rare=1, special=1.5, aim=0.01, cover=0.01)
 
     rare = slot(
         classic=8,
@@ -183,13 +187,19 @@ def card(name, variant, rarity, sprite) -> dict:
     BORDERS = ["Base", "FirstEdition", "Silver", "Gold", "EX", "FullArt"]
 
     VARIANT_BORDER = {
-        "Common": 0,
-        "Classic": 1,
-        "Rare": 1,
-        "Special": 1,
+        "ClassicProfile": 0,
+        "RareProfile": 1,
+        "SpecialProfile": 1,
+        "IdleProfile": 2,
+        "CoverProfile": 1,
+        "AimProfile": 1,
+        "ExoticProfile": 2,
+        "Classic": 2,
+        "Rare": 2,
+        "Special": 2,
         "Idle": 2,
-        "Aim": 2,
         "Cover": 2,
+        "Aim": 2,
         "Exotic": 3,
         "Goddess": 4,
         "Classified": 5,
@@ -198,17 +208,15 @@ def card(name, variant, rarity, sprite) -> dict:
     RARITY_BONUS = {
         "R": 0,
         "SR": 1,
-        "SSR": 3,
+        "SSR": 2,
     }
 
     border = VARIANT_BORDER[variant]
     bonus = RARITY_BONUS[rarity]
 
-    bonus = (
-        round(bonus / border)
-        if border > 0
-        else max(bonus - list(VARIANT_BORDER.keys()).index(variant), 0)
-    )
+    # Half-up: round() would round the exact halves (SR at border 2, SSR
+    # at border 4) to even instead of up.
+    bonus = math.floor(bonus / border + 0.5) if border > 0 else bonus
 
     border = BORDERS[
         min(
@@ -222,7 +230,7 @@ def card(name, variant, rarity, sprite) -> dict:
         "Rarity": variant,
         "BorderType": border,
         "Sprite": sprite,
-        "IsFoil": variant in ["Exotic", "Goddess", "Classified"],
+        "IsFoil": variant in ["ExoticProfile", "Exotic", "Goddess", "Classified"],
         "ElementType": "None",
         "FoilMask": "",
         "CardBack": "",

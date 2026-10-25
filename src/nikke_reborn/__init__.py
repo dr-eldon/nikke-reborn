@@ -121,10 +121,9 @@ DEFAULT_FRAMERATE = 60
 
 # --- the profile presentation -------------------------------------------
 # The profile cards render a rarity through the shared profile pipeline:
-# the ``Aim`` and ``Cover`` profile rarities from their own definitions,
-# and a card derived from every other definition (except the ``Goddess``
-# and ``Classified`` presentations); all are written out with the
-# variant's stem plus the ``_Profile`` suffix. The background is a
+# one card is derived from every definition (except the ``Goddess`` and
+# ``Classified`` presentations); all are written out with the
+# variant's stem plus the ``Profile`` suffix. The background is a
 # monochrome of its own dominant tint, the face framing (the viewer's
 # ``--face`` at :data:`PROFILE_FACE_ZOOM`) animates over it, under the
 # dominant tint wash, as a monochrome of the same hue, shifted aside from
@@ -135,13 +134,12 @@ DEFAULT_FRAMERATE = 60
 # other rarities, and the logo sits at the top right instead of the bottom
 # right. Everything is composited in memory — no intermediate frame touches
 # the disk; only the finished card is written (atomically).
-#: Profile rarity stems rendered through the profile presentation instead
-#: of the standard pipeline: their own definitions render directly.
-PROFILE_RARITIES = frozenset({"Aim", "Cover"})
-#: Variant stems with no derived ``<variant>_Profile`` card: the
-#: ``Goddess`` and ``Classified`` presentations. (The profile rarities
-#: render through the profile pipeline directly, so they need no derived
-#: card of their own.)
+#: Profile rarity stems that skip the standard pipeline entirely: only
+#: their profile cards are rendered. Currently empty — every rarity
+#: (including ``Aim`` and ``Cover``) also renders its standard card.
+PROFILE_RARITIES = frozenset({})
+#: Variant stems with no derived ``<variant>Profile`` card: the
+#: ``Goddess`` and ``Classified`` presentations.
 NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
 #: The profile card's mask (composited over the diluted background, under
 #: the character), next to its GIMP source.
@@ -230,7 +228,7 @@ NAME_WEIGHT = 700
 #: The title's vertical position, as a fraction of the card height: the
 #: title's ink top sits at NAME_TITLE_Y of the height (its left inset is the
 #: card's own padding).
-NAME_TITLE_Y = 0.65
+NAME_TITLE_Y = 0.72
 
 #: Names of NAME_REFERENCE_LENGTH characters or fewer get the full font
 #: size; longer names are scaled down by NAME_REFERENCE_LENGTH / length
@@ -287,18 +285,6 @@ NAME_RECT_CORNER = 1 / 3
 NAME_RECT_ARROW = "\u2196"
 NAME_RECT_ARROW_SIZE = 0.4
 NAME_RECT_ARROW_MARGIN = 0.12
-
-#: Drop shadow behind the title's and the subtitle's rectangles: a blurred
-#: dark copy, offset by
-#: NAME_RECT_SHADOW_OFFSET (in padding units) to the down-right on both
-#: axes, blurred by NAME_RECT_SHADOW_RADIUS (in padding units), at
-#: NAME_RECT_SHADOW_ALPHA opacity (0..1). The rectangle's left edge is the
-#: card's left edge, so the shadow is cast as if the rectangle extended
-#: outwards beyond it (the shadow's bottom strip reaches the image's left
-#: edge instead of fading out short of it).
-NAME_RECT_SHADOW_OFFSET = 0.1
-NAME_RECT_SHADOW_RADIUS = 0.075
-NAME_RECT_SHADOW_ALPHA = 0.2
 
 # --- name stack effects -------------------------------------------------
 # Context sampling for the subtitle rectangle's tint (the background's
@@ -366,12 +352,12 @@ PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
 BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
 BOX_MATERIAL_NAME = "CardBox_Material.png"
 BOX_ITEM_NAME = "CardBox_Item.png"
-BOX_MESH = REPO_ROOT / "assets" / "CardBox_Mesh.obj"
+BOX_MESH = ASSETS_DIR / "CardBox_Mesh.obj"
 
 #: The box item's viewer configuration (model rotation and camera
 #: zoom/pan, as a JSON file exported by the viewer's GUI), passed to
 #: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
-BOX_CONFIG = REPO_ROOT / "assets" / "CardBox_Mesh.json"
+BOX_CONFIG = ASSETS_DIR / "CardBox_Mesh.json"
 
 
 class GenerationError(RuntimeError):
@@ -387,19 +373,18 @@ def generate() -> None:
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
     # --- TEMPORARY ITERATION SCOPE --------------------------------------
     # For now, generate every variant of ``ELYSION/0001`` — its profile
-    # cards (all written out as ``<variant>_Profile``, rendered by
+    # cards (all written out as ``<variant>Profile``, rendered by
     # :func:`_generate_profiles`) plus its regular variants (rendered by
     # :func:`_generate_variants`) — so the profile recipe can be iterated
     # quickly against the rest of the card. To lift the scope to every card
-    # (and their profile cards) plus each pack's artwork and the metadata
-    # bundles, replace this with:
+    # (and their profile cards) plus each pack's artwork, replace this with:
     #     _generate_profiles(None, args.jobs, preset, scale, out_dir)
     #     _generate_variants(args.paths, args.jobs, preset, scale, out_dir)
-    #     _write_metadata(out_dir)
     scope = sorted((CARDS_DIR / "ELYSION" / "0001_Rapi").glob("*.json"))
     try:
         _generate_profiles(scope, args.jobs, preset, scale, out_dir)
         _generate_variants(scope, args.jobs, preset, scale, out_dir)
+        _write_metadata(out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -426,9 +411,7 @@ def _write_metadata(out_dir: Path) -> None:
         else:
             copy(IMAGES_DIR / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
 
-        copy(
-            ASSETS_DIR / "CardBox_Mesh.obj", out_dir / set_dir.stem / "CardBox_Mesh.obj"
-        )
+        copy(BOX_MESH, out_dir / set_dir.stem / BOX_MESH.name)
 
         for file in SHOP_DIR.iterdir():
             if not file.is_file():
@@ -464,13 +447,25 @@ def _write_metadata(out_dir: Path) -> None:
                 else:
                     rarity = character["rarity"]
 
-                new_card = metadata.card(
-                    name,
-                    variant.stem,
-                    rarity,
-                    f"{card.stem}_{variant.stem}",
-                )
-                cards.append(new_card)
+                if variant.stem not in PROFILE_RARITIES:
+                    new_card = metadata.card(
+                        name,
+                        variant.stem,
+                        rarity,
+                        f"{card.stem}_{variant.stem}",
+                    )
+                    cards.append(new_card)
+
+                if variant.stem not in NO_PROFILE_STEMS:
+                    profile_stem = _profile_stem(variant)
+
+                    new_card = metadata.card(
+                        name,
+                        profile_stem,
+                        rarity,
+                        f"{card.stem}_{profile_stem}",
+                    )
+                    cards.append(new_card)
 
         for missing in sorted(missing_ids):
             print(
@@ -1227,32 +1222,6 @@ def _tint_layer(
     )
 
 
-def _rect_shadow(size: tuple[int, int], rect: Image.Image, padding: int) -> Image.Image:
-    """The drop shadow of *rect*: a blurred dark copy, offset by
-    NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
-    (NAME_RECT_SHADOW_RADIUS * padding), at NAME_RECT_SHADOW_ALPHA.
-    Built from the rect's own alpha so it exactly tracks the rectangle's
-    shape. The rectangle starts at the card's left edge, so the shadow is
-    cast as if the rectangle extended outwards beyond it: the union of the
-    (offset, offset) copy and the copy shifted straight down keeps the
-    shadow's left edge at the card's own left edge (a lone offset copy
-    pulls it offset pixels in, and the shadow's bottom-left corner would
-    fade out before reaching the image's left edge)."""
-    radius = max(1, round(padding * NAME_RECT_SHADOW_RADIUS))
-    offset = round(padding * NAME_RECT_SHADOW_OFFSET)
-    alpha = rect.split()[3]
-    edge = Image.new("L", size, 0)
-    edge.paste(alpha, (0, offset))
-    displaced = Image.new("L", size, 0)
-    displaced.paste(alpha, (offset, offset))
-    mask = ImageChops.lighter(edge, displaced)
-    mask = mask.filter(ImageFilter.GaussianBlur(radius))
-    mask = mask.point(lambda v: round(v * NAME_RECT_SHADOW_ALPHA))
-    shadow = Image.new("RGBA", size, (0, 0, 0, 0))
-    shadow.putalpha(mask)
-    return shadow
-
-
 class _NameLayers:
     """The static parts of the name stack (one per card)."""
 
@@ -1262,9 +1231,7 @@ class _NameLayers:
         title_alpha: Image.Image,
         sub_top: Image.Image | None,
         sub_rect: Image.Image | None,
-        sub_shadow: Image.Image | None,
         rect: Image.Image | None,
-        shadow: Image.Image | None,
         arrow_alpha: Image.Image | None,
         arrow_box: tuple[int, int, int, int] | None,
     ) -> None:
@@ -1272,9 +1239,7 @@ class _NameLayers:
         self.title_alpha = title_alpha
         self.sub_top = sub_top
         self.sub_rect = sub_rect
-        self.sub_shadow = sub_shadow
         self.rect = rect
-        self.shadow = shadow
         self.arrow_alpha = arrow_alpha
         self.arrow_box = arrow_box
 
@@ -1330,7 +1295,6 @@ def _name_layers(
     sub_mask = None
     sub_top = None
     sub_rect = None
-    sub_shadow = None
     if subtitle:
         sub_size = _subtitle_font_size(subtitle, padding)
         sub_font = ImageFont.truetype(str(FONT_NAME), sub_size)
@@ -1383,10 +1347,6 @@ def _name_layers(
                 ],
                 fill=(*sub_rect_color, 255),
             )
-            # The drop shadow: the title's recipe (see _rect_shadow) — the
-            # bar also starts at the card's left edge, so the shadow is
-            # cast as if it extended outwards beyond it.
-            sub_shadow = _rect_shadow(size, sub_rect, padding)
 
     # The title's enclosing rectangle: a flat NAME_RECT_COLOR fill,
     # starting at the card's left edge and extending past the ink by
@@ -1395,7 +1355,6 @@ def _name_layers(
     # top-right corner is cut off by a 45-degree diagonal (None when
     # there is no title).
     rect = None
-    shadow = None
     arrow_alpha = None
     arrow_box = None
     if title_box is not None:
@@ -1438,10 +1397,6 @@ def _name_layers(
             ],
             fill=(*rect_color, 255),
         )
-        # The drop shadow (see _rect_shadow): a blurred dark copy offset
-        # to the down-right, cast as if the rectangle extended beyond the
-        # card's left edge.
-        shadow = _rect_shadow(size, rect, padding)
         if ink is not None:
             # The arrow: its ink's bottom-right aligned NAME_RECT_ARROW_MARGIN
             # from the rectangle's right/bottom edges.
@@ -1458,9 +1413,7 @@ def _name_layers(
         title_alpha,
         sub_top,
         sub_rect,
-        sub_shadow,
         rect,
-        shadow,
         arrow_alpha,
         arrow_box,
     )
@@ -1472,10 +1425,6 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     card); the title and the arrow are flat white (NAME_TEXT_COLOR).
     """
     canvas = art
-    if parts.shadow is not None:
-        canvas.alpha_composite(parts.shadow)
-    if parts.sub_shadow is not None:
-        canvas.alpha_composite(parts.sub_shadow)
     if parts.rect is not None:
         canvas.alpha_composite(parts.rect)
     if parts.sub_rect is not None:
@@ -1971,7 +1920,7 @@ def _render_profile(
     face_zoom: float,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the profile card (a presentation of *json_path*, written out
-    as ``<card>_<variant>_Profile.<suffix>``): the ``--face <face_zoom>``
+    as ``<card>_<variant>Profile.<suffix>``): the ``--face <face_zoom>``
     framing animates (as a monochrome of the tint's hue, shifted aside from
     the body) over the background, under the tint wash, and the
     ``--full-body`` framing animates over the mask, both streamed from the
@@ -2091,7 +2040,7 @@ def _card_out_path(
 
     *stem* overrides the variant in the filename (defaults to the
     definition's own stem) — the profile cards pass their output stem, so a
-    profile card writes out as ``<card>_<variant>_Profile.<suffix>``.
+    profile card writes out as ``<card>_<variant>Profile.<suffix>``.
     """
     if stem is None:
         stem = json_path.stem
@@ -2205,9 +2154,9 @@ def _process_card(
 
 def _profile_stem(json_path: Path) -> str:
     """The output stem of the profile card rendered from *json_path*: the
-    variant's stem with the ``_Profile`` suffix (an ``Aim.json`` writes out
-    as ``<card>_Aim_Profile.<suffix>``)."""
-    return f"{json_path.stem}_Profile"
+    variant's stem with the ``Profile`` suffix (an ``Aim.json`` writes out
+    as ``<card>_AimProfile.<suffix>``)."""
+    return f"{json_path.stem}Profile"
 
 
 def _process_profile_card(
@@ -2218,9 +2167,10 @@ def _process_profile_card(
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
 ) -> tuple[Path, bool]:
-    """Render the profile card for *json_path* — the ``Aim`` or ``Cover``
-    profile rarity from its own definition, or another rarity's derived
-    ``<variant>_Profile`` card: the ``--face`` framing animates (as a
+    """Render the ``<variant>Profile`` profile card for *json_path*
+    (derived from its own definition — every rarity, ``Aim`` and
+    ``Cover`` included, renders one, the ``Goddess`` and ``Classified``
+    presentations excepted): the ``--face`` framing animates (as a
     monochrome of the tint's hue) over the background, under its dominant
     tint wash, and the ``--full-body`` framing animates over the card mask
     (both streamed in lockstep from the same definition). The name and
@@ -2725,8 +2675,8 @@ def _process_box_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
 
 
 def _default_jobs() -> int:
-    """A sensible default pool size: up to 8 cards at once, 1 per 4 cores."""
-    return min(8, max(1, (os.cpu_count() or 4) // 4))
+    """A sensible default pool size: up to 4 cards at once, 1 per 4 cores."""
+    return min(4, max(1, (os.cpu_count() or 4) // 4))
 
 
 def _parse_args() -> argparse.Namespace:
@@ -2780,14 +2730,13 @@ def _generate_profiles(
     scale: float,
     out_base: Path,
 ) -> None:
-    """Render the profile cards — the ``Aim`` and ``Cover`` profile
-    rarities, plus every other rarity except the ``Goddess`` and
-    ``Classified`` presentations (all written out as
-    ``<variant>_Profile``) — in a pool of worker processes.
+    """Render the profile cards — one for every rarity except the
+    ``Goddess`` and ``Classified`` presentations (all written out as
+    ``<variant>Profile``) — in a pool of worker processes.
 
     *paths* is passed to :func:`_find_card_configs` (a ``None`` selects every
-    card definition); from the result the profile rarities and every
-    definition without a ``Goddess``/``Classified`` stem are kept (see
+    card definition); from the result every definition without a
+    ``Goddess``/``Classified`` stem is kept (see
     :func:`_process_profile_card`). No pack artwork or metadata is produced.
     """
     _require_executable(VIEWER)
@@ -2815,7 +2764,7 @@ def _generate_profiles(
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
     print(
         f"Rendering {total} profile card(s) (written out as "
-        f"<variant>_Profile) with {jobs} worker(s){notes_text} ..."
+        f"<variant>Profile) with {jobs} worker(s){notes_text} ..."
     )
     for path in profile_configs:
         print(f"  - {path.relative_to(REPO_ROOT)}")
@@ -2831,7 +2780,7 @@ def _generate_profiles(
             nonlocal done, skipped
             done += 1
             # Every profile output's stem differs from its definition's
-            # (the _Profile suffix); tag it.
+            # (the Profile suffix); tag it.
             tag = f" ({_profile_stem(label)})"
             try:
                 out_path, was_skipped, *rest = future.result()
