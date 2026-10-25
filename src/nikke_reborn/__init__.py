@@ -256,10 +256,11 @@ SUBTITLE_SUPERSAMPLE = 4
 #: Base color of the name text (title and subtitle).
 NAME_TEXT_COLOR = (255, 255, 255)
 
-#: Background color of the title's enclosing rectangle, whose left edge is
-#: the card's left edge; the ink sits inside with NAME_RECT_PAD of room on the
-#: other three sides.
-NAME_RECT_COLOR = (0x31, 0x31, 0x31)
+#: Luminance (0..1) of the title's enclosing rectangle's fill: the fill takes
+#: the background's dominant hue at this dark level; the rectangle's left
+#: edge is the card's left edge and the ink sits inside with NAME_RECT_PAD of
+#: room on the other three sides.
+NAME_RECT_LUMA = 0.1
 #: Padding around the title's ink (top/right/bottom of its enclosing
 #: rectangle), as a fraction of the ink's height.
 NAME_RECT_PAD = 0.3
@@ -1183,6 +1184,14 @@ def _trail_color(region: Image.Image) -> tuple[int, int, int]:
     return _set_luma(hue, sat, TRAIL_TARGET_LUMA)
 
 
+def _rect_tint(background: Image.Image) -> tuple[int, int, int]:
+    """The title rectangle's fill: the background's dominant hue at the
+    rectangle's base luminance (NAME_RECT_LUMA), so the dark panel picks up
+    the scene's tint instead of reading as a neutral gray."""
+    hue, sat, _ = _sample_context(background)
+    return _set_luma(hue, sat, NAME_RECT_LUMA)
+
+
 def _tint_layer(
     mask: Image.Image, color: tuple[int, int, int], factor: float
 ) -> Image.Image:
@@ -1235,7 +1244,11 @@ class _NameLayers:
 
 
 def _name_layers(
-    size: tuple[int, int], name: str, subtitle: str, padding: int
+    size: tuple[int, int],
+    name: str,
+    subtitle: str,
+    padding: int,
+    rect_color: tuple[int, int, int],
 ) -> _NameLayers:
     """Build the static name-stack layers for a card of *size*.
 
@@ -1318,9 +1331,10 @@ def _name_layers(
     metal_box = title_mask.getbbox()
     metal_alpha = title_mask
 
-    # The title's enclosing rectangle: a flat NAME_RECT_COLOR fill starting
-    # at the card's left edge and extending past the ink by NAME_RECT_PAD of
-    # the ink's height on the top/right/bottom (None when there is no title).
+    # The title's enclosing rectangle: a flat rect_color fill (the
+    # background's dominant hue at NAME_RECT_LUMA) starting at the card's
+    # left edge and extending past the ink by NAME_RECT_PAD of the ink's
+    # height on the top/right/bottom (None when there is no title).
     rect = None
     shadow = None
     if metal_box is not None:
@@ -1328,7 +1342,7 @@ def _name_layers(
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
         rect = Image.new("RGBA", size, (0, 0, 0, 0))
         ImageDraw.Draw(rect).rectangle(
-            (0, ry0 - pad, rx1 + pad, ry1 + pad), fill=(*NAME_RECT_COLOR, 255)
+            (0, ry0 - pad, rx1 + pad, ry1 + pad), fill=(*rect_color, 255)
         )
         # The drop shadow: a blurred dark copy of the rectangle, offset by
         # NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
@@ -1682,7 +1696,11 @@ def _render_and_finish(
     overlay, overlay_pos = _logo_copyright_overlay(
         size, logo, margin, padding, copyright_color
     )
-    parts = _name_layers(size, name, subtitle, padding) if (name or subtitle) else None
+    parts = (
+        _name_layers(size, name, subtitle, padding, _rect_tint(background))
+        if (name or subtitle)
+        else None
+    )
     composite_time: list[float] = [0.0]
     stream_end: list[float] = [0.0]
 
@@ -1941,7 +1959,11 @@ def _render_common(
     overlay, overlay_pos = _logo_copyright_overlay(
         size, logo, margin, padding, copyright_color
     )
-    parts = _name_layers(size, name, subtitle, padding) if (name or subtitle) else None
+    parts = (
+        _name_layers(size, name, subtitle, padding, _rect_tint(background))
+        if (name or subtitle)
+        else None
+    )
     composite_time: list[float] = [0.0]
     stream_end: list[float] = [0.0]
 
