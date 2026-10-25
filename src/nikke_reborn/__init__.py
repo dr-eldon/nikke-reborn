@@ -115,6 +115,11 @@ UNITY_VIEWER = "unity-viewer"
 ENCODER = "ffmpeg"
 PROBER = "ffprobe"
 
+#: Wide pipe buffer for the frame streams: the default 8 KiB buffer turns a
+#: 13 MiB frame into ~1700 syscalls; 1 MiB reads at the kernel's pipe
+#: quantum (~64 KiB), ~200.
+PIPE_BUFSIZE = 1 << 20
+
 #: Key of the embedded definition hash in the finished cards (a PNG
 #: text chunk, an MP4 tag): a card whose stored hash matches the
 #: current definition is skipped instead of re-rendered.
@@ -746,7 +751,9 @@ def _read_exact(stream: IO[bytes], n: int) -> bytes:
             break
         chunks.append(chunk)
         remaining -= len(chunk)
-    return b"".join(chunks)
+    if len(chunks) == 1:
+        return chunks[0]  # a buffered read gathers the whole frame at once;
+    return b"".join(chunks)  # joining would just copy it for no reason
 
 
 class _PipeDrain:
@@ -850,11 +857,19 @@ def _stream_composited(
     frame_bytes = width * height * 4
     assert viewer.stdout is not None
     stdout = viewer.stdout
+    # A fully opaque base lets the per-frame blend take the GIL-releasing
+    # Image.composite path (see _composite_frame); the base's alpha band is
+    # restored onto the result so the downstream stamps (logo, copyright)
+    # composite against the same alpha as the alpha_composite path.
+    # Computed once per card (None when the base is not fully opaque).
+    base_alpha = base.getchannel("A")
+    if base_alpha.getextrema() != (255, 255):
+        base_alpha = None
 
     def composite(data: bytes) -> Image.Image:
         started = time.perf_counter()
         frame = Image.frombytes("RGBA", (width, height), data)
-        art = _composite_frame(frame, base)
+        art = _composite_frame(frame, base, base_alpha)
         art.alpha_composite(overlay, overlay_pos)
         with time_lock:
             composite_time[0] += time.perf_counter() - started
@@ -960,6 +975,17 @@ def _stream_dual_composited(
     tint_pixel = tint.getpixel((0, 0))
     assert isinstance(tint_pixel, tuple)
     tint_rgb = (tint_pixel[0], tint_pixel[1], tint_pixel[2])
+    # The background is a fully opaque card, so the per-frame blends take
+    # the GIL-releasing Image.composite path (see _composite_frame): its
+    # RGB is bit-identical to the alpha_composite chain, but its alpha
+    # band is not, so the background's alpha is restored onto the result
+    # before the stamps (logo, copyright, name) — the finished card is
+    # byte-identical to the alpha_composite chain. The constant layers'
+    # alpha channels are the blend masks, computed once.
+    background_alpha = background.getchannel("A")
+    base_opaque = background_alpha.getextrema() == (255, 255)
+    tint_alpha = tint.getchannel("A")
+    mask_alpha = mask.getchannel("A")
 
     def composite(face_data: bytes, body_data: bytes) -> Image.Image:
         started = time.perf_counter()
@@ -968,13 +994,21 @@ def _stream_dual_composited(
             tint_rgb,
             PROFILE_FACE_BRIGHTNESS,
         )
+        body = Image.frombytes("RGBA", (width, height), body_data)
         # The face over the raw background, then the single dominant-tint
         # wash over both, then the mask and the body frame.
-        art = background.copy()
-        art.alpha_composite(face)
-        art.alpha_composite(tint)
-        art.alpha_composite(mask)
-        art.alpha_composite(Image.frombytes("RGBA", (width, height), body_data))
+        if base_opaque:
+            art = Image.composite(face, background, face.getchannel("A"))
+            art = Image.composite(tint, art, tint_alpha)
+            art = Image.composite(mask, art, mask_alpha)
+            art = Image.composite(body, art, body.getchannel("A"))
+            art.putalpha(background_alpha)
+        else:
+            art = background.copy()
+            art.alpha_composite(face)
+            art.alpha_composite(tint)
+            art.alpha_composite(mask)
+            art.alpha_composite(body)
         art.alpha_composite(overlay, overlay_pos)
         result = _apply_name(art, parts) if parts is not None else art
         with time_lock:
@@ -1071,6 +1105,46 @@ def _dominant_color(image: Image.Image) -> tuple[int, int, int]:
     return (round(means[0]), round(means[1]), round(means[2]))
 
 
+#: Per-channel value -> RGB lookup tables for :func:`_monochrome`, keyed by
+#: (tint, brightness) — built once per card, not once per frame.
+_MONOCHROME_LUTS: dict[
+    tuple[tuple[int, int, int], float], tuple[bytes, bytes, bytes]
+] = {}
+
+
+def _monochrome_luts(
+    tint_rgb: tuple[int, int, int], brightness: float
+) -> tuple[bytes, bytes, bytes]:
+    """The 256-entry per-channel tables mapping a value (V) channel to the
+    RGB of the *tint*'s fixed (H, S) at that value, built through the same
+    HSV -> RGB conversion a full-frame image would run (a 256-wide ramp
+    image), so each lookup is pixel-identical to the per-pixel result.
+    *brightness* is folded into the tables (the value is scaled before the
+    RGB conversion, as before)."""
+    key = (tint_rgb, brightness)
+    luts = _MONOCHROME_LUTS.get(key)
+    if luts is None:
+        pixel = Image.new("RGB", (1, 1), tint_rgb).convert("HSV").getpixel((0, 0))
+        assert isinstance(pixel, tuple)
+        h, s, _ = pixel[0], pixel[1], pixel[2]
+        hue = Image.new("L", (256, 1), h)
+        sat = Image.new("L", (256, 1), s)
+        value = Image.new("L", (256, 1))
+        value.putdata(range(256))
+        table = Image.merge("HSV", (hue, sat, value)).convert("RGB").split()
+        r_raw, g_raw, b_raw = (channel.tobytes() for channel in table)
+        if brightness != 1.0:
+            luts = (
+                bytes(r_raw[round(v * brightness)] for v in range(256)),
+                bytes(g_raw[round(v * brightness)] for v in range(256)),
+                bytes(b_raw[round(v * brightness)] for v in range(256)),
+            )
+        else:
+            luts = (r_raw, g_raw, b_raw)
+        _MONOCHROME_LUTS[key] = luts
+    return luts
+
+
 def _monochrome(
     image: Image.Image,
     tint_rgb: tuple[int, int, int],
@@ -1083,20 +1157,18 @@ def _monochrome(
     not. The image thus reads as a monochrome of the tint and blends into
     the card's palette instead of standing out from it. *brightness* scales
     that value channel (1.0 keeps it; below 1.0 darkens). The alpha channel
-    is passed through untouched."""
-    # The tint's hue and saturation are a single, constant pair.
-    pixel = Image.new("RGB", (1, 1), tint_rgb).convert("HSV").getpixel((0, 0))
-    assert isinstance(pixel, tuple)
-    h, s, _ = pixel[0], pixel[1], pixel[2]
-    hue = Image.new("L", image.size, h)
-    sat = Image.new("L", image.size, s)
-    # Fix the hue and saturation to the tint's; keep the image's value (V)
-    # so its shading survives the recolor, scaled by *brightness*.
-    _, _, value = image.convert("HSV").split()
-    if brightness != 1.0:
-        value = value.point([round(v * brightness) for v in range(256)])
-    result = Image.merge("HSV", (hue, sat, value)).convert("RGB")
-    result.putalpha(image.getchannel("A"))
+    is passed through untouched.
+
+    The value channel is max(R, G, B) — the value of the HSV conversion —
+    and the recolor at the fixed (H, S) is a per-channel lookup
+    (:func:`_monochrome_luts`), so no full-frame HSV round trip is needed."""
+    lut_r, lut_g, lut_b = _monochrome_luts(tint_rgb, brightness)
+    r, g, b, a = image.split()
+    value = ImageChops.lighter(ImageChops.lighter(r, g), b)
+    result = Image.merge(
+        "RGB", (value.point(lut_r), value.point(lut_g), value.point(lut_b))
+    )
+    result.putalpha(a)
     return result
 
 
@@ -1399,25 +1471,28 @@ def _tint_layer(
 
 
 class _NameLayers:
-    """The static parts of the name stack (one per card)."""
+    """The static parts of the name stack (one per card).
+
+    Each entry is the layer cropped to its ink's bounding box with the
+    position to composite it at, or ``None`` when the layer is absent;
+    :func:`_apply_name` composites the layers onto each frame's art, in
+    order (compositing a cropped layer at its position is pixel-identical
+    to compositing the full-size layer: outside the crop the alpha is 0,
+    an exact no-op)."""
 
     def __init__(
         self,
-        title_box: tuple[int, int, int, int] | None,
-        title_alpha: Image.Image,
-        sub_top: Image.Image | None,
-        sub_rect: Image.Image | None,
-        rect: Image.Image | None,
-        arrow_alpha: Image.Image | None,
-        arrow_box: tuple[int, int, int, int] | None,
+        rect: tuple[Image.Image, tuple[int, int]] | None,
+        sub_rect: tuple[Image.Image, tuple[int, int]] | None,
+        title: tuple[Image.Image, tuple[int, int]] | None,
+        arrow: tuple[Image.Image, tuple[int, int]] | None,
+        sub_top: tuple[Image.Image, tuple[int, int]] | None,
     ) -> None:
-        self.title_box = title_box
-        self.title_alpha = title_alpha
-        self.sub_top = sub_top
-        self.sub_rect = sub_rect
         self.rect = rect
-        self.arrow_alpha = arrow_alpha
-        self.arrow_box = arrow_box
+        self.sub_rect = sub_rect
+        self.title = title
+        self.arrow = arrow
+        self.sub_top = sub_top
 
 
 def _name_layers(
@@ -1543,7 +1618,6 @@ def _name_layers(
     # there is no title).
     rect = None
     arrow_alpha = None
-    arrow_box = None
     if title_box is not None:
         rx0, ry0, rx1, ry1 = title_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
@@ -1649,39 +1723,40 @@ def _name_layers(
             arrow_alpha.paste(
                 ink, (right - margin - ink.width, bottom - margin - ink.height)
             )
-            arrow_box = arrow_alpha.getbbox()
+
+    # The layers are static (built once per card): tint the title core and
+    # the arrow (flat white, NAME_TEXT_COLOR) here instead of per frame,
+    # and crop every layer to its ink's bounding box so
+    # :func:`_apply_name` composites the ink, not the whole frame.
+    def cropped(layer: Image.Image) -> tuple[Image.Image, tuple[int, int]] | None:
+        box = layer.getchannel("A").getbbox()
+        if box is None:
+            return None
+        return (layer.crop(box), (box[0], box[1]))
 
     return _NameLayers(
-        title_box,
-        title_alpha,
-        sub_top,
-        sub_rect,
-        rect,
-        arrow_alpha,
-        arrow_box,
+        cropped(rect) if rect is not None else None,
+        cropped(sub_rect) if sub_rect is not None else None,
+        # The title core: flat white, masked by the title's alpha.
+        cropped(_tint_layer(title_alpha, NAME_TEXT_COLOR, 1.0))
+        if title_box is not None
+        else None,
+        # The arrow: flat white, like the title.
+        cropped(_tint_layer(arrow_alpha, NAME_TEXT_COLOR, 1.0))
+        if arrow_alpha is not None
+        else None,
+        cropped(sub_top) if sub_top is not None else None,
     )
 
 
 def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     """Stamp the name stack onto *art* (the frame composited over the
-    base) and return the result. The layers are static (built once per
-    card); the title and the arrow are flat white (NAME_TEXT_COLOR).
-    """
-    canvas = art
-    if parts.rect is not None:
-        canvas.alpha_composite(parts.rect)
-    if parts.sub_rect is not None:
-        canvas.alpha_composite(parts.sub_rect)
-
-    # Title core: flat white, masked by the title's alpha.
-    canvas.alpha_composite(_tint_layer(parts.title_alpha, NAME_TEXT_COLOR, 1.0))
-    # The arrow: flat white, like the title.
-    if parts.arrow_box is not None:
-        assert parts.arrow_alpha is not None  # the two are set together
-        canvas.alpha_composite(_tint_layer(parts.arrow_alpha, NAME_TEXT_COLOR, 1.0))
-    if parts.sub_top is not None:
-        canvas.alpha_composite(parts.sub_top)
-    return canvas
+    base) and return the result. The layers are static, each cropped to
+    its ink (see :class:`_NameLayers`)."""
+    for layer in (parts.rect, parts.sub_rect, parts.title, parts.arrow, parts.sub_top):
+        if layer is not None:
+            art.alpha_composite(layer[0], layer[1])
+    return art
 
 
 def _with_copyright(
@@ -1750,13 +1825,28 @@ def _logo_copyright_overlay(
     return overlay.crop(box), (box[0], box[1])
 
 
-def _composite_frame(frame: Image.Image, base: Image.Image) -> Image.Image:
-    """Composite *frame* over *base*; the result is RGBA."""
-    canvas = base.copy()
+def _composite_frame(frame: Image.Image, base: Image.Image, base_alpha: Image.Image | None) -> Image.Image:
+    """Composite *frame* over *base*; the result is RGBA.
+
+    When *base_alpha* (the base's alpha channel) is given, the base is fully
+    opaque and the blend takes the GIL-releasing ``Image.composite`` path:
+    its RGB is bit-identical to ``base.alpha_composite(frame)`` (the two
+    blend formulas agree whenever the destination is opaque), and the base's
+    alpha band is restored afterwards so that the downstream stamps (the
+    logo and copyright line) composite against the same alpha the
+    ``alpha_composite`` path would have left — the finished card is
+    byte-identical either way. *base_alpha* is computed once per card by
+    the caller.
+    """
     if frame.mode != "RGBA":
         frame = frame.convert("RGBA")
-    canvas.alpha_composite(frame)
-    return canvas
+    if base_alpha is None:
+        canvas = base.copy()
+        canvas.alpha_composite(frame)
+        return canvas
+    art = Image.composite(frame, base, frame.getchannel("A"))
+    art.putalpha(base_alpha)
+    return art
 
 
 def _encode_mp4(
@@ -1823,6 +1913,7 @@ def _encode_mp4(
             command,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            bufsize=PIPE_BUFSIZE,
         )
     except OSError as exc:
         raise GenerationError(f"could not run {ENCODER!r}: {exc}") from exc
@@ -1948,6 +2039,7 @@ def _render_and_finish(
             viewer_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            bufsize=PIPE_BUFSIZE,
         )
     except OSError as exc:
         raise GenerationError(f"could not run {VIEWER!r}: {exc}") from exc
@@ -2084,6 +2176,7 @@ def _first_frame(
         [VIEWER, *viewer_flags, "--stdout", str(json_path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        bufsize=PIPE_BUFSIZE,
     )
     assert viewer.stdout is not None
     assert viewer.stderr is not None
@@ -2230,13 +2323,19 @@ def _render_profile(
     body_args = [VIEWER, "--full-body", "--stdout", str(json_path)]
     try:
         face_viewer = subprocess.Popen(
-            face_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            face_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=PIPE_BUFSIZE,
         )
     except OSError as exc:
         raise GenerationError(f"could not run {VIEWER!r} (face): {exc}") from exc
     try:
         body_viewer = subprocess.Popen(
-            body_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            body_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=PIPE_BUFSIZE,
         )
     except OSError as exc:
         face_viewer.kill()
