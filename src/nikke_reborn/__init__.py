@@ -63,7 +63,9 @@ composited in parallel threads, and the cores are split between that stage
 and the ffmpeg encode so the parallel work stays within the core count.
 
 By default every ``*.json`` under ``cards/`` is generated; one or more card
-definition paths may be passed on the command line to generate only those.
+paths (a set, a card, or a definition file, relative to the repo root or to
+``cards/``) may be passed on the command line to generate only the selected
+definitions — the profile and the standard presentations alike.
 """
 
 from __future__ import annotations
@@ -389,8 +391,9 @@ def generate() -> None:
     preset = DRAFT_PRESET if draft else DEFAULT_PRESET
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
     try:
-        _generate_profiles(None, args.jobs, preset, scale, out_dir)
-        _generate_variants(args.paths, args.jobs, preset, scale, out_dir)
+        selection = _selected_configs(args.paths)
+        _generate_profiles(selection, args.jobs, preset, scale, out_dir)
+        _generate_variants(selection, args.jobs, preset, scale, out_dir)
         _write_metadata(out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -636,6 +639,50 @@ def _find_card_configs(paths: list[Path] | None = None) -> list[Path]:
             seen.add(json_path)
             configs.append(json_path)
     return configs
+
+
+def _expand_card_paths(paths: list[Path]) -> list[Path]:
+    """Expand *paths* (each a set, a card, or a definition file, relative to
+    the repo root or to ``cards/``) to the card definitions they contain:
+    every ``*.json`` under each path (the pack's ``Expansion.json``
+    excluded), validated and de-duplicated by :func:`_find_card_configs`."""
+    from nikke_reborn import expansion
+
+    files: list[Path] = []
+    for raw in paths:
+        root = (REPO_ROOT / raw).resolve()
+        if not root.exists():
+            root = (CARDS_DIR / raw).resolve()
+        if not root.exists():
+            raise GenerationError(f"no such card path: {raw}")
+        if root != CARDS_DIR and CARDS_DIR not in root.parents:
+            raise GenerationError(
+                f"card path must be under {CARDS_DIR.relative_to(REPO_ROOT)}/: {raw}"
+            )
+        if root.is_file():
+            if not root.name.endswith(".json") or root.name == expansion.EXPANSION_NAME:
+                raise GenerationError(f"not a card definition: {raw}")
+            files.append(root)
+        else:
+            files.extend(
+                sorted(
+                    path
+                    for path in root.rglob("*.json")
+                    if path.name != expansion.EXPANSION_NAME
+                )
+            )
+    if not files:
+        raise GenerationError("no card definitions selected")
+    return _find_card_configs(files)
+
+
+def _selected_configs(paths: list[Path]) -> list[Path] | None:
+    """The card definitions to generate: None when nothing is selected
+    (everything, as before), else the card definitions the selected
+    *paths* expand to, in the given order."""
+    if not paths:
+        return None
+    return _expand_card_paths(paths)
 
 
 def _load_card(json_path: Path) -> dict:
@@ -2901,8 +2948,12 @@ def _parse_args() -> argparse.Namespace:
         "paths",
         nargs="*",
         type=Path,
-        metavar="CARD_JSON",
-        help="card definition(s) to generate; default: all under cards/",
+        metavar="CARD_PATH",
+        help=(
+            "card path(s) to generate — a set, a card, or a definition "
+            "file, relative to the repo root or to cards/; default: all "
+            "under cards/"
+        ),
     )
     parser.add_argument(
         "-j",
@@ -2956,13 +3007,20 @@ def _generate_profiles(
     _require_executable(VIEWER)
     _require_executable(ENCODER)
     _require_executable(PROBER)
+    configs = _find_card_configs(paths)
     profile_configs = [
         path
-        for path in _find_card_configs(paths)
+        for path in configs
         if path.stem in PROFILE_RARITIES or path.stem not in NO_PROFILE_STEMS
     ]
-    if not profile_configs:
+    if not configs:
         raise GenerationError("no profile card definitions to render")
+    if not profile_configs:
+        # The selection has no profile-eligible definition (e.g. it only
+        # selects a Goddess presentation): the standard presentations still
+        # render.
+        print("No profile card definitions selected; skipping the profile pass.")
+        return
     start = time.monotonic()
     total = len(profile_configs)
     # Split the cores available to each card between the stages that run in
@@ -3054,7 +3112,7 @@ def _generate_profiles(
 
 
 def _generate_variants(
-    paths: list[Path],
+    paths: list[Path] | None,
     jobs: int,
     preset: str,
     scale: float,
