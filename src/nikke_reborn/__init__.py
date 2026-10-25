@@ -145,18 +145,26 @@ NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
 #: the character), next to its GIMP source.
 PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
 #: Opacity of the dominant-tint wash's top edge: laid over the monochrome
-#: background and the face framing, 0.5 dilutes the background toward its
-#: own main color and gently re-tints the face so it settles into the
-#: card's palette.
+#: background and the face framing: the partial wash dilutes the
+#: background toward its own main color and gently re-tints the face so
+#: it settles into the card's palette.
 PROFILE_TINT_TOP_OPACITY = 0.5
 #: Opacity of the dominant-tint wash's bottom edge: the alpha ramps
 #: linearly from PROFILE_TINT_TOP_OPACITY to this, so the darker bottom
 #: anchors more firmly than the top.
 PROFILE_TINT_BOTTOM_OPACITY = 1.0
 #: The wash's bottom color is the background's tint scaled by this factor
-#: (0.4 = 40% of its brightness; the top edge is the tint itself): the wash
-#: darkens linearly toward the bottom of the card.
-PROFILE_TINT_BOTTOM_FACTOR = 0.4
+#: (as a fraction of its brightness) in linear light — the channels are
+#: linearized before scaling, so the tint keeps its hue instead of
+#: shifting toward black — and the top edge is the tint itself: the wash
+#: darkens linearly toward the bottom, its gradient ending at
+#: PROFILE_TINT_GRADIENT_END of the height.
+PROFILE_TINT_BOTTOM_FACTOR = 0.3
+#: The point, as a fraction of the card's height, at which the
+#: wash's gradient between the tint and its bottom color completes: the
+#: bottom strip below it holds the bottom color (and the bottom opacity)
+#: flat.
+PROFILE_TINT_GRADIENT_END = 0.85
 #: The ``--face`` zoom that renders the face framing composited over the
 #: profile card's background, under its tint wash (ahead of the full body).
 PROFILE_FACE_ZOOM = 2
@@ -254,7 +262,7 @@ NAME_TEXT_COLOR = (255, 255, 255)
 #: Fill of the title's enclosing rectangle: a flat dark gray. The
 #: rectangle's left edge is the card's left edge and the ink sits inside
 #: with NAME_RECT_PAD of room on the other three sides.
-NAME_RECT_COLOR = (0x22, 0x22, 0x22)
+NAME_RECT_COLOR = (0x33, 0x33, 0x33)
 #: Luminance (0..1) of the subtitle's enclosing rectangle's fill: the fill
 #: takes the background's dominant hue at this dark level, so the
 #: subtitle's panel picks up the scene's tint where the title's is a flat
@@ -1009,17 +1017,41 @@ def _monochrome(
     return result
 
 
+def _scale_linear_light(
+    rgb: tuple[int, int, int], factor: float
+) -> tuple[int, int, int]:
+    """*rgb* scaled by *factor* in linear light: the channels are
+    linearized (the sRGB gamma undone), scaled, and re-encoded, so the
+    colour keeps its hue — its chromaticity is unchanged — instead of
+    shifting toward black, as a direct sRGB scaling would."""
+
+    def scale(value: int) -> int:
+        v = value / 255
+        v = v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+        v *= factor
+        v = v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
+        return round(max(0.0, min(1.0, v)) * 255)
+
+    return tuple(scale(c) for c in rgb)
+
+
 def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.Image:
     """The profile card's wash layer (built once, static): a vertical
     linear gradient from *tint_rgb* at the top edge to the tint scaled by
-    :data:`PROFILE_TINT_BOTTOM_FACTOR` at the bottom edge, with the alpha
-    ramping from :data:`PROFILE_TINT_TOP_OPACITY` to
-    :data:`PROFILE_TINT_BOTTOM_OPACITY`."""
+    :data:`PROFILE_TINT_BOTTOM_FACTOR` in linear light (so its hue is
+    preserved), completing at :data:`PROFILE_TINT_GRADIENT_END` of the
+    height — the bottom strip below it holds the bottom color and the
+    bottom opacity — with the alpha ramping from
+    :data:`PROFILE_TINT_TOP_OPACITY` to :data:`PROFILE_TINT_BOTTOM_OPACITY`
+    along the same ramp."""
     width, height = size
-    bottom = tuple(round(c * PROFILE_TINT_BOTTOM_FACTOR) for c in tint_rgb)
-    # A 0..255 ramp: 0 at the top row, 255 at the bottom row.
+    bottom = _scale_linear_light(tint_rgb, PROFILE_TINT_BOTTOM_FACTOR)
+    # A 0..255 ramp: 0 at the top row, 255 from PROFILE_TINT_GRADIENT_END
+    # of the way down on — the gradient ends short of the bottom edge, so
+    # the bottom strip carries the bottom color (and opacity) flat.
+    end = round((height - 1) * PROFILE_TINT_GRADIENT_END)
     ramp = Image.frombytes(
-        "L", (1, height), bytes(round(255 * y / (height - 1)) for y in range(height))
+        "L", (1, height), bytes(min(255, round(255 * y / end)) for y in range(height))
     ).resize(size, Image.Resampling.NEAREST)
     top_alpha = round(PROFILE_TINT_TOP_OPACITY * 255)
     bottom_alpha = round(PROFILE_TINT_BOTTOM_OPACITY * 255)
