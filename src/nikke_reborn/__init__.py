@@ -297,6 +297,12 @@ NAME_RECT_ARROW = "\u2196"
 NAME_RECT_ARROW_SIZE = 0.4
 NAME_RECT_ARROW_MARGIN = 0.12
 
+#: The manufacturer's logo above the title's bar: its width as a fraction
+#: of the frame's width (its height proportional), its left edge at the
+#: card's padding (the title's own inset), a gap of padding / 2 between
+#: its bottom and the bar's top.
+MANUFACTURER_LOGO_WIDTH = 0.11
+
 # --- name stack effects -------------------------------------------------
 # Context sampling for the subtitle rectangle's tint (the background's
 # dominant hue at NAME_RECT_LUMA, via _sample_context).
@@ -552,13 +558,20 @@ def _source_hash(json_path: Path) -> str:
 
 
 def _profile_source_hash(json_path: Path) -> str:
-    """SHA-256 of the profile card's inputs — the definition it renders and
-    the card mask (the two files its pixels depend on). Embedded under
-    :data:`SOURCE_HASH_KEY` so an unchanged profile card is skipped instead
-    of re-rendered."""
+    """SHA-256 of the profile card's inputs — the definition it renders,
+    the card mask, the characters database (for the character's
+    manufacturer) and the manufacturer's logo (the files its pixels
+    depend on). Embedded under :data:`SOURCE_HASH_KEY` so an unchanged
+    profile card is skipped instead of re-rendered."""
     digest = hashlib.sha256()
     digest.update(json_path.read_bytes())
     digest.update(PROFILE_MASK_PATH.read_bytes())
+    digest.update((DATABASE_DIR / "characters.json").read_bytes())
+    manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
+    if manufacturer is not None:
+        logo = IMAGES_DIR / "logos" / f"{manufacturer}.png"
+        if logo.is_file():
+            digest.update(logo.read_bytes())
     return digest.hexdigest()
 
 
@@ -653,6 +666,31 @@ def _background_path(card: dict, json_path: Path) -> Path:
     if not background.is_file():
         raise GenerationError(f"{json_path.name}: background not found: {background}")
     return background
+
+
+def _character_manufacturer(card_id: str) -> str | None:
+    """The character's ``manufacturer`` from ``database/characters.json``
+    (looked up by *card_id*; a skin variant's suffixed id, c010_02, falls
+    back to the base character, as the rarity does). None when the
+    character is unknown or carries no manufacturer."""
+    characters = json.load((DATABASE_DIR / "characters.json").open())
+    characters = {character["id"]: character for character in characters}
+    character = characters.get(card_id) or characters.get(card_id.split("_", 1)[0])
+    manufacturer = character.get("manufacturer") if character else None
+    return manufacturer or None
+
+
+def _manufacturer_logo(card_id: str) -> Image.Image | None:
+    """The character's manufacturer logo: ``images/logos/<manufacturer>.png``
+    (white on transparency, tinted to the bar's fill when placed) — None
+    when the character has no manufacturer or its logo file is missing."""
+    manufacturer = _character_manufacturer(card_id)
+    if manufacturer is None:
+        return None
+    logo_path = IMAGES_DIR / "logos" / f"{manufacturer}.png"
+    if not logo_path.is_file():
+        return None
+    return Image.open(logo_path).convert("RGBA")
 
 
 def _read_exact(stream: "io.BufferedReader", n: int) -> bytes:
@@ -1338,6 +1376,7 @@ def _name_layers(
     padding: int,
     rect_color: tuple[int, int, int],
     sub_rect_color: tuple[int, int, int],
+    manufacturer_logo: Image.Image | None = None,
 ) -> _NameLayers:
     """Build the static name-stack layers for a card of *size*.
 
@@ -1346,6 +1385,11 @@ def _name_layers(
 
     The title and the subtitle are always rendered uppercase (their
     length, and so their font size, is unaffected).
+
+    *manufacturer_logo* (the character's manufacturer's mark, white on
+    transparency, filled with the bar's own fill when placed) is put above
+    the title's bar when given (see :data:`MANUFACTURER_LOGO_WIDTH`); it is
+    part of the bar's layer, so it is only placed when the bar is.
     """
     name = name.upper()
     subtitle = subtitle.upper()
@@ -1520,6 +1564,20 @@ def _name_layers(
                     (x0 - (bar_h - 1), bar_top + bar_h - 1),
                 ],
                 fill=(*rect_color, 255),
+            )
+        # The manufacturer's logo above the bar: MANUFACTURER_LOGO_WIDTH
+        # the frame's width wide (its height proportional), its left edge
+        # at the card's padding (the title's own inset), a gap of
+        # padding / 2 between its bottom and the bar's top; its mark's
+        # alpha filled with the bar's own fill (the title's background),
+        # so the mark, the bar and the squares share one color.
+        if manufacturer_logo is not None:
+            logo_w = round(size[0] * MANUFACTURER_LOGO_WIDTH)
+            logo_h = round(logo_w * manufacturer_logo.height / manufacturer_logo.width)
+            mark = manufacturer_logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+            rect.alpha_composite(
+                _tint_layer(mark.getchannel("A"), rect_color, 1.0),
+                (inset, bar_top - round(padding / 2) - logo_h),
             )
         if ink is not None:
             # The arrow: its ink's bottom-right aligned NAME_RECT_ARROW_MARGIN
@@ -2034,6 +2092,7 @@ def _render_profile(
     copyright_color: tuple[int, int, int, int],
     name: str,
     subtitle: str,
+    manufacturer_logo: Image.Image | None,
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
@@ -2049,8 +2108,9 @@ def _render_profile(
     the body) over the background, under the tint wash, and the
     ``--full-body`` framing animates over the mask, both streamed from the
     same definition so the two stay in lockstep. The name and subtitle
-    overlays are applied as usual, like the other rarities; the logo sits
-    at the top right.
+    overlays are applied as usual, like the other rarities (with the
+    character's manufacturer's logo above the name's bar, *manufacturer_logo*);
+    the logo sits at the top right.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the disk —
     the two raw RGBA streams are piped straight into the in-memory
@@ -2069,7 +2129,13 @@ def _render_profile(
     )
     parts = (
         _name_layers(
-            size, name, subtitle, padding, NAME_RECT_COLOR, _rect_tint(background)
+            size,
+            name,
+            subtitle,
+            padding,
+            NAME_RECT_COLOR,
+            _rect_tint(background),
+            manufacturer_logo,
         )
         if (name or subtitle)
         else None
@@ -2327,6 +2393,10 @@ def _process_profile_card(
     # do (a nameless definition renders without the name stack).
     name = str(card.get("title", ""))
     subtitle = str(card.get("subtitle", ""))
+    # The character's manufacturer's logo (tinted to the title's
+    # background; None when the character or its manufacturer is
+    # unknown): it sits above the name's bar.
+    manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
@@ -2381,6 +2451,7 @@ def _process_profile_card(
                 copyright_color,
                 name,
                 subtitle,
+                manufacturer_logo,
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
