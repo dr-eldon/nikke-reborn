@@ -145,6 +145,11 @@ COMMON_TINT_OPACITY = 0.65
 #: The ``--face`` zoom that renders the face framing composited under the
 #: ``Common`` card's tint wash (ahead of the full body).
 COMMON_FACE_ZOOM = 2.5
+#: The face framing's vertical centre, as a fraction of the frame height
+#: (0.1). :func:`_face_offset` treats the face as a square of side
+#: ``height * COMMON_FACE_CENTER_Y * COMMON_FACE_ZOOM`` centred at that height
+#: when deciding which side leaves its footprint least occluded by the body.
+COMMON_FACE_CENTER_Y = 0.1
 #: Brightness scale applied to the monochrome face (its value channel): 1.0
 #: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
 #: against the tinted background.
@@ -152,8 +157,8 @@ COMMON_FACE_BRIGHTNESS = 0.55
 #: Horizontal shifts (px) that move the face framing aside from the centered
 #: full body so it is not occluded by the body: the face is rendered
 #: :data:`COMMON_FACE_OFFSET_LEFT` px to the left or
-#: :data:`COMMON_FACE_OFFSET_RIGHT` px to the right (whichever side the body
-#: leaves more room on, see :func:`_face_offset`).
+#: :data:`COMMON_FACE_OFFSET_RIGHT` px to the right (whichever leaves its
+#: footprint least occluded by the body, see :func:`_face_offset`).
 COMMON_FACE_OFFSET_LEFT = 500
 COMMON_FACE_OFFSET_RIGHT = 420
 
@@ -1774,29 +1779,41 @@ def _first_frame(
 
 def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     """The face framing's ``--offset-x``: :data:`COMMON_FACE_OFFSET_LEFT` px to
-    the left or :data:`COMMON_FACE_OFFSET_RIGHT` px to the right, whichever side
-    of the upper body leaves more room, so the face sits beside rather than
-    behind the body.
+    the left or :data:`COMMON_FACE_OFFSET_RIGHT` px to the right, whichever
+    leaves the face's footprint least occluded by the full body, so the face
+    sits clear rather than behind it.
 
-    The side is chosen by the body's *pixel coverage* on each half of the
-    *upper half* of its first frame — the region that can occlude the face:
-    the face goes to the emptier half (fewer opaque body pixels). Coverage is
-    a truer measure of open space than the bounding box's edges and is robust
-    to a thin protrusion (a stray strand or an extended limb) that would
-    stretch a box on one side without actually occupying it. A bodyless frame
-    leaves the face centered (0).
+    The face's centre always sits at :data:`COMMON_FACE_CENTER_Y` of the frame
+    height, so the face is treated as a square of side
+    ``height * COMMON_FACE_CENTER_Y * :data:`COMMON_FACE_ZOOM```. Each candidate
+    footprint — the left at the card centre minus the left offset, the right at
+    the card centre plus the right offset — is measured against the body's
+    opaque pixels and the face is sent to the emptier one (fewer body pixels
+    behind it). A bodyless frame leaves the face centered (0).
     """
     width, height = size
     body = _first_frame(json_path, size, "--full-body")
-    # Only the upper half can occlude the face; threshold its opaque pixels
-    # and count them on each half (split at the card's center).
-    upper = body.crop((0, 0, width, height // 2)).getchannel("A")
-    upper = upper.point(lambda v: 255 if v > 32 else 0)
-    mid = width // 2
-    left = ImageStat.Stat(upper.crop((0, 0, mid, height // 2))).sum[0]
-    right = ImageStat.Stat(upper.crop((mid, 0, width, height // 2))).sum[0]
-    if not left and not right:
-        return 0  # no body in the upper half; keep the face centered
+    # The face's footprint: a square centred at the face's fixed vertical
+    # centre, one for each candidate horizontal position (left / right).
+    alpha = body.getchannel("A").point(lambda v: 255 if v > 32 else 0)
+    centre_y = int(height * COMMON_FACE_CENTER_Y)
+    half = int(height * COMMON_FACE_CENTER_Y * COMMON_FACE_ZOOM) // 2
+
+    def occlusion(cx: int) -> int:
+        x0, y0, x1, y1 = cx - half, centre_y - half, cx + half, centre_y + half
+        x0, y0 = max(0, x0), max(0, y0)
+        x1, y1 = min(width, x1), min(height, y1)
+        if x0 >= x1 or y0 >= y1:
+            return 0
+        return ImageStat.Stat(alpha.crop((x0, y0, x1, y1))).sum[0]
+
+    if not ImageStat.Stat(alpha).sum[0]:
+        return 0  # no body at all; keep the face centered
+    left = occlusion(width // 2 - COMMON_FACE_OFFSET_LEFT)
+    right = occlusion(width // 2 + COMMON_FACE_OFFSET_RIGHT)
+    # Both footprints empty means the body sits *between* them, so the face
+    # still shifts (a tie defaults to the left); never leave it centered on
+    # top of the body.
     return (
         -COMMON_FACE_OFFSET_LEFT
         if left <= right
