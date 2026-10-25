@@ -119,10 +119,6 @@ SOURCE_HASH_KEY = "nikke-reborn-source"
 
 DEFAULT_FRAMERATE = 60
 
-#: Variant stems that never carry the card name: the ``Goddess`` and
-#: ``Classified`` presentations are generated without title and subtitle.
-NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
-
 # --- the profile presentation -------------------------------------------
 # The profile cards render a rarity through the shared profile pipeline:
 # the ``Aim`` and ``Cover`` rarities from their own definitions, and the
@@ -745,7 +741,6 @@ def _stream_composited(
     base: Image.Image,
     overlay: Image.Image,
     overlay_pos: tuple[int, int],
-    parts: _NameLayers | None,
     composite_workers: int,
     first_frame: list[Image.Image],
     composite_time: list[float],
@@ -756,8 +751,8 @@ def _stream_composited(
     ``--stdout`` writes each frame as a contiguous ``width * height * 4`` byte
     block of raw RGBA, in presentation order. Frames are decoded and
     composited over *base*, then the *overlay* (the pre-stamped logo and
-    copyright line) is stamped on top and the name stack applied, if any, in
-    a sliding window of *composite_workers* threads — Pillow releases the GIL
+    copyright line) is stamped on top, in a sliding window of
+    *composite_workers* threads — Pillow releases the GIL
     in its raster ops, so the reader stays ahead of the encode and the cores
     stay busy — and yielded in presentation order. At most ~2x the worker
     count of frames are in memory at once. The first composited frame is
@@ -777,10 +772,9 @@ def _stream_composited(
         frame = Image.frombytes("RGBA", (width, height), data)
         art = _composite_frame(frame, base)
         art.alpha_composite(overlay, overlay_pos)
-        result = _apply_name(art, parts) if parts is not None else art
         with time_lock:
             composite_time[0] += time.perf_counter() - started
-        return result
+        return art
 
     time_lock = threading.Lock()
     workers = max(1, composite_workers)
@@ -1688,8 +1682,6 @@ def _render_and_finish(
     margin: int,
     padding: int,
     copyright_color: tuple[int, int, int, int],
-    name: str,
-    subtitle: str,
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
@@ -1739,13 +1731,6 @@ def _render_and_finish(
     overlay, overlay_pos = _logo_copyright_overlay(
         size, logo, margin, padding, copyright_color
     )
-    parts = (
-        _name_layers(
-            size, name, subtitle, padding, NAME_RECT_COLOR, _rect_tint(background)
-        )
-        if (name or subtitle)
-        else None
-    )
     composite_time: list[float] = [0.0]
     stream_end: list[float] = [0.0]
 
@@ -1777,7 +1762,6 @@ def _render_and_finish(
         base,
         overlay,
         overlay_pos,
-        parts,
         composite_workers,
         first_frame,
         composite_time,
@@ -2137,16 +2121,8 @@ def _process_card(
     logo = Image.open(logo_path).convert("RGBA")
     if not FONT.is_file():
         raise GenerationError(f"font not found: {FONT}")
-    if not FONT_NAME.is_file():
-        raise GenerationError(f"font not found: {FONT_NAME}")
-    if json_path.stem in NO_NAME_STEMS:
-        # These presentations never carry the card name
-        name, subtitle = "", ""
-    else:
-        if "title" not in card:
-            raise GenerationError(f"{json_path.name}: missing 'title'")
-        name = str(card["title"])
-        subtitle = str(card.get("subtitle", ""))
+    # The standard presentations never carry the card name (only the
+    # profile cards render the title and subtitle).
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
@@ -2196,8 +2172,6 @@ def _process_card(
                 margin,
                 padding,
                 copyright_color,
-                name,
-                subtitle,
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
