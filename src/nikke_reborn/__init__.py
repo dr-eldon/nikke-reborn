@@ -204,7 +204,7 @@ COPYRIGHT_WEIGHT = 300
 COPYRIGHT_SUPERSAMPLE = 4
 
 #: Copyright line rendered at the bottom left of the card.
-COPYRIGHT_TEXT = "©SHIFT UP CORP."
+COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
 
 #: Oswald face for the copyright line (vendored variable font, SIL OFL).
 FONT = FONTS_DIR / "Oswald.ttf"
