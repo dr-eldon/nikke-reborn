@@ -121,24 +121,27 @@ DEFAULT_FRAMERATE = 60
 
 # --- the profile presentation -------------------------------------------
 # The profile cards render a rarity through the shared profile pipeline:
-# the ``Aim`` and ``Cover`` rarities from their own definitions, and the
-# ``Common`` card derived from a card's ``Clean`` definition (there is no
-# ``Common.json`` on disk). The background is a monochrome of its own
-# dominant tint, the face framing (the viewer's ``--face`` at
-# :data:`PROFILE_FACE_ZOOM`) animates over it, under the dominant tint wash,
-# as a monochrome of the same hue, shifted aside from the body so it is not
-# occluded, and the full body (the viewer's ``--full-body`` flag, ignoring
-# the definition's pan/zoom) animates over the card mask — the two framings
-# are streamed in lockstep from the same definition. The name and subtitle
-# overlays are applied as usual, like the other rarities, and the logo sits
-# at the top right instead of the bottom right. Everything is composited in
-# memory — no intermediate frame touches the disk; only the finished card is
-# written (atomically).
-#: Rarity stems rendered through the profile presentation instead of the
-#: standard pipeline: their own definitions render directly (the ``Common``
-#: card, derived from the ``Clean`` definitions, renders through the same
-#: pipeline).
+# the ``Aim`` and ``Cover`` profile rarities from their own definitions,
+# and a ``<variant>_Profile`` card derived from every other definition
+# (except the ``Goddess`` and ``Classified`` presentations). The background
+# is a monochrome of its own dominant tint, the face framing (the viewer's
+# ``--face`` at :data:`PROFILE_FACE_ZOOM`) animates over it, under the
+# dominant tint wash, as a monochrome of the same hue, shifted aside from
+# the body so it is not occluded, and the full body (the viewer's
+# ``--full-body`` flag, ignoring the definition's pan/zoom) animates over
+# the card mask — the two framings are streamed in lockstep from the same
+# definition. The name and subtitle overlays are applied as usual, like the
+# other rarities, and the logo sits at the top right instead of the bottom
+# right. Everything is composited in memory — no intermediate frame touches
+# the disk; only the finished card is written (atomically).
+#: Profile rarity stems rendered through the profile presentation instead
+#: of the standard pipeline: their own definitions render directly.
 PROFILE_RARITIES = frozenset({"Aim", "Cover"})
+#: Variant stems with no derived ``<variant>_Profile`` card: the
+#: ``Goddess`` and ``Classified`` presentations. (The profile rarities
+#: render through the profile pipeline directly, so they derive no profile
+#: card either.)
+NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
 #: The profile card's mask (composited over the diluted background, under
 #: the character), next to its GIMP source.
 PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
@@ -383,8 +386,8 @@ def generate() -> None:
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
     # --- TEMPORARY ITERATION SCOPE --------------------------------------
     # For now, generate every variant of ``ELYSION/0001`` — its profile
-    # cards (the ``Aim`` and ``Cover`` rarities and the ``Common`` card,
-    # derived from its ``Clean`` variant, rendered by
+    # cards (the ``Aim`` and ``Cover`` rarities and the
+    # ``<variant>_Profile`` derivatives, rendered by
     # :func:`_generate_profiles`) plus its regular variants (rendered by
     # :func:`_generate_variants`) — so the profile recipe can be iterated
     # quickly against the rest of the card. To lift the scope to every card
@@ -543,9 +546,8 @@ def _source_hash(json_path: Path) -> str:
 
 
 def _profile_source_hash(json_path: Path) -> str:
-    """SHA-256 of the profile card's inputs — the definition it renders
-    (the ``Clean`` definition for the derived ``Common`` card) and the card
-    mask (the two files its pixels depend on). Embedded under
+    """SHA-256 of the profile card's inputs — the definition it renders and
+    the card mask (the two files its pixels depend on). Embedded under
     :data:`SOURCE_HASH_KEY` so an unchanged profile card is skipped instead
     of re-rendered."""
     digest = hashlib.sha256()
@@ -1969,8 +1971,9 @@ def _render_profile(
     face_zoom: float,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the profile card (a presentation of *json_path* — the
-    ``Aim``/``Cover`` rarity's own definition, or the ``Clean`` definition
-    of its derived ``Common`` card): the ``--face <face_zoom>`` framing
+    ``Aim``/``Cover`` profile rarity's own definition, or the definition of
+    its derived ``<variant>_Profile`` card): the ``--face <face_zoom>``
+    framing
     animates (as a monochrome of the tint's hue, shifted aside from the
     body) over the background, under the tint wash, and the ``--full-body``
     framing animates over the mask, both streamed from the same definition
@@ -2088,9 +2091,8 @@ def _card_out_path(
     if ever used, is folded the same way, one dash per directory).
 
     *stem* overrides the variant in the filename (defaults to the
-    definition's own stem) — the profile cards pass their output stem, so
-    the ``Common`` card, derived from a ``Clean.json``, writes out as
-    ``<card>_Common.<suffix>``.
+    definition's own stem) — the profile cards pass their output stem, so a
+    derived profile card writes out as ``<card>_<variant>_Profile.<suffix>``.
     """
     if stem is None:
         stem = json_path.stem
@@ -2204,9 +2206,11 @@ def _process_card(
 
 def _profile_stem(json_path: Path) -> str:
     """The output stem of the profile card rendered from *json_path*: the
-    variant's own stem (``Aim``, ``Cover``) — except that a ``Clean``
-    definition yields its derived ``Common`` card."""
-    return "Common" if json_path.stem == "Clean" else json_path.stem
+    variant's own stem for the profile rarities (``Aim``, ``Cover``),
+    otherwise the variant's stem with the ``_Profile`` suffix (a
+    ``Clean.json`` writes out as ``<card>_Clean_Profile.<suffix>``)."""
+    stem = json_path.stem
+    return stem if stem in PROFILE_RARITIES else f"{stem}_Profile"
 
 
 def _process_profile_card(
@@ -2218,13 +2222,13 @@ def _process_profile_card(
     out_base: Path = OUTPUT_DIR,
 ) -> tuple[Path, bool]:
     """Render the profile card for *json_path* — the ``Aim`` or ``Cover``
-    rarity from its own definition, or the ``Common`` card derived from a
-    ``Clean`` definition: the ``--face`` framing animates (as a monochrome
-    of the tint's hue) over the background, under its dominant tint wash,
-    and the ``--full-body`` framing animates over the card mask (both
-    streamed in lockstep from the same definition). The name and subtitle
-    overlays are applied as usual, like the other rarities; the logo sits
-    at the top right.
+    profile rarity from its own definition, or the ``<variant>_Profile``
+    card derived from its definition: the ``--face`` framing animates (as
+    a monochrome of the tint's hue) over the background, under its dominant
+    tint wash, and the ``--full-body`` framing animates over the card mask
+    (both streamed in lockstep from the same definition). The name and
+    subtitle overlays are applied as usual, like the other rarities; the
+    logo sits at the top right.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
@@ -2779,16 +2783,15 @@ def _generate_profiles(
     scale: float,
     out_base: Path,
 ) -> None:
-    """Render the profile cards — the ``Aim`` and ``Cover`` rarities from
-    their own definitions, and the ``Common`` card derived from each card's
-    ``Clean`` definition (there is no ``Common.json`` on disk) — in a pool
-    of worker processes.
+    """Render the profile cards — the ``Aim`` and ``Cover`` profile
+    rarities from their own definitions, plus the ``<variant>_Profile``
+    card derived from every other definition except the ``Goddess`` and
+    ``Classified`` presentations — in a pool of worker processes.
 
     *paths* is passed to :func:`_find_card_configs` (a ``None`` selects every
-    card definition); from the result the ``Aim``/``Cover`` variants and the
-    ``Clean.json`` definitions (each one has a ``Common`` card derived from
-    it) are kept (see :func:`_process_profile_card`). No pack artwork or
-    metadata is produced.
+    card definition); from the result the profile rarities and every
+    definition without a ``Goddess``/``Classified`` stem are kept (see
+    :func:`_process_profile_card`). No pack artwork or metadata is produced.
     """
     _require_executable(VIEWER)
     _require_executable(ENCODER)
@@ -2796,7 +2799,7 @@ def _generate_profiles(
     profile_configs = [
         path
         for path in _find_card_configs(paths)
-        if path.stem in PROFILE_RARITIES or path.stem == "Clean"
+        if path.stem in PROFILE_RARITIES or path.stem not in NO_PROFILE_STEMS
     ]
     if not profile_configs:
         raise GenerationError("no profile card definitions to render")
@@ -2814,8 +2817,8 @@ def _generate_profiles(
         notes.append(f"{scale:g}x resolution")
     notes_text = f", {', '.join(notes)} (draft)" if notes else ""
     print(
-        f"Rendering {total} profile card(s) (Aim, Cover and the Common "
-        f"derivatives) with {jobs} worker(s){notes_text} ..."
+        f"Rendering {total} profile card(s) (the profile rarities and the "
+        f"<variant>_Profile derivatives) with {jobs} worker(s){notes_text} ..."
     )
     for path in profile_configs:
         print(f"  - {path.relative_to(REPO_ROOT)}")
@@ -2830,8 +2833,9 @@ def _generate_profiles(
         def report(future: Future[tuple[Path, bool]], label: Path) -> None:
             nonlocal done, skipped
             done += 1
-            # The derived Common card is the only profile output whose stem
-            # differs from its definition's (Clean -> Common); tag it.
+            # The derived profile cards are the profile outputs whose stem
+            # differs from their definition's (Clean -> Clean_Profile);
+            # tag them.
             tag = ""
             if _profile_stem(label) != label.stem:
                 tag = f" ({_profile_stem(label)})"
