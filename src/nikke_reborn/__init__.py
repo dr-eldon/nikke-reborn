@@ -205,11 +205,17 @@ FONT = FONTS_DIR / "Oswald.ttf"
 #: Orbitron face for the card name (vendored variable font, SIL OFL).
 FONT_NAME = FONTS_DIR / "Orbitron.ttf"
 
-#: Card name placement: the ink's top-left corner sits exactly at
-#: (padding, padding), left-aligned, with font size
-#: padding * NAME_SIZE_FACTOR and Orbitron weight NAME_WEIGHT (700 = bold).
-NAME_SIZE_FACTOR = 1.5
+#: Card name placement: the ink's top-left corner sits at the card's padding
+#: from the left edge and NAME_TITLE_Y of the height, left-aligned, with font
+#: size padding * NAME_SIZE_FACTOR and Orbitron weight NAME_WEIGHT (700 =
+#: bold).
+NAME_SIZE_FACTOR = 2.2
 NAME_WEIGHT = 700
+
+#: The title's vertical position, as a fraction of the card height: the
+#: title's ink top sits at NAME_TITLE_Y of the height (its left inset is the
+#: card's own padding).
+NAME_TITLE_Y = 0.75
 
 #: Names of NAME_REFERENCE_LENGTH characters or fewer get the full font
 #: size; longer names are scaled down by NAME_REFERENCE_LENGTH / length
@@ -249,6 +255,14 @@ SUBTITLE_SUPERSAMPLE = 4
 
 #: Base color of the name text (title and subtitle).
 NAME_TEXT_COLOR = (255, 255, 255)
+
+#: Background color of the title's enclosing rectangle, whose left edge is
+#: the card's left edge; the ink sits inside with NAME_RECT_PAD of room on the
+#: other three sides.
+NAME_RECT_COLOR = (0x31, 0x31, 0x31)
+#: Padding around the title's ink (top/right/bottom of its enclosing
+#: rectangle), as a fraction of the ink's height.
+NAME_RECT_PAD = 0.3
 
 # --- name stack effects -------------------------------------------------
 # The name is stamped over the art, per frame, so its tints track the
@@ -1092,13 +1106,6 @@ def _italicize(image: Image.Image, anchor_y: float = 0.0) -> Image.Image:
     )
 
 
-def _name_inset(padding: int) -> int:
-    """The title's inset from the card's edges: 1.5x the padding, like
-    the logo (LOGO_PADDING_FACTOR). The corner subtitle keeps the
-    plain padding."""
-    return round(LOGO_PADDING_FACTOR * padding)
-
-
 def _set_luma(hue: float, sat: float, target: float) -> tuple[int, int, int]:
     """(hue, sat) -> an rgb with perceived luminance of ~*target* (0..1).
 
@@ -1203,6 +1210,7 @@ class _NameLayers:
         trail: Image.Image | None,
         sub_trail: Image.Image | None,
         sub_top: Image.Image | None,
+        rect: Image.Image | None,
         sample_box: tuple[int, int, int, int],
         corner_sample_box: tuple[int, int, int, int],
     ) -> None:
@@ -1211,6 +1219,7 @@ class _NameLayers:
         self.trail = trail
         self.sub_trail = sub_trail
         self.sub_top = sub_top
+        self.rect = rect
         self.sample_box = sample_box
         self.corner_sample_box = corner_sample_box
 
@@ -1223,16 +1232,23 @@ def _name_layers(
     The RGB tints are per-frame (the trail tint and the metallic
     gradient's bottom lean track the scene), so this stores the masks
     and geometry; :func:`_apply_name` does the per-frame compositing.
+
+    The title is always rendered uppercase (its length, and so its font
+    size, is unaffected).
     """
+    name = name.upper()
     font_size = _name_font_size(name, round(padding * NAME_SIZE_FACTOR))
     font = ImageFont.truetype(str(FONT_NAME), font_size)
     font.set_variation_by_axes([NAME_WEIGHT])
     left, top, bottom = _text_ink_offsets(name, font)
-    inset = _name_inset(padding)
+    # The title's ink top sits at NAME_TITLE_Y of the height; the left inset
+    # is the card's own padding.
+    title_top = round(size[1] * NAME_TITLE_Y)
+    inset = padding
 
     title_mask = Image.new("L", size, 0)
     ImageDraw.Draw(title_mask).text(
-        (inset - left, inset - top), name, font=font, fill=255
+        (inset - left, title_top - top), name, font=font, fill=255
     )
     sub_mask = None
     sub_trail = None
@@ -1292,14 +1308,26 @@ def _name_layers(
     metal_box = title_mask.getbbox()
     metal_alpha = title_mask
 
+    # The title's enclosing rectangle: a flat NAME_RECT_COLOR fill starting
+    # at the card's left edge and extending past the ink by NAME_RECT_PAD of
+    # the ink's height on the top/right/bottom (None when there is no title).
+    rect = None
+    if metal_box is not None:
+        rx0, ry0, rx1, ry1 = metal_box
+        pad = round((ry1 - ry0) * NAME_RECT_PAD)
+        rect = Image.new("RGBA", size, (0, 0, 0, 0))
+        ImageDraw.Draw(rect).rectangle(
+            (0, ry0 - pad, rx1 + pad, ry1 + pad), fill=(*NAME_RECT_COLOR, 255)
+        )
+
     # Sample the art behind the name: the corner boxes the text sits
-    # inside (top-left for the title, top-right for the corner
-    # subtitle).
+    # inside (at the title's NAME_TITLE_Y position for the title, the
+    # top-right for the corner subtitle).
     box = (
         0,
-        0,
+        title_top,
         min(size[0], round(padding * NAME_SAMPLE_W)),
-        min(size[1], round(padding * NAME_SAMPLE_H)),
+        min(size[1], title_top + round(padding * NAME_SAMPLE_H)),
     )
     corner_box = (
         max(0, size[0] - round(padding * NAME_SAMPLE_W)),
@@ -1308,7 +1336,7 @@ def _name_layers(
         min(size[1], round(padding * NAME_SAMPLE_H)),
     )
     return _NameLayers(
-        metal_box, metal_alpha, trail, sub_trail, sub_top, box, corner_box
+        metal_box, metal_alpha, trail, sub_trail, sub_top, rect, box, corner_box
     )
 
 
@@ -1322,6 +1350,8 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     name tracks the scene of animated cards.
     """
     canvas = art
+    if parts.rect is not None:
+        canvas.alpha_composite(parts.rect)
     trail_color = _trail_color(art.crop(parts.sample_box))
     if parts.trail is not None:
         canvas.alpha_composite(_tint_layer(parts.trail, trail_color, TRAIL_ALPHA))
