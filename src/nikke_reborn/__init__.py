@@ -95,7 +95,7 @@ from pathlib import Path
 from typing import Iterator
 from nikke_reborn import bundler, metadata
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageStat
 from PIL.PngImagePlugin import PngInfo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -263,6 +263,14 @@ NAME_RECT_COLOR = (0x31, 0x31, 0x31)
 #: Padding around the title's ink (top/right/bottom of its enclosing
 #: rectangle), as a fraction of the ink's height.
 NAME_RECT_PAD = 0.3
+
+#: Drop shadow behind the title rectangle: a blurred dark copy, offset by
+#: NAME_RECT_SHADOW_OFFSET (in padding units) to the down-right on both
+#: axes, blurred by NAME_RECT_SHADOW_RADIUS (in padding units), at
+#: NAME_RECT_SHADOW_ALPHA opacity (0..1).
+NAME_RECT_SHADOW_OFFSET = 0.1
+NAME_RECT_SHADOW_RADIUS = 0.1
+NAME_RECT_SHADOW_ALPHA = 0.5
 
 # --- name stack effects -------------------------------------------------
 # The name is stamped over the art, per frame, so its tints track the
@@ -1211,6 +1219,7 @@ class _NameLayers:
         sub_trail: Image.Image | None,
         sub_top: Image.Image | None,
         rect: Image.Image | None,
+        shadow: Image.Image | None,
         sample_box: tuple[int, int, int, int],
         corner_sample_box: tuple[int, int, int, int],
     ) -> None:
@@ -1220,6 +1229,7 @@ class _NameLayers:
         self.sub_trail = sub_trail
         self.sub_top = sub_top
         self.rect = rect
+        self.shadow = shadow
         self.sample_box = sample_box
         self.corner_sample_box = corner_sample_box
 
@@ -1312,6 +1322,7 @@ def _name_layers(
     # at the card's left edge and extending past the ink by NAME_RECT_PAD of
     # the ink's height on the top/right/bottom (None when there is no title).
     rect = None
+    shadow = None
     if metal_box is not None:
         rx0, ry0, rx1, ry1 = metal_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
@@ -1319,6 +1330,19 @@ def _name_layers(
         ImageDraw.Draw(rect).rectangle(
             (0, ry0 - pad, rx1 + pad, ry1 + pad), fill=(*NAME_RECT_COLOR, 255)
         )
+        # The drop shadow: a blurred dark copy of the rectangle, offset by
+        # NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
+        # (NAME_RECT_SHADOW_RADIUS * padding), at NAME_RECT_SHADOW_ALPHA.
+        # Built from the rect's own alpha so it exactly tracks the
+        # rectangle's shape.
+        radius = max(1, round(padding * NAME_RECT_SHADOW_RADIUS))
+        offset = round(padding * NAME_RECT_SHADOW_OFFSET)
+        mask = Image.new("L", size, 0)
+        mask.paste(rect.split()[3], (offset, offset))
+        mask = mask.filter(ImageFilter.GaussianBlur(radius))
+        mask = mask.point(lambda v: round(v * NAME_RECT_SHADOW_ALPHA))
+        shadow = Image.new("RGBA", size, (0, 0, 0, 0))
+        shadow.putalpha(mask)
 
     # Sample the art behind the name: the corner boxes the text sits
     # inside (at the title's NAME_TITLE_Y position for the title, the
@@ -1336,7 +1360,15 @@ def _name_layers(
         min(size[1], round(padding * NAME_SAMPLE_H)),
     )
     return _NameLayers(
-        metal_box, metal_alpha, trail, sub_trail, sub_top, rect, box, corner_box
+        metal_box,
+        metal_alpha,
+        trail,
+        sub_trail,
+        sub_top,
+        rect,
+        shadow,
+        box,
+        corner_box,
     )
 
 
@@ -1350,6 +1382,8 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     name tracks the scene of animated cards.
     """
     canvas = art
+    if parts.shadow is not None:
+        canvas.alpha_composite(parts.shadow)
     if parts.rect is not None:
         canvas.alpha_composite(parts.rect)
     trail_color = _trail_color(art.crop(parts.sample_box))
