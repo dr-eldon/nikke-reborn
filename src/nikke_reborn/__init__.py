@@ -5,11 +5,10 @@ the ``nikke-viewer`` executable, composites every rendered frame on top of
 the card's ``background``, stamps the matching logo from ``images/`` at
 the bottom right and the copyright line at the bottom left, and overlays
 the card name on top of the art, per frame: the title (uppercase, in a
-background-tinted rectangle at three-quarters of the height, with a
-metallic vertical gradient) and the subtitle in the top-right corner
-(italic, with its own trail). The subtitle's trail and the title
-gradient's bottom lean are tinted with the color of the art behind the
-text each frame, so animated cards track the scene. The ``Goddess`` and ``Classified``
+background-tinted rectangle at three-quarters of the height) and the
+subtitle in the top-right corner (italic, with its own trail). The
+subtitle's trail is tinted with the color of the art behind the text
+each frame, so animated cards track the scene. The ``Goddess`` and ``Classified``
 variants are generated without any
 card name. Packs (``cards/`` subdirectories carrying an
 ``Expansion.json``) additionally get their two artwork images, built from
@@ -292,8 +291,8 @@ NAME_RECT_SHADOW_ALPHA = 0.5
 
 # --- name stack effects -------------------------------------------------
 # The name is stamped over the art, per frame, so its tints track the
-# scene: the trail and the metallic gradient's bottom lean take the
-# hue of the art behind the text, at a fixed dark luminance.
+# scene: the subtitle's trail takes the hue of the art behind the text,
+# at a fixed dark luminance.
 SUBTITLE_TRAIL_OFFSET = 3  # px: the subtitle's diagonal (down-right) trail
 TRAIL_ALPHA = 0.75
 TRAIL_TARGET_LUMA = 0.12  # the trail reads as a dark shadow tint
@@ -306,11 +305,6 @@ CONTEXT_MIN_QUALIFY = 0.25  # min fraction of sample pixels that are colored
 CONTEXT_SAT_BOOST = 1.4  # the sampled saturation is boosted...
 CONTEXT_SAT_MIN = 0.45  # ...and clamped, so the tint stays visible...
 CONTEXT_SAT_MAX = 0.90  # ...without washing out
-METAL_TRAIL_MIX = 0.25  # metallic title: how far the ink's bottom leans
-# into the per-frame trail tint
-METAL_SHEEN_Y = 0.42  # sheen band center (fraction of the ink height)
-METAL_SHEEN_DELTA = 20  # band brightness (RGB units)
-METAL_SHEEN_SIGMA = 0.07  # band width (fraction of the ink height)
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
 #: yuv420p for compatibility and fast-start for streaming. The x264 preset
@@ -1224,51 +1218,6 @@ def _tint_layer(
     )
 
 
-def _metal_layer(
-    alpha: Image.Image,
-    box: tuple[int, int, int, int],
-    trail_color: tuple[int, int, int],
-    canvas_size: tuple[int, int],
-) -> Image.Image:
-    """A vertical metal gradient spanning *box* and masked by *alpha*: the
-    text color at the ink's top leaning into *trail_color* at the bottom
-    (METAL_TRAIL_MIX), with the bright sheen band."""
-    x0, y0, x1, y1 = box
-    bottom = tuple(
-        round(
-            NAME_TEXT_COLOR[i] + METAL_TRAIL_MIX * (trail_color[i] - NAME_TEXT_COLOR[i])
-        )
-        for i in range(3)
-    )
-    h = y1 - y0 + 1
-    col = Image.new("RGB", (1, h))
-    for y in range(h):
-        t = y / max(1, h - 1)
-        sheen = METAL_SHEEN_DELTA * math.exp(
-            -((t - METAL_SHEEN_Y) ** 2) / (2 * METAL_SHEEN_SIGMA**2)
-        )
-        col.putpixel(
-            (0, y),
-            tuple(
-                min(
-                    255,
-                    round(
-                        NAME_TEXT_COLOR[i]
-                        + (bottom[i] - NAME_TEXT_COLOR[i]) * t
-                        + sheen
-                    ),
-                )
-                for i in range(3)
-            ),
-        )
-    grad = col.resize((x1 - x0 + 1, h), Image.NEAREST)
-    metal = Image.new("RGB", canvas_size, bottom)
-    metal.paste(grad, (x0, y0))
-    layer = metal.convert("RGBA")
-    layer.putalpha(alpha)
-    return layer
-
-
 def _shift_mask(mask: Image.Image, delta: tuple[int, int]) -> Image.Image:
     """*mask* shifted by *delta* (a negative delta drags the ink
     down-right)."""
@@ -1283,26 +1232,24 @@ class _NameLayers:
 
     def __init__(
         self,
-        metal_box: tuple[int, int, int, int],
-        metal_alpha: Image.Image,
+        title_box: tuple[int, int, int, int],
+        title_alpha: Image.Image,
         sub_trail: Image.Image | None,
         sub_top: Image.Image | None,
         rect: Image.Image | None,
         shadow: Image.Image | None,
         arrow_alpha: Image.Image | None,
         arrow_box: tuple[int, int, int, int] | None,
-        sample_box: tuple[int, int, int, int],
         corner_sample_box: tuple[int, int, int, int],
     ) -> None:
-        self.metal_box = metal_box
-        self.metal_alpha = metal_alpha
+        self.title_box = title_box
+        self.title_alpha = title_alpha
         self.sub_trail = sub_trail
         self.sub_top = sub_top
         self.rect = rect
         self.shadow = shadow
         self.arrow_alpha = arrow_alpha
         self.arrow_box = arrow_box
-        self.sample_box = sample_box
         self.corner_sample_box = corner_sample_box
 
 
@@ -1315,9 +1262,9 @@ def _name_layers(
 ) -> _NameLayers:
     """Build the static name-stack layers for a card of *size*.
 
-    The RGB tints are per-frame (the trail tint and the metallic
-    gradient's bottom lean track the scene), so this stores the masks
-    and geometry; :func:`_apply_name` does the per-frame compositing.
+    The subtitle's trail tint is per-frame (it tracks the scene), so this
+    stores the masks and geometry; :func:`_apply_name` does the per-frame
+    compositing.
 
     The title is always rendered uppercase (its length, and so its font
     size, is unaffected).
@@ -1381,11 +1328,10 @@ def _name_layers(
             )
         sub_top = _tint_layer(sub_mask, NAME_TEXT_COLOR, 1.0)
 
-    # Title core: a vertical metal gradient whose bottom leans into
-    # the per-frame trail tint — the RGB is built per frame in
-    # _apply_name; only the geometry and the alpha are static.
-    metal_box = title_mask.getbbox()
-    metal_alpha = title_mask
+    # Title core: flat white (NAME_TEXT_COLOR), masked by the title's
+    # alpha; only the geometry and the alpha are static.
+    title_box = title_mask.getbbox()
+    title_alpha = title_mask
 
     # The title's enclosing rectangle: a flat rect_color fill (the
     # background's dominant hue at NAME_RECT_LUMA) starting at the card's
@@ -1397,8 +1343,8 @@ def _name_layers(
     shadow = None
     arrow_alpha = None
     arrow_box = None
-    if metal_box is not None:
-        rx0, ry0, rx1, ry1 = metal_box
+    if title_box is not None:
+        rx0, ry0, rx1, ry1 = title_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
         top = ry0 - pad
         bottom = ry1 + pad
@@ -1456,23 +1402,15 @@ def _name_layers(
             # The arrow: its ink's bottom-right aligned NAME_RECT_ARROW_MARGIN
             # from the rectangle's right/bottom edges.
             margin = round(rect_height * NAME_RECT_ARROW_MARGIN)
-            # The arrow's alpha (a mask; the metal gradient is applied
-            # per-frame in _apply_name, like the title).
+            # The arrow's alpha (a mask; flat white, like the title).
             arrow_alpha = Image.new("L", size, 0)
             arrow_alpha.paste(
                 ink, (right - margin - ink.width, bottom - margin - ink.height)
             )
             arrow_box = arrow_alpha.getbbox()
 
-    # Sample the art behind the name: the corner boxes the text sits
-    # inside (at the title's NAME_TITLE_Y position for the title, the
-    # top-right for the corner subtitle).
-    box = (
-        0,
-        title_top,
-        min(size[0], round(padding * NAME_SAMPLE_W)),
-        min(size[1], title_top + round(padding * NAME_SAMPLE_H)),
-    )
+    # The corner subtitle's sample box: the corner it sits inside, used to
+    # tint its trail per frame.
     corner_box = (
         max(0, size[0] - round(padding * NAME_SAMPLE_W)),
         0,
@@ -1480,15 +1418,14 @@ def _name_layers(
         min(size[1], round(padding * NAME_SAMPLE_H)),
     )
     return _NameLayers(
-        metal_box,
-        metal_alpha,
+        title_box,
+        title_alpha,
         sub_trail,
         sub_top,
         rect,
         shadow,
         arrow_alpha,
         arrow_box,
-        box,
         corner_box,
     )
 
@@ -1497,30 +1434,24 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     """Stamp the name stack onto *art* (the frame composited over the
     base) and return the result.
 
-    Per frame: the title tint is sampled from the art behind the title
-    (driving the metallic gradient's bottom lean) and the corner
-    subtitle's trail tint from the art behind it — so the name tracks
-    the scene of animated cards.
+    Per frame: the corner subtitle's trail tint is sampled from the art
+    behind it — so the name tracks the scene of animated cards. The
+    title and the arrow are flat white (NAME_TEXT_COLOR).
     """
     canvas = art
     if parts.shadow is not None:
         canvas.alpha_composite(parts.shadow)
     if parts.rect is not None:
         canvas.alpha_composite(parts.rect)
-    trail_color = _trail_color(art.crop(parts.sample_box))
     if parts.sub_trail is not None:
         corner_color = _trail_color(art.crop(parts.corner_sample_box))
         canvas.alpha_composite(_tint_layer(parts.sub_trail, corner_color, TRAIL_ALPHA))
 
-    # Title core: a vertical metal gradient (see _metal_layer).
-    canvas.alpha_composite(
-        _metal_layer(parts.metal_alpha, parts.metal_box, trail_color, canvas.size)
-    )
-    # The arrow shares the title's metal gradient (over its own box).
+    # Title core: flat white, masked by the title's alpha.
+    canvas.alpha_composite(_tint_layer(parts.title_alpha, NAME_TEXT_COLOR, 1.0))
+    # The arrow: flat white, like the title.
     if parts.arrow_box is not None:
-        canvas.alpha_composite(
-            _metal_layer(parts.arrow_alpha, parts.arrow_box, trail_color, canvas.size)
-        )
+        canvas.alpha_composite(_tint_layer(parts.arrow_alpha, NAME_TEXT_COLOR, 1.0))
     if parts.sub_top is not None:
         canvas.alpha_composite(parts.sub_top)
     return canvas
