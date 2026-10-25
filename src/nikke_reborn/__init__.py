@@ -1772,25 +1772,29 @@ def _first_frame(
 
 def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     """The face framing's ``--offset-x``: :data:`COMMON_FACE_OFFSET` px to the
-    left or to the right, whichever side the full body leaves more room on, so
+    left or to the right, whichever side of the upper body leaves more room, so
     the face sits beside rather than behind the body.
 
-    The side is chosen from the *upper half* of the full body's first frame —
-    the region that can occlude the face — whose minimum bounding box (its
-    opaque pixels) marks the body's horizontal extent: more room on the left
-    (the body's left edge farther from the card's left edge) shifts the face
-    left, else it shifts right. A bodyless frame leaves the face centered (0).
+    The side is chosen by the body's *pixel coverage* on each half of the
+    *upper half* of its first frame — the region that can occlude the face:
+    the face goes to the emptier half (fewer opaque body pixels). Coverage is
+    a truer measure of open space than the bounding box's edges and is robust
+    to a thin protrusion (a stray strand or an extended limb) that would
+    stretch a box on one side without actually occupying it. A bodyless frame
+    leaves the face centered (0).
     """
     width, height = size
     body = _first_frame(json_path, size, "--full-body")
-    # Only the upper half can occlude the face; its opaque pixels set the
-    # body's horizontal extent there.
+    # Only the upper half can occlude the face; threshold its opaque pixels
+    # and count them on each half (split at the card's center).
     upper = body.crop((0, 0, width, height // 2)).getchannel("A")
-    bbox = upper.point(lambda v: 255 if v > 32 else 0).getbbox()
-    if bbox is None:
+    upper = upper.point(lambda v: 255 if v > 32 else 0)
+    mid = width // 2
+    left = ImageStat.Stat(upper.crop((0, 0, mid, height // 2))).sum[0]
+    right = ImageStat.Stat(upper.crop((mid, 0, width, height // 2))).sum[0]
+    if not left and not right:
         return 0  # no body in the upper half; keep the face centered
-    left, right = bbox[0], width - bbox[2]
-    return -COMMON_FACE_OFFSET if left >= right else COMMON_FACE_OFFSET
+    return -COMMON_FACE_OFFSET if left <= right else COMMON_FACE_OFFSET
 
 
 def _render_common(
