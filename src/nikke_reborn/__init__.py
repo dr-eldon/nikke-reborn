@@ -5,8 +5,9 @@ the ``nikke-viewer`` executable, composites every rendered frame on top of
 the card's ``background``, stamps the matching logo from ``images/`` at
 the bottom right and the copyright line at the bottom left, and overlays
 the card name on top of the art, per frame: the title (uppercase, in a
-dark rectangle at three-quarters of the height) and the subtitle above
-the title (uppercase, in a background-tinted rectangle). The
+dark rectangle at three-quarters of the height, with a small slanted bar
+and three slanted squares of the same fill above it) and the subtitle
+above the title (uppercase, in a background-tinted rectangle). The
 ``Goddess`` and ``Classified`` variants are generated without any card
 name. Packs (``cards/`` subdirectories carrying an
 ``Expansion.json``) additionally get their two artwork images, built from
@@ -1485,6 +1486,43 @@ def _name_layers(
             ],
             fill=(*rect_color, 255),
         )
+        # The small bar above the rectangle: padding * 3 wide and
+        # padding / 2 tall, a gap of padding / 4 above the rectangle's
+        # top edge; the same fill, aligned with the rectangle's left
+        # edge, its right edge a 45-degree diagonal slanting back to
+        # the left (the bottom-right corner pulled in by the same
+        # number of pixels as the slant's vertical run, so the
+        # diagonal is the diagonal of a square with that side).
+        bar_h = round(padding / 2)
+        bar_top = top - round(padding / 4) - bar_h
+        ImageDraw.Draw(rect).polygon(
+            [
+                (0, bar_top),
+                (padding * 3 - 1, bar_top),
+                (padding * 3 - bar_h, bar_top + bar_h - 1),
+                (0, bar_top + bar_h - 1),
+            ],
+            fill=(*rect_color, 255),
+        )
+        # Three squares next to the bar (to its right): a square of the
+        # bar's height, a gap of padding / 4 from the bar and between the
+        # squares (the even gaps stay even down the slant, all the edges
+        # slanting alike); each square's edges slant the same 45 degrees
+        # as the bar's (the same pull on both sides, so the slant is the
+        # diagonal of a square with that side).
+        side = bar_h
+        gap = round(padding / 4)
+        for i in range(3):
+            x0 = padding * 3 + gap + i * (side + gap)
+            ImageDraw.Draw(rect).polygon(
+                [
+                    (x0, bar_top),
+                    (x0 + side - 1, bar_top),
+                    (x0, bar_top + bar_h - 1),
+                    (x0 - (bar_h - 1), bar_top + bar_h - 1),
+                ],
+                fill=(*rect_color, 255),
+            )
         if ink is not None:
             # The arrow: its ink's bottom-right aligned NAME_RECT_ARROW_MARGIN
             # from the rectangle's right/bottom edges.
