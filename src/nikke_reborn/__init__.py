@@ -139,11 +139,19 @@ NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 #: The ``Common`` card's mask (composited over the diluted background, under
 #: the character), next to its GIMP source.
 COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
-#: Opacity of the dominant-tint wash laid over the monochrome background and
-#: the face framing together: 0.5 dilutes the background toward a flat wash
-#: of its own main color and gently re-tints the monochrome face so it
-#: settles into the card's palette.
-COMMON_TINT_OPACITY = 0.5
+#: Opacity of the dominant-tint wash's top edge: laid over the monochrome
+#: background and the face framing, 0.5 dilutes the background toward its
+#: own main color and gently re-tints the face so it settles into the
+#: card's palette.
+COMMON_TINT_TOP_OPACITY = 0.5
+#: Opacity of the dominant-tint wash's bottom edge: the alpha ramps
+#: linearly from COMMON_TINT_TOP_OPACITY to this, so the darker bottom
+#: anchors more firmly than the top.
+COMMON_TINT_BOTTOM_OPACITY = 1.0
+#: The wash's bottom color is the background's tint scaled by this factor
+#: (0.4 = 40% of its brightness; the top edge is the tint itself): the wash
+#: darkens linearly toward the bottom of the card.
+COMMON_TINT_BOTTOM_FACTOR = 0.4
 #: The ``--face`` zoom that renders the face framing composited over the
 #: ``Common`` card's background, under its tint wash (ahead of the full
 #: body).
@@ -860,9 +868,10 @@ def _stream_dual_composited(
     assert body_viewer.stdout is not None
     face_stdout = face_viewer.stdout
     body_stdout = body_viewer.stdout
-    # The tint layer's color is the background's dominant tint; reuse it to
-    # key the face's monochrome recolor (the vivid full-color face is collapsed
-    # to single-hue shades of the tint so it blends into the card's palette).
+    # The tint layer's top row is the background's dominant tint (the
+    # gradient darkens toward the bottom); reuse it to key the face's
+    # monochrome recolor (the vivid full-color face is collapsed to
+    # single-hue shades of the tint so it blends into the card's palette).
     tint_rgb = tint.getpixel((0, 0))[:3]
 
     def composite(face_data: bytes, body_data: bytes) -> Image.Image:
@@ -1001,27 +1010,46 @@ def _monochrome(
     return result
 
 
+def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.Image:
+    """The ``Common`` card's wash layer (built once, static): a vertical
+    linear gradient from *tint_rgb* at the top edge to the tint scaled by
+    :data:`COMMON_TINT_BOTTOM_FACTOR` at the bottom edge, with the alpha
+    ramping from :data:`COMMON_TINT_TOP_OPACITY` to
+    :data:`COMMON_TINT_BOTTOM_OPACITY`."""
+    width, height = size
+    bottom = tuple(round(c * COMMON_TINT_BOTTOM_FACTOR) for c in tint_rgb)
+    # A 0..255 ramp: 0 at the top row, 255 at the bottom row.
+    ramp = Image.frombytes(
+        "L", (1, height), bytes(round(255 * y / (height - 1)) for y in range(height))
+    ).resize(size, Image.Resampling.NEAREST)
+    top_alpha = round(COMMON_TINT_TOP_OPACITY * 255)
+    bottom_alpha = round(COMMON_TINT_BOTTOM_OPACITY * 255)
+    alpha = ramp.point(lambda v: top_alpha + (bottom_alpha - top_alpha) * v // 255)
+    channels = [
+        ramp.point(lambda v, top=c, bot=d: top + (bot - top) * v // 255)
+        for c, d in zip(tint_rgb, bottom)
+    ]
+    return Image.merge("RGBA", (*channels, alpha))
+
+
 def _common_layers(
     background: Image.Image, size: tuple[int, int]
 ) -> tuple[Image.Image, Image.Image, Image.Image]:
     """The ``Common`` card's static layers, composed in memory: the (fitted)
     *background* — a monochrome of its own dominant tint — the dominant-tint
-    layer (at :data:`COMMON_TINT_OPACITY`, sampled from the background), and
-    the ``Common`` card mask (:data:`COMMON_MASK_PATH`). The (animated) face
-    framing is composited between the background and the tint, per frame and
-    collapsed to a monochrome of the same tint's hue, by
+    wash (a gradient from the background's dominant color to a darker, more
+    opaque version of it), and the ``Common`` card
+    mask (:data:`COMMON_MASK_PATH`). The (animated) face framing is
+    composited between the background and the tint, per frame and collapsed
+    to a monochrome of the same tint's hue, by
     :func:`_stream_dual_composited`. Nothing touches the disk."""
     base = _fit_background(background, size)
     # The background's dominant color: it both tints the (now monochrome)
-    # background and colors the translucent wash laid over the background
-    # and the face.
+    # background and colors the wash (a gradient darkening toward the
+    # bottom) laid over the background and the face.
     tint_rgb = _dominant_color(base)
     base = _monochrome(base, tint_rgb)
-    tint = Image.new(
-        "RGBA",
-        base.size,
-        (*tint_rgb, round(COMMON_TINT_OPACITY * 255)),
-    )
+    tint = _tint_wash(base.size, tint_rgb)
     with Image.open(COMMON_MASK_PATH) as opened:
         mask = opened.convert("RGBA")
     if mask.size != base.size:
