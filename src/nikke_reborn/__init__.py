@@ -128,10 +128,10 @@ NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 # --- the Common presentation --------------------------------------------
 # The ``Common`` card is derived from a card's ``Clean`` definition (there is
 # no ``Common.json`` on disk): the face framing (the viewer's ``--face`` at
-# :data:`COMMON_FACE_ZOOM`) animates under the background's dominant tint and
-# the full body (the viewer's ``--full-body`` flag, ignoring the Clean
-# definition's pan/zoom) animates over the card mask — the two framings are
-# streamed in lockstep from the same definition. The name, subtitle and logo
+# :data:`COMMON_FACE_ZOOM`) animates under the background's dominant tint as a
+# monochrome of the tint's hue, and the full body (the viewer's ``--full-body``
+# flag, ignoring the Clean definition's pan/zoom) animates over the card mask —
+# the two framings are streamed in lockstep from the same definition. The name, subtitle and logo
 # overlays are applied as usual, like the other rarities. Everything is
 # composited in memory — no intermediate frame touches the disk; only the
 # finished card is written (atomically).
@@ -141,9 +141,13 @@ COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
 #: Opacity of the dominant-tint layer laid over the background: 0.8 dilutes
 #: the background toward a flat wash of its own main color.
 COMMON_TINT_OPACITY = 0.8
-#: The ``--face`` zoom that renders the face framing composited onto the
-#: ``Common`` card's background (under the tint, ahead of the full body).
+#: The ``--face`` zoom that renders the face framing composited under the
+#: ``Common`` card's tint wash (ahead of the full body).
 COMMON_FACE_ZOOM = 3.0
+#: Brightness scale applied to the monochrome face (its value channel): 1.0
+#: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
+#: against the tinted background.
+COMMON_FACE_BRIGHTNESS = 0.85
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -792,16 +796,17 @@ def _stream_dual_composited(
 ) -> Iterator[Image.Image]:
     """Composite the two synchronized viewer streams and yield the frames in
     presentation order — the ``Common`` card, where the ``--face`` framing
-    animates under the tint and the ``--full-body`` framing animates over the
-    mask.
+    animates (as a monochrome of the tint's hue) under the tint and the
+    ``--full-body`` framing animates over the mask.
 
     Both streams come from the same definition at the same framerate, so frame
     *i* of the face stream pairs with frame *i* of the body stream and they
-    are read in lockstep. Per frame the face is composited onto *background*,
-    the dominant *tint* and *mask* are applied, the body frame is composited
-    over the result, then the *overlay* and the name stack (if any), in a
-    sliding window of *composite_workers* threads — as in
-    :func:`_stream_composited` — and yielded in order. The first composited
+    are read in lockstep. Per frame the face — collapsed to a monochrome of
+    the background's dominant tint (:func:`_monochrome`) — is composited onto
+    *background*, the dominant *tint* and *mask* are applied over it, the
+    body frame is composited over the result, then the *overlay* and the name
+    stack (if any), in a sliding window of *composite_workers* threads — as
+    in :func:`_stream_composited` — and yielded in order. The first composited
     frame is appended to *first_frame*. When both streams reach end-of-file (or
     the consumer stops) the two viewers are reaped and a non-zero exit
     surfaced; *composite_time* and *stream_end* accumulate the composite wall
@@ -813,11 +818,20 @@ def _stream_dual_composited(
     assert body_viewer.stdout is not None
     face_stdout = face_viewer.stdout
     body_stdout = body_viewer.stdout
+    # The tint layer's color is the background's dominant tint; reuse it to
+    # key the face's monochrome recolor (the vivid full-color face is collapsed
+    # to single-hue shades of the tint so it blends into the card's palette).
+    tint_rgb = tint.getpixel((0, 0))[:3]
 
     def composite(face_data: bytes, body_data: bytes) -> Image.Image:
         started = time.perf_counter()
+        face = _monochrome(
+            Image.frombytes("RGBA", (width, height), face_data),
+            tint_rgb,
+            COMMON_FACE_BRIGHTNESS,
+        )
         art = background.copy()
-        art.alpha_composite(Image.frombytes("RGBA", (width, height), face_data))
+        art.alpha_composite(face)
         art.alpha_composite(tint)
         art.alpha_composite(mask)
         art.alpha_composite(Image.frombytes("RGBA", (width, height), body_data))
@@ -916,6 +930,33 @@ def _dominant_color(image: Image.Image) -> tuple[int, int, int]:
     return tuple(round(channel) for channel in ImageStat.Stat(small).mean)
 
 
+def _monochrome(
+    face: Image.Image,
+    tint_rgb: tuple[int, int, int],
+    brightness: float = 1.0,
+) -> Image.Image:
+    """Collapse the full-color *face* (RGBA) to a single hue — the
+    background's dominant *tint* — while keeping the face's own brightness.
+    Every face pixel takes the *tint*'s hue and saturation; only its value
+    (brightness) channel survives, so the face's shading and contrast remain
+    but its vivid colors do not. The face thus reads as a monochrome of the
+    tint and blends into the card's palette instead of standing out from it.
+    *brightness* scales that value channel (1.0 keeps it; below 1.0
+    darkens). The alpha channel is passed through untouched."""
+    # The tint's hue and saturation are a single, constant pair.
+    h, s, _ = Image.new("RGB", (1, 1), tint_rgb).convert("HSV").getpixel((0, 0))
+    hue = Image.new("L", face.size, h)
+    sat = Image.new("L", face.size, s)
+    # Fix the hue and saturation to the tint's; keep the face's value (V) so
+    # its shading survives the recolor, scaled by *brightness*.
+    _, _, value = face.convert("HSV").split()
+    if brightness != 1.0:
+        value = value.point([round(v * brightness) for v in range(256)])
+    result = Image.merge("HSV", (hue, sat, value)).convert("RGB")
+    result.putalpha(face.getchannel("A"))
+    return result
+
+
 def _common_layers(
     background: Image.Image, size: tuple[int, int]
 ) -> tuple[Image.Image, Image.Image, Image.Image]:
@@ -923,8 +964,9 @@ def _common_layers(
     *background*, the dominant-tint layer (at :data:`COMMON_TINT_OPACITY`,
     sampled from the background), and the ``Common`` card mask
     (:data:`COMMON_MASK_PATH`). The (animated) face framing is composited
-    between the background and the tint, per frame, by
-    :func:`_stream_dual_composited`. Nothing touches the disk."""
+    between the background and the tint, per frame and collapsed to a
+    monochrome of the tint's hue, by :func:`_stream_dual_composited`. Nothing
+    touches the disk."""
     base = _fit_background(background, size)
     # The translucent wash is the background's own color, sampled before the
     # face is laid down (as it always was).
@@ -1715,10 +1757,11 @@ def _render_common(
     face_zoom: float,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the ``Common`` card (a presentation of *json_path*, a ``Clean``
-    definition): the ``--face <face_zoom>`` framing animates under the tint
-    and the ``--full-body`` framing animates over the mask, both streamed from
-    the same definition so the two stay in lockstep. The name, subtitle and
-    logo overlays are applied as usual, like the other rarities.
+    definition): the ``--face <face_zoom>`` framing animates (as a monochrome
+    of the tint's hue) under the tint and the ``--full-body`` framing animates
+    over the mask, both streamed from the same definition so the two stay in
+    lockstep. The name, subtitle and logo overlays are applied as usual, like
+    the other rarities.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the disk —
     the two raw RGBA streams are piped straight into the in-memory
@@ -1944,10 +1987,11 @@ def _process_common_card(
     out_base: Path = OUTPUT_DIR,
 ) -> tuple[Path, bool]:
     """Render the ``Common`` card derived from *json_path* (a ``Clean``
-    definition): the ``--face`` framing animates under the background's
-    dominant tint and the ``--full-body`` framing animates over the card mask
-    (both streamed in lockstep from the same definition). The name, subtitle
-    and logo overlays are applied as usual, like the other rarities.
+    definition): the ``--face`` framing animates (as a monochrome of the
+    tint's hue) under the background's dominant tint and the ``--full-body``
+    framing animates over the card mask (both streamed in lockstep from the
+    same definition). The name, subtitle and logo overlays are applied as
+    usual, like the other rarities.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
