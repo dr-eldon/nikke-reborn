@@ -287,7 +287,7 @@ NAME_RECT_ARROW_MARGIN = 0.12
 #: NAME_RECT_SHADOW_ALPHA opacity (0..1).
 NAME_RECT_SHADOW_OFFSET = 0.1
 NAME_RECT_SHADOW_RADIUS = 0.1
-NAME_RECT_SHADOW_ALPHA = 0.5
+NAME_RECT_SHADOW_ALPHA = 0.3
 
 # --- name stack effects -------------------------------------------------
 # The name is stamped over the art, per frame, so its tints track the
@@ -1368,9 +1368,7 @@ def _name_layers(
         ink = probe.crop(ink_box) if ink_box is not None else None
         # The right edge is pad + the arrow's width + padding / 2 past the
         # title's ink.
-        right = rx1 + pad + (ink.width if ink is not None else 0) + round(
-            padding / 2
-        )
+        right = rx1 + pad + (ink.width if ink is not None else 0) + round(padding / 2)
         # The corner cut: NAME_RECT_CORNER of the rectangle's height, so the
         # diagonal is the diagonal of a square with that side length.
         cut = round(rect_height * NAME_RECT_CORNER)
@@ -1918,11 +1916,7 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     # Both footprints empty means the body sits *between* them, so the face
     # still shifts (a tie defaults to the left); never leave it centered on
     # top of the body.
-    return (
-        -COMMON_FACE_OFFSET_LEFT
-        if left <= right
-        else COMMON_FACE_OFFSET_RIGHT
-    )
+    return -COMMON_FACE_OFFSET_LEFT if left <= right else COMMON_FACE_OFFSET_RIGHT
 
 
 def _render_common(
@@ -2068,9 +2062,7 @@ def _card_out_path(
         stem = json_path.stem
     card_rel = json_path.parent.relative_to(CARDS_DIR)
     return (
-        out_base
-        / card_rel.parts[0]
-        / f"{'_'.join(card_rel.parts[1:])}_{stem}.{suffix}"
+        out_base / card_rel.parts[0] / f"{'_'.join(card_rel.parts[1:])}_{stem}.{suffix}"
     )
 
 
