@@ -129,7 +129,8 @@ DEFAULT_FRAMERATE = 60
 # dominant tint wash, as a monochrome of the same hue, shifted aside from
 # the body so it is not occluded, and the full body (the viewer's
 # ``--full-body`` flag, ignoring the definition's pan/zoom) animates over
-# the card mask — the two framings are streamed in lockstep from the same
+# the card mask (tinted at each pixel's own lightness, the white staying
+# white) — the two framings are streamed in lockstep from the same
 # definition. The name and subtitle overlays are applied as usual, like the
 # other rarities, and the logo sits at the top right instead of the bottom
 # right. Everything is composited in memory — no intermediate frame touches
@@ -141,8 +142,9 @@ PROFILE_RARITIES = frozenset({})
 #: Variant stems with no derived ``<variant>Profile`` card: the
 #: ``Goddess`` and ``Classified`` presentations.
 NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
-#: The profile card's mask (composited over the diluted background, under
-#: the character), next to its GIMP source.
+#: The profile card's mask (tinted with the background's dominant tint at
+#: each pixel's own lightness, the white staying white; composited over
+#: the diluted background, under the character), next to its GIMP source.
 PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
 #: Opacity of the dominant-tint wash's top edge: laid over the monochrome
 #: background and the face framing: the partial wash dilutes the
@@ -1063,21 +1065,71 @@ def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.I
     return Image.merge("RGBA", (*channels, alpha))
 
 
+def _tint_at_luma(
+    image: Image.Image, tint_rgb: tuple[int, int, int]
+) -> Image.Image:
+    """Tint *image*'s (RGBA) pixels with the *tint*'s hue at each pixel's
+    own perceived brightness (L*): every pixel takes the tint's hue at the
+    lightness it already has. White is a fixed point and stays white; a
+    near-white pixel can only carry a slight chroma at its lightness, so
+    it gets a faint cast of the tint, not the tint itself; levels darker
+    than the tint continue the line past it (the channels clamping at
+    zero), keeping their lightness and drifting redder as they darken.
+    *image* is a pure grayscale (the profile card's mask), looked up per
+    channel; the alpha channel is passed through untouched."""
+    r, g, b, a = image.split()
+
+    def lstar(rgb: tuple[int, int, int]) -> float:
+        def lin(value: int) -> float:
+            v = value / 255
+            return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+        red, green, blue = (lin(channel) for channel in rgb)
+        y = 0.2126729 * red + 0.7151522 * green + 0.0721750 * blue
+        return 116 * y ** (1 / 3) - 16 if y > 0.008856 else 903.3 * y
+
+    # The lerp from white toward the tint is monotone in L*: for each gray
+    # level v, bisect the mix that lands on L*(v, v, v). v = 255 converges
+    # to the mix's white end, so white stays white exactly.
+    def tinted_at(target: float) -> tuple[int, int, int]:
+        lo, hi = 0.0, 5.0
+        for _ in range(24):
+            mid = (lo + hi) / 2
+            pixel = tuple(max(0, round(255 + mid * (c - 255))) for c in tint_rgb)
+            if lstar(pixel) > target:
+                lo = mid
+            else:
+                hi = mid
+        mid = (lo + hi) / 2
+        return tuple(max(0, round(255 + mid * (c - 255))) for c in tint_rgb)
+
+    lut = [tinted_at(lstar((v, v, v))) for v in range(256)]
+    table = [channel for rgb in lut for channel in rgb]
+    result = Image.merge(
+        "RGB", (r.point(table[0::3]), r.point(table[1::3]), r.point(table[2::3]))
+    )
+    result.putalpha(a)
+    return result
+
+
 def _profile_layers(
     background: Image.Image, size: tuple[int, int]
 ) -> tuple[Image.Image, Image.Image, Image.Image]:
     """The profile card's static layers, composed in memory: the (fitted)
     *background* — a monochrome of its own dominant tint — the dominant-tint
     wash (a gradient from the background's dominant color to a darker, more
-    opaque version of it), and the profile card
-    mask (:data:`PROFILE_MASK_PATH`). The (animated) face framing is
+    opaque version of it), and the profile card mask
+    (:data:`PROFILE_MASK_PATH`) — tinted with the same tint at each
+    pixel's own lightness (the white staying white). The
+    (animated) face framing is
     composited between the background and the tint, per frame and collapsed
     to a monochrome of the same tint's hue, by
     :func:`_stream_dual_composited`. Nothing touches the disk."""
     base = _fit_background(background, size)
-    # The background's dominant color: it both tints the (now monochrome)
-    # background and colors the wash (a gradient darkening toward the
-    # bottom) laid over the background and the face.
+    # The background's dominant color: it tints the (now monochrome)
+    # background, colors the wash (a gradient darkening toward the
+    # bottom) laid over the background and the face, and tints the mask
+    # at each pixel's own lightness (the white stays white).
     tint_rgb = _dominant_color(base)
     base = _monochrome(base, tint_rgb)
     tint = _tint_wash(base.size, tint_rgb)
@@ -1085,6 +1137,10 @@ def _profile_layers(
         mask = opened.convert("RGBA")
     if mask.size != base.size:
         mask = mask.resize(base.size, Image.Resampling.LANCZOS)
+    # The mask takes the tint at its own lightness: every pixel gets the
+    # tint's hue at its own L* (white is a fixed point, so the frame keeps
+    # its white).
+    mask = _tint_at_luma(mask, tint_rgb)
     return base, tint, mask
 
 
