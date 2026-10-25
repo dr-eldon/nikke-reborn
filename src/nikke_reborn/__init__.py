@@ -129,9 +129,10 @@ NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 # The ``Common`` card is derived from a card's ``Clean`` definition (there is
 # no ``Common.json`` on disk): the face framing (the viewer's ``--face`` at
 # :data:`COMMON_FACE_ZOOM`) animates under the background's dominant tint as a
-# monochrome of the tint's hue, and the full body (the viewer's ``--full-body``
-# flag, ignoring the Clean definition's pan/zoom) animates over the card mask —
-# the two framings are streamed in lockstep from the same definition. The name, subtitle and logo
+# monochrome of the tint's hue, shifted aside from the body so it is not
+# occluded, and the full body (the viewer's ``--full-body`` flag, ignoring the
+# Clean definition's pan/zoom) animates over the card mask — the two framings
+# are streamed in lockstep from the same definition. The name, subtitle and logo
 # overlays are applied as usual, like the other rarities. Everything is
 # composited in memory — no intermediate frame touches the disk; only the
 # finished card is written (atomically).
@@ -148,6 +149,11 @@ COMMON_FACE_ZOOM = 3.0
 #: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
 #: against the tinted background.
 COMMON_FACE_BRIGHTNESS = 0.85
+#: Horizontal shift (px) that moves the face framing aside from the centered
+#: full body: the face is rendered :data:`COMMON_FACE_OFFSET` px to the left
+#: or to the right (whichever side the body leaves more room on, see
+#: :func:`_face_offset`) so it is not occluded by the body.
+COMMON_FACE_OFFSET = 420
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -1734,6 +1740,59 @@ def _write_final_card(
     }
 
 
+def _first_frame(
+    json_path: Path, size: tuple[int, int], *viewer_flags: str
+) -> Image.Image:
+    """The first frame of *json_path* rendered by the viewer with
+    *viewer_flags* — one raw RGBA frame read from the ``--stdout`` stream.
+    The viewer is reaped; for an animation only the opening frame is needed."""
+    width, height = size
+    viewer = subprocess.Popen(
+        [VIEWER, *viewer_flags, "--stdout", str(json_path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert viewer.stdout is not None
+    assert viewer.stderr is not None
+    drain = _PipeDrain(viewer.stderr)
+    try:
+        data = _read_exact(viewer.stdout, width * height * 4)
+    finally:
+        # One frame is all we need; stop consuming and reap the viewer, which
+        # may still be mid-stream for animations.
+        _reap_viewer(viewer, drain, clean_exit_expected=False)
+    frame_bytes = width * height * 4
+    if len(data) != frame_bytes:
+        raise GenerationError(
+            f"{VIEWER} stream for {json_path.name} truncated: "
+            f"{len(data)} of {frame_bytes} bytes"
+        )
+    return Image.frombytes("RGBA", (width, height), data)
+
+
+def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
+    """The face framing's ``--offset-x``: :data:`COMMON_FACE_OFFSET` px to the
+    left or to the right, whichever side the full body leaves more room on, so
+    the face sits beside rather than behind the body.
+
+    The side is chosen from the *upper half* of the full body's first frame —
+    the region that can occlude the face — whose minimum bounding box (its
+    opaque pixels) marks the body's horizontal extent: more room on the left
+    (the body's left edge farther from the card's left edge) shifts the face
+    left, else it shifts right. A bodyless frame leaves the face centered (0).
+    """
+    width, height = size
+    body = _first_frame(json_path, size, "--full-body")
+    # Only the upper half can occlude the face; its opaque pixels set the
+    # body's horizontal extent there.
+    upper = body.crop((0, 0, width, height // 2)).getchannel("A")
+    bbox = upper.point(lambda v: 255 if v > 32 else 0).getbbox()
+    if bbox is None:
+        return 0  # no body in the upper half; keep the face centered
+    left, right = bbox[0], width - bbox[2]
+    return -COMMON_FACE_OFFSET if left >= right else COMMON_FACE_OFFSET
+
+
 def _render_common(
     json_path: Path,
     size: tuple[int, int],
@@ -1758,10 +1817,10 @@ def _render_common(
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the ``Common`` card (a presentation of *json_path*, a ``Clean``
     definition): the ``--face <face_zoom>`` framing animates (as a monochrome
-    of the tint's hue) under the tint and the ``--full-body`` framing animates
-    over the mask, both streamed from the same definition so the two stay in
-    lockstep. The name, subtitle and logo overlays are applied as usual, like
-    the other rarities.
+    of the tint's hue, shifted aside from the body) under the tint and the
+    ``--full-body`` framing animates over the mask, both streamed from the
+    same definition so the two stay in lockstep. The name, subtitle and logo
+    overlays are applied as usual, like the other rarities.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the disk —
     the two raw RGBA streams are piped straight into the in-memory
@@ -1780,12 +1839,25 @@ def _render_common(
     composite_time: list[float] = [0.0]
     stream_end: list[float] = [0.0]
 
+    # The face is shifted to the side the body leaves most room on (measured
+    # from the body's first frame), so it is not occluded by the centered
+    # body.
+    face_offset = _face_offset(json_path, size)
+
     # Spawn the two viewers streaming raw RGBA frames to stdout (no
-    # intermediate files): the face framing (under the tint) and the full
-    # body (over the mask). stderr is drained in a thread so it never blocks
-    # a viewer.
+    # intermediate files): the face framing (under the tint, shifted aside
+    # from the body) and the full body (over the mask). stderr is drained in
+    # a thread so it never blocks a viewer.
     render_started = time.perf_counter()
-    face_args = [VIEWER, "--face", str(face_zoom), "--stdout", str(json_path)]
+    face_args = [
+        VIEWER,
+        "--face",
+        str(face_zoom),
+        "--offset-x",
+        str(face_offset),
+        "--stdout",
+        str(json_path),
+    ]
     body_args = [VIEWER, "--full-body", "--stdout", str(json_path)]
     try:
         face_viewer = subprocess.Popen(
