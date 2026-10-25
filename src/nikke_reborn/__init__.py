@@ -1337,14 +1337,13 @@ def _name_layers(
         )
         small = region
         # Below the title: left-aligned with the title's own inset, its
-        # rectangle's top edge a gap of the card's padding below the
-        # title rectangle's bottom (the old top-right corner placement
-        # when there is no title).
+        # rectangle's top edge on the title rectangle's bottom (the old
+        # top-right corner placement when there is no title).
         bbox = small.getbbox()
         if rect_top is not None:
             sub_pad = round((bbox[3] - bbox[1]) * NAME_SUB_RECT_PAD)
             px = inset - bbox[0]
-            py = rect_bottom + padding // 2 - bbox[1] + sub_pad
+            py = rect_bottom - bbox[1] + sub_pad
         else:
             px, py = size[0] - padding - bbox[2], padding - bbox[1]
         sub_mask = Image.new("L", size, 0)
@@ -1356,7 +1355,7 @@ def _name_layers(
         # NAME_SUB_RECT_PAD of the subtitle's ink's height of room on the
         # top/bottom (NAME_SUB_RECT_PAD + NAME_SUB_RECT_RIGHT_PAD_EXTRA on
         # the right; the left edge is the card's left edge, as the title's),
-        # and the same 45-degree diagonal cut off the top-right corner
+        # and the same 45-degree diagonal cut off the bottom-right corner
         # (None when there is no title).
         if rect_top is not None:
             srx0, sry0, srx1, sry1 = sub_mask.getbbox()
@@ -1371,9 +1370,9 @@ def _name_layers(
             ImageDraw.Draw(sub_rect).polygon(
                 [
                     (0, sub_rect_top),
-                    (sub_right - sub_cut, sub_rect_top),
-                    (sub_right, sub_rect_top + sub_cut),
-                    (sub_right, sub_rect_bottom),
+                    (sub_right, sub_rect_top),
+                    (sub_right, sub_rect_bottom - sub_cut),
+                    (sub_right - sub_cut, sub_rect_bottom),
                     (0, sub_rect_bottom),
                 ],
                 fill=(*sub_rect_color, 255),
