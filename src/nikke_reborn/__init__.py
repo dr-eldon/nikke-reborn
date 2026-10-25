@@ -14,7 +14,7 @@ name. Packs (``cards/`` subdirectories carrying an
 the templates in ``images/``. The pack's front and back are composed on the
 fly (by :mod:`nikke_reborn.pack`) from the expansion's metadata — the front
 is its ``background`` with its featured NIKKES (``pack``) drawn over it and
-its ``logo`` when the expansion names a placement; the back is the same
+its ``logo`` when the expansion names one; the back is the same
 ``background`` resized and left-cropped — and neither is stored. The
 material (``CardPack_Material.png``) has two pure-blue mask rectangles
 holding the composed back (left) and front (right); the item
@@ -1066,9 +1066,7 @@ def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.I
     return Image.merge("RGBA", (*channels, alpha))
 
 
-def _tint_at_luma(
-    image: Image.Image, tint_rgb: tuple[int, int, int]
-) -> Image.Image:
+def _tint_at_luma(image: Image.Image, tint_rgb: tuple[int, int, int]) -> Image.Image:
     """Tint *image*'s (RGBA) pixels with the *tint*'s hue at each pixel's
     own perceived brightness (L*): every pixel takes the tint's hue at the
     lightness it already has. White is a fixed point and stays white; a
@@ -2976,9 +2974,7 @@ def _generate_variants(
     card_configs = [
         path for path in _find_card_configs(paths) if path.stem not in PROFILE_RARITIES
     ]
-    # An explicit selection renders those cards only; a full run also
-    # produces each pack's artwork images (material and item).
-    pack_dirs: list[Path] = [] if paths else _find_pack_dirs()
+    pack_dirs: list[Path] = _find_pack_dirs()
     start = time.monotonic()
     # Compose each pack's fronts in the main process: its featured NIKKES
     # are GPU-rendered here, so a front is produced once per material that
@@ -3190,7 +3186,7 @@ def _generate_variants(
                 box_front_sources[pack_dir],
                 box_sides[pack_dir],
                 box_tops[pack_dir],
-            ): box_label(pack_dir)
+            ): pack_dir
             for pack_dir in sorted(box_needs)
         }
         for future in as_completed(material_futures):

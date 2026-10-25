@@ -31,7 +31,6 @@ from pathlib import Path
 
 import nikke_reborn as nr
 from nikke_reborn.expansion import (
-    LOGO_NAME,
     _background_glow_color,
     _composite_logo,
     _fit_cover,
@@ -39,6 +38,7 @@ from nikke_reborn.expansion import (
     compose_front,
     front_source_digest,
     load_background,
+    load_logo,
 )
 from PIL import Image
 
@@ -53,7 +53,8 @@ BOX_LOGO_HEIGHT = 0.15
 BOX_LOGO_MARGIN = 0.05
 
 # --- the expansion's logo -----------------------------------------------------
-#: The expansion's logo (``<pack>/Logo.png``) on the box's front and side:
+#: The expansion's logo (the ``logo.path`` of the expansion's ``logo``
+#: field) on the box's front and side:
 #: its height as a fraction of the face's height (its width proportional)
 #: — sized by height, where the pack's width-based sizing is far too big on
 #: the landscape front.
@@ -194,30 +195,24 @@ def place_center_expansion_logo(
     expansion: dict,
     width_fraction: float | None = None,
 ) -> None:
-    """Composite the expansion's logo (``<pack>/Logo.png``) onto a face
+    """Composite the expansion's logo (its ``logo.path`` image) onto a face
     (the side or the top), center-center — the same glow treatment as the
     front's (see :func:`nikke_reborn.expansion._composite_logo`): its
     height is :data:`BOX_EXPANSION_LOGO_HEIGHT` the face's height (the
     side), or, when *width_fraction* is given (the top), its width is that
     fraction of the face's width (its height proportional) — centered on
     the face both horizontally and vertically. Only when the expansion
-    names a ``logo`` placement; the placement is always ``"center"``. The
+    names a ``logo``; the placement is always ``"center"``. The
     glow is sampled from the face before the logos are composited, so it
     is tinted by the scene. Modifies *face* in place."""
-    placement = expansion.get("logo")
-    if placement is None:
+    if expansion.get("logo") is None:
         return
-    logo_path = pack_dir / LOGO_NAME
-    if not logo_path.is_file():
-        raise nr.GenerationError(
-            f"{pack_dir.name}: logo placement {placement!r} is set but "
-            f"{LOGO_NAME!r} is missing"
-        )
+    mark, _ = load_logo(pack_dir, expansion)
     glow_color = _background_glow_color(_image_average(face))
     if width_fraction is None:
         _composite_logo(
             face,
-            Image.open(logo_path).convert("RGBA"),
+            mark,
             (face.width, face.height),
             "center",
             glow_color,
@@ -226,7 +221,7 @@ def place_center_expansion_logo(
     else:
         _composite_logo(
             face,
-            Image.open(logo_path).convert("RGBA"),
+            mark,
             (face.width, face.height),
             "center",
             glow_color,
@@ -237,7 +232,8 @@ def place_center_expansion_logo(
 def front_source_hash(pack_dir: Path) -> str:
     """A hash of the box front's inputs: the expansion's
     ``Expansion.json``, the featured NIKKE definitions it lists, the
-    background and (when a placement is set) the logo, the white NIKKE logo
+    background and (when a logo is set) the expansion's logo, the white
+    NIKKE logo
     placed on the front, and the box material template that sizes it (the
     shared digest from
     :func:`nikke_reborn.expansion.front_source_digest`, with the box's logo
@@ -285,7 +281,7 @@ def build_side(
     bottom-center (see :func:`place_side_logo`). The result is returned in
     memory, like the front: it is the box material's green rectangle and is
     never written to disk. The side's inputs (the background, the
-    expansion's logo when a placement is set, the white logo and the
+    expansion's logo when a logo is set, the white logo and the
     template) are a subset of the front's, so the front's source hash (see
     :func:`front_source_hash`) covers it."""
     background = load_background(pack_dir, expansion)
@@ -308,7 +304,7 @@ def build_top(
     face, which shares the red rectangle. The result is returned in
     memory, like the front: it is the box material's red rectangle and is
     never written to disk. The top's inputs (the background, the
-    expansion's logo when a placement is set, the white logo and the
+    expansion's logo when a logo is set, the white logo and the
     template) are a subset of the front's, so the front's source hash (see
     :func:`front_source_hash`) covers it."""
     top = _fit_cover(

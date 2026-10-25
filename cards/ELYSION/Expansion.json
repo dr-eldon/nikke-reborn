@@ -1,5 +1,8 @@
 {
   "pack": ["0001_Rapi/Classic.json", "0014_Neon/Special.json", "0015_Marian/Special.json"],
   "background": "../../images/backgrounds/sky-night.png",
-  "logo": "bottom"
+  "logo": {
+    "path": "../../images/logos/ELYSION.png",
+    "placement": "bottom"
+  }
 }

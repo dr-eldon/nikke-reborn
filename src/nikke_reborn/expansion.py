@@ -2,9 +2,10 @@
 
 The pack's front and the box's front are the same composition — the
 expansion's background, the featured NIKKES drawn over it (backs first, the
-hero on top), and — when the expansion names a ``logo`` placement — the
-expansion's logo (``<pack>/Logo.png``) with its glow on top, at the named
-placement — so the composition lives here, shared by
+hero on top), and — when the expansion names a ``logo`` — the expansion's
+logo (its ``logo.path`` image, relative to the pack directory) with its
+glow on top, at its ``logo.placement`` — so the composition lives here,
+shared by
 :mod:`nikke_reborn.pack` and :mod:`nikke_reborn.box` (which add only their
 own pieces: the material template's sizing, their white NIKKE logo placement
 and their background fit). The two must therefore stay in sync with nothing
@@ -18,8 +19,9 @@ here: the shared code is written once.
   finished card — no background fit, logo, name or copyright). When a
   featured NIKKE is animated, only its first frame is kept and the rest
   discarded.
-* when the ``logo`` field names a placement, the expansion's logo
-  (``<pack>/Logo.png``) is composited on top at that placement with a glow:
+* when the ``logo`` field is set, the expansion's logo (its ``path``,
+  relative to the pack directory) is composited on top at its ``placement``
+  with a glow:
   the halo is screen-blended for a light bloom, a solid trail in a
   darkened glow tint — the mark's own silhouette, offset slightly
   down-right — sits behind it, and the sharp mark is drawn over both. The
@@ -69,15 +71,15 @@ BACK_TIER_SHRINK = 0.9  # each further tier shrinks by this factor
 ALPHA_TRIM = 24  # alpha threshold (0-255) for the content bounding box
 
 # --- expansion logo tuning --------------------------------------------------
-# The expansion's logo (``<pack>/Logo.png``) is composited over the front with
-# a glow, at the placement named by the expansion's ``logo`` field. Every value
-# is relative to the front, so it is the same for every expansion: the mark is
-# scaled to :data:`LOGO_WIDTH` the front's width, inset :data:`LOGO_MARGIN`
-# from the edge (top/bottom placements), and haloed with a glow tinted by the
-# front's own background color — its hue and saturation, brightened to
-# :data:`LOGO_GLOW_VALUE` — so the bloom matches the scene (a night sky glows
-# cool violet, a bright day scene glows warm) rather than a fixed white.
-LOGO_NAME = "Logo.png"  # the expansion's logo, relative to the pack directory
+# The expansion's logo (the ``logo.path`` of the expansion's ``logo`` field,
+# relative to the pack directory) is composited over the front with a glow,
+# at its ``placement``. Every value is relative to the front, so it is the
+# same for every expansion: the mark is scaled to :data:`LOGO_WIDTH` the
+# front's width, inset :data:`LOGO_MARGIN` from the edge (top/bottom
+# placements), and haloed with a glow tinted by the front's own background
+# color — its hue and saturation, brightened to :data:`LOGO_GLOW_VALUE` — so
+# the bloom matches the scene (a night sky glows cool violet, a bright day
+# scene glows warm) rather than a fixed white.
 LOGO_WIDTH = 0.5   # logo width as a fraction of the front width (the pack's
                    # front; the box's front sizes by height — compose_front's
                    # expansion_logo_height)
@@ -92,7 +94,7 @@ LOGO_TRAIL = 0.008  # the solid diagonal trail: the mark's own silhouette,
                    # small trail
 LOGO_TRAIL_DARKEN = 0.7  # how much the trail's tint is darkened relative to
                          # the glow's tint (1.0 would be the full glow tint)
-LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo` field
+LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo.placement` field
 
 
 def load_expansion(pack_dir: Path) -> dict:
@@ -112,8 +114,9 @@ def front_source_digest(
 ) -> str:
     """A hash of an expansion front's *inputs* — everything the composed
     front depends on: the expansion's ``Expansion.json``, the featured NIKKE
-    definitions it lists, its background and (when a placement is set) its
-    logo, the white NIKKE logo placed on the front (*logo*), and the material
+    definitions it lists, its background and (when a logo is set) the
+    expansion's logo, the white NIKKE logo placed on the front (*logo*), and
+    the material
     template that sizes it (*template*). It is computed without rendering the
     front, so the finished material can be skipped (and the front's render
     avoided) when those inputs are unchanged. The pack's and the box's front
@@ -128,8 +131,9 @@ def front_source_digest(
     background = expansion.get("background")
     if background:
         digest.update((pack_dir / background).resolve().read_bytes())
-    if expansion.get("logo"):
-        logo_path = pack_dir / LOGO_NAME
+    logo_field = expansion.get("logo")
+    if isinstance(logo_field, dict) and logo_field.get("path"):
+        logo_path = (pack_dir / logo_field["path"]).resolve()
         if logo_path.is_file():
             digest.update(logo_path.read_bytes())
     digest.update(logo.read_bytes())
@@ -147,6 +151,31 @@ def load_background(pack_dir: Path, expansion: dict) -> Image.Image:
     if not bg_path.is_file():
         raise nr.GenerationError(f"{pack_dir.name}: background not found: {bg_rel}")
     return Image.open(bg_path).convert("RGBA")
+
+
+def load_logo(pack_dir: Path, expansion: dict) -> tuple[Image.Image, str]:
+    """The expansion's ``logo``: its ``logo.path`` image (RGBA, resolved
+    relative to the pack directory) and its ``logo.placement`` (one of
+    :data:`LOGO_PLACEMENTS`)."""
+    logo = expansion.get("logo")
+    if not isinstance(logo, dict):
+        raise nr.GenerationError(
+            f"{pack_dir.name}: 'logo' must be an object with a 'path' and a "
+            "'placement'"
+        )
+    logo_rel = logo.get("path")
+    if not logo_rel:
+        raise nr.GenerationError(f"{pack_dir.name}: missing 'logo.path'")
+    logo_path = (pack_dir / logo_rel).resolve()
+    if not logo_path.is_file():
+        raise nr.GenerationError(f"{pack_dir.name}: logo not found: {logo_rel}")
+    placement = logo.get("placement")
+    if placement not in LOGO_PLACEMENTS:
+        raise nr.GenerationError(
+            f"{pack_dir.name}: unknown logo placement {placement!r}; "
+            f"expected one of {', '.join(LOGO_PLACEMENTS)}"
+        )
+    return Image.open(logo_path).convert("RGBA"), placement
 
 
 def fit_background(
@@ -224,8 +253,8 @@ def compose_front(
 ) -> Image.Image:
     """Compose an expansion's front: its background (fitted per *fit*), the
     featured NIKKES drawn over it (backs first, the hero on top), and — when
-    the expansion names a ``logo`` placement — the expansion's logo
-    (``<pack>/Logo.png``) with its glow on top, at the named placement. The
+    the expansion names a ``logo`` — the expansion's logo (its ``logo.path``
+    image) with its glow on top, at its ``logo.placement``. The
     caller's white NIKKE logo is placed last (*place_logo*, on the front's
     own bounds). The result is returned in memory and never written to disk:
     the caller pastes it into its material's front rectangle.
@@ -296,20 +325,14 @@ def compose_front(
         height=round(hero_scale * height),
     )
 
-    # The expansion's logo (only when the expansion names a placement): the
-    # mark's image comes from the pack directory, its placement from the
-    # expansion — nothing here is specific to any one expansion.
-    placement = expansion.get("logo")
-    if placement is not None:
-        logo_path = pack_dir / LOGO_NAME
-        if not logo_path.is_file():
-            raise nr.GenerationError(
-                f"{pack_dir.name}: logo placement {placement!r} is set but "
-                f"{LOGO_NAME!r} is missing"
-            )
+    # The expansion's logo (only when the expansion names one): the mark's
+    # image and its placement come from the expansion's ``logo`` field —
+    # nothing here is specific to any one expansion.
+    if expansion.get("logo") is not None:
+        mark, placement = load_logo(pack_dir, expansion)
         _composite_logo(
             canvas,
-            Image.open(logo_path).convert("RGBA"),
+            mark,
             size,
             placement,
             glow_color,
