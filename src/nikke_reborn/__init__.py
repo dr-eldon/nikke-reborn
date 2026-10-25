@@ -129,10 +129,11 @@ DEFAULT_FRAMERATE = 60
 # as a monochrome of the same hue, shifted aside from the body so it is not
 # occluded, and the full body (the viewer's ``--full-body`` flag, ignoring
 # the definition's pan/zoom) animates over the card mask — the two framings
-# are streamed in lockstep from the same definition. The name, subtitle and
-# logo overlays are applied as usual, like the other rarities. Everything is
-# composited in memory — no intermediate frame touches the disk; only the
-# finished card is written (atomically).
+# are streamed in lockstep from the same definition. The name and subtitle
+# overlays are applied as usual, like the other rarities, and the logo sits
+# at the top right instead of the bottom right. Everything is composited in
+# memory — no intermediate frame touches the disk; only the finished card is
+# written (atomically).
 #: Rarity stems rendered through the profile presentation instead of the
 #: standard pipeline: their own definitions render directly (the ``Common``
 #: card, derived from the ``Clean`` definitions, renders through the same
@@ -1072,12 +1073,14 @@ def _scale_logo(logo: Image.Image, card_width: int) -> Image.Image:
     return logo.resize((target, height), Image.Resampling.LANCZOS)
 
 
-def _with_logo(base: Image.Image, logo: Image.Image, margin: int) -> Image.Image:
-    """Return a copy of *base* with *logo* stamped at the bottom right."""
+def _with_logo(
+    base: Image.Image, logo: Image.Image, margin: int, top: bool = False
+) -> Image.Image:
+    """Return a copy of *base* with *logo* stamped at the bottom right (or
+    the top right when *top*)."""
     canvas = base.copy()
-    canvas.alpha_composite(
-        logo, (base.width - logo.width - margin, base.height - logo.height - margin)
-    )
+    y = margin if top else base.height - logo.height - margin
+    canvas.alpha_composite(logo, (base.width - logo.width - margin, y))
     return canvas
 
 
@@ -1529,21 +1532,22 @@ def _logo_copyright_overlay(
     margin: int,
     padding: int,
     color: tuple[int, int, int, int],
+    logo_top: bool = False,
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Pre-stamp the logo and the copyright line onto a transparent layer.
 
-    Both stamps sit at the bottom of the card (bottom right and bottom
-    left, at the same placement as when stamped directly), so the combined
-    layer is cropped to its bounding box; the caller composites the crop
-    onto each frame after the art is in place, keeping the stamps on top
-    of the art for the price of one small strip per frame.
+    The logo sits at the bottom right (or the top right when *logo_top*)
+    and the copyright line at the bottom left, at the same placement as
+    when stamped directly, so the combined layer is cropped to its
+    bounding box; the caller composites the crop onto each frame after the
+    art is in place, keeping the stamps on top of the art.
 
     Returns the cropped layer and the coordinates at which to composite it
     on a card of *size*.
     """
     width, height = size
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    overlay = _with_logo(overlay, _scale_logo(logo, width), margin)
+    overlay = _with_logo(overlay, _scale_logo(logo, width), margin, logo_top)
     overlay = _with_copyright(overlay, padding, color)
     box = overlay.getbbox()
     assert box is not None, "the logo and copyright layer is empty"
@@ -1970,8 +1974,8 @@ def _render_profile(
     animates (as a monochrome of the tint's hue, shifted aside from the
     body) over the background, under the tint wash, and the ``--full-body``
     framing animates over the mask, both streamed from the same definition
-    so the two stay in lockstep. The name, subtitle and logo overlays are
-    applied as usual, like the other rarities.
+    so the two stay in lockstep. The name and subtitle overlays are applied
+    as usual, like the other rarities; the logo sits at the top right.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the disk —
     the two raw RGBA streams are piped straight into the in-memory
@@ -1983,8 +1987,10 @@ def _render_profile(
     stem = _profile_stem(json_path)
     # The logo and copyright line sit on top of the art: pre-stamp them onto
     # a transparent layer and let the compositor apply it to each frame.
+    # The profile card's logo sits at the top right instead of the bottom
+    # right.
     overlay, overlay_pos = _logo_copyright_overlay(
-        size, logo, margin, padding, copyright_color
+        size, logo, margin, padding, copyright_color, logo_top=True
     )
     parts = (
         _name_layers(
@@ -2216,8 +2222,9 @@ def _process_profile_card(
     ``Clean`` definition: the ``--face`` framing animates (as a monochrome
     of the tint's hue) over the background, under its dominant tint wash,
     and the ``--full-body`` framing animates over the card mask (both
-    streamed in lockstep from the same definition). The name, subtitle and
-    logo overlays are applied as usual, like the other rarities.
+    streamed in lockstep from the same definition). The name and subtitle
+    overlays are applied as usual, like the other rarities; the logo sits
+    at the top right.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
