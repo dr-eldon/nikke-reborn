@@ -1,5 +1,5 @@
 {
-  "pack": ["0001_Rapi/Clean.json", "0014_Neon/Special.json", "0015_Marian/Special.json"],
+  "pack": ["0001_Rapi/Classic.json", "0014_Neon/Special.json", "0015_Marian/Special.json"],
   "background": "../../images/backgrounds/sky-night.png",
   "logo": "bottom"
 }
