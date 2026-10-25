@@ -129,7 +129,7 @@ NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 # ``Common`` card derived from a card's ``Clean`` definition (there is no
 # ``Common.json`` on disk). The background is a monochrome of its own
 # dominant tint, the face framing (the viewer's ``--face`` at
-# :data:`COMMON_FACE_ZOOM`) animates over it, under the dominant tint wash,
+# :data:`PROFILE_FACE_ZOOM`) animates over it, under the dominant tint wash,
 # as a monochrome of the same hue, shifted aside from the body so it is not
 # occluded, and the full body (the viewer's ``--full-body`` flag, ignoring
 # the definition's pan/zoom) animates over the card mask — the two framings
@@ -142,41 +142,41 @@ NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 #: card, derived from the ``Clean`` definitions, renders through the same
 #: pipeline).
 PROFILE_RARITIES = frozenset({"Aim", "Cover"})
-#: The ``Common`` card's mask (composited over the diluted background, under
+#: The profile card's mask (composited over the diluted background, under
 #: the character), next to its GIMP source.
-COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
+PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
 #: Opacity of the dominant-tint wash's top edge: laid over the monochrome
 #: background and the face framing, 0.5 dilutes the background toward its
 #: own main color and gently re-tints the face so it settles into the
 #: card's palette.
-COMMON_TINT_TOP_OPACITY = 0.5
+PROFILE_TINT_TOP_OPACITY = 0.5
 #: Opacity of the dominant-tint wash's bottom edge: the alpha ramps
-#: linearly from COMMON_TINT_TOP_OPACITY to this, so the darker bottom
+#: linearly from PROFILE_TINT_TOP_OPACITY to this, so the darker bottom
 #: anchors more firmly than the top.
-COMMON_TINT_BOTTOM_OPACITY = 1.0
+PROFILE_TINT_BOTTOM_OPACITY = 1.0
 #: The wash's bottom color is the background's tint scaled by this factor
 #: (0.4 = 40% of its brightness; the top edge is the tint itself): the wash
 #: darkens linearly toward the bottom of the card.
-COMMON_TINT_BOTTOM_FACTOR = 0.4
+PROFILE_TINT_BOTTOM_FACTOR = 0.4
 #: The ``--face`` zoom that renders the face framing composited over the
 #: profile card's background, under its tint wash (ahead of the full body).
-COMMON_FACE_ZOOM = 2
+PROFILE_FACE_ZOOM = 2
 #: The face framing's vertical centre, as a fraction of the frame height
 #: (0.1). :func:`_face_offset` treats the face as a square of side
-#: ``height * COMMON_FACE_CENTER_Y * COMMON_FACE_ZOOM`` centred at that height
+#: ``height * PROFILE_FACE_CENTER_Y * PROFILE_FACE_ZOOM`` centred at that height
 #: when deciding which side leaves its footprint least occluded by the body.
-COMMON_FACE_CENTER_Y = 0.1
+PROFILE_FACE_CENTER_Y = 0.1
 #: Brightness scale applied to the monochrome face (its value channel): 1.0
 #: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
 #: against the tinted background.
-COMMON_FACE_BRIGHTNESS = 0.5
+PROFILE_FACE_BRIGHTNESS = 0.5
 #: Horizontal shifts (px) that move the face framing aside from the centered
 #: full body so it is not occluded by the body: the face is rendered
-#: :data:`COMMON_FACE_OFFSET_LEFT` px to the left or
-#: :data:`COMMON_FACE_OFFSET_RIGHT` px to the right (whichever leaves its
+#: :data:`PROFILE_FACE_OFFSET_LEFT` px to the left or
+#: :data:`PROFILE_FACE_OFFSET_RIGHT` px to the right (whichever leaves its
 #: footprint least occluded by the body, see :func:`_face_offset`).
-COMMON_FACE_OFFSET_LEFT = 500
-COMMON_FACE_OFFSET_RIGHT = 420
+PROFILE_FACE_OFFSET_LEFT = 500
+PROFILE_FACE_OFFSET_RIGHT = 420
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -553,7 +553,7 @@ def _profile_source_hash(json_path: Path) -> str:
     of re-rendered."""
     digest = hashlib.sha256()
     digest.update(json_path.read_bytes())
-    digest.update(COMMON_MASK_PATH.read_bytes())
+    digest.update(PROFILE_MASK_PATH.read_bytes())
     return digest.hexdigest()
 
 
@@ -886,7 +886,7 @@ def _stream_dual_composited(
         face = _monochrome(
             Image.frombytes("RGBA", (width, height), face_data),
             tint_rgb,
-            COMMON_FACE_BRIGHTNESS,
+            PROFILE_FACE_BRIGHTNESS,
         )
         # The face over the raw background, then the single dominant-tint
         # wash over both, then the mask and the body frame.
@@ -1020,17 +1020,17 @@ def _monochrome(
 def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.Image:
     """The profile card's wash layer (built once, static): a vertical
     linear gradient from *tint_rgb* at the top edge to the tint scaled by
-    :data:`COMMON_TINT_BOTTOM_FACTOR` at the bottom edge, with the alpha
-    ramping from :data:`COMMON_TINT_TOP_OPACITY` to
-    :data:`COMMON_TINT_BOTTOM_OPACITY`."""
+    :data:`PROFILE_TINT_BOTTOM_FACTOR` at the bottom edge, with the alpha
+    ramping from :data:`PROFILE_TINT_TOP_OPACITY` to
+    :data:`PROFILE_TINT_BOTTOM_OPACITY`."""
     width, height = size
-    bottom = tuple(round(c * COMMON_TINT_BOTTOM_FACTOR) for c in tint_rgb)
+    bottom = tuple(round(c * PROFILE_TINT_BOTTOM_FACTOR) for c in tint_rgb)
     # A 0..255 ramp: 0 at the top row, 255 at the bottom row.
     ramp = Image.frombytes(
         "L", (1, height), bytes(round(255 * y / (height - 1)) for y in range(height))
     ).resize(size, Image.Resampling.NEAREST)
-    top_alpha = round(COMMON_TINT_TOP_OPACITY * 255)
-    bottom_alpha = round(COMMON_TINT_BOTTOM_OPACITY * 255)
+    top_alpha = round(PROFILE_TINT_TOP_OPACITY * 255)
+    bottom_alpha = round(PROFILE_TINT_BOTTOM_OPACITY * 255)
     alpha = ramp.point(lambda v: top_alpha + (bottom_alpha - top_alpha) * v // 255)
     channels = [
         ramp.point(lambda v, top=c, bot=d: top + (bot - top) * v // 255)
@@ -1046,7 +1046,7 @@ def _profile_layers(
     *background* — a monochrome of its own dominant tint — the dominant-tint
     wash (a gradient from the background's dominant color to a darker, more
     opaque version of it), and the profile card
-    mask (:data:`COMMON_MASK_PATH`). The (animated) face framing is
+    mask (:data:`PROFILE_MASK_PATH`). The (animated) face framing is
     composited between the background and the tint, per frame and collapsed
     to a monochrome of the same tint's hue, by
     :func:`_stream_dual_composited`. Nothing touches the disk."""
@@ -1057,7 +1057,7 @@ def _profile_layers(
     tint_rgb = _dominant_color(base)
     base = _monochrome(base, tint_rgb)
     tint = _tint_wash(base.size, tint_rgb)
-    with Image.open(COMMON_MASK_PATH) as opened:
+    with Image.open(PROFILE_MASK_PATH) as opened:
         mask = opened.convert("RGBA")
     if mask.size != base.size:
         mask = mask.resize(base.size, Image.Resampling.LANCZOS)
@@ -1919,14 +1919,14 @@ def _first_frame(
 
 
 def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
-    """The face framing's ``--offset-x``: :data:`COMMON_FACE_OFFSET_LEFT` px to
-    the left or :data:`COMMON_FACE_OFFSET_RIGHT` px to the right, whichever
+    """The face framing's ``--offset-x``: :data:`PROFILE_FACE_OFFSET_LEFT` px to
+    the left or :data:`PROFILE_FACE_OFFSET_RIGHT` px to the right, whichever
     leaves the face's footprint least occluded by the full body, so the face
     sits clear rather than behind it.
 
-    The face's centre always sits at :data:`COMMON_FACE_CENTER_Y` of the frame
+    The face's centre always sits at :data:`PROFILE_FACE_CENTER_Y` of the frame
     height, so the face is treated as a square of side
-    ``height * COMMON_FACE_CENTER_Y * :data:`COMMON_FACE_ZOOM```. Each candidate
+    ``height * PROFILE_FACE_CENTER_Y * :data:`PROFILE_FACE_ZOOM```. Each candidate
     footprint — the left at the card centre minus the left offset, the right at
     the card centre plus the right offset — is measured against the body's
     opaque pixels and the face is sent to the emptier one (fewer body pixels
@@ -1937,8 +1937,8 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     # The face's footprint: a square centred at the face's fixed vertical
     # centre, one for each candidate horizontal position (left / right).
     alpha = body.getchannel("A").point(lambda v: 255 if v > 32 else 0)
-    centre_y = int(height * COMMON_FACE_CENTER_Y)
-    half = int(height * COMMON_FACE_CENTER_Y * COMMON_FACE_ZOOM) // 2
+    centre_y = int(height * PROFILE_FACE_CENTER_Y)
+    half = int(height * PROFILE_FACE_CENTER_Y * PROFILE_FACE_ZOOM) // 2
 
     def occlusion(cx: int) -> int:
         x0, y0, x1, y1 = cx - half, centre_y - half, cx + half, centre_y + half
@@ -1950,12 +1950,12 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
 
     if not ImageStat.Stat(alpha).sum[0]:
         return 0  # no body at all; keep the face centered
-    left = occlusion(width // 2 - COMMON_FACE_OFFSET_LEFT)
-    right = occlusion(width // 2 + COMMON_FACE_OFFSET_RIGHT)
+    left = occlusion(width // 2 - PROFILE_FACE_OFFSET_LEFT)
+    right = occlusion(width // 2 + PROFILE_FACE_OFFSET_RIGHT)
     # Both footprints empty means the body sits *between* them, so the face
     # still shifts (a tie defaults to the left); never leave it centered on
     # top of the body.
-    return -COMMON_FACE_OFFSET_LEFT if left <= right else COMMON_FACE_OFFSET_RIGHT
+    return -PROFILE_FACE_OFFSET_LEFT if left <= right else PROFILE_FACE_OFFSET_RIGHT
 
 
 def _render_profile(
@@ -2332,7 +2332,7 @@ def _process_profile_card(
                 scale,
                 out_base,
                 source_hash,
-                COMMON_FACE_ZOOM,
+                PROFILE_FACE_ZOOM,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings
