@@ -200,23 +200,23 @@ COPYRIGHT_TEXT = "©SHIFT UP CORP."
 #: Oswald face for the copyright line (vendored variable font, SIL OFL).
 FONT = FONTS_DIR / "Oswald.ttf"
 
-#: Orbitron face for the card name (vendored variable font, SIL OFL).
-FONT_NAME = FONTS_DIR / "Orbitron.ttf"
+#: Aire Exterior face for the card name (vendored static font, SIL OFL).
+FONT_NAME = FONTS_DIR / "AireExterior.ttf"
 
 #: ChocolateClassicalSans face for the title rectangle's arrow (vendored).
 FONT_RECT_ARROW = FONTS_DIR / "ChocolateClassicalSans-Regular.ttf"
 
 #: Card name placement: the ink's top-left corner sits at the card's padding
 #: from the left edge and NAME_TITLE_Y of the height, left-aligned, with font
-#: size padding * NAME_SIZE_FACTOR and Orbitron weight NAME_WEIGHT (700 =
-#: bold).
-NAME_SIZE_FACTOR = 2.2
+#: size padding * NAME_SIZE_FACTOR and, on variable fonts, weight
+#: NAME_WEIGHT (700 = bold; static fonts have a fixed weight).
+NAME_SIZE_FACTOR = 3.0
 NAME_WEIGHT = 700
 
 #: The title's vertical position, as a fraction of the card height: the
 #: title's ink top sits at NAME_TITLE_Y of the height (its left inset is the
 #: card's own padding).
-NAME_TITLE_Y = 0.75
+NAME_TITLE_Y = 0.65
 
 #: Names of NAME_REFERENCE_LENGTH characters or fewer get the full font
 #: size; longer names are scaled down by NAME_REFERENCE_LENGTH / length
@@ -231,8 +231,8 @@ NAME_MIN_SIZE_FACTOR = 0.6
 #: Subtitle sizing: the font is padding * SUBTITLE_SIZE_FACTOR (short
 #: subtitles), shrinking linearly to padding * SUBTITLE_MIN_SIZE_FACTOR
 #: between SUBTITLE_FULL_LENGTH and SUBTITLE_FLOOR_LENGTH characters.
-SUBTITLE_SIZE_FACTOR = 0.70
-SUBTITLE_MIN_SIZE_FACTOR = 0.40
+SUBTITLE_SIZE_FACTOR = 1.0
+SUBTITLE_MIN_SIZE_FACTOR = 0.60
 SUBTITLE_FULL_LENGTH = 18
 SUBTITLE_FLOOR_LENGTH = 30
 
@@ -247,15 +247,15 @@ NAME_RECT_COLOR = (0x22, 0x22, 0x22)
 #: takes the background's dominant hue at this dark level, so the
 #: subtitle's panel picks up the scene's tint where the title's is a flat
 #: NAME_RECT_COLOR.
-NAME_RECT_LUMA = 0.2
+NAME_RECT_LUMA = 0.3
 #: Padding around the title's ink (top/right/bottom of its enclosing
 #: rectangle), as a fraction of the ink's height.
-NAME_RECT_PAD = 0.4
+NAME_RECT_PAD = 0.2
 #: Padding around the subtitle's ink (top/bottom, and the right before
 #: NAME_SUB_RECT_RIGHT_PAD_EXTRA), as a fraction of the ink's height:
 #: roomier than the title's NAME_RECT_PAD, so the smaller bar does not
 #: hug the text.
-NAME_SUB_RECT_PAD = 0.75
+NAME_SUB_RECT_PAD = 0.4
 #: Extra right-side room in the subtitle's enclosing rectangle, on top of
 #: NAME_SUB_RECT_PAD (as a fraction of the subtitle ink's height): the
 #: text's right edge gets a wider margin than the top/bottom.
@@ -283,8 +283,8 @@ NAME_RECT_ARROW_MARGIN = 0.12
 #: outwards beyond it (the shadow's bottom strip reaches the image's left
 #: edge instead of fading out short of it).
 NAME_RECT_SHADOW_OFFSET = 0.1
-NAME_RECT_SHADOW_RADIUS = 0.1
-NAME_RECT_SHADOW_ALPHA = 0.3
+NAME_RECT_SHADOW_RADIUS = 0.075
+NAME_RECT_SHADOW_ALPHA = 0.2
 
 # --- name stack effects -------------------------------------------------
 # Context sampling for the subtitle rectangle's tint (the background's
@@ -1055,6 +1055,16 @@ def _with_logo(base: Image.Image, logo: Image.Image, margin: int) -> Image.Image
     return canvas
 
 
+def _set_weight(font: ImageFont.FreeTypeFont, weight: int) -> None:
+    """Set *font*'s weight via its variation axes, if it is a variable
+    font (static fonts have a fixed weight; FreeType raises OSError
+    for them)."""
+    try:
+        font.set_variation_by_axes([weight])
+    except OSError:
+        pass
+
+
 def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int, int]:
     """Ink offsets (left, top, bottom) of *text* from its draw origin.
 
@@ -1186,9 +1196,7 @@ def _tint_layer(
     )
 
 
-def _rect_shadow(
-    size: tuple[int, int], rect: Image.Image, padding: int
-) -> Image.Image:
+def _rect_shadow(size: tuple[int, int], rect: Image.Image, padding: int) -> Image.Image:
     """The drop shadow of *rect*: a blurred dark copy, offset by
     NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
     (NAME_RECT_SHADOW_RADIUS * padding), at NAME_RECT_SHADOW_ALPHA.
@@ -1260,7 +1268,7 @@ def _name_layers(
     subtitle = subtitle.upper()
     font_size = _name_font_size(name, round(padding * NAME_SIZE_FACTOR))
     font = ImageFont.truetype(str(FONT_NAME), font_size)
-    font.set_variation_by_axes([NAME_WEIGHT])
+    _set_weight(font, NAME_WEIGHT)
     left, top, bottom = _text_ink_offsets(name, font)
     # The title's ink top sits at NAME_TITLE_Y of the height; the left inset
     # is the card's own padding.
@@ -1275,11 +1283,16 @@ def _name_layers(
     # alpha; only the geometry and the alpha are static.
     title_box = title_mask.getbbox()
     title_alpha = title_mask
-    # The top of the title's enclosing rectangle (its ink's top inset by
-    # NAME_RECT_PAD of the ink's height; None when there is no title):
-    # the subtitle sits above it.
+    # The top and bottom of the title's enclosing rectangle (its ink's
+    # top/bottom inset by NAME_RECT_PAD of the ink's height; None when
+    # there is no title): the subtitle sits below the bottom.
     rect_top = (
         title_box[1] - round((title_box[3] - title_box[1]) * NAME_RECT_PAD)
+        if title_box is not None
+        else None
+    )
+    rect_bottom = (
+        title_box[3] + round((title_box[3] - title_box[1]) * NAME_RECT_PAD)
         if title_box is not None
         else None
     )
@@ -1290,29 +1303,23 @@ def _name_layers(
     if subtitle:
         sub_size = _subtitle_font_size(subtitle, padding)
         sub_font = ImageFont.truetype(str(FONT_NAME), sub_size)
-        sub_font.set_variation_by_axes([NAME_WEIGHT])
+        _set_weight(sub_font, NAME_WEIGHT)
         sub_left, sub_top_off, sub_bottom = _text_ink_offsets(subtitle, sub_font)
         ink_h = sub_bottom - sub_top_off
-        region = Image.new(
-            "L", (round(sub_font.getlength(subtitle)) + 1, ink_h + 1), 0
-        )
+        region = Image.new("L", (round(sub_font.getlength(subtitle)) + 1, ink_h + 1), 0)
         ImageDraw.Draw(region).text(
             (-sub_left, -sub_top_off), subtitle, font=sub_font, fill=255
         )
         small = region
-        # Above the title: left-aligned with the title's own inset, its
-        # rectangle's bottom edge on the title rectangle's top (the two
-        # bars touch with no overlap and no gap; the old top-right corner
-        # placement when there is no title to sit above).
+        # Below the title: left-aligned with the title's own inset, its
+        # rectangle's top edge a gap of the card's padding below the
+        # title rectangle's bottom (the old top-right corner placement
+        # when there is no title).
         bbox = small.getbbox()
         if rect_top is not None:
-            # The ink is pulled up by the rectangle's bottom padding
-            # (NAME_SUB_RECT_PAD of the ink's height) plus the row the
-            # rasterizer fills on the bottom vertex, so the rectangle's
-            # bottom lands exactly on the title rectangle's top.
             sub_pad = round((bbox[3] - bbox[1]) * NAME_SUB_RECT_PAD)
             px = inset - bbox[0]
-            py = rect_top - sub_pad - 1 - bbox[3]
+            py = rect_bottom + padding // 2 - bbox[1] + sub_pad
         else:
             px, py = size[0] - padding - bbox[2], padding - bbox[1]
         sub_mask = Image.new("L", size, 0)
@@ -1325,7 +1332,7 @@ def _name_layers(
         # top/bottom (NAME_SUB_RECT_PAD + NAME_SUB_RECT_RIGHT_PAD_EXTRA on
         # the right; the left edge is the card's left edge, as the title's),
         # and the same 45-degree diagonal cut off the top-right corner
-        # (None when there is no title to sit above).
+        # (None when there is no title).
         if rect_top is not None:
             srx0, sry0, srx1, sry1 = sub_mask.getbbox()
             sub_right_pad = sub_pad + round(
@@ -1365,7 +1372,7 @@ def _name_layers(
         rx0, ry0, rx1, ry1 = title_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
         top = rect_top
-        bottom = ry1 + pad
+        bottom = rect_bottom
         rect_height = bottom - top
         # The arrow's ink (NAME_RECT_ARROW in the rectangle's right padding),
         # measured before the rectangle so the right edge can account for its
