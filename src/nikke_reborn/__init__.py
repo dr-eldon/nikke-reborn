@@ -83,6 +83,7 @@ import threading
 import time
 import pathlib
 from collections import deque
+from collections.abc import Generator, Iterator
 from concurrent.futures import (
     Future,
     ProcessPoolExecutor,
@@ -90,7 +91,7 @@ from concurrent.futures import (
     as_completed,
 )
 from pathlib import Path
-from typing import Iterator
+from typing import IO, cast
 from nikke_reborn import bundler, metadata
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
@@ -570,7 +571,7 @@ def _stored_hash(out_path: Path) -> str | None:
     if out_path.suffix == ".png":
         try:
             with Image.open(out_path) as image:
-                return image.text.get(SOURCE_HASH_KEY)
+                return image.info.get(SOURCE_HASH_KEY)
         except Exception:
             return None
     try:
@@ -682,10 +683,10 @@ def _manufacturer_logo(card_id: str) -> Image.Image | None:
     return Image.open(logo_path).convert("RGBA")
 
 
-def _read_exact(stream: "io.BufferedReader", n: int) -> bytes:
+def _read_exact(stream: IO[bytes], n: int) -> bytes:
     """Read exactly *n* bytes from *stream*; fewer only at end-of-stream.
 
-    ``BufferedReader.read`` may return a partial chunk, so this loops until
+    A buffered reader's ``read`` may return a partial chunk, so this loops until
     *n* bytes are gathered or the stream is exhausted. A raw frame is written
     whole by the viewer, so a full read is one call in practice — the loop
     just makes the frame boundary robust to partial reads.
@@ -781,7 +782,7 @@ def _stream_composited(
     first_frame: list[Image.Image],
     composite_time: list[float],
     stream_end: list[float],
-) -> Iterator[Image.Image]:
+) -> Generator[Image.Image]:
     """Composite the viewer's raw RGBA stdout frames and yield them in order.
 
     ``--stdout`` writes each frame as a contiguous ``width * height * 4`` byte
@@ -879,7 +880,7 @@ def _stream_dual_composited(
     first_frame: list[Image.Image],
     composite_time: list[float],
     stream_end: list[float],
-) -> Iterator[Image.Image]:
+) -> Generator[Image.Image]:
     """Composite the two synchronized viewer streams and yield the frames in
     presentation order — the profile card, where the ``--face`` framing
     animates (as a monochrome of the tint's hue) over the background, under
@@ -909,7 +910,9 @@ def _stream_dual_composited(
     # gradient darkens toward the bottom); reuse it to key the face's
     # monochrome recolor (the vivid full-color face is collapsed to
     # single-hue shades of the tint so it blends into the card's palette).
-    tint_rgb = tint.getpixel((0, 0))[:3]
+    tint_pixel = tint.getpixel((0, 0))
+    assert isinstance(tint_pixel, tuple)
+    tint_rgb = (tint_pixel[0], tint_pixel[1], tint_pixel[2])
 
     def composite(face_data: bytes, body_data: bytes) -> Image.Image:
         started = time.perf_counter()
@@ -1017,7 +1020,8 @@ def _dominant_color(image: Image.Image) -> tuple[int, int, int]:
     downscale so a busy background still yields a stable representative
     tint."""
     small = image.convert("RGB").resize((32, 32))
-    return tuple(round(channel) for channel in ImageStat.Stat(small).mean)
+    means = ImageStat.Stat(small).mean
+    return (round(means[0]), round(means[1]), round(means[2]))
 
 
 def _monochrome(
@@ -1034,7 +1038,9 @@ def _monochrome(
     that value channel (1.0 keeps it; below 1.0 darkens). The alpha channel
     is passed through untouched."""
     # The tint's hue and saturation are a single, constant pair.
-    h, s, _ = Image.new("RGB", (1, 1), tint_rgb).convert("HSV").getpixel((0, 0))
+    pixel = Image.new("RGB", (1, 1), tint_rgb).convert("HSV").getpixel((0, 0))
+    assert isinstance(pixel, tuple)
+    h, s, _ = pixel[0], pixel[1], pixel[2]
     hue = Image.new("L", image.size, h)
     sat = Image.new("L", image.size, s)
     # Fix the hue and saturation to the tint's; keep the image's value (V)
@@ -1062,7 +1068,7 @@ def _scale_linear_light(
         v = v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
         return round(max(0.0, min(1.0, v)) * 255)
 
-    return tuple(scale(c) for c in rgb)
+    return (scale(rgb[0]), scale(rgb[1]), scale(rgb[2]))
 
 
 def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.Image:
@@ -1117,17 +1123,24 @@ def _tint_at_luma(image: Image.Image, tint_rgb: tuple[int, int, int]) -> Image.I
     # The lerp from white toward the tint is monotone in L*: for each gray
     # level v, bisect the mix that lands on L*(v, v, v). v = 255 converges
     # to the mix's white end, so white stays white exactly.
+    def mix(c: int, mid: float) -> int:
+        return max(0, round(255 + mid * (c - 255)))
+
     def tinted_at(target: float) -> tuple[int, int, int]:
         lo, hi = 0.0, 5.0
         for _ in range(24):
             mid = (lo + hi) / 2
-            pixel = tuple(max(0, round(255 + mid * (c - 255))) for c in tint_rgb)
+            pixel = (
+                mix(tint_rgb[0], mid),
+                mix(tint_rgb[1], mid),
+                mix(tint_rgb[2], mid),
+            )
             if lstar(pixel) > target:
                 lo = mid
             else:
                 hi = mid
         mid = (lo + hi) / 2
-        return tuple(max(0, round(255 + mid * (c - 255))) for c in tint_rgb)
+        return mix(tint_rgb[0], mid), mix(tint_rgb[1], mid), mix(tint_rgb[2], mid)
 
     lut = [tinted_at(lstar((v, v, v))) for v in range(256)]
     table = [channel for rgb in lut for channel in rgb]
@@ -1221,7 +1234,9 @@ def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int
         0,
     )
     ImageDraw.Draw(probe).text((origin, origin), text, font=font, fill=255)
-    left, top, right, bottom = probe.getbbox()
+    bbox = probe.getbbox()
+    assert bbox is not None  # the ink is drawn (fill 255 on a black probe)
+    left, top, right, bottom = bbox
     return left - origin, top - origin, bottom - origin
 
 
@@ -1341,7 +1356,7 @@ class _NameLayers:
 
     def __init__(
         self,
-        title_box: tuple[int, int, int, int],
+        title_box: tuple[int, int, int, int] | None,
         title_alpha: Image.Image,
         sub_top: Image.Image | None,
         sub_rect: Image.Image | None,
@@ -1430,7 +1445,10 @@ def _name_layers(
         # rectangle's top edge on the title rectangle's bottom (the old
         # top-right corner placement when there is no title).
         bbox = small.getbbox()
+        assert bbox is not None  # the ink is drawn (fill 255 on a black probe)
         if rect_top is not None:
+            # rect_bottom is derived from title_box, like rect_top.
+            assert rect_bottom is not None
             sub_pad = round((bbox[3] - bbox[1]) * NAME_SUB_RECT_PAD)
             px = inset - bbox[0]
             py = rect_bottom - bbox[1] + sub_pad
@@ -1448,7 +1466,9 @@ def _name_layers(
         # and the same 45-degree diagonal cut off the bottom-right corner
         # (None when there is no title).
         if rect_top is not None:
-            srx0, sry0, srx1, sry1 = sub_mask.getbbox()
+            sub_bbox = sub_mask.getbbox()
+            assert sub_bbox is not None  # the subtitle's ink was just pasted
+            srx0, sry0, srx1, sry1 = sub_bbox
             sub_right_pad = sub_pad + round(
                 (sry1 - sry0) * NAME_SUB_RECT_RIGHT_PAD_EXTRA
             )
@@ -1480,6 +1500,9 @@ def _name_layers(
     if title_box is not None:
         rx0, ry0, rx1, ry1 = title_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
+        # rect_top / rect_bottom were derived from title_box above.
+        assert rect_top is not None
+        assert rect_bottom is not None
         top = rect_top
         bottom = rect_bottom
         rect_height = bottom - top
@@ -1491,7 +1514,9 @@ def _name_layers(
         arrow_font = ImageFont.truetype(
             str(FONT_RECT_ARROW), round(rect_height * NAME_RECT_ARROW_SIZE)
         )
-        probe = Image.new("L", (arrow_font.size * 4, arrow_font.size * 4), 0)
+        probe = Image.new(
+            "L", (round(arrow_font.size * 4), round(arrow_font.size * 4)), 0
+        )
         ImageDraw.Draw(probe).text(
             (arrow_font.size * 2, arrow_font.size * 2),
             NAME_RECT_ARROW,
@@ -1605,6 +1630,7 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     canvas.alpha_composite(_tint_layer(parts.title_alpha, NAME_TEXT_COLOR, 1.0))
     # The arrow: flat white, like the title.
     if parts.arrow_box is not None:
+        assert parts.arrow_alpha is not None  # the two are set together
         canvas.alpha_composite(_tint_layer(parts.arrow_alpha, NAME_TEXT_COLOR, 1.0))
     if parts.sub_top is not None:
         canvas.alpha_composite(parts.sub_top)
@@ -1634,7 +1660,8 @@ def _with_copyright(
     )
     ImageDraw.Draw(region).text((-left, -top), COPYRIGHT_TEXT, font=big, fill=255)
     small = region.resize(
-        (round(region.width / ss), round(region.height / ss)), Image.LANCZOS
+        (round(region.width / ss), round(region.height / ss)),
+        Image.Resampling.LANCZOS,
     )
     stamp = Image.new("RGBA", small.size, color)
     stamp.putalpha(small)
@@ -1878,7 +1905,8 @@ def _render_and_finish(
     except OSError as exc:
         raise GenerationError(f"could not run {VIEWER!r}: {exc}") from exc
     assert viewer.stderr is not None
-    drain = _PipeDrain(viewer.stderr)
+    # A Popen pipe is a buffered reader (needed for read1).
+    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
     first_frame: list[Image.Image] = []
     composited = _stream_composited(
         viewer,
@@ -1913,7 +1941,7 @@ def _render_and_finish(
 
 
 def _write_final_card(
-    composited: Iterator[Image.Image],
+    composited: Generator[Image.Image],
     json_path: Path,
     out_base: Path,
     stem: str,
@@ -2012,7 +2040,8 @@ def _first_frame(
     )
     assert viewer.stdout is not None
     assert viewer.stderr is not None
-    drain = _PipeDrain(viewer.stderr)
+    # A Popen pipe is a buffered reader (needed for read1).
+    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
     try:
         data = _read_exact(viewer.stdout, width * height * 4)
     finally:
@@ -2168,8 +2197,9 @@ def _render_profile(
         raise GenerationError(f"could not run {VIEWER!r} (body): {exc}") from exc
     assert face_viewer.stderr is not None
     assert body_viewer.stderr is not None
-    face_drain = _PipeDrain(face_viewer.stderr)
-    body_drain = _PipeDrain(body_viewer.stderr)
+    # A Popen pipe is a buffered reader (needed for read1).
+    face_drain = _PipeDrain(cast("io.BufferedReader", face_viewer.stderr))
+    body_drain = _PipeDrain(cast("io.BufferedReader", body_viewer.stderr))
     first_frame: list[Image.Image] = []
     composited = _stream_dual_composited(
         face_viewer,
@@ -2236,7 +2266,7 @@ def _process_card(
     preset: str = DEFAULT_PRESET,
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
-) -> tuple[Path, bool]:
+) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render, composite and encode a single card definition.
 
     Returns ``(out_path, skipped, timings)``; *skipped* is True when the
@@ -2345,7 +2375,7 @@ def _process_profile_card(
     preset: str = DEFAULT_PRESET,
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
-) -> tuple[Path, bool]:
+) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Profile`` profile card for *json_path*
     (derived from its own definition — every rarity, ``Aim`` and
     ``Cover`` included, renders one, the ``Goddess`` and ``Classified``
@@ -2960,7 +2990,10 @@ def _generate_profiles(
         # Report one finished future. Failures are collected here and reported
         # (the run exits non-zero) once everything has had its turn, so one
         # bad card never aborts the rest.
-        def report(future: Future[tuple[Path, bool]], label: Path) -> None:
+        def report(
+            future: Future[tuple[Path, bool, dict[str, float | None] | None]],
+            label: Path,
+        ) -> None:
             nonlocal done, skipped
             done += 1
             # Every profile output's stem differs from its definition's
@@ -2991,7 +3024,9 @@ def _generate_profiles(
                     flush=True,
                 )
 
-        card_futures: dict[Future[tuple[Path, bool]], Path] = {
+        card_futures: dict[
+            Future[tuple[Path, bool, dict[str, float | None] | None]], Path
+        ] = {
             pool.submit(
                 _process_profile_card,
                 path,
@@ -3157,7 +3192,15 @@ def _generate_variants(
         # Report one finished future. Failures are collected here and
         # reported (the run exits non-zero) once everything has had its
         # turn, so one bad card never aborts the rest.
-        def report(future: Future[tuple[Path, bool]], label: Path) -> None:
+        # The cards' futures carry a timings dict (the third element); the
+        # material/item/box futures carry only (out_path, skipped).
+        def report(
+            future: (
+                Future[tuple[Path, bool]]
+                | Future[tuple[Path, bool, dict[str, float | None] | None]]
+            ),
+            label: Path,
+        ) -> None:
             nonlocal done, skipped
             done += 1
             try:
@@ -3197,7 +3240,9 @@ def _generate_variants(
         def box_item_label(pack_dir: Path) -> Path:
             return pack_dir.relative_to(CARDS_DIR) / BOX_ITEM_NAME
 
-        card_futures: dict[Future[tuple[Path, bool]], Path] = {
+        card_futures: dict[
+            Future[tuple[Path, bool, dict[str, float | None] | None]], Path
+        ] = {
             pool.submit(
                 _process_card,
                 path,

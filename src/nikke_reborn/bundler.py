@@ -30,6 +30,7 @@ import sys
 import UnityPy
 from PIL import Image
 from UnityPy.enums import TextureFormat
+from UnityPy.files.BundleFile import BundleFile
 from UnityPy.files.ObjectReader import ObjectReader
 from UnityPy.files.SerializedFile import SerializedFile
 
@@ -200,8 +201,14 @@ class Bundle:
 
     def __init__(self, name: str):
         self._env = UnityPy.load(SEED.read_bytes())
+        # The seed is a Unity-built AssetBundle, so its top-level file is a
+        # BundleFile (not a bare SerializedFile or raw reader).
+        bundle_file = self._env.file
+        assert isinstance(bundle_file, BundleFile)
+        self._bundle_file = bundle_file
         self._sf: SerializedFile = next(
-            f for f in self._env.file.files.values() if isinstance(f, SerializedFile)
+            f for f in self._bundle_file.files.values()
+            if isinstance(f, SerializedFile)
         )
         self._protos = self._extract_prototypes()
         self._manifest = self._find(lambda o: o.type.name == "AssetBundle")
@@ -227,7 +234,7 @@ class Bundle:
         #    whose name it already holds (only the first of ours would load at runtime).
         # blake2b is just a stable Unity-style identifier here, not a security hash.
         cab = "CAB-" + hashlib.blake2b(name.encode(), digest_size=16).hexdigest()
-        self._env.file.files = {cab: self._sf}
+        self._bundle_file.files = {cab: self._sf}
 
         self._name = name
         self._container: list[tuple[str, ObjectReader, list[ObjectReader]]] = []
@@ -499,6 +506,10 @@ class Bundle:
                 PPtr(m_FileID=0, m_PathID=o.path_id, assetsfile=self._sf)
                 for o in preload
             )
+            # attrs generates AssetInfo.__init__ at runtime, so the checker
+            # can't see its signature; the kwargs match the class's fields
+            # (UnityPy.classes.AssetInfo: asset, preloadIndex, preloadSize).
+            # ty: ignore[unknown-argument]
             info = AssetInfo(
                 preloadIndex=index,
                 preloadSize=len(preload),
@@ -512,7 +523,7 @@ class Bundle:
         self._sf.mark_changed()
 
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_bytes(self._env.file.save(packer="lz4"))
+        output.write_bytes(self._bundle_file.save(packer="lz4"))
 
 
 def progress(items: list, label: str):

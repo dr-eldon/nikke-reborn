@@ -45,10 +45,12 @@ from __future__ import annotations
 
 import colorsys
 import hashlib
+import io
 import json
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import nikke_reborn as nr
 from PIL import Image, ImageChops, ImageFilter
@@ -366,7 +368,10 @@ def _render_first_frame(json_path: Path) -> Image.Image:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    drain = nr._PipeDrain(viewer.stderr)
+    assert viewer.stdout is not None
+    assert viewer.stderr is not None
+    # A Popen pipe is a buffered reader (needed for read1).
+    drain = nr._PipeDrain(cast("io.BufferedReader", viewer.stderr))
     try:
         data = nr._read_exact(viewer.stdout, frame_bytes)
         if len(data) != frame_bytes:
@@ -412,7 +417,13 @@ def _paste_body(
 def _image_average(image: Image.Image) -> tuple[int, int, int]:
     """The area-averaged RGB of *image* (a single box-filtered pixel) — the
     image's representative color, cheap to compute at any size."""
-    return image.convert("RGB").resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+    pixel = (
+        image.convert("RGB")
+        .resize((1, 1), Image.Resampling.BOX)
+        .getpixel((0, 0))
+    )
+    assert isinstance(pixel, tuple)
+    return (pixel[0], pixel[1], pixel[2])
 
 
 def _background_glow_color(
