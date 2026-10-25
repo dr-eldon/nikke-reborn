@@ -127,19 +127,23 @@ NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 
 # --- the Common presentation --------------------------------------------
 # The ``Common`` card is derived from a card's ``Clean`` definition (there is
-# no ``Common.json`` on disk): the background is diluted with its own dominant
-# tint, the card mask is composited on top, and the character is rendered with
-# the viewer's ``--full-body`` flag (the full body, ignoring the Clean
-# definition's pan/zoom). The name, subtitle and logo overlays are applied as
-# usual, like the other rarities. Everything is composited in memory — no
-# intermediate frame touches the disk; only the finished card is written
-# (atomically).
+# no ``Common.json`` on disk): the face framing (the viewer's ``--face`` at
+# :data:`COMMON_FACE_ZOOM`) animates under the background's dominant tint and
+# the full body (the viewer's ``--full-body`` flag, ignoring the Clean
+# definition's pan/zoom) animates over the card mask — the two framings are
+# streamed in lockstep from the same definition. The name, subtitle and logo
+# overlays are applied as usual, like the other rarities. Everything is
+# composited in memory — no intermediate frame touches the disk; only the
+# finished card is written (atomically).
 #: The ``Common`` card's mask (composited over the diluted background, under
 #: the character), next to its GIMP source.
 COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
 #: Opacity of the dominant-tint layer laid over the background: 0.8 dilutes
 #: the background toward a flat wash of its own main color.
 COMMON_TINT_OPACITY = 0.8
+#: The ``--face`` zoom that renders the face framing composited onto the
+#: ``Common`` card's background (under the tint, ahead of the full body).
+COMMON_FACE_ZOOM = 3.0
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -768,6 +772,128 @@ def _stream_composited(
         _reap_viewer(viewer, drain, clean_exit_expected=eof)
 
 
+def _stream_dual_composited(
+    face_viewer: subprocess.Popen,
+    face_drain: _PipeDrain,
+    body_viewer: subprocess.Popen,
+    body_drain: _PipeDrain,
+    json_path: Path,
+    size: tuple[int, int],
+    background: Image.Image,
+    tint: Image.Image,
+    mask: Image.Image,
+    overlay: Image.Image,
+    overlay_pos: tuple[int, int],
+    parts: _NameLayers | None,
+    composite_workers: int,
+    first_frame: list[Image.Image],
+    composite_time: list[float],
+    stream_end: list[float],
+) -> Iterator[Image.Image]:
+    """Composite the two synchronized viewer streams and yield the frames in
+    presentation order — the ``Common`` card, where the ``--face`` framing
+    animates under the tint and the ``--full-body`` framing animates over the
+    mask.
+
+    Both streams come from the same definition at the same framerate, so frame
+    *i* of the face stream pairs with frame *i* of the body stream and they
+    are read in lockstep. Per frame the face is composited onto *background*,
+    the dominant *tint* and *mask* are applied, the body frame is composited
+    over the result, then the *overlay* and the name stack (if any), in a
+    sliding window of *composite_workers* threads — as in
+    :func:`_stream_composited` — and yielded in order. The first composited
+    frame is appended to *first_frame*. When both streams reach end-of-file (or
+    the consumer stops) the two viewers are reaped and a non-zero exit
+    surfaced; *composite_time* and *stream_end* accumulate the composite wall
+    seconds and the moment the streams reach EOF.
+    """
+    width, height = size
+    frame_bytes = width * height * 4
+    assert face_viewer.stdout is not None
+    assert body_viewer.stdout is not None
+    face_stdout = face_viewer.stdout
+    body_stdout = body_viewer.stdout
+
+    def composite(face_data: bytes, body_data: bytes) -> Image.Image:
+        started = time.perf_counter()
+        art = background.copy()
+        art.alpha_composite(Image.frombytes("RGBA", (width, height), face_data))
+        art.alpha_composite(tint)
+        art.alpha_composite(mask)
+        art.alpha_composite(Image.frombytes("RGBA", (width, height), body_data))
+        art.alpha_composite(overlay, overlay_pos)
+        result = _apply_name(art, parts) if parts is not None else art
+        with time_lock:
+            composite_time[0] += time.perf_counter() - started
+        return result
+
+    time_lock = threading.Lock()
+    workers = max(1, composite_workers)
+    face_eof = False
+    body_eof = False
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            pending: deque[Future[Image.Image]] = deque()
+            yielded = 0
+
+            def submit_next() -> None:
+                nonlocal face_eof, body_eof
+                if face_eof or body_eof:
+                    return
+                face_data = _read_exact(face_stdout, frame_bytes)
+                if not face_data:
+                    face_eof = True  # end of the face stream
+                    stream_end[0] = time.perf_counter()
+                    return
+                if len(face_data) != frame_bytes:
+                    raise GenerationError(
+                        f"{VIEWER} face stream for {json_path.name} truncated: "
+                        f"{len(face_data)} of {frame_bytes} bytes"
+                    )
+                body_data = _read_exact(body_stdout, frame_bytes)
+                if not body_data:
+                    body_eof = True  # end of the body stream
+                    stream_end[0] = time.perf_counter()
+                    return
+                if len(body_data) != frame_bytes:
+                    raise GenerationError(
+                        f"{VIEWER} body stream for {json_path.name} truncated: "
+                        f"{len(body_data)} of {frame_bytes} bytes"
+                    )
+                pending.append(pool.submit(composite, face_data, body_data))
+
+            # Prime the window.
+            for _ in range(workers):
+                submit_next()
+
+            while pending:
+                future = pending.popleft()
+                try:
+                    frame = future.result()
+                except Exception:
+                    for pending_future in pending:
+                        pending_future.cancel()
+                    raise
+                if yielded == 0:
+                    # Keep the first composited frame: for animations it is
+                    # written alongside the mp4, for a static card it is the
+                    # card itself.
+                    first_frame.append(frame)
+                yielded += 1
+                # Keep the window full (read ahead) before handing off.
+                submit_next()
+                yield frame
+
+        if yielded == 0:
+            raise GenerationError(f"{VIEWER} produced no frames for {json_path.name}")
+    finally:
+        # A stream is "clean" only if it was read to end-of-file; one that was
+        # abandoned early (the consumer stopped or an error aborted the window)
+        # may be blocked writing to a full pipe and is killed instead.
+        _reap_viewer(face_viewer, face_drain, clean_exit_expected=face_eof)
+        _reap_viewer(body_viewer, body_drain, clean_exit_expected=body_eof)
+
+
 def _fit_background(background: Image.Image, size: tuple[int, int]) -> Image.Image:
     """Fit *background* to *size* (cover) and center-crop it."""
     width, height = size
@@ -790,24 +916,28 @@ def _dominant_color(image: Image.Image) -> tuple[int, int, int]:
     return tuple(round(channel) for channel in ImageStat.Stat(small).mean)
 
 
-def _common_base(background: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """The ``Common`` card's base, composed in memory: the (fitted)
-    *background* diluted with its own dominant tint (at
-    :data:`COMMON_TINT_OPACITY`), with the ``Common`` card mask
-    (:data:`COMMON_MASK_PATH`) composited on top. Nothing touches the disk."""
+def _common_layers(
+    background: Image.Image, size: tuple[int, int]
+) -> tuple[Image.Image, Image.Image, Image.Image]:
+    """The ``Common`` card's static layers, composed in memory: the (fitted)
+    *background*, the dominant-tint layer (at :data:`COMMON_TINT_OPACITY`,
+    sampled from the background), and the ``Common`` card mask
+    (:data:`COMMON_MASK_PATH`). The (animated) face framing is composited
+    between the background and the tint, per frame, by
+    :func:`_stream_dual_composited`. Nothing touches the disk."""
     base = _fit_background(background, size)
+    # The translucent wash is the background's own color, sampled before the
+    # face is laid down (as it always was).
     tint = Image.new(
         "RGBA",
         base.size,
         (*_dominant_color(base), round(COMMON_TINT_OPACITY * 255)),
     )
-    base = Image.alpha_composite(base, tint)
     with Image.open(COMMON_MASK_PATH) as opened:
         mask = opened.convert("RGBA")
     if mask.size != base.size:
         mask = mask.resize(base.size, Image.Resampling.LANCZOS)
-    base.alpha_composite(mask)
-    return base
+    return base, tint, mask
 
 
 def _scale_logo(logo: Image.Image, card_width: int) -> Image.Image:
@@ -1398,13 +1528,8 @@ def _render_and_finish(
     at any stage surfaces as a :class:`GenerationError` so the caller can
     re-render the card from scratch.
 
-    Returns the finished card's path and the stage timings in seconds —
-    ``render`` (spawn until the frame stream is fully delivered),
-    ``composite`` (the Pillow work summed across the worker threads) and
-    ``encode`` (the ffmpeg wall time for animations, the PNG write for
-    static cards). The stages overlap — the encode consumes frames while
-    the viewer still renders and the compositing runs in its own threads —
-    so the numbers are per-stage costs, not a sequential partition. A raw
+    Returns the finished card's path and the stage timings in seconds (see
+    :func:`_write_final_card`, which performs the write and the reap). A raw
     frame is far larger than the pipe buffer, so the viewer blocks on
     write until the reader drains: under load ``render`` therefore
     reflects the slowest downstream stage (usually the encode) as much as
@@ -1426,7 +1551,6 @@ def _render_and_finish(
     )
     parts = _name_layers(size, name, subtitle, padding) if (name or subtitle) else None
     composite_time: list[float] = [0.0]
-    encode_time: float | None = None
     stream_end: list[float] = [0.0]
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
@@ -1463,10 +1587,57 @@ def _render_and_finish(
         composite_time,
         stream_end,
     )
-
-    out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", stem
+    return _write_final_card(
+        composited,
+        json_path,
+        out_base,
+        stem,
+        animated,
+        size,
+        framerate,
+        ffmpeg_threads,
+        preset,
+        scale,
+        source_hash,
+        first_frame,
+        composite_time,
+        stream_end,
+        render_started,
     )
+
+
+def _write_final_card(
+    composited: Iterator[Image.Image],
+    json_path: Path,
+    out_base: Path,
+    stem: str,
+    animated: bool,
+    size: tuple[int, int],
+    framerate: int,
+    ffmpeg_threads: int,
+    preset: str,
+    scale: float,
+    source_hash: str,
+    first_frame: list[Image.Image],
+    composite_time: list[float],
+    stream_end: list[float],
+    render_started: float,
+) -> tuple[Path, dict[str, float | None]]:
+    """Write a composited frame stream to the final card.
+
+    An animation is encoded to an MP4 alongside its first frame (the same
+    composited frame, so it matches the mp4's opening frame exactly); a
+    fixed-time card is written as a single PNG. *composited* is closed (so the
+    viewer stream(s) are reaped) and the stage timings (in seconds) are
+    returned: ``render`` (spawn until the frame stream is fully delivered),
+    ``composite`` (the Pillow work summed across the worker threads) and
+    ``encode`` (the ffmpeg wall time for animations, the PNG write for static
+    cards). The stages overlap — the encode consumes frames while the viewer
+    still renders and the compositing runs in its own threads — so the numbers
+    are per-stage costs, not a sequential partition.
+    """
+    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
+    encode_time: float | None = None
     try:
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
@@ -1491,9 +1662,6 @@ def _render_and_finish(
                 tmp_path.unlink(missing_ok=True)
                 raise
             tmp_path.replace(out_path)
-            # The animation's first frame, alongside the mp4 (the same
-            # composited frame, so it matches the mp4's opening frame
-            # exactly).
             _save_atomic(
                 first_frame[0].convert("RGB"),
                 _card_out_path(out_base, json_path, "png", stem),
@@ -1510,18 +1678,126 @@ def _render_and_finish(
             _save_atomic(frame.convert("RGB"), out_path, source_hash)
             encode_time = time.perf_counter() - encode_started
     finally:
-        # Stop consuming and make sure the viewer is reaped (its ``finally``
-        # runs, waiting on / killing the process and checking its exit).
+        # Stop consuming and make sure the viewer stream is reaped (the
+        # compositor's ``finally`` runs, reaping the viewer(s) and checking
+        # their exit).
         composited.close()
     # Measured to stream EOF (not to the reap, which happens after the
     # encode and the save), so the number covers the frame delivery only.
     render_seconds = (stream_end[0] or time.perf_counter()) - render_started
-
     return out_path, {
         "render": render_seconds,
         "composite": composite_time[0],
         "encode": encode_time,
     }
+
+
+def _render_common(
+    json_path: Path,
+    size: tuple[int, int],
+    animated: bool,
+    background: Image.Image,
+    tint: Image.Image,
+    mask: Image.Image,
+    logo: Image.Image,
+    margin: int,
+    padding: int,
+    copyright_color: tuple[int, int, int, int],
+    name: str,
+    subtitle: str,
+    framerate: int,
+    ffmpeg_threads: int,
+    composite_workers: int,
+    preset: str,
+    scale: float,
+    out_base: Path,
+    source_hash: str,
+    face_zoom: float,
+) -> tuple[Path, dict[str, float | None]]:
+    """Render the ``Common`` card (a presentation of *json_path*, a ``Clean``
+    definition): the ``--face <face_zoom>`` framing animates under the tint
+    and the ``--full-body`` framing animates over the mask, both streamed from
+    the same definition so the two stay in lockstep. The name, subtitle and
+    logo overlays are applied as usual, like the other rarities.
+
+    Like :func:`_render_and_finish`, nothing intermediate touches the disk —
+    the two raw RGBA streams are piped straight into the in-memory
+    compositing and (for animations) the ffmpeg encode; only the finished
+    card is written (atomically, as ``<card>_Common.<suffix>``). Returns the
+    finished card's path and the stage timings (see
+    :func:`_write_final_card`).
+    """
+    stem = "Common"
+    # The logo and copyright line sit on top of the art: pre-stamp them onto
+    # a transparent layer and let the compositor apply it to each frame.
+    overlay, overlay_pos = _logo_copyright_overlay(
+        size, logo, margin, padding, copyright_color
+    )
+    parts = _name_layers(size, name, subtitle, padding) if (name or subtitle) else None
+    composite_time: list[float] = [0.0]
+    stream_end: list[float] = [0.0]
+
+    # Spawn the two viewers streaming raw RGBA frames to stdout (no
+    # intermediate files): the face framing (under the tint) and the full
+    # body (over the mask). stderr is drained in a thread so it never blocks
+    # a viewer.
+    render_started = time.perf_counter()
+    face_args = [VIEWER, "--face", str(face_zoom), "--stdout", str(json_path)]
+    body_args = [VIEWER, "--full-body", "--stdout", str(json_path)]
+    try:
+        face_viewer = subprocess.Popen(
+            face_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    except OSError as exc:
+        raise GenerationError(f"could not run {VIEWER!r} (face): {exc}") from exc
+    try:
+        body_viewer = subprocess.Popen(
+            body_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    except OSError as exc:
+        face_viewer.kill()
+        face_viewer.wait()
+        raise GenerationError(f"could not run {VIEWER!r} (body): {exc}") from exc
+    assert face_viewer.stderr is not None
+    assert body_viewer.stderr is not None
+    face_drain = _PipeDrain(face_viewer.stderr)
+    body_drain = _PipeDrain(body_viewer.stderr)
+    first_frame: list[Image.Image] = []
+    composited = _stream_dual_composited(
+        face_viewer,
+        face_drain,
+        body_viewer,
+        body_drain,
+        json_path,
+        size,
+        background,
+        tint,
+        mask,
+        overlay,
+        overlay_pos,
+        parts,
+        composite_workers,
+        first_frame,
+        composite_time,
+        stream_end,
+    )
+    return _write_final_card(
+        composited,
+        json_path,
+        out_base,
+        stem,
+        animated,
+        size,
+        framerate,
+        ffmpeg_threads,
+        preset,
+        scale,
+        source_hash,
+        first_frame,
+        composite_time,
+        stream_end,
+        render_started,
+    )
 
 
 def _card_out_path(
@@ -1668,10 +1944,10 @@ def _process_common_card(
     out_base: Path = OUTPUT_DIR,
 ) -> tuple[Path, bool]:
     """Render the ``Common`` card derived from *json_path* (a ``Clean``
-    definition): its background is diluted with its dominant tint, the card
-    mask is composited on top, and the character is rendered with the
-    viewer's ``--full-body`` flag (the full body). The name, subtitle and
-    logo overlays are applied as usual, like the other rarities.
+    definition): the ``--face`` framing animates under the background's
+    dominant tint and the ``--full-body`` framing animates over the card mask
+    (both streamed in lockstep from the same definition). The name, subtitle
+    and logo overlays are applied as usual, like the other rarities.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
@@ -1734,18 +2010,21 @@ def _process_common_card(
         return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # The diluted, masked base is prepared once, ahead of the render (a
-    # failure at any stage re-renders from scratch, up to RENDER_ATTEMPTS
-    # times; the viewer's --full-body flag renders the full body directly,
-    # so nothing intermediate is written to disk in between).
-    base = _common_base(background, size)
+    # The static layers (the fitted background, the dominant tint, the mask)
+    # are prepared once, ahead of the render (a failure at any stage
+    # re-renders from scratch, up to RENDER_ATTEMPTS times; the two viewer
+    # framings stream directly, so nothing intermediate is written to disk in
+    # between).
+    base, tint, mask = _common_layers(background, size)
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
-            finished, timings = _render_and_finish(
+            finished, timings = _render_common(
                 json_path,
                 size,
                 animated,
-                background,
+                base,
+                tint,
+                mask,
                 logo,
                 margin,
                 padding,
@@ -1759,9 +2038,7 @@ def _process_common_card(
                 scale,
                 out_base,
                 source_hash,
-                base=base,
-                stem=stem,
-                full_body=True,
+                COMMON_FACE_ZOOM,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings
