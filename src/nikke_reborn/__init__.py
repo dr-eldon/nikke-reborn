@@ -4,9 +4,10 @@ Walks :mod:`cards` for card definitions (``*.json``), renders each one with
 the ``nikke-viewer`` executable, composites every rendered frame on top of
 the card's ``background``, stamps the matching logo from ``images/`` at
 the bottom right and the copyright line at the bottom left, and overlays
-the card name on top of the art, per frame: the title at the top left
-(metallic vertical gradient, diagonal trail) and the subtitle in the
-top-right corner (italic, with its own trail). The trails and the
+the card name on top of the art, per frame: the title (uppercase, in a
+background-tinted rectangle at three-quarters of the height, with a
+metallic vertical gradient) and the subtitle in the top-right corner
+(italic, with its own trail). The subtitle's trail and the title
 gradient's bottom lean are tinted with the color of the art behind the
 text each frame, so animated cards track the scene. The ``Goddess`` and ``Classified``
 variants are generated without any
@@ -205,6 +206,9 @@ FONT = FONTS_DIR / "Oswald.ttf"
 #: Orbitron face for the card name (vendored variable font, SIL OFL).
 FONT_NAME = FONTS_DIR / "Orbitron.ttf"
 
+#: ChocolateClassicalSans face for the title rectangle's arrow (vendored).
+FONT_RECT_ARROW = FONTS_DIR / "ChocolateClassicalSans-Regular.ttf"
+
 #: Card name placement: the ink's top-left corner sits at the card's padding
 #: from the left edge and NAME_TITLE_Y of the height, left-aligned, with font
 #: size padding * NAME_SIZE_FACTOR and Orbitron weight NAME_WEIGHT (700 =
@@ -263,7 +267,20 @@ NAME_TEXT_COLOR = (255, 255, 255)
 NAME_RECT_LUMA = 0.1
 #: Padding around the title's ink (top/right/bottom of its enclosing
 #: rectangle), as a fraction of the ink's height.
-NAME_RECT_PAD = 0.3
+NAME_RECT_PAD = 0.4
+
+#: The title rectangle's top-right corner is cut off by a 45-degree diagonal
+#: spanning NAME_RECT_CORNER of the rectangle's height (the diagonal is the
+#: diagonal of a square with that side length).
+NAME_RECT_CORNER = 1 / 3
+
+#: The arrow (NAME_RECT_ARROW) sits in the rectangle's right padding, its
+#: ink's bottom-right aligned NAME_RECT_ARROW_MARGIN from the rectangle's
+#: right/bottom edges (each a fraction of the rectangle's height); the font
+#: size is NAME_RECT_ARROW_SIZE of the rectangle's height.
+NAME_RECT_ARROW = "\u2196"
+NAME_RECT_ARROW_SIZE = 0.4
+NAME_RECT_ARROW_MARGIN = 0.12
 
 #: Drop shadow behind the title rectangle: a blurred dark copy, offset by
 #: NAME_RECT_SHADOW_OFFSET (in padding units) to the down-right on both
@@ -275,10 +292,9 @@ NAME_RECT_SHADOW_ALPHA = 0.5
 
 # --- name stack effects -------------------------------------------------
 # The name is stamped over the art, per frame, so its tints track the
-# scene: the trails and the metallic gradient's bottom lean take the
+# scene: the trail and the metallic gradient's bottom lean take the
 # hue of the art behind the text, at a fixed dark luminance.
-NAME_TRAIL_OFFSET = 5  # px: the title's diagonal (down-right) trail
-SUBTITLE_TRAIL_OFFSET = 3  # px: the subtitle's own (shorter) trail
+SUBTITLE_TRAIL_OFFSET = 3  # px: the subtitle's diagonal (down-right) trail
 TRAIL_ALPHA = 0.75
 TRAIL_TARGET_LUMA = 0.12  # the trail reads as a dark shadow tint
 TRAIL_FALLBACK = (0, 0, 0)  # trail color when the sample has no art
@@ -1208,6 +1224,51 @@ def _tint_layer(
     )
 
 
+def _metal_layer(
+    alpha: Image.Image,
+    box: tuple[int, int, int, int],
+    trail_color: tuple[int, int, int],
+    canvas_size: tuple[int, int],
+) -> Image.Image:
+    """A vertical metal gradient spanning *box* and masked by *alpha*: the
+    text color at the ink's top leaning into *trail_color* at the bottom
+    (METAL_TRAIL_MIX), with the bright sheen band."""
+    x0, y0, x1, y1 = box
+    bottom = tuple(
+        round(
+            NAME_TEXT_COLOR[i] + METAL_TRAIL_MIX * (trail_color[i] - NAME_TEXT_COLOR[i])
+        )
+        for i in range(3)
+    )
+    h = y1 - y0 + 1
+    col = Image.new("RGB", (1, h))
+    for y in range(h):
+        t = y / max(1, h - 1)
+        sheen = METAL_SHEEN_DELTA * math.exp(
+            -((t - METAL_SHEEN_Y) ** 2) / (2 * METAL_SHEEN_SIGMA**2)
+        )
+        col.putpixel(
+            (0, y),
+            tuple(
+                min(
+                    255,
+                    round(
+                        NAME_TEXT_COLOR[i]
+                        + (bottom[i] - NAME_TEXT_COLOR[i]) * t
+                        + sheen
+                    ),
+                )
+                for i in range(3)
+            ),
+        )
+    grad = col.resize((x1 - x0 + 1, h), Image.NEAREST)
+    metal = Image.new("RGB", canvas_size, bottom)
+    metal.paste(grad, (x0, y0))
+    layer = metal.convert("RGBA")
+    layer.putalpha(alpha)
+    return layer
+
+
 def _shift_mask(mask: Image.Image, delta: tuple[int, int]) -> Image.Image:
     """*mask* shifted by *delta* (a negative delta drags the ink
     down-right)."""
@@ -1224,21 +1285,23 @@ class _NameLayers:
         self,
         metal_box: tuple[int, int, int, int],
         metal_alpha: Image.Image,
-        trail: Image.Image | None,
         sub_trail: Image.Image | None,
         sub_top: Image.Image | None,
         rect: Image.Image | None,
         shadow: Image.Image | None,
+        arrow_alpha: Image.Image | None,
+        arrow_box: tuple[int, int, int, int] | None,
         sample_box: tuple[int, int, int, int],
         corner_sample_box: tuple[int, int, int, int],
     ) -> None:
         self.metal_box = metal_box
         self.metal_alpha = metal_alpha
-        self.trail = trail
         self.sub_trail = sub_trail
         self.sub_top = sub_top
         self.rect = rect
         self.shadow = shadow
+        self.arrow_alpha = arrow_alpha
+        self.arrow_box = arrow_box
         self.sample_box = sample_box
         self.corner_sample_box = corner_sample_box
 
@@ -1308,22 +1371,15 @@ def _name_layers(
         px, py = size[0] - padding - bbox[2], padding - bbox[1]
         sub_mask = Image.new("L", size, 0)
         sub_mask.paste(255, (px, py, px + small.width, py + small.height), small)
-        # The subtitle's own, shorter trail (same diagonal union as
-        # the title's).
+        # The subtitle's own (shorter) trail: the union of the text shifted
+        # one step at a time along the diagonal, so every trail pixel touches
+        # glyph ink (reads as 3D depth off the edges).
         sub_trail = Image.new("L", size, 0)
         for t in range(1, SUBTITLE_TRAIL_OFFSET + 1):
             sub_trail.paste(
                 255, (0, 0, size[0], size[1]), _shift_mask(sub_mask, (t, t))
             )
         sub_top = _tint_layer(sub_mask, NAME_TEXT_COLOR, 1.0)
-
-    # Title trail: extruded depth — the union of the text shifted one
-    # step at a time along the diagonal, so every trail pixel touches
-    # glyph ink (reads as 3D depth off the edges, not a detached
-    # projection).
-    trail = Image.new("L", size, 0)
-    for t in range(1, NAME_TRAIL_OFFSET + 1):
-        trail.paste(255, (0, 0, size[0], size[1]), _shift_mask(title_mask, (t, t)))
 
     # Title core: a vertical metal gradient whose bottom leans into
     # the per-frame trail tint — the RGB is built per frame in
@@ -1334,15 +1390,54 @@ def _name_layers(
     # The title's enclosing rectangle: a flat rect_color fill (the
     # background's dominant hue at NAME_RECT_LUMA) starting at the card's
     # left edge and extending past the ink by NAME_RECT_PAD of the ink's
-    # height on the top/right/bottom (None when there is no title).
+    # height on the top/bottom, and by NAME_RECT_PAD + the arrow's width +
+    # padding / 2 on the right; its top-right corner is cut off by a
+    # 45-degree diagonal (None when there is no title).
     rect = None
     shadow = None
+    arrow_alpha = None
+    arrow_box = None
     if metal_box is not None:
         rx0, ry0, rx1, ry1 = metal_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
+        top = ry0 - pad
+        bottom = ry1 + pad
+        rect_height = bottom - top
+        # The arrow's ink (NAME_RECT_ARROW in the rectangle's right padding),
+        # measured before the rectangle so the right edge can account for its
+        # width. A roomy probe (the glyph's ink can spill well past the font
+        # size, e.g. a descender), with the glyph centered, so the ink is not
+        # clipped.
+        arrow_font = ImageFont.truetype(
+            str(FONT_RECT_ARROW), round(rect_height * NAME_RECT_ARROW_SIZE)
+        )
+        probe = Image.new("L", (arrow_font.size * 4, arrow_font.size * 4), 0)
+        ImageDraw.Draw(probe).text(
+            (arrow_font.size * 2, arrow_font.size * 2),
+            NAME_RECT_ARROW,
+            font=arrow_font,
+            fill=255,
+        )
+        ink_box = probe.getbbox()
+        ink = probe.crop(ink_box) if ink_box is not None else None
+        # The right edge is pad + the arrow's width + padding / 2 past the
+        # title's ink.
+        right = rx1 + pad + (ink.width if ink is not None else 0) + round(
+            padding / 2
+        )
+        # The corner cut: NAME_RECT_CORNER of the rectangle's height, so the
+        # diagonal is the diagonal of a square with that side length.
+        cut = round(rect_height * NAME_RECT_CORNER)
         rect = Image.new("RGBA", size, (0, 0, 0, 0))
-        ImageDraw.Draw(rect).rectangle(
-            (0, ry0 - pad, rx1 + pad, ry1 + pad), fill=(*rect_color, 255)
+        ImageDraw.Draw(rect).polygon(
+            [
+                (0, top),
+                (right - cut, top),
+                (right, top + cut),
+                (right, bottom),
+                (0, bottom),
+            ],
+            fill=(*rect_color, 255),
         )
         # The drop shadow: a blurred dark copy of the rectangle, offset by
         # NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
@@ -1357,6 +1452,17 @@ def _name_layers(
         mask = mask.point(lambda v: round(v * NAME_RECT_SHADOW_ALPHA))
         shadow = Image.new("RGBA", size, (0, 0, 0, 0))
         shadow.putalpha(mask)
+        if ink is not None:
+            # The arrow: its ink's bottom-right aligned NAME_RECT_ARROW_MARGIN
+            # from the rectangle's right/bottom edges.
+            margin = round(rect_height * NAME_RECT_ARROW_MARGIN)
+            # The arrow's alpha (a mask; the metal gradient is applied
+            # per-frame in _apply_name, like the title).
+            arrow_alpha = Image.new("L", size, 0)
+            arrow_alpha.paste(
+                ink, (right - margin - ink.width, bottom - margin - ink.height)
+            )
+            arrow_box = arrow_alpha.getbbox()
 
     # Sample the art behind the name: the corner boxes the text sits
     # inside (at the title's NAME_TITLE_Y position for the title, the
@@ -1376,11 +1482,12 @@ def _name_layers(
     return _NameLayers(
         metal_box,
         metal_alpha,
-        trail,
         sub_trail,
         sub_top,
         rect,
         shadow,
+        arrow_alpha,
+        arrow_box,
         box,
         corner_box,
     )
@@ -1390,10 +1497,10 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     """Stamp the name stack onto *art* (the frame composited over the
     base) and return the result.
 
-    Per frame: the trail tint is sampled from the art behind the
-    title, the corner subtitle's from the art behind it, and the
-    metallic gradient's bottom leans into the title's tint — so the
-    name tracks the scene of animated cards.
+    Per frame: the title tint is sampled from the art behind the title
+    (driving the metallic gradient's bottom lean) and the corner
+    subtitle's trail tint from the art behind it — so the name tracks
+    the scene of animated cards.
     """
     canvas = art
     if parts.shadow is not None:
@@ -1401,49 +1508,19 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     if parts.rect is not None:
         canvas.alpha_composite(parts.rect)
     trail_color = _trail_color(art.crop(parts.sample_box))
-    if parts.trail is not None:
-        canvas.alpha_composite(_tint_layer(parts.trail, trail_color, TRAIL_ALPHA))
     if parts.sub_trail is not None:
         corner_color = _trail_color(art.crop(parts.corner_sample_box))
         canvas.alpha_composite(_tint_layer(parts.sub_trail, corner_color, TRAIL_ALPHA))
 
-    # Title core: a vertical metal gradient — the text color at the
-    # ink's top leaning into this frame's trail tint at the bottom
-    # (METAL_TRAIL_MIX), with the bright sheen band.
-    x0, y0, x1, y1 = parts.metal_box
-    bottom = tuple(
-        round(
-            NAME_TEXT_COLOR[i] + METAL_TRAIL_MIX * (trail_color[i] - NAME_TEXT_COLOR[i])
-        )
-        for i in range(3)
+    # Title core: a vertical metal gradient (see _metal_layer).
+    canvas.alpha_composite(
+        _metal_layer(parts.metal_alpha, parts.metal_box, trail_color, canvas.size)
     )
-    h = y1 - y0 + 1
-    col = Image.new("RGB", (1, h))
-    for y in range(h):
-        t = y / max(1, h - 1)
-        sheen = METAL_SHEEN_DELTA * math.exp(
-            -((t - METAL_SHEEN_Y) ** 2) / (2 * METAL_SHEEN_SIGMA**2)
+    # The arrow shares the title's metal gradient (over its own box).
+    if parts.arrow_box is not None:
+        canvas.alpha_composite(
+            _metal_layer(parts.arrow_alpha, parts.arrow_box, trail_color, canvas.size)
         )
-        col.putpixel(
-            (0, y),
-            tuple(
-                min(
-                    255,
-                    round(
-                        NAME_TEXT_COLOR[i]
-                        + (bottom[i] - NAME_TEXT_COLOR[i]) * t
-                        + sheen
-                    ),
-                )
-                for i in range(3)
-            ),
-        )
-    grad = col.resize((x1 - x0 + 1, h), Image.NEAREST)
-    metal = Image.new("RGB", canvas.size, bottom)
-    metal.paste(grad, (x0, y0))
-    layer = metal.convert("RGBA")
-    layer.putalpha(parts.metal_alpha)
-    canvas.alpha_composite(layer)
     if parts.sub_top is not None:
         canvas.alpha_composite(parts.sub_top)
     return canvas
