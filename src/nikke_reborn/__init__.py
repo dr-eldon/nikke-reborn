@@ -284,7 +284,10 @@ NAME_RECT_ARROW_MARGIN = 0.12
 #: Drop shadow behind the title rectangle: a blurred dark copy, offset by
 #: NAME_RECT_SHADOW_OFFSET (in padding units) to the down-right on both
 #: axes, blurred by NAME_RECT_SHADOW_RADIUS (in padding units), at
-#: NAME_RECT_SHADOW_ALPHA opacity (0..1).
+#: NAME_RECT_SHADOW_ALPHA opacity (0..1). The rectangle's left edge is the
+#: card's left edge, so the shadow is cast as if the rectangle extended
+#: outwards beyond it (the shadow's bottom strip reaches the image's left
+#: edge instead of fading out short of it).
 NAME_RECT_SHADOW_OFFSET = 0.1
 NAME_RECT_SHADOW_RADIUS = 0.1
 NAME_RECT_SHADOW_ALPHA = 0.3
@@ -1387,11 +1390,21 @@ def _name_layers(
         # NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
         # (NAME_RECT_SHADOW_RADIUS * padding), at NAME_RECT_SHADOW_ALPHA.
         # Built from the rect's own alpha so it exactly tracks the
-        # rectangle's shape.
+        # rectangle's shape. The rectangle starts at the card's left edge,
+        # so the shadow is cast as if the rectangle extended outwards
+        # beyond it: the union of the (offset, offset) copy and the copy
+        # shifted straight down keeps the shadow's left edge at the
+        # card's own left edge (a lone offset copy pulls it offset pixels
+        # in, and the shadow's bottom-left corner would fade out before
+        # reaching the image's left edge).
         radius = max(1, round(padding * NAME_RECT_SHADOW_RADIUS))
         offset = round(padding * NAME_RECT_SHADOW_OFFSET)
-        mask = Image.new("L", size, 0)
-        mask.paste(rect.split()[3], (offset, offset))
+        alpha = rect.split()[3]
+        edge = Image.new("L", size, 0)
+        edge.paste(alpha, (0, offset))
+        displaced = Image.new("L", size, 0)
+        displaced.paste(alpha, (offset, offset))
+        mask = ImageChops.lighter(edge, displaced)
         mask = mask.filter(ImageFilter.GaussianBlur(radius))
         mask = mask.point(lambda v: round(v * NAME_RECT_SHADOW_ALPHA))
         shadow = Image.new("RGBA", size, (0, 0, 0, 0))
