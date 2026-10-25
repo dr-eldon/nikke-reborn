@@ -5,12 +5,10 @@ the ``nikke-viewer`` executable, composites every rendered frame on top of
 the card's ``background``, stamps the matching logo from ``images/`` at
 the bottom right and the copyright line at the bottom left, and overlays
 the card name on top of the art, per frame: the title (uppercase, in a
-background-tinted rectangle at three-quarters of the height) and the
-subtitle in the top-right corner (italic, with its own trail). The
-subtitle's trail is tinted with the color of the art behind the text
-each frame, so animated cards track the scene. The ``Goddess`` and ``Classified``
-variants are generated without any
-card name. Packs (``cards/`` subdirectories carrying an
+dark rectangle at three-quarters of the height) and the subtitle above
+the title (uppercase, in a background-tinted rectangle). The
+``Goddess`` and ``Classified`` variants are generated without any card
+name. Packs (``cards/`` subdirectories carrying an
 ``Expansion.json``) additionally get their two artwork images, built from
 the templates in ``images/``. The pack's front and back are composed on the
 fly (by :mod:`nikke_reborn.pack`) from the expansion's metadata — the front
@@ -233,40 +231,35 @@ NAME_MIN_SIZE_FACTOR = 0.6
 #: Subtitle sizing: the font is padding * SUBTITLE_SIZE_FACTOR (short
 #: subtitles), shrinking linearly to padding * SUBTITLE_MIN_SIZE_FACTOR
 #: between SUBTITLE_FULL_LENGTH and SUBTITLE_FLOOR_LENGTH characters.
-SUBTITLE_SIZE_FACTOR = 0.60
+SUBTITLE_SIZE_FACTOR = 0.70
 SUBTITLE_MIN_SIZE_FACTOR = 0.40
 SUBTITLE_FULL_LENGTH = 18
 SUBTITLE_FLOOR_LENGTH = 30
 
-#: Slant of the synthetic italic (subtitle) in horizontal px per
-#: vertical px: the name font has no italic face, so the subtitle is
-#: sheared into an oblique (see SUBTITLE_SUPERSAMPLE).
-SUBTITLE_SHEAR = 0.2
-
-#: Gap between the title's ink bottom and the subtitle's ink top, as a
-#: fraction of the subtitle's font size.
-SUBTITLE_GAP_FACTOR = 0.5
-
-#: Supersampling factor for the italic subtitle: the text is rasterized
-#: at SUBTITLE_SUPERSAMPLE times its size, sheared, and downscaled, so
-#: the slanted edges stay anti-aliased without softening (a 1x shear
-#: blurs every edge by 1-2 px). Shearing the font's outlines instead is
-#: no good: FreeType's autohinter applies "slant correction" to slanted
-#: stems, which shifts them off their true positions and opens up gaps
-#: between letters.
-SUBTITLE_SUPERSAMPLE = 4
-
 #: Base color of the name text (title and subtitle).
 NAME_TEXT_COLOR = (255, 255, 255)
 
-#: Luminance (0..1) of the title's enclosing rectangle's fill: the fill takes
-#: the background's dominant hue at this dark level; the rectangle's left
-#: edge is the card's left edge and the ink sits inside with NAME_RECT_PAD of
-#: room on the other three sides.
-NAME_RECT_LUMA = 0.1
+#: Fill of the title's enclosing rectangle: a flat dark gray. The
+#: rectangle's left edge is the card's left edge and the ink sits inside
+#: with NAME_RECT_PAD of room on the other three sides.
+NAME_RECT_COLOR = (0x22, 0x22, 0x22)
+#: Luminance (0..1) of the subtitle's enclosing rectangle's fill: the fill
+#: takes the background's dominant hue at this dark level, so the
+#: subtitle's panel picks up the scene's tint where the title's is a flat
+#: NAME_RECT_COLOR.
+NAME_RECT_LUMA = 0.2
 #: Padding around the title's ink (top/right/bottom of its enclosing
 #: rectangle), as a fraction of the ink's height.
 NAME_RECT_PAD = 0.4
+#: Padding around the subtitle's ink (top/bottom, and the right before
+#: NAME_SUB_RECT_RIGHT_PAD_EXTRA), as a fraction of the ink's height:
+#: roomier than the title's NAME_RECT_PAD, so the smaller bar does not
+#: hug the text.
+NAME_SUB_RECT_PAD = 0.75
+#: Extra right-side room in the subtitle's enclosing rectangle, on top of
+#: NAME_SUB_RECT_PAD (as a fraction of the subtitle ink's height): the
+#: text's right edge gets a wider margin than the top/bottom.
+NAME_SUB_RECT_RIGHT_PAD_EXTRA = 1.0
 
 #: The title rectangle's top-right corner is cut off by a 45-degree diagonal
 #: spanning NAME_RECT_CORNER of the rectangle's height (the diagonal is the
@@ -281,7 +274,8 @@ NAME_RECT_ARROW = "\u2196"
 NAME_RECT_ARROW_SIZE = 0.4
 NAME_RECT_ARROW_MARGIN = 0.12
 
-#: Drop shadow behind the title rectangle: a blurred dark copy, offset by
+#: Drop shadow behind the title's and the subtitle's rectangles: a blurred
+#: dark copy, offset by
 #: NAME_RECT_SHADOW_OFFSET (in padding units) to the down-right on both
 #: axes, blurred by NAME_RECT_SHADOW_RADIUS (in padding units), at
 #: NAME_RECT_SHADOW_ALPHA opacity (0..1). The rectangle's left edge is the
@@ -293,15 +287,8 @@ NAME_RECT_SHADOW_RADIUS = 0.1
 NAME_RECT_SHADOW_ALPHA = 0.3
 
 # --- name stack effects -------------------------------------------------
-# The name is stamped over the art, per frame, so its tints track the
-# scene: the subtitle's trail takes the hue of the art behind the text,
-# at a fixed dark luminance.
-SUBTITLE_TRAIL_OFFSET = 3  # px: the subtitle's diagonal (down-right) trail
-TRAIL_ALPHA = 0.75
-TRAIL_TARGET_LUMA = 0.12  # the trail reads as a dark shadow tint
-TRAIL_FALLBACK = (0, 0, 0)  # trail color when the sample has no art
-NAME_SAMPLE_W = 6  # context sample box, in padding units
-NAME_SAMPLE_H = 5
+# Context sampling for the subtitle rectangle's tint (the background's
+# dominant hue at NAME_RECT_LUMA, via _sample_context).
 NAME_SAMPLE_PX = 24  # sample resolution
 CONTEXT_FALLBACK = (170, 235, 255)  # hue/sat source for (near)-gray art
 CONTEXT_MIN_QUALIFY = 0.25  # min fraction of sample pixels that are colored
@@ -1116,18 +1103,6 @@ def _subtitle_font_size(subtitle: str, padding: int) -> int:
     return round(padding * factor)
 
 
-def _italicize(image: Image.Image, anchor_y: float = 0.0) -> Image.Image:
-    """Shear *image* into italics. Row *anchor_y* stays in place and the
-    rows below it shift left, so the top of the text leans right.
-    Bilinear resampling keeps the slanted edges anti-aliased."""
-    return image.transform(
-        image.size,
-        Image.AFFINE,
-        (1, SUBTITLE_SHEAR, -SUBTITLE_SHEAR * anchor_y, 0, 1, 0),
-        resample=Image.BILINEAR,
-    )
-
-
 def _set_luma(hue: float, sat: float, target: float) -> tuple[int, int, int]:
     """(hue, sat) -> an rgb with perceived luminance of ~*target* (0..1).
 
@@ -1187,18 +1162,8 @@ def _sample_context(
     return statistics.median(hues), sat, luma_sum / count
 
 
-def _trail_color(region: Image.Image) -> tuple[int, int, int]:
-    """The trail tint for a frame: the art's own hue at a fixed dark
-    luminance (a tinted shadow, not a glow). Black when the region
-    has no readable art."""
-    hue, sat, luma = _sample_context(region)
-    if luma is None:
-        return TRAIL_FALLBACK
-    return _set_luma(hue, sat, TRAIL_TARGET_LUMA)
-
-
 def _rect_tint(background: Image.Image) -> tuple[int, int, int]:
-    """The title rectangle's fill: the background's dominant hue at the
+    """The subtitle rectangle's fill: the background's dominant hue at the
     rectangle's base luminance (NAME_RECT_LUMA), so the dark panel picks up
     the scene's tint instead of reading as a neutral gray."""
     hue, sat, _ = _sample_context(background)
@@ -1221,13 +1186,32 @@ def _tint_layer(
     )
 
 
-def _shift_mask(mask: Image.Image, delta: tuple[int, int]) -> Image.Image:
-    """*mask* shifted by *delta* (a negative delta drags the ink
-    down-right)."""
-    dx, dy = delta
-    if dx == 0 and dy == 0:
-        return mask
-    return mask.transform(mask.size, Image.AFFINE, (1, 0, -dx, 0, 1, -dy))
+def _rect_shadow(
+    size: tuple[int, int], rect: Image.Image, padding: int
+) -> Image.Image:
+    """The drop shadow of *rect*: a blurred dark copy, offset by
+    NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
+    (NAME_RECT_SHADOW_RADIUS * padding), at NAME_RECT_SHADOW_ALPHA.
+    Built from the rect's own alpha so it exactly tracks the rectangle's
+    shape. The rectangle starts at the card's left edge, so the shadow is
+    cast as if the rectangle extended outwards beyond it: the union of the
+    (offset, offset) copy and the copy shifted straight down keeps the
+    shadow's left edge at the card's own left edge (a lone offset copy
+    pulls it offset pixels in, and the shadow's bottom-left corner would
+    fade out before reaching the image's left edge)."""
+    radius = max(1, round(padding * NAME_RECT_SHADOW_RADIUS))
+    offset = round(padding * NAME_RECT_SHADOW_OFFSET)
+    alpha = rect.split()[3]
+    edge = Image.new("L", size, 0)
+    edge.paste(alpha, (0, offset))
+    displaced = Image.new("L", size, 0)
+    displaced.paste(alpha, (offset, offset))
+    mask = ImageChops.lighter(edge, displaced)
+    mask = mask.filter(ImageFilter.GaussianBlur(radius))
+    mask = mask.point(lambda v: round(v * NAME_RECT_SHADOW_ALPHA))
+    shadow = Image.new("RGBA", size, (0, 0, 0, 0))
+    shadow.putalpha(mask)
+    return shadow
 
 
 class _NameLayers:
@@ -1237,23 +1221,23 @@ class _NameLayers:
         self,
         title_box: tuple[int, int, int, int],
         title_alpha: Image.Image,
-        sub_trail: Image.Image | None,
         sub_top: Image.Image | None,
+        sub_rect: Image.Image | None,
+        sub_shadow: Image.Image | None,
         rect: Image.Image | None,
         shadow: Image.Image | None,
         arrow_alpha: Image.Image | None,
         arrow_box: tuple[int, int, int, int] | None,
-        corner_sample_box: tuple[int, int, int, int],
     ) -> None:
         self.title_box = title_box
         self.title_alpha = title_alpha
-        self.sub_trail = sub_trail
         self.sub_top = sub_top
+        self.sub_rect = sub_rect
+        self.sub_shadow = sub_shadow
         self.rect = rect
         self.shadow = shadow
         self.arrow_alpha = arrow_alpha
         self.arrow_box = arrow_box
-        self.corner_sample_box = corner_sample_box
 
 
 def _name_layers(
@@ -1262,17 +1246,18 @@ def _name_layers(
     subtitle: str,
     padding: int,
     rect_color: tuple[int, int, int],
+    sub_rect_color: tuple[int, int, int],
 ) -> _NameLayers:
     """Build the static name-stack layers for a card of *size*.
 
-    The subtitle's trail tint is per-frame (it tracks the scene), so this
-    stores the masks and geometry; :func:`_apply_name` does the per-frame
-    compositing.
+    The layers are static (one per card); :func:`_apply_name` composites
+    them onto each frame's art.
 
-    The title is always rendered uppercase (its length, and so its font
-    size, is unaffected).
+    The title and the subtitle are always rendered uppercase (their
+    length, and so their font size, is unaffected).
     """
     name = name.upper()
+    subtitle = subtitle.upper()
     font_size = _name_font_size(name, round(padding * NAME_SIZE_FACTOR))
     font = ImageFont.truetype(str(FONT_NAME), font_size)
     font.set_variation_by_axes([NAME_WEIGHT])
@@ -1286,62 +1271,92 @@ def _name_layers(
     ImageDraw.Draw(title_mask).text(
         (inset - left, title_top - top), name, font=font, fill=255
     )
-    sub_mask = None
-    sub_trail = None
-    sub_top = None
-    if subtitle:
-        sub_size = _subtitle_font_size(subtitle, padding)
-        # Sheared into an oblique at SUBTITLE_SUPERSAMPLE times the
-        # final size and downscaled (see SUBTITLE_SUPERSAMPLE), so the
-        # slanted edges stay anti-aliased without softening.
-        ss = SUBTITLE_SUPERSAMPLE
-        sub_font = ImageFont.truetype(str(FONT_NAME), sub_size * ss)
-        sub_font.set_variation_by_axes([NAME_WEIGHT])
-        sub_left, sub_top_off, sub_bottom = _text_ink_offsets(subtitle, sub_font)
-        ink_h = sub_bottom - sub_top_off
-        drift = round(SUBTITLE_SHEAR * ink_h)
-        m4 = ((drift + ss - 1) // ss) * ss
-        region = Image.new(
-            "L", (round(sub_font.getlength(subtitle)) + m4 + 1, ink_h + 1), 0
-        )
-        ImageDraw.Draw(region).text(
-            (m4 - sub_left, -sub_top_off), subtitle, font=sub_font, fill=255
-        )
-        w4 = (region.width + ss - 1) // ss * ss
-        h4 = (region.height + ss - 1) // ss * ss
-        padded = region
-        if (region.width, region.height) != (w4, h4):
-            padded = Image.new("L", (w4, h4), 0)
-            padded.paste(region, (0, 0))
-        small = _italicize(padded, 0).resize((w4 // ss, h4 // ss), Image.BILINEAR)
-        # Corner variant: the text sits in the top-right corner,
-        # right-aligned and inset by the card's own padding (the
-        # title's 1.5x inset stays title-only).
-        bbox = small.getbbox()
-        px, py = size[0] - padding - bbox[2], padding - bbox[1]
-        sub_mask = Image.new("L", size, 0)
-        sub_mask.paste(255, (px, py, px + small.width, py + small.height), small)
-        # The subtitle's own (shorter) trail: the union of the text shifted
-        # one step at a time along the diagonal, so every trail pixel touches
-        # glyph ink (reads as 3D depth off the edges).
-        sub_trail = Image.new("L", size, 0)
-        for t in range(1, SUBTITLE_TRAIL_OFFSET + 1):
-            sub_trail.paste(
-                255, (0, 0, size[0], size[1]), _shift_mask(sub_mask, (t, t))
-            )
-        sub_top = _tint_layer(sub_mask, NAME_TEXT_COLOR, 1.0)
-
     # Title core: flat white (NAME_TEXT_COLOR), masked by the title's
     # alpha; only the geometry and the alpha are static.
     title_box = title_mask.getbbox()
     title_alpha = title_mask
+    # The top of the title's enclosing rectangle (its ink's top inset by
+    # NAME_RECT_PAD of the ink's height; None when there is no title):
+    # the subtitle sits above it.
+    rect_top = (
+        title_box[1] - round((title_box[3] - title_box[1]) * NAME_RECT_PAD)
+        if title_box is not None
+        else None
+    )
+    sub_mask = None
+    sub_top = None
+    sub_rect = None
+    sub_shadow = None
+    if subtitle:
+        sub_size = _subtitle_font_size(subtitle, padding)
+        sub_font = ImageFont.truetype(str(FONT_NAME), sub_size)
+        sub_font.set_variation_by_axes([NAME_WEIGHT])
+        sub_left, sub_top_off, sub_bottom = _text_ink_offsets(subtitle, sub_font)
+        ink_h = sub_bottom - sub_top_off
+        region = Image.new(
+            "L", (round(sub_font.getlength(subtitle)) + 1, ink_h + 1), 0
+        )
+        ImageDraw.Draw(region).text(
+            (-sub_left, -sub_top_off), subtitle, font=sub_font, fill=255
+        )
+        small = region
+        # Above the title: left-aligned with the title's own inset, its
+        # rectangle's bottom edge on the title rectangle's top (the two
+        # bars touch with no overlap and no gap; the old top-right corner
+        # placement when there is no title to sit above).
+        bbox = small.getbbox()
+        if rect_top is not None:
+            # The ink is pulled up by the rectangle's bottom padding
+            # (NAME_SUB_RECT_PAD of the ink's height) plus the row the
+            # rasterizer fills on the bottom vertex, so the rectangle's
+            # bottom lands exactly on the title rectangle's top.
+            sub_pad = round((bbox[3] - bbox[1]) * NAME_SUB_RECT_PAD)
+            px = inset - bbox[0]
+            py = rect_top - sub_pad - 1 - bbox[3]
+        else:
+            px, py = size[0] - padding - bbox[2], padding - bbox[1]
+        sub_mask = Image.new("L", size, 0)
+        sub_mask.paste(255, (px, py, px + small.width, py + small.height), small)
+        sub_top = _tint_layer(sub_mask, NAME_TEXT_COLOR, 1.0)
+        # The subtitle's enclosing rectangle: the title's rectangle's
+        # shape on the subtitle's ink — the background-tinted fill
+        # (sub_rect_color, in place of the title's flat NAME_RECT_COLOR),
+        # NAME_SUB_RECT_PAD of the subtitle's ink's height of room on the
+        # top/bottom (NAME_SUB_RECT_PAD + NAME_SUB_RECT_RIGHT_PAD_EXTRA on
+        # the right; the left edge is the card's left edge, as the title's),
+        # and the same 45-degree diagonal cut off the top-right corner
+        # (None when there is no title to sit above).
+        if rect_top is not None:
+            srx0, sry0, srx1, sry1 = sub_mask.getbbox()
+            sub_right_pad = sub_pad + round(
+                (sry1 - sry0) * NAME_SUB_RECT_RIGHT_PAD_EXTRA
+            )
+            sub_rect_top = sry0 - sub_pad
+            sub_rect_bottom = sry1 + sub_pad
+            sub_right = srx1 + sub_right_pad
+            sub_cut = round((sub_rect_bottom - sub_rect_top) * NAME_RECT_CORNER)
+            sub_rect = Image.new("RGBA", size, (0, 0, 0, 0))
+            ImageDraw.Draw(sub_rect).polygon(
+                [
+                    (0, sub_rect_top),
+                    (sub_right - sub_cut, sub_rect_top),
+                    (sub_right, sub_rect_top + sub_cut),
+                    (sub_right, sub_rect_bottom),
+                    (0, sub_rect_bottom),
+                ],
+                fill=(*sub_rect_color, 255),
+            )
+            # The drop shadow: the title's recipe (see _rect_shadow) — the
+            # bar also starts at the card's left edge, so the shadow is
+            # cast as if it extended outwards beyond it.
+            sub_shadow = _rect_shadow(size, sub_rect, padding)
 
-    # The title's enclosing rectangle: a flat rect_color fill (the
-    # background's dominant hue at NAME_RECT_LUMA) starting at the card's
-    # left edge and extending past the ink by NAME_RECT_PAD of the ink's
-    # height on the top/bottom, and by NAME_RECT_PAD + the arrow's width +
-    # padding / 2 on the right; its top-right corner is cut off by a
-    # 45-degree diagonal (None when there is no title).
+    # The title's enclosing rectangle: a flat NAME_RECT_COLOR fill,
+    # starting at the card's left edge and extending past the ink by
+    # NAME_RECT_PAD of the ink's height on the top/bottom, and by
+    # NAME_RECT_PAD + the arrow's width + padding / 2 on the right; its
+    # top-right corner is cut off by a 45-degree diagonal (None when
+    # there is no title).
     rect = None
     shadow = None
     arrow_alpha = None
@@ -1349,7 +1364,7 @@ def _name_layers(
     if title_box is not None:
         rx0, ry0, rx1, ry1 = title_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
-        top = ry0 - pad
+        top = rect_top
         bottom = ry1 + pad
         rect_height = bottom - top
         # The arrow's ink (NAME_RECT_ARROW in the rectangle's right padding),
@@ -1386,29 +1401,10 @@ def _name_layers(
             ],
             fill=(*rect_color, 255),
         )
-        # The drop shadow: a blurred dark copy of the rectangle, offset by
-        # NAME_RECT_SHADOW_OFFSET * padding to the down-right and softened
-        # (NAME_RECT_SHADOW_RADIUS * padding), at NAME_RECT_SHADOW_ALPHA.
-        # Built from the rect's own alpha so it exactly tracks the
-        # rectangle's shape. The rectangle starts at the card's left edge,
-        # so the shadow is cast as if the rectangle extended outwards
-        # beyond it: the union of the (offset, offset) copy and the copy
-        # shifted straight down keeps the shadow's left edge at the
-        # card's own left edge (a lone offset copy pulls it offset pixels
-        # in, and the shadow's bottom-left corner would fade out before
-        # reaching the image's left edge).
-        radius = max(1, round(padding * NAME_RECT_SHADOW_RADIUS))
-        offset = round(padding * NAME_RECT_SHADOW_OFFSET)
-        alpha = rect.split()[3]
-        edge = Image.new("L", size, 0)
-        edge.paste(alpha, (0, offset))
-        displaced = Image.new("L", size, 0)
-        displaced.paste(alpha, (offset, offset))
-        mask = ImageChops.lighter(edge, displaced)
-        mask = mask.filter(ImageFilter.GaussianBlur(radius))
-        mask = mask.point(lambda v: round(v * NAME_RECT_SHADOW_ALPHA))
-        shadow = Image.new("RGBA", size, (0, 0, 0, 0))
-        shadow.putalpha(mask)
+        # The drop shadow (see _rect_shadow): a blurred dark copy offset
+        # to the down-right, cast as if the rectangle extended beyond the
+        # card's left edge.
+        shadow = _rect_shadow(size, rect, padding)
         if ink is not None:
             # The arrow: its ink's bottom-right aligned NAME_RECT_ARROW_MARGIN
             # from the rectangle's right/bottom edges.
@@ -1420,43 +1416,33 @@ def _name_layers(
             )
             arrow_box = arrow_alpha.getbbox()
 
-    # The corner subtitle's sample box: the corner it sits inside, used to
-    # tint its trail per frame.
-    corner_box = (
-        max(0, size[0] - round(padding * NAME_SAMPLE_W)),
-        0,
-        size[0],
-        min(size[1], round(padding * NAME_SAMPLE_H)),
-    )
     return _NameLayers(
         title_box,
         title_alpha,
-        sub_trail,
         sub_top,
+        sub_rect,
+        sub_shadow,
         rect,
         shadow,
         arrow_alpha,
         arrow_box,
-        corner_box,
     )
 
 
 def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     """Stamp the name stack onto *art* (the frame composited over the
-    base) and return the result.
-
-    Per frame: the corner subtitle's trail tint is sampled from the art
-    behind it — so the name tracks the scene of animated cards. The
-    title and the arrow are flat white (NAME_TEXT_COLOR).
+    base) and return the result. The layers are static (built once per
+    card); the title and the arrow are flat white (NAME_TEXT_COLOR).
     """
     canvas = art
     if parts.shadow is not None:
         canvas.alpha_composite(parts.shadow)
+    if parts.sub_shadow is not None:
+        canvas.alpha_composite(parts.sub_shadow)
     if parts.rect is not None:
         canvas.alpha_composite(parts.rect)
-    if parts.sub_trail is not None:
-        corner_color = _trail_color(art.crop(parts.corner_sample_box))
-        canvas.alpha_composite(_tint_layer(parts.sub_trail, corner_color, TRAIL_ALPHA))
+    if parts.sub_rect is not None:
+        canvas.alpha_composite(parts.sub_rect)
 
     # Title core: flat white, masked by the title's alpha.
     canvas.alpha_composite(_tint_layer(parts.title_alpha, NAME_TEXT_COLOR, 1.0))
@@ -1716,7 +1702,9 @@ def _render_and_finish(
         size, logo, margin, padding, copyright_color
     )
     parts = (
-        _name_layers(size, name, subtitle, padding, _rect_tint(background))
+        _name_layers(
+            size, name, subtitle, padding, NAME_RECT_COLOR, _rect_tint(background)
+        )
         if (name or subtitle)
         else None
     )
@@ -1975,7 +1963,9 @@ def _render_common(
         size, logo, margin, padding, copyright_color
     )
     parts = (
-        _name_layers(size, name, subtitle, padding, _rect_tint(background))
+        _name_layers(
+            size, name, subtitle, padding, NAME_RECT_COLOR, _rect_tint(background)
+        )
         if (name or subtitle)
         else None
     )
