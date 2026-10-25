@@ -139,16 +139,16 @@ NO_NAME_STEMS = frozenset({"Goddess", "Classified"})
 #: The ``Common`` card's mask (composited over the diluted background, under
 #: the character), next to its GIMP source.
 COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
-#: Opacity of the dominant-tint layer laid over the background: 0.8 dilutes
+#: Opacity of the dominant-tint layer laid over the background: 0.65 dilutes
 #: the background toward a flat wash of its own main color.
-COMMON_TINT_OPACITY = 0.8
+COMMON_TINT_OPACITY = 0.65
 #: The ``--face`` zoom that renders the face framing composited under the
 #: ``Common`` card's tint wash (ahead of the full body).
 COMMON_FACE_ZOOM = 3.0
 #: Brightness scale applied to the monochrome face (its value channel): 1.0
 #: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
 #: against the tinted background.
-COMMON_FACE_BRIGHTNESS = 0.85
+COMMON_FACE_BRIGHTNESS = 0.55
 #: Horizontal shift (px) that moves the face framing aside from the centered
 #: full body: the face is rendered :data:`COMMON_FACE_OFFSET` px to the left
 #: or to the right (whichever side the body leaves more room on, see
