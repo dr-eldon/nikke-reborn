@@ -73,7 +73,6 @@ import colorsys
 import hashlib
 import io
 import json
-import math
 import os
 import re
 import shutil
@@ -94,7 +93,7 @@ from pathlib import Path
 from typing import Iterator
 from nikke_reborn import bundler, metadata
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from PIL.PngImagePlugin import PngInfo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -388,19 +387,9 @@ def generate() -> None:
     out_dir = DRAFT_DIR if draft else OUTPUT_DIR
     preset = DRAFT_PRESET if draft else DEFAULT_PRESET
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
-    # --- TEMPORARY ITERATION SCOPE --------------------------------------
-    # For now, generate every variant of ``ELYSION/0001`` — its profile
-    # cards (all written out as ``<variant>Profile``, rendered by
-    # :func:`_generate_profiles`) plus its regular variants (rendered by
-    # :func:`_generate_variants`) — so the profile recipe can be iterated
-    # quickly against the rest of the card. To lift the scope to every card
-    # (and their profile cards) plus each pack's artwork, replace this with:
-    #     _generate_profiles(None, args.jobs, preset, scale, out_dir)
-    #     _generate_variants(args.paths, args.jobs, preset, scale, out_dir)
-    scope = sorted((CARDS_DIR / "ELYSION" / "0001_Rapi").glob("*.json"))
     try:
-        _generate_profiles(scope, args.jobs, preset, scale, out_dir)
-        _generate_variants(scope, args.jobs, preset, scale, out_dir)
+        _generate_profiles(None, args.jobs, preset, scale, out_dir)
+        _generate_variants(args.paths, args.jobs, preset, scale, out_dir)
         _write_metadata(out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -2076,7 +2065,7 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     # Both footprints empty means the body sits *between* them, so the face
     # still shifts (a tie defaults to the left); never leave it centered on
     # top of the body.
-    return -PROFILE_FACE_OFFSET_LEFT if left <= right else PROFILE_FACE_OFFSET_RIGHT
+    return -PROFILE_FACE_OFFSET_LEFT if left < right else PROFILE_FACE_OFFSET_RIGHT
 
 
 def _render_profile(
