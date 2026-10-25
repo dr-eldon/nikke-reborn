@@ -144,16 +144,18 @@ COMMON_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
 COMMON_TINT_OPACITY = 0.65
 #: The ``--face`` zoom that renders the face framing composited under the
 #: ``Common`` card's tint wash (ahead of the full body).
-COMMON_FACE_ZOOM = 3.0
+COMMON_FACE_ZOOM = 2.5
 #: Brightness scale applied to the monochrome face (its value channel): 1.0
 #: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
 #: against the tinted background.
 COMMON_FACE_BRIGHTNESS = 0.55
-#: Horizontal shift (px) that moves the face framing aside from the centered
-#: full body: the face is rendered :data:`COMMON_FACE_OFFSET` px to the left
-#: or to the right (whichever side the body leaves more room on, see
-#: :func:`_face_offset`) so it is not occluded by the body.
-COMMON_FACE_OFFSET = 420
+#: Horizontal shifts (px) that move the face framing aside from the centered
+#: full body so it is not occluded by the body: the face is rendered
+#: :data:`COMMON_FACE_OFFSET_LEFT` px to the left or
+#: :data:`COMMON_FACE_OFFSET_RIGHT` px to the right (whichever side the body
+#: leaves more room on, see :func:`_face_offset`).
+COMMON_FACE_OFFSET_LEFT = 500
+COMMON_FACE_OFFSET_RIGHT = 420
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -1771,9 +1773,10 @@ def _first_frame(
 
 
 def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
-    """The face framing's ``--offset-x``: :data:`COMMON_FACE_OFFSET` px to the
-    left or to the right, whichever side of the upper body leaves more room, so
-    the face sits beside rather than behind the body.
+    """The face framing's ``--offset-x``: :data:`COMMON_FACE_OFFSET_LEFT` px to
+    the left or :data:`COMMON_FACE_OFFSET_RIGHT` px to the right, whichever side
+    of the upper body leaves more room, so the face sits beside rather than
+    behind the body.
 
     The side is chosen by the body's *pixel coverage* on each half of the
     *upper half* of its first frame — the region that can occlude the face:
@@ -1794,7 +1797,11 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     right = ImageStat.Stat(upper.crop((mid, 0, width, height // 2))).sum[0]
     if not left and not right:
         return 0  # no body in the upper half; keep the face centered
-    return -COMMON_FACE_OFFSET if left <= right else COMMON_FACE_OFFSET
+    return (
+        -COMMON_FACE_OFFSET_LEFT
+        if left <= right
+        else COMMON_FACE_OFFSET_RIGHT
+    )
 
 
 def _render_common(
