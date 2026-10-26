@@ -11,7 +11,10 @@ The sheet composites the finished first frames
 
 * the expansion's logo at the top, centered — from the set's
   ``Expansion.json`` ``logo.path`` (resolved against the pack directory)
-  when the file exists, else ``images/logos/<set>.png``;
+  when the file exists, else ``images/logos/<set>.png`` — rendered the
+  way the pack's and box's fronts render it: a screen-blended halo tinted
+  by the sheet's own background, a solid trail behind the mark, the sharp
+  mark on top;
 * one row per card prefix (``<number>_<card>`` — the card's directory, the
   rarity stripped), rendered in a label column on the left as
   ``#<number> <character>[: <skin>]`` — the number zero-padded so the
@@ -432,7 +435,8 @@ def _compose(
     out_path: Path,
     source_hash: str,
 ) -> None:
-    """Draw the sheet — the logo header, the column labels, the label
+    """Draw the sheet — the logo header (the logo with the pack's and
+    box's glow and trail treatment), the column labels, the label
     column and the grid of first frames (the animated cards' cells
     marked with a white ▶ in a black circle, centered in the cell, and
     a legend — the badge and ``= Animated`` — in the top-right corner) —
@@ -532,7 +536,32 @@ def _compose(
         canvas, Image.new("RGBA", canvas.size, (0, 0, 0, 255)), 1 - BACKGROUND_DIM
     )
     draw = ImageDraw.Draw(canvas)
-    canvas.alpha_composite(logo, ((width - logo.width) // 2, HEADER_PADDING))
+
+    # --- the header's logo, the way the pack's and box's fronts render --
+    # it: a screen-blended halo (a light bloom tinted by the sheet's own
+    # background — its hue and saturation, brightened — so it matches the
+    # scene), a solid trail (the mark's own silhouette in a darkened glow
+    # tint, offset down-right), and the sharp mark on top.
+    glow_color = expansion._background_glow_color(
+        expansion._image_average(canvas)
+    )
+    logo_x = (width - logo.width) // 2
+    halo, pad = expansion._logo_glow_layer(
+        logo,
+        round(expansion.LOGO_GLOW_RADIUS * height),
+        glow_color,
+        expansion.LOGO_GLOW_INTENSITY,
+    )
+    expansion._screen_composite(canvas, halo, (logo_x - pad, HEADER_PADDING - pad))
+    trail_offset = round(expansion.LOGO_TRAIL * logo.height)
+    if trail_offset > 0:
+        trail_tint = tuple(int(c * expansion.LOGO_TRAIL_DARKEN) for c in glow_color)
+        trail = Image.new("RGBA", logo.size, trail_tint + (255,))
+        trail.putalpha(logo.getchannel("A"))
+        canvas.alpha_composite(
+            trail, (logo_x + trail_offset, HEADER_PADDING + trail_offset)
+        )
+    canvas.alpha_composite(logo, (logo_x, HEADER_PADDING))
     x0 = MARGIN
     grid_x = x0 + label_w + LABEL_GAP
     grid_y = header + label_h + COLUMN_LABEL_GAP
