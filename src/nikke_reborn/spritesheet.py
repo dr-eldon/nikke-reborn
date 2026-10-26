@@ -24,6 +24,11 @@ The sheet composites the finished first frames
   above the grid with its rarity (whitespace between its capital letters —
   ``ClassicProfile`` reads as ``Classic Profile``). A cell the character
   does not have (a rarity it does not carry) stays empty.
+* the animated cards (an ``.mp4`` next to their first frame) are marked
+  with a white ▶ in a black circle, centered in their cell; a legend
+  (the badge and ``= Animated``) sits in the sheet's top-right corner.
+* the cards' copyright line (a bit smaller), in white, at the bottom
+  left.
 
 The cells are the first frames only — the PNGs the pipeline writes for
 every card (alongside the MP4 for the animated ones); no video is read or
@@ -105,6 +110,23 @@ COLUMN_LABEL_SIZES = (24, 22, 20, 18, 16, 14, 12, 10)
 COLUMN_LABEL_WEIGHT = 700
 #: The gap between the column-label row and the grid's first row.
 COLUMN_LABEL_GAP = 16
+#: The marker's height (px): the ▶ symbol, a filled white triangle.
+ANIMATED_MARKER_SIZE = 13
+#: The black circle's clearance around the glyph (px, on each side).
+ANIMATED_MARKER_PAD = 4
+#: The black circle's alpha: a bit translucent, so the card's art shows
+#: through softly.
+ANIMATED_MARKER_CIRCLE_ALPHA = 180
+#: The legend's text (beside the ▶ badge, in the sheet's top-right
+#: corner).
+LEGEND_TEXT = "= Animated"
+#: The legend's font size (px, Oswald).
+LEGEND_FONT_SIZE = 20
+#: The gap between the legend's badge and its text (px).
+LEGEND_GAP = 10
+#: The copyright line's size relative to the cards' width-proportional
+#: size (a bit smaller on the sheet).
+COPYRIGHT_FRACTION = 0.75
 
 
 def spritesheet() -> None:
@@ -282,9 +304,10 @@ def _source_hash(
     paths: dict[tuple[str, str], Path],
 ) -> str:
     """SHA-256 of the sheet's inputs: the expansion's name, its logo, its
-    background and every first frame it composites (embedded under
-    :data:`nikke_reborn.SOURCE_HASH_KEY` so an unchanged sheet is skipped
-    instead of re-composed)."""
+    background, every first frame it composites and each cell's animated
+    state (an ``.mp4`` next to the first frame; it drives the 📹 markers)
+    — embedded under :data:`nikke_reborn.SOURCE_HASH_KEY` so an unchanged
+    sheet is skipped instead of re-composed."""
     digest = hashlib.sha256()
     digest.update(pack_dir.name.encode())
     digest.update(logo_path.read_bytes())
@@ -293,6 +316,7 @@ def _source_hash(
         path = paths[key]
         digest.update(path.name.encode())
         digest.update(path.read_bytes())
+        digest.update(b"1" if path.with_suffix(".mp4").is_file() else b"0")
     return digest.hexdigest()
 
 
@@ -409,14 +433,17 @@ def _compose(
     source_hash: str,
 ) -> None:
     """Draw the sheet — the logo header, the column labels, the label
-    column and the grid of first frames — over the expansion's
-    *background* (resized to cover the canvas without deformation, bottom
-    edges aligned, the excess cropped off the top, and dimmed toward
-    black so the grid reads against it) on a canvas fitted to
-    its content (label column + grid + the margins wide; header + labels +
-    grid + the margin tall), and write it to *out_path* (atomically, the
-    *source_hash* embedded). The rows' first frames are decoded and resized
-    in parallel threads (up to
+    column and the grid of first frames (the animated cards' cells
+    marked with a white ▶ in a black circle, centered in the cell, and
+    a legend — the badge and ``= Animated`` — in the top-right corner) —
+    over the expansion's *background* (resized to cover the canvas
+    without deformation, bottom edges aligned, the excess cropped off
+    the top, and dimmed toward black so the grid reads against it) on
+    a canvas fitted to its content (label column + grid + the margins
+    wide; header + labels + grid + the margin tall), the cards'
+    copyright line (a bit smaller) in white at the bottom left, and
+    write it to *out_path* (atomically, the *source_hash* embedded). The rows'
+    first frames are decoded and resized in parallel threads (up to
     :data:`nikke_reborn.MAX_STAGE_THREADS` of them, one row per worker);
     the finished canvas is assembled on the main thread."""
     row_count = len(rows)
@@ -451,6 +478,49 @@ def _compose(
     col_font = _column_label_font(col_labels, cell_w)
     label_h = sum(col_font.getmetrics())
 
+    # The ▶ markers: the cells whose card is animated (an .mp4 next to
+    # its first frame) get one centered in the cell. The symbol is a
+    # filled white equilateral triangle pointing right, drawn at 4x the
+    # marker's size (so the LANCZOS downscale stays crisp).
+    marker_draw = ANIMATED_MARKER_SIZE * 4
+    scratch = Image.new("RGBA", (marker_draw, marker_draw))
+    tri_w = round(marker_draw * 0.866)  # an equilateral triangle's width
+    left = (marker_draw - tri_w) // 2
+    ImageDraw.Draw(scratch).polygon(
+        (
+            (left, 0),
+            (left + tri_w, marker_draw // 2),
+            (left, marker_draw),
+        ),
+        fill=(255, 255, 255, 255),
+    )
+    marker = scratch.resize(
+        (round(ANIMATED_MARKER_SIZE * 0.866), ANIMATED_MARKER_SIZE),
+        Image.Resampling.LANCZOS,
+    )
+    # The badge: a translucent black circle enclosing the glyph
+    # (ANIMATED_MARKER_PAD of clearance on each side), the glyph centered
+    # in it. The circle is drawn at 4x and downscaled — Pillow's ellipse
+    # is not anti-aliased.
+    badge_d = marker.height + 2 * ANIMATED_MARKER_PAD
+    badge_draw = badge_d * 4
+    badge = Image.new("RGBA", (badge_draw, badge_draw))
+    ImageDraw.Draw(badge).ellipse(
+        (0, 0, badge_draw - 1, badge_draw - 1),
+        fill=(0, 0, 0, ANIMATED_MARKER_CIRCLE_ALPHA),
+    )
+    badge = badge.resize((badge_d, badge_d), Image.Resampling.LANCZOS)
+    # The triangle's mass sits on its base (the left edge), so its ink is
+    # nipped 1 px right of the geometric center — shifting it 1 px right
+    # reads as optically centered in the circle.
+    badge.alpha_composite(
+        marker,
+        ((badge_d - marker.width) // 2 + 1, (badge_d - marker.height) // 2),
+    )
+    animated = {
+        key for key, path in paths.items() if path.with_suffix(".mp4").is_file()
+    }
+
     height = header + label_h + COLUMN_LABEL_GAP + grid_h + MARGIN
     # The expansion's background as the canvas's base: scaled to cover the
     # sheet (aspect preserved) with its bottom edge on the sheet's (the
@@ -478,6 +548,20 @@ def _compose(
             anchor="mm",
         )
 
+    # --- the legend: the ▶ badge and its meaning, top right --------------
+    legend_font = ImageFont.truetype(str(nr.FONT), LEGEND_FONT_SIZE)
+    nr._set_weight(legend_font, LABEL_WEIGHT)
+    legend_w = round(legend_font.getlength(LEGEND_TEXT))
+    legend_x = width - MARGIN - legend_w
+    draw.text(
+        (legend_x, MARGIN + badge.height // 2),
+        LEGEND_TEXT,
+        font=legend_font,
+        fill=LABEL_COLOR,
+        anchor="lm",
+    )
+    canvas.alpha_composite(badge, (legend_x - LEGEND_GAP - badge.width, MARGIN))
+
     # --- the rows: rendered in worker threads, assembled on the main ----
     # thread: each worker decodes and resizes its row's first frames (the
     # GIL-releasing part), while the shared canvas is only ever stamped by
@@ -492,7 +576,7 @@ def _compose(
             itertools.repeat(cells),
             itertools.repeat((cell_w, cell_h)),
         )
-        for i, (_, cards) in enumerate(rendered):
+        for i, (prefix, cards) in enumerate(rendered):
             y = grid_y + i * (cell_h + CELL_GAP)
             draw.text(
                 (x0, y + cell_h // 2),
@@ -505,6 +589,42 @@ def _compose(
                 card = cards.get(column)
                 if card is None:
                     continue
+                if (prefix, column) in animated:
+                    card.alpha_composite(
+                        badge,
+                        (
+                            (card.width - badge.width) // 2,
+                            (card.height - badge.height) // 2,
+                        ),
+                    )
                 canvas.alpha_composite(card, (grid_x + j * (cell_w + CELL_GAP), y))
+
+    # --- the copyright line: the cards' notice, bottom left, white -----
+    # (the cards' rendering — supersampled, light-weight Oswald, ink
+    # centered in the bottom margin — a bit smaller than the cards').
+    font_size = round(
+        nr.COPYRIGHT_NOMINAL_SIZE * width / nr.CARD_REFERENCE_WIDTH * COPYRIGHT_FRACTION
+    )
+    ss = nr.COPYRIGHT_SUPERSAMPLE
+    big = ImageFont.truetype(str(nr.FONT), font_size * ss)
+    nr._set_weight(big, nr.COPYRIGHT_WEIGHT)
+    left, top, bottom = nr._text_ink_offsets(nr.COPYRIGHT_TEXT, big)
+    region = Image.new(
+        "L", (round(big.getlength(nr.COPYRIGHT_TEXT)) + 1, bottom - top + 1), 0
+    )
+    ImageDraw.Draw(region).text((-left, -top), nr.COPYRIGHT_TEXT, font=big, fill=255)
+    small = region.resize(
+        (round(region.width / ss), round(region.height / ss)),
+        Image.Resampling.LANCZOS,
+    )
+    stamp = Image.new("RGBA", small.size, (255, 255, 255, 255))
+    stamp.putalpha(small)
+    canvas.alpha_composite(
+        stamp,
+        (
+            MARGIN,
+            height - MARGIN // 2 - round((bottom - top) / (2 * ss)),
+        ),
+    )
 
     nr._save_atomic(canvas, out_path, source_hash)
