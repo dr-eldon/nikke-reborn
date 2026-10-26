@@ -146,9 +146,11 @@ DEFAULT_FRAMERATE = 60
 # viewer's ``--list-animations``) become face stills — one at time 0 per
 # animation (the viewer's ``--portrait 1`` framing in a square viewport),
 # taken once per card and reused for every frame — fewer squares, or none,
-# when fewer animations match. Everything is composited in memory — no
-# intermediate frame touches the disk; only the finished card is written
-# (atomically).
+# when fewer animations match. Each still sits on a white background and
+# is framed by a border of the background's dominant tint
+# (PROFILE_REEL_BORDER of the side). Everything is composited in memory —
+# no intermediate frame touches the disk; only the finished card is
+# written (atomically).
 #: Profile rarity stems that skip the standard pipeline entirely: only
 #: their profile cards are rendered. Currently empty — every rarity
 #: (including ``Aim`` and ``Cover``) also renders its standard card.
@@ -207,8 +209,10 @@ PROFILE_FACE_OFFSET_RIGHT = 420
 #: the list match. Each still is the time 0 frame of its animation (the
 #: viewer's ``--portrait 1`` framing in a square viewport of side
 #: ``frame_width * PROFILE_REEL_SIDE``, see :func:`_photo_reel`), taken
-#: once per card and reused for every frame: the squares run down the right
-#: edge, inset by the card's padding, the first square's top edge at
+#: once per card and reused for every frame, framed by a border of
+#: ``side * PROFILE_REEL_BORDER`` filled with the background's dominant
+#: tint: the framed squares run down the right edge, inset by
+#: ``padding * PROFILE_REEL_MARGIN``, the first square's top edge at
 #: ``frame_height * PROFILE_REEL_TOP`` and the card's padding of gap
 #: between the squares.
 PROFILE_REEL_COUNT = 3
@@ -218,6 +222,17 @@ PROFILE_REEL_SIDE = 2 / 15
 #: The first photo-reel square's top edge, as a fraction of the frame
 #: height (frame_height * 3 / 7).
 PROFILE_REEL_TOP = 3 / 7
+#: The photo reel's inset from the card's right edge, as a multiple of
+#: the card's padding (padding * 1.5).
+PROFILE_REEL_MARGIN = 1.5
+#: The photo-reel border's width, as a fraction of the photo's side
+#: (side * 0.005): a frame of the background's dominant tint
+#: (PROFILE_REEL_BORDER_ALPHA) around each still, so the positioned block
+#: is the framed still (side + 2 * the border across).
+PROFILE_REEL_BORDER = 0.005
+#: The photo-reel border's opacity (0.5): the tint frame is
+#: semi-transparent, so the card art behind it shows through.
+PROFILE_REEL_BORDER_ALPHA = 0.5
 #: The photo reel's candidate animations, in order: the first
 #: PROFILE_REEL_COUNT of these the character has become the reel's stills
 #: (fewer, or none, when fewer match).
@@ -1318,13 +1333,14 @@ def _tint_at_luma(image: Image.Image, tint_rgb: tuple[int, int, int]) -> Image.I
 
 def _profile_layers(
     background: Image.Image, size: tuple[int, int]
-) -> tuple[Image.Image, Image.Image, Image.Image]:
+) -> tuple[Image.Image, Image.Image, Image.Image, tuple[int, int, int]]:
     """The profile card's static layers, composed in memory: the (fitted)
     *background* — a monochrome of its own dominant tint — the dominant-tint
     wash (a gradient from the background's dominant color to a darker, more
-    opaque version of it), and the profile card mask
+    opaque version of it), the profile card mask
     (:data:`PROFILE_MASK_PATH`) — tinted with the same tint at each
-    pixel's own lightness (the white staying white). The
+    pixel's own lightness (the white staying white) — and the background's
+    dominant *tint* itself (the photo reel's border color). The
     (animated) face framing is
     composited between the background and the tint, per frame and collapsed
     to a monochrome of the same tint's hue, by
@@ -1332,8 +1348,9 @@ def _profile_layers(
     base = _fit_background(background, size)
     # The background's dominant color: it tints the (now monochrome)
     # background, colors the wash (a gradient darkening toward the
-    # bottom) laid over the background and the face, and tints the mask
-    # at each pixel's own lightness (the white stays white).
+    # bottom) laid over the background and the face, tints the mask
+    # at each pixel's own lightness (the white stays white), and colors
+    # the photo reel's border.
     tint_rgb = _dominant_color(base)
     base = _monochrome(base, tint_rgb)
     tint = _tint_wash(base.size, tint_rgb)
@@ -1345,7 +1362,7 @@ def _profile_layers(
     # tint's hue at its own L* (white is a fixed point, so the frame keeps
     # its white).
     mask = _tint_at_luma(mask, tint_rgb)
-    return base, tint, mask
+    return base, tint, mask, tint_rgb
 
 
 def _scale_logo(logo: Image.Image, card_width: int) -> Image.Image:
@@ -2380,7 +2397,10 @@ def _reel_animations(json_path: Path) -> list[str]:
 
 
 def _photo_reel(
-    json_path: Path, size: tuple[int, int], padding: int
+    json_path: Path,
+    size: tuple[int, int],
+    padding: int,
+    tint_rgb: tuple[int, int, int],
 ) -> list[tuple[Image.Image, tuple[int, int]]]:
     """The profile card's photo reel (see :data:`PROFILE_REEL_COUNT`):
     one face still per animation of :func:`_reel_animations`, as
@@ -2390,19 +2410,27 @@ def _photo_reel(
     viewer's ``--portrait 1`` framing (the face exactly inside the
     viewport bounds) in a square viewport of side
     ``frame_width * PROFILE_REEL_SIDE`` (``--width``/``--height``,
-    ``--time 0`` and ``--animation``): the stills are taken once per card
-    and reused for every frame. The squares run down the right edge,
-    inset by *padding*, the first square's top edge at
-    ``frame_height * PROFILE_REEL_TOP`` and a gap of *padding* between
-    them. Empty (no reel) when the character has none of
+    ``--time 0`` and ``--animation``) and flattened onto a white
+    background (the viewer's frames are transparent where the character
+    does not cover): the stills are taken once per card and reused for
+    every frame. Each is framed by a border of
+    ``side * PROFILE_REEL_BORDER`` filled with *tint_rgb* (the
+    background's dominant tint, at PROFILE_REEL_BORDER_ALPHA) — the
+    positioned block is the framed still. The blocks run down the right
+    edge, inset by ``*padding* * PROFILE_REEL_MARGIN``, the first block's
+    top edge at ``frame_height * PROFILE_REEL_TOP`` and a gap of *padding*
+    between them. Empty (no reel) when the character has none of
     PROFILE_REEL_ANIMATIONS.
     """
     animations = _reel_animations(json_path)
     if not animations:
         return []
     side = round(size[0] * PROFILE_REEL_SIDE)
-    left = size[0] - padding - side
+    border = round(side * PROFILE_REEL_BORDER)
+    block = side + 2 * border
+    left = size[0] - round(padding * PROFILE_REEL_MARGIN) - block
     top = round(size[1] * PROFILE_REEL_TOP)
+    step = block + padding
     reel: list[tuple[Image.Image, tuple[int, int]]] = []
     for index, animation in enumerate(animations):
         still = _first_frame(
@@ -2419,7 +2447,19 @@ def _photo_reel(
             "--animation",
             animation,
         )
-        reel.append((still, (left, top + index * (side + padding))))
+        # The still's background: the viewer's frames are transparent where
+        # the character does not cover, so flatten them to white.
+        white = Image.new("RGBA", still.size, (255, 255, 255, 255))
+        white.paste(still, (0, 0), still)
+        still = white
+        # The border (PROFILE_REEL_BORDER of the photo's side, the
+        # background's dominant tint at PROFILE_REEL_BORDER_ALPHA) frames
+        # the still.
+        framed = Image.new(
+            "RGBA", (block, block), (*tint_rgb, round(255 * PROFILE_REEL_BORDER_ALPHA))
+        )
+        framed.paste(still, (border, border))
+        reel.append((framed, (left, top + index * step)))
     return reel
 
 
@@ -2430,6 +2470,7 @@ def _render_profile(
     background: Image.Image,
     tint: Image.Image,
     mask: Image.Image,
+    tint_rgb: tuple[int, int, int],
     logo: Image.Image,
     margin: int,
     padding: int,
@@ -2497,7 +2538,7 @@ def _render_profile(
     # The photo reel (the face stills down the right edge): the stills are
     # taken once — one frame at time 0 per animation — and reused for
     # every frame of the card.
-    reel = _photo_reel(json_path, size, padding)
+    reel = _photo_reel(json_path, size, padding, tint_rgb)
 
     # Spawn the two viewers streaming raw RGBA frames to stdout (no
     # intermediate files): the face framing (over the background, under the
@@ -2795,7 +2836,7 @@ def _process_profile_card(
     # re-renders from scratch, up to RENDER_ATTEMPTS times; the two viewer
     # framings stream directly, so nothing intermediate is written to disk in
     # between).
-    base, tint, mask = _profile_layers(background, size)
+    base, tint, mask, tint_rgb = _profile_layers(background, size)
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
             finished, timings = _render_profile(
@@ -2805,6 +2846,7 @@ def _process_profile_card(
                 base,
                 tint,
                 mask,
+                tint_rgb,
                 logo,
                 margin,
                 padding,
