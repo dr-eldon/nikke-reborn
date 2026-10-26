@@ -141,8 +141,14 @@ DEFAULT_FRAMERATE = 60
 # white) — the two framings are streamed in lockstep from the same
 # definition. The name and subtitle overlays are applied as usual, like the
 # other rarities, and the logo sits at the top right instead of the bottom
-# right. Everything is composited in memory — no intermediate frame touches
-# the disk; only the finished card is written (atomically).
+# right. The card also carries a photo reel down its right edge: the first
+# PROFILE_REEL_COUNT of PROFILE_REEL_ANIMATIONS the character has (per the
+# viewer's ``--list-animations``) become face stills — one at time 0 per
+# animation (the viewer's ``--portrait 1`` framing in a square viewport),
+# taken once per card and reused for every frame — fewer squares, or none,
+# when fewer animations match. Everything is composited in memory — no
+# intermediate frame touches the disk; only the finished card is written
+# (atomically).
 #: Profile rarity stems that skip the standard pipeline entirely: only
 #: their profile cards are rendered. Currently empty — every rarity
 #: (including ``Aim`` and ``Cover``) also renders its standard card.
@@ -194,6 +200,38 @@ PROFILE_FACE_BRIGHTNESS = 0.5
 #: footprint least occluded by the body, see :func:`_face_offset`).
 PROFILE_FACE_OFFSET_LEFT = 500
 PROFILE_FACE_OFFSET_RIGHT = 420
+#: The profile card's "photo reel": the face stills stacked down the card's
+#: right edge. The reel holds the first PROFILE_REEL_COUNT of
+#: PROFILE_REEL_ANIMATIONS the character has (per the viewer's
+#: ``--list-animations``); fewer stills — or none at all — when fewer of
+#: the list match. Each still is the time 0 frame of its animation (the
+#: viewer's ``--portrait 1`` framing in a square viewport of side
+#: ``frame_width * PROFILE_REEL_SIDE``, see :func:`_photo_reel`), taken
+#: once per card and reused for every frame: the squares run down the right
+#: edge, inset by the card's padding, the first square's top edge at
+#: ``frame_height * PROFILE_REEL_TOP`` and the card's padding of gap
+#: between the squares.
+PROFILE_REEL_COUNT = 3
+#: The photo-reel square's side, as a fraction of the frame width
+#: (frame_width * 2 / 15).
+PROFILE_REEL_SIDE = 2 / 15
+#: The first photo-reel square's top edge, as a fraction of the frame
+#: height (frame_height * 3 / 7).
+PROFILE_REEL_TOP = 3 / 7
+#: The photo reel's candidate animations, in order: the first
+#: PROFILE_REEL_COUNT of these the character has become the reel's stills
+#: (fewer, or none, when fewer match).
+PROFILE_REEL_ANIMATIONS = (
+    "think",
+    "smile",
+    "shy",
+    "no",
+    "delight",
+    "surprise",
+    "special_02",
+    "special",
+    "angry",
+)
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -939,6 +977,7 @@ def _stream_dual_composited(
     overlay: Image.Image,
     overlay_pos: tuple[int, int],
     parts: _NameLayers | None,
+    reel: list[tuple[Image.Image, tuple[int, int]]],
     composite_workers: int,
     first_frame: list[Image.Image],
     composite_time: list[float],
@@ -955,8 +994,8 @@ def _stream_dual_composited(
     are read in lockstep. Per frame the face — collapsed to a monochrome of
     the background's dominant tint (:func:`_monochrome`) — is composited over
     *background*, the dominant *tint* wash is laid over both, then the
-    *mask* and the body frame, then the *overlay* and the name stack (if
-    any), in a sliding window
+    *mask* and the body frame, then the *reel* (the photo reel's face stills,
+    if any), then the *overlay* and the name stack (if any), in a sliding window
     of *composite_workers* threads — as in :func:`_stream_composited` — and
     yielded in order. The first composited
     frame (as an image) is appended to *first_frame*. When both streams reach
@@ -1012,6 +1051,10 @@ def _stream_dual_composited(
             art.alpha_composite(tint)
             art.alpha_composite(mask)
             art.alpha_composite(body)
+
+        for still, position in reel:
+            art.alpha_composite(still, position)
+
         art.alpha_composite(overlay, overlay_pos)
         result = _apply_name(art, parts) if parts is not None else art
         with time_lock:
@@ -2309,6 +2352,77 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
     return -PROFILE_FACE_OFFSET_LEFT if left < right else PROFILE_FACE_OFFSET_RIGHT
 
 
+def _reel_animations(json_path: Path) -> list[str]:
+    """The photo reel's animations: the first PROFILE_REEL_COUNT of
+    PROFILE_REEL_ANIMATIONS (in the list's order) the character has, per
+    the viewer's ``--list-animations`` for *json_path* — fewer (or none)
+    when fewer of the list match."""
+    result = subprocess.run(
+        [VIEWER, "--list-animations", str(json_path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.decode(errors="replace").strip()
+        detail = f": {detail[-500:]}" if detail else ""
+        raise GenerationError(
+            f"{VIEWER} --list-animations for {json_path.name} "
+            f"failed (exit {result.returncode}){detail}"
+        )
+    available = {
+        line.strip()
+        for line in result.stdout.decode(errors="replace").splitlines()
+        if line.strip()
+    }
+    return [
+        animation for animation in PROFILE_REEL_ANIMATIONS if animation in available
+    ][:PROFILE_REEL_COUNT]
+
+
+def _photo_reel(
+    json_path: Path, size: tuple[int, int], padding: int
+) -> list[tuple[Image.Image, tuple[int, int]]]:
+    """The profile card's photo reel (see :data:`PROFILE_REEL_COUNT`):
+    one face still per animation of :func:`_reel_animations`, as
+    (still, position) pairs for the compositor.
+
+    Each still is the time 0 frame of its animation, rendered in the
+    viewer's ``--portrait 1`` framing (the face exactly inside the
+    viewport bounds) in a square viewport of side
+    ``frame_width * PROFILE_REEL_SIDE`` (``--width``/``--height``,
+    ``--time 0`` and ``--animation``): the stills are taken once per card
+    and reused for every frame. The squares run down the right edge,
+    inset by *padding*, the first square's top edge at
+    ``frame_height * PROFILE_REEL_TOP`` and a gap of *padding* between
+    them. Empty (no reel) when the character has none of
+    PROFILE_REEL_ANIMATIONS.
+    """
+    animations = _reel_animations(json_path)
+    if not animations:
+        return []
+    side = round(size[0] * PROFILE_REEL_SIDE)
+    left = size[0] - padding - side
+    top = round(size[1] * PROFILE_REEL_TOP)
+    reel: list[tuple[Image.Image, tuple[int, int]]] = []
+    for index, animation in enumerate(animations):
+        still = _first_frame(
+            json_path,
+            (side, side),
+            "--portrait",
+            "1",
+            "--width",
+            str(side),
+            "--height",
+            str(side),
+            "--time",
+            "0",
+            "--animation",
+            animation,
+        )
+        reel.append((still, (left, top + index * (side + padding))))
+    return reel
+
+
 def _render_profile(
     json_path: Path,
     size: tuple[int, int],
@@ -2340,7 +2454,9 @@ def _render_profile(
     same definition so the two stay in lockstep. The name and subtitle
     overlays are applied as usual, like the other rarities (with the
     character's manufacturer's logo above the name's bar, *manufacturer_logo*);
-    the logo sits at the top right.
+    the logo sits at the top right. The card's photo reel (the face stills
+    down the right edge, :func:`_photo_reel`) is composited onto every
+    frame as well.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the disk —
     the two raw RGBA streams are piped straight into the in-memory
@@ -2377,6 +2493,11 @@ def _render_profile(
     # from the body's first frame), so it is not occluded by the centered
     # body.
     face_offset = _face_offset(json_path, size)
+
+    # The photo reel (the face stills down the right edge): the stills are
+    # taken once — one frame at time 0 per animation — and reused for
+    # every frame of the card.
+    reel = _photo_reel(json_path, size, padding)
 
     # Spawn the two viewers streaming raw RGBA frames to stdout (no
     # intermediate files): the face framing (over the background, under the
@@ -2432,6 +2553,7 @@ def _render_profile(
         overlay,
         overlay_pos,
         parts,
+        reel,
         composite_workers,
         first_frame,
         composite_time,
@@ -2602,7 +2724,8 @@ def _process_profile_card(
     tint wash, and the ``--full-body`` framing animates over the card mask
     (both streamed in lockstep from the same definition). The name and
     subtitle overlays are applied as usual, like the other rarities; the
-    logo sits at the top right.
+    logo sits at the top right. The card's photo reel (the face stills down
+    the right edge, :func:`_photo_reel`) is composited onto every frame.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
