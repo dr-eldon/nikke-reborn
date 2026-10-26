@@ -841,17 +841,18 @@ def _stream_composited(
 
     ``--stdout`` writes each frame as a contiguous ``width * height * 4`` byte
     block of raw RGBA, in presentation order. Frames are decoded and
-    composited over *base*, then the *overlay* (the pre-stamped logo and
-    copyright line) is stamped on top, in a sliding window of
-    *composite_workers* threads — Pillow releases the GIL
-    in its raster ops, so the reader stays ahead of the encode and the cores
-    stay busy — and yielded in presentation order. At most ~2x the worker
-    count of frames are in memory at once. The first composited frame is
-    appended to *first_frame*. When the stream ends (or the consumer stops),
-    the viewer is reaped and a non-zero exit surfaced. The wall seconds of
-    composite work (summed across the worker threads) accumulate in
-    *composite_time*, and the moment the stream reaches end-of-file is
-    recorded in *stream_end*.
+    composited over *base*,
+    then the *overlay* (the pre-stamped logo and copyright line) is stamped
+    on top, in a sliding window of *composite_workers* threads — Pillow
+    releases the GIL in its raster ops, so the reader stays ahead of the
+    encode and the cores stay busy — and yielded in
+    presentation order. At most ~2x the worker
+    count of frames are in memory at once. The first composited frame (as an
+    image) is appended to *first_frame*. When the stream ends (or the
+    consumer stops), the viewer is reaped and a non-zero exit surfaced. The
+    wall seconds of composite work (summed across the worker threads)
+    accumulate in *composite_time*, and the moment the stream reaches
+    end-of-file is recorded in *stream_end*.
     """
     width, height = size
     frame_bytes = width * height * 4
@@ -944,7 +945,8 @@ def _stream_dual_composited(
     stream_end: list[float],
 ) -> Generator[Image.Image]:
     """Composite the two synchronized viewer streams and yield the frames in
-    presentation order — the profile card, where the ``--face`` framing
+    presentation order — the profile
+    card, where the ``--face`` framing
     animates (as a monochrome of the tint's hue) over the background, under
     the tint wash, and the ``--full-body`` framing animates over the mask.
 
@@ -957,7 +959,8 @@ def _stream_dual_composited(
     any), in a sliding window
     of *composite_workers* threads — as in :func:`_stream_composited` — and
     yielded in order. The first composited
-    frame is appended to *first_frame*. When both streams reach end-of-file (or
+    frame (as an image) is appended to *first_frame*. When both streams reach
+    end-of-file (or
     the consumer stops) the two viewers are reaped and a non-zero exit
     surfaced; *composite_time* and *stream_end* accumulate the composite wall
     seconds and the moment the streams reach EOF.
@@ -2079,6 +2082,59 @@ def _render_and_finish(
     )
 
 
+class _FirstFrameWriter:
+    """The animation's first-frame PNG sidecar, written in a background
+    thread.
+
+    Started with the first consumed frame (mid-encode, see
+    :func:`_write_final_card`), so the PNG's save overlaps the encode
+    instead of following it. *join* waits for the write and re-raises its
+    failure — a finished card only exists in its complete form (both the
+    mp4 and the sidecar), and a failed write still surfaces as the card's
+    failure so the caller re-renders it from scratch."""
+
+    def __init__(self, out_path: Path, source_hash: str) -> None:
+        self._out_path = out_path
+        self._source_hash = source_hash
+        self._thread: threading.Thread | None = None
+        self._exc: BaseException | None = None
+        self._done = False
+
+    @property
+    def started(self) -> bool:
+        return self._thread is not None
+
+    def start(self, image: Image.Image) -> None:
+        if self._thread is not None:
+            return
+        self._image = image
+        self._thread = threading.Thread(
+            target=self._run, name="first-frame-png", daemon=True
+        )
+        self._thread.start()
+
+    def _run(self) -> None:
+        try:
+            _save_atomic(
+                self._image.convert("RGB"), self._out_path, self._source_hash
+            )
+            self._done = True
+        except BaseException as exc:  # noqa: BLE001 — re-raised by join
+            self._exc = exc
+
+    def join(self, *, fail: bool = True) -> None:
+        """Wait for the write; when *fail*, re-raise its failure (or the
+        write not completing at all). A no-op when never started."""
+        if self._thread is None:
+            return
+        self._thread.join()
+        self._thread = None
+        if fail and (self._exc is not None or not self._done):
+            raise self._exc or GenerationError(
+                "first-frame PNG write did not complete"
+            )
+
+
 def _write_final_card(
     composited: Generator[Image.Image],
     json_path: Path,
@@ -2096,28 +2152,45 @@ def _write_final_card(
     stream_end: list[float],
     render_started: float,
 ) -> tuple[Path, dict[str, float | None]]:
-    """Write a composited frame stream to the final card.
+    """Write a composited frame stream (raw RGBA bytes) to the final card.
 
     An animation is encoded to an MP4 alongside its first frame (the same
     composited frame, so it matches the mp4's opening frame exactly); a
-    fixed-time card is written as a single PNG. *composited* is closed (so the
-    viewer stream(s) are reaped) and the stage timings (in seconds) are
-    returned: ``render`` (spawn until the frame stream is fully delivered),
-    ``composite`` (the Pillow work summed across the worker threads) and
-    ``encode`` (the ffmpeg wall time for animations, the PNG write for static
-    cards). The stages overlap — the encode consumes frames while the viewer
-    still renders and the compositing runs in its own threads — so the numbers
-    are per-stage costs, not a sequential partition.
+    fixed-time card is written as a single PNG. For animations the
+    first-frame PNG is written in a background thread that starts with the
+    first consumed frame, so the sidecar's save overlaps the encode instead
+    of following it. *composited* is closed (so the viewer stream(s) are
+    reaped) and the stage timings (in seconds) are returned: ``render``
+    (spawn until the frame stream is fully delivered), ``composite`` (the
+    per-frame Pillow work — decode, blend, stamps — summed across the worker
+    threads) and ``encode`` (the ffmpeg wall time
+    for animations, the PNG write for static cards). The stages overlap —
+    the encode consumes frames while the viewer still renders, the
+    compositing runs in its own threads, and the first-frame sidecar runs in
+    its own thread — so the numbers are per-stage costs, not a sequential
+    partition.
     """
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
     encode_time: float | None = None
     try:
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
+            png_writer = _FirstFrameWriter(
+                _card_out_path(out_base, json_path, "png", stem), source_hash
+            )
+
+            def feed(frames: Iterator[Image.Image]) -> Iterator[Image.Image]:
+                # Fire the sidecar's write at the first frame, so it runs
+                # under the encode instead of after it.
+                for frame in frames:
+                    if not png_writer.started and first_frame:
+                        png_writer.start(first_frame[0])
+                    yield frame
+
             try:
                 encode_started = time.perf_counter()
                 _encode_mp4(
-                    composited,
+                    feed(composited),
                     size,
                     framerate,
                     tmp_path,
@@ -2133,22 +2206,23 @@ def _write_final_card(
                     )
             except Exception:
                 tmp_path.unlink(missing_ok=True)
+                # Let the sidecar's write settle before the retry starts
+                # (both write the same .part); its error does not shadow
+                # the encode's.
+                png_writer.join(fail=False)
                 raise
             tmp_path.replace(out_path)
-            _save_atomic(
-                first_frame[0].convert("RGB"),
-                _card_out_path(out_base, json_path, "png", stem),
-                source_hash,
-            )
+            png_writer.join()
         else:
-            # A single frame: take it from the stream and write it.
-            frame = next(composited, None)
-            if frame is None:
+            # A single frame: consume the stream (the frame's image landed
+            # in first_frame while it was composited) and write it.
+            next(composited, None)
+            if not first_frame:
                 raise GenerationError(
                     f"{VIEWER} produced no frame for {json_path.name}"
                 )
             encode_started = time.perf_counter()
-            _save_atomic(frame.convert("RGB"), out_path, source_hash)
+            _save_atomic(first_frame[0].convert("RGB"), out_path, source_hash)
             encode_time = time.perf_counter() - encode_started
     finally:
         # Stop consuming and make sure the viewer stream is reaped (the
