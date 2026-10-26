@@ -50,6 +50,10 @@ preset, half-resolution MP4s (downscaled inside ffmpeg), and results
 written to ``draft/`` instead of ``output/`` so draft runs never clobber
 the final cards.
 
+``--force`` skips the up-to-date (hash) check and re-renders every selected
+card, profile card and pack image, even when the finished result on disk is
+already current.
+
 ``nikke-viewer --stdout`` streams its frames as raw RGBA pixels (no
 intermediate files), so each card is rendered straight into the pipeline:
 the raw frames are piped out of the viewer's stdout, composited in memory,
@@ -445,13 +449,14 @@ def generate() -> None:
     """Render and composite the selected (or all) card definitions."""
     args = _parse_args()
     draft = args.draft
+    force = args.force
     out_dir = DRAFT_DIR if draft else OUTPUT_DIR
     preset = DRAFT_PRESET if draft else DEFAULT_PRESET
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
     try:
         selection = _selected_configs(args.paths)
-        _generate_profiles(selection, args.jobs, preset, scale, out_dir)
-        _generate_variants(selection, args.jobs, preset, scale, out_dir)
+        _generate_profiles(selection, args.jobs, preset, scale, out_dir, force)
+        _generate_variants(selection, args.jobs, preset, scale, out_dir, force)
         _write_metadata(out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -2647,6 +2652,7 @@ def _process_card(
     preset: str = DEFAULT_PRESET,
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
+    force: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render, composite and encode a single card definition.
 
@@ -2689,18 +2695,20 @@ def _process_card(
     animated = card.get("time") is None
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
     source_hash = _source_hash(json_path)
-    up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
-    if up_to_date and animated:
-        # The animation's first frame is kept alongside it; a missing or
-        # stale copy forces the card to be re-rendered.
-        first_frame_path = _card_out_path(out_base, json_path, "png")
-        up_to_date = (
-            first_frame_path.is_file() and _stored_hash(first_frame_path) == source_hash
-        )
-    if up_to_date:
-        # The definition is unchanged since the card was written: skip
-        # the render
-        return out_path, True, None
+    if not force:
+        up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
+        if up_to_date and animated:
+            # The animation's first frame is kept alongside it; a missing or
+            # stale copy forces the card to be re-rendered.
+            first_frame_path = _card_out_path(out_base, json_path, "png")
+            up_to_date = (
+                first_frame_path.is_file()
+                and _stored_hash(first_frame_path) == source_hash
+            )
+        if up_to_date:
+            # The definition is unchanged since the card was written: skip
+            # the render
+            return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # The GPU is shared with other tenants, so failures here can be
@@ -2756,6 +2764,7 @@ def _process_profile_card(
     preset: str = DEFAULT_PRESET,
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
+    force: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Profile`` profile card for *json_path*
     (derived from its own definition — every rarity, ``Aim`` and
@@ -2817,18 +2826,20 @@ def _process_profile_card(
     stem = _profile_stem(json_path)
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
     source_hash = _profile_source_hash(json_path)
-    up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
-    if up_to_date and animated:
-        # The animation's first frame is kept alongside it; a missing or
-        # stale copy forces the card to be re-rendered.
-        first_frame_path = _card_out_path(out_base, json_path, "png", stem)
-        up_to_date = (
-            first_frame_path.is_file() and _stored_hash(first_frame_path) == source_hash
-        )
-    if up_to_date:
-        # The definition and the mask are unchanged since the card was
-        # written: skip the render.
-        return out_path, True, None
+    if not force:
+        up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
+        if up_to_date and animated:
+            # The animation's first frame is kept alongside it; a missing or
+            # stale copy forces the card to be re-rendered.
+            first_frame_path = _card_out_path(out_base, json_path, "png", stem)
+            up_to_date = (
+                first_frame_path.is_file()
+                and _stored_hash(first_frame_path) == source_hash
+            )
+        if up_to_date:
+            # The definition and the mask are unchanged since the card was
+            # written: skip the render.
+            return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # The static layers (the fitted background, the dominant tint, the mask)
@@ -2971,11 +2982,15 @@ def _pack_output_up_to_date(
     out_base: Path,
     front_source: str = "",
     back_source: str = "",
+    force: bool = False,
 ) -> bool:
     """True when the pack's finished *out_name* already exists and its stored
     hash matches the current inputs (the template and the front's and back's
     *sources*) — computed without rendering the front or back, so their
-    renders can be skipped when nothing has changed."""
+    renders can be skipped when nothing has changed. Always False when
+    *force* is set (everything is re-rendered)."""
+    if force:
+        return False
     pack_dir = pack_dir.resolve()
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / out_name
     source_hash = _pack_hash(
@@ -3010,6 +3025,7 @@ def _process_pack_material(
     front_source: str,
     back: Image.Image,
     back_source: str,
+    force: bool = False,
 ) -> tuple[Path, bool]:
     """Composite a pack's images onto the material template.
 
@@ -3028,7 +3044,7 @@ def _process_pack_material(
         PACK_TEMPLATE, front_source=front_source, back_source=back_source
     )
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
-    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(PACK_TEMPLATE) as opened:
         template = opened.convert("RGBA")
@@ -3061,6 +3077,7 @@ def _process_box_material(
     front_source: str,
     side: Image.Image,
     top: Image.Image,
+    force: bool = False,
 ) -> tuple[Path, bool]:
     """Composite the box's front, side and top onto the box material
     template.
@@ -3083,7 +3100,7 @@ def _process_box_material(
     pack_dir = pack_dir.resolve()
     source_hash = _pack_hash(BOX_TEMPLATE, front_source=front_source)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
-    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(BOX_TEMPLATE) as opened:
         template = opened.convert("RGBA")
@@ -3146,13 +3163,20 @@ def _viewer_hash(mesh: Path, material: Path, config: Path) -> str:
 
 
 def _viewer_output_up_to_date(
-    mesh: Path, material: Path, config: Path, out_path: Path
+    mesh: Path,
+    material: Path,
+    config: Path,
+    out_path: Path,
+    force: bool = False,
 ) -> bool:
     """True when the viewer's finished *out_path* already exists and its
     stored hash matches the current *mesh*, *material* and *config* —
     computed without rendering, so the render can be skipped when
     nothing has changed. A missing output or input (the material not
-    generated yet) is simply not up to date."""
+    generated yet) is simply not up to date. Always False when *force* is
+    set (everything is re-rendered)."""
+    if force:
+        return False
     if not (
         mesh.is_file()
         and material.is_file()
@@ -3163,7 +3187,9 @@ def _viewer_output_up_to_date(
     return _stored_hash(out_path) == _viewer_hash(mesh, material, config)
 
 
-def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
+def _process_pack_item(
+    pack_dir: Path, out_base: Path, force: bool = False
+) -> tuple[Path, bool]:
     """Render a pack's item with :data:`UNITY_VIEWER`: the pack's mesh
     (:data:`PACK_MESH`) textured with the pack's finished material
     (``<out>/<pack>/CardPack_Material.png``), posed by the viewer
@@ -3183,7 +3209,7 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     material_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
     source_hash = _viewer_hash(PACK_MESH, material_path, PACK_CONFIG)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
-    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = out_path.with_name(out_path.name + ".render")
@@ -3217,7 +3243,9 @@ def _process_pack_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     return out_path, False
 
 
-def _process_box_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
+def _process_box_item(
+    pack_dir: Path, out_base: Path, force: bool = False
+) -> tuple[Path, bool]:
     """Render the box's item with :data:`UNITY_VIEWER`: the box's mesh
     (:data:`BOX_MESH`) textured with the box's finished material
     (``<out>/<pack>/CardBox_Material.png``), posed by the box's viewer
@@ -3237,7 +3265,7 @@ def _process_box_item(pack_dir: Path, out_base: Path) -> tuple[Path, bool]:
     material_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
     source_hash = _viewer_hash(BOX_MESH, material_path, BOX_CONFIG)
     out_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_ITEM_NAME
-    if out_path.is_file() and _stored_hash(out_path) == source_hash:
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = out_path.with_name(out_path.name + ".render")
@@ -3306,6 +3334,14 @@ def _parse_args() -> argparse.Namespace:
             "half-resolution MP4s, results written to draft/ instead of output/"
         ),
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "force regeneration: skip the up-to-date (hash) check and "
+            "re-render every selected card, profile card and pack image"
+        ),
+    )
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
@@ -3330,6 +3366,7 @@ def _generate_profiles(
     preset: str,
     scale: float,
     out_base: Path,
+    force: bool = False,
 ) -> None:
     """Render the profile cards — one for every rarity except the
     ``Goddess`` and ``Classified`` presentations (all written out as
@@ -3429,6 +3466,7 @@ def _generate_profiles(
                 preset,
                 scale,
                 out_base,
+                force,
             ): path
             for path in profile_configs
         }
@@ -3453,6 +3491,7 @@ def _generate_variants(
     preset: str,
     scale: float,
     out_base: Path,
+    force: bool = False,
 ) -> None:
     """Process the selected cards in a pool of worker processes."""
     _require_executable(VIEWER)
@@ -3498,12 +3537,14 @@ def _generate_variants(
             out_base,
             front_source,
             back_source,
+            force,
         )
         item_ok = _viewer_output_up_to_date(
             PACK_MESH,
             out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME,
             PACK_CONFIG,
             out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME,
+            force,
         )
         box_ok = _pack_output_up_to_date(
             BOX_TEMPLATE,
@@ -3511,12 +3552,15 @@ def _generate_variants(
             pack_dir,
             out_base,
             box_front_source,
+            "",  # the box's material has no back
+            force,
         )
         box_item_ok = _viewer_output_up_to_date(
             BOX_MESH,
             out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME,
             BOX_CONFIG,
             out_base / pack_dir.relative_to(CARDS_DIR) / BOX_ITEM_NAME,
+            force,
         )
         if material_ok and item_ok and box_ok and box_item_ok:
             continue  # nothing changed for this pack; skip the fronts' renders
@@ -3645,6 +3689,7 @@ def _generate_variants(
                 preset,
                 scale,
                 out_base,
+                force,
             ): path.relative_to(CARDS_DIR)
             for path in card_configs
         }
@@ -3653,13 +3698,13 @@ def _generate_variants(
         # whose material is already up to date need no wait: their item
         # renders from the material that is already on disk.
         item_futures: dict[Future[tuple[Path, bool]], Path] = {
-            pool.submit(_process_pack_item, pack_dir, out_base): item_label(pack_dir)
+            pool.submit(_process_pack_item, pack_dir, out_base, force): item_label(pack_dir)
             for pack_dir in sorted(item_needs - material_needs)
         }
         # The box's item is rendered from the box material's output file,
         # so each box's item starts only after its material has finished.
         box_item_futures: dict[Future[tuple[Path, bool]], Path] = {
-            pool.submit(_process_box_item, pack_dir, out_base): box_item_label(pack_dir)
+            pool.submit(_process_box_item, pack_dir, out_base, force): box_item_label(pack_dir)
             for pack_dir in sorted(box_item_needs - box_needs)
         }
         material_futures: dict[Future[tuple[Path, bool]], Path] = {
@@ -3671,6 +3716,7 @@ def _generate_variants(
                 front_sources[pack_dir],
                 backs[pack_dir],
                 back_sources[pack_dir],
+                force,
             ): pack_dir
             for pack_dir in material_needs
         }
@@ -3685,6 +3731,7 @@ def _generate_variants(
                 box_front_sources[pack_dir],
                 box_sides[pack_dir],
                 box_tops[pack_dir],
+                force,
             ): pack_dir
             for pack_dir in sorted(box_needs)
         }
@@ -3694,7 +3741,7 @@ def _generate_variants(
             if future.exception() is not None:
                 continue  # no material -> no item for this pack
             if pack_dir in item_needs:
-                item_futures[pool.submit(_process_pack_item, pack_dir, out_base)] = (
+                item_futures[pool.submit(_process_pack_item, pack_dir, out_base, force)] = (
                     item_label(pack_dir)
                 )
         for future in as_completed(box_futures):
@@ -3703,7 +3750,7 @@ def _generate_variants(
             if future.exception() is not None:
                 continue  # no box material -> no box item for this pack
             if pack_dir in box_item_needs:
-                box_item_futures[pool.submit(_process_box_item, pack_dir, out_base)] = (
+                box_item_futures[pool.submit(_process_box_item, pack_dir, out_base, force)] = (
                     box_item_label(pack_dir)
                 )
         for future in as_completed(card_futures):
