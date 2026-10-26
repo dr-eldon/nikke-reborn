@@ -243,9 +243,7 @@ def front_source_hash(pack_dir: Path) -> str:
     return front_source_digest(pack_dir, BOX_LOGO, nr.BOX_TEMPLATE)
 
 
-def build_front(
-    pack_dir: Path, expansion: dict, size: tuple[int, int]
-) -> Image.Image:
+def build_front(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
     """The box front: the shared front composition
     (:func:`nikke_reborn.expansion.compose_front`) with the box's background
     fit, the box's white NIKKE logo, the box's expansion-logo sizing
@@ -271,9 +269,7 @@ def build_front(
     )
 
 
-def build_side(
-    pack_dir: Path, expansion: dict, size: tuple[int, int]
-) -> Image.Image:
+def build_side(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
     """The box side: the expansion's background fitted to cover the side
     (like the front — scaled to cover, bottom-aligned, center-cropped),
     with the expansion's logo center-center (see
@@ -291,9 +287,7 @@ def build_side(
     return side
 
 
-def build_top(
-    pack_dir: Path, expansion: dict, size: tuple[int, int]
-) -> Image.Image:
+def build_top(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
     """The box top: the expansion's background fitted to cover the top —
     like the front's and side's cover fit, but centered vertically as well
     as horizontally (see :func:`nikke_reborn.expansion._fit_cover`) — with
@@ -307,11 +301,11 @@ def build_top(
     expansion's logo when a logo is set, the white logo and the
     template) are a subset of the front's, so the front's source hash (see
     :func:`front_source_hash`) covers it."""
-    top = _fit_cover(
-        load_background(pack_dir, expansion), size, v_align="center"
-    )
+    top = _fit_cover(load_background(pack_dir, expansion), size, v_align="center")
     place_center_expansion_logo(
-        top, pack_dir, expansion,
+        top,
+        pack_dir,
+        expansion,
         width_fraction=BOX_TOP_EXPANSION_LOGO_WIDTH,
     )
     place_top_logo(top)

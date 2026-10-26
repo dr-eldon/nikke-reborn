@@ -145,18 +145,12 @@ def build_front(
     (:func:`nikke_reborn.expansion.compose_front`) with the pack's background
     fit and the pack's white NIKKE logo. The result is returned in memory; it
     is the material's right rectangle and is never written to disk."""
-    return compose_front(
-        pack_dir, expansion, size, fit="crop", place_logo=place_logo
-    )
+    return compose_front(pack_dir, expansion, size, fit="crop", place_logo=place_logo)
 
 
-def build_back(
-    pack_dir: Path, expansion: dict, size: tuple[int, int]
-) -> Image.Image:
+def build_back(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
     """Compose the pack back from the expansion's ``background``: resized to
     the back's height and left-cropped to its exact width (the front
     center-crops the same background). The result is returned in memory; it is
     the material's left rectangle and is never written to disk."""
-    return fit_background(
-        load_background(pack_dir, expansion), size, align="left"
-    )
+    return fit_background(load_background(pack_dir, expansion), size, align="left")

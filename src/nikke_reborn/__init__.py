@@ -1828,7 +1828,9 @@ def _logo_copyright_overlay(
     return overlay.crop(box), (box[0], box[1])
 
 
-def _composite_frame(frame: Image.Image, base: Image.Image, base_alpha: Image.Image | None) -> Image.Image:
+def _composite_frame(
+    frame: Image.Image, base: Image.Image, base_alpha: Image.Image | None
+) -> Image.Image:
     """Composite *frame* over *base*; the result is RGBA.
 
     When *base_alpha* (the base's alpha channel) is given, the base is fully
@@ -2115,9 +2117,7 @@ class _FirstFrameWriter:
 
     def _run(self) -> None:
         try:
-            _save_atomic(
-                self._image.convert("RGB"), self._out_path, self._source_hash
-            )
+            _save_atomic(self._image.convert("RGB"), self._out_path, self._source_hash)
             self._done = True
         except BaseException as exc:  # noqa: BLE001 — re-raised by join
             self._exc = exc
@@ -2130,9 +2130,7 @@ class _FirstFrameWriter:
         self._thread.join()
         self._thread = None
         if fail and (self._exc is not None or not self._done):
-            raise self._exc or GenerationError(
-                "first-frame PNG write did not complete"
-            )
+            raise self._exc or GenerationError("first-frame PNG write did not complete")
 
 
 def _write_final_card(

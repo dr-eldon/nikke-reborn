@@ -61,13 +61,13 @@ EXPANSION_NAME = "Expansion.json"
 # Every NIKKE's feet sit on the front's bottom edge (feet baseline = 1.0), so
 # no one floats above a strip of background or gets clipped by the card frame.
 # The hero is the first featured NIKKE: centered, the largest, in front.
-HERO_HEIGHT = 0.78   # hero body height as a fraction of the front height
-HERO_FEET_Y = 1.0    # hero feet baseline (the bottom edge)
+HERO_HEIGHT = 0.78  # hero body height as a fraction of the front height
+HERO_FEET_Y = 1.0  # hero feet baseline (the bottom edge)
 # The remaining NIKKES read as a group behind the hero: smaller (the depth cue)
 # and pushed to the left and right, still with their feet on the bottom edge.
-BACK_HEIGHT = 0.42   # back body height fraction (base, before per-tier shrink)
-BACK_FEET_Y = 1.0    # back feet baseline (the bottom edge)
-BACK_OFFSET_X = 0.34 # first flank's center offset from the middle (width frac)
+BACK_HEIGHT = 0.42  # back body height fraction (base, before per-tier shrink)
+BACK_FEET_Y = 1.0  # back feet baseline (the bottom edge)
+BACK_OFFSET_X = 0.34  # first flank's center offset from the middle (width frac)
 BACK_TIER_GAP = 0.5  # each further tier on a side steps out by this fraction
 BACK_TIER_SHRINK = 0.9  # each further tier shrinks by this factor
 ALPHA_TRIM = 24  # alpha threshold (0-255) for the content bounding box
@@ -82,20 +82,20 @@ ALPHA_TRIM = 24  # alpha threshold (0-255) for the content bounding box
 # color — its hue and saturation, brightened to :data:`LOGO_GLOW_VALUE` — so
 # the bloom matches the scene (a night sky glows cool violet, a bright day
 # scene glows warm) rather than a fixed white.
-LOGO_WIDTH = 0.5   # logo width as a fraction of the front width (the pack's
-                   # front; the box's front sizes by height — compose_front's
-                   # expansion_logo_height)
+LOGO_WIDTH = 0.5  # logo width as a fraction of the front width (the pack's
+# front; the box's front sizes by height — compose_front's
+# expansion_logo_height)
 LOGO_MARGIN = 0.05  # gap from the front's top/bottom edge (height fraction)
 LOGO_GLOW_RADIUS = 0.012  # glow blur radius (fraction of the front height)
 LOGO_GLOW_INTENSITY = 1.0  # glow strength (alpha multiplier of the halo)
 LOGO_GLOW_VALUE = 0.9  # target brightness of the glow tint (0-1)
 LOGO_TRAIL = 0.008  # the solid diagonal trail: the mark's own silhouette,
-                   # filled solid (a darkened glow tint) and offset
-                   # down-right by this fraction of the mark's height, drawn
-                   # behind the mark — a tight drop-shadow that reads as a
-                   # small trail
+# filled solid (a darkened glow tint) and offset
+# down-right by this fraction of the mark's height, drawn
+# behind the mark — a tight drop-shadow that reads as a
+# small trail
 LOGO_TRAIL_DARKEN = 0.7  # how much the trail's tint is darkened relative to
-                         # the glow's tint (1.0 would be the full glow tint)
+# the glow's tint (1.0 would be the full glow tint)
 LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo.placement` field
 
 
@@ -111,9 +111,7 @@ def load_expansion(pack_dir: Path) -> dict:
         raise nr.GenerationError(f"cannot read {path}: {exc}") from exc
 
 
-def front_source_digest(
-    pack_dir: Path, logo: Path, template: Path
-) -> str:
+def front_source_digest(pack_dir: Path, logo: Path, template: Path) -> str:
     """A hash of an expansion front's *inputs* — everything the composed
     front depends on: the expansion's ``Expansion.json``, the featured NIKKE
     definitions it lists, its background and (when a logo is set) the
@@ -162,8 +160,7 @@ def load_logo(pack_dir: Path, expansion: dict) -> tuple[Image.Image, str]:
     logo = expansion.get("logo")
     if not isinstance(logo, dict):
         raise nr.GenerationError(
-            f"{pack_dir.name}: 'logo' must be an object with a 'path' and a "
-            "'placement'"
+            f"{pack_dir.name}: 'logo' must be an object with a 'path' and a 'placement'"
         )
     logo_rel = logo.get("path")
     if not logo_rel:
@@ -417,11 +414,7 @@ def _paste_body(
 def _image_average(image: Image.Image) -> tuple[int, int, int]:
     """The area-averaged RGB of *image* (a single box-filtered pixel) — the
     image's representative color, cheap to compute at any size."""
-    pixel = (
-        image.convert("RGB")
-        .resize((1, 1), Image.Resampling.BOX)
-        .getpixel((0, 0))
-    )
+    pixel = image.convert("RGB").resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
     assert isinstance(pixel, tuple)
     return (pixel[0], pixel[1], pixel[2])
 
@@ -458,7 +451,9 @@ def _logo_glow_layer(
     return layer, pad
 
 
-def _screen_composite(base: Image.Image, overlay: Image.Image, pos: tuple[int, int]) -> None:
+def _screen_composite(
+    base: Image.Image, overlay: Image.Image, pos: tuple[int, int]
+) -> None:
     """Screen-blend *overlay*'s color onto *base* at *pos*, masked by the
     overlay's alpha: the mark's bloom brightens the front without painting over
     it (unlike an opaque alpha paste). Clipped to *base*'s bounds; *base* is

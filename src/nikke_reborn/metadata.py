@@ -84,8 +84,7 @@ def pack(set) -> dict:
         return {
             "ClassicProfile": 100
             - classic
-            - (rare + special + idle + exotic + cover + aim)
-            * (profile_factor + 1)
+            - (rare + special + idle + exotic + cover + aim) * (profile_factor + 1)
             - goddess
             - classified,
             "RareProfile": rare * profile_factor,
