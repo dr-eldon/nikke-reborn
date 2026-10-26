@@ -232,7 +232,7 @@ PROFILE_REEL_MARGIN = 1.5
 PROFILE_REEL_BORDER = 0.005
 #: The photo-reel border's opacity (0.5): the tint frame is
 #: semi-transparent, so the card art behind it shows through.
-PROFILE_REEL_BORDER_ALPHA = 0.5
+PROFILE_REEL_BORDER_ALPHA = 0.8
 #: The photo reel's candidate animations, in order: the first
 #: PROFILE_REEL_COUNT of these the character has become the reel's stills
 #: (fewer, or none, when fewer match).
