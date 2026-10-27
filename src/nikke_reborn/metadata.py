@@ -1,13 +1,14 @@
 import math
 
 RARITIES = [
+    "ClassicStandard",
+    "RareStandard",
+    "SpecialStandard",
+    "ExoticStandard",
     "ClassicProfile",
-    "RareProfile",
-    "SpecialProfile",
     "IdleProfile",
     "CoverProfile",
     "AimProfile",
-    "ExoticProfile",
     "Classic",
     "Rare",
     "Special",

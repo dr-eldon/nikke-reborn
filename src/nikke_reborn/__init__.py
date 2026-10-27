@@ -51,8 +51,8 @@ written to ``draft/`` instead of ``output/`` so draft runs never clobber
 the final cards.
 
 ``--force`` skips the up-to-date (hash) check and re-renders every selected
-card, profile card and pack image, even when the finished result on disk is
-already current.
+card, profile card, standard card and pack image, even when the finished
+result on disk is already current.
 
 ``nikke-viewer --stdout`` streams its frames as raw RGBA pixels (no
 intermediate files), so each card is rendered straight into the pipeline:
@@ -66,10 +66,20 @@ worker processes (see ``--jobs``); within an animated card, the frames are
 composited in parallel threads, and the cores are split between that stage
 and the ffmpeg encode so the parallel work stays within the core count.
 
+Beyond the full-art card, two derived presentations are rendered from a
+definition: the ``Profile`` presentation (the ``Classic``, ``Idle``,
+``Cover`` and ``Aim`` variants, written out with a ``Profile`` suffix; see
+the profile presentation section below) and the ``Standard`` presentation
+(the ``Classic``, ``Rare``, ``Special`` and ``Exotic`` variants, written out
+with a ``Standard`` suffix; the standard card keeps the definition's
+``background``, composites the standard card mask over it, and frames the
+character's upper body with the viewer's ``--half-body`` flag).
+
 By default every ``*.json`` under ``cards/`` is generated; one or more card
 paths (a set, a card, or a definition file, relative to the repo root or to
 ``cards/``) may be passed on the command line to generate only the selected
-definitions — the profile and the standard presentations alike.
+definitions — the full-art, the ``Profile`` and the ``Standard``
+presentations alike.
 """
 
 from __future__ import annotations
@@ -156,17 +166,41 @@ DEFAULT_FRAMERATE = 60
 # (PROFILE_REEL_BORDER of the side). Everything is composited in memory —
 # no intermediate frame touches the disk; only the finished card is
 # written (atomically).
-#: Profile rarity stems that skip the standard pipeline entirely: only
+#: Profile rarity stems that skip the full-art pipeline entirely: only
 #: their profile cards are rendered. Currently empty — every rarity
-#: (including ``Aim`` and ``Cover``) also renders its standard card.
+#: (including ``Aim`` and ``Cover``) also renders its full-art card.
 PROFILE_RARITIES = frozenset({})
 #: Variant stems with no derived ``<variant>Profile`` card: the
 #: ``Goddess`` and ``Classified`` presentations.
 NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
+# --- the standard presentation -------------------------------------------
+# The ``Standard`` tier is a derived presentation, like the profile cards,
+# rendered through its own pipeline: one card is derived from each of the
+# ``Classic``, ``Rare``, ``Special`` and ``Exotic`` definitions and written
+# out with the variant's stem plus the ``Standard`` suffix. The card keeps
+# the definition's ``background`` (as-is, no monochrome), the standard card
+# mask (:data:`STANDARD_MASK_PATH`) is composited over it, and the
+# character's upper body (the viewer's ``--half-body`` flag, ignoring the
+# definition's pan/zoom) animates over the mask. The name and subtitle
+# overlays are applied as usual, like the profile cards (with the
+# character's manufacturer's logo above the name's bar); the logo sits at
+# the bottom right and the copyright at the bottom left, both in black.
+#: Variant stems that render a ``<variant>Standard`` card: the
+#: ``Classic``, ``Rare``, ``Special`` and ``Exotic`` presentations.
+STANDARD_STEMS = frozenset({"Classic", "Rare", "Special", "Exotic"})
+#: Variant stems that render a ``<variant>Profile`` card: the
+#: ``Classic``, ``Idle``, ``Cover`` and ``Aim`` presentations. The
+#: ``Rare``, ``Special`` and ``Exotic`` presentations moved to the
+#: ``Standard`` tier (they no longer render a profile card), and the
+#: ``Goddess`` and ``Classified`` presentations render no derived card.
+PROFILE_STEMS = frozenset({"Classic", "Idle", "Cover", "Aim"})
 #: The profile card's mask (tinted with the background's dominant tint at
 #: each pixel's own lightness, the white staying white; composited over
 #: the diluted background, under the character), next to its GIMP source.
 PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask_Profile.png"
+#: The standard card's mask (the white card face, composited over the
+#: background, under the character), next to its GIMP source.
+STANDARD_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask_Standard.png"
 #: Opacity of the dominant-tint wash's top edge: laid over the monochrome
 #: background and the face framing: the partial wash dilutes the
 #: background toward its own main color and gently re-tints the face so
@@ -457,6 +491,7 @@ def generate() -> None:
     try:
         selection = _selected_configs(args.paths)
         _generate_profiles(selection, args.jobs, preset, scale, out_dir, force)
+        _generate_standards(selection, args.jobs, preset, scale, out_dir, force)
         _generate_variants(selection, args.jobs, preset, scale, out_dir, force)
         _write_metadata(out_dir)
     except GenerationError as exc:
@@ -623,6 +658,24 @@ def _profile_source_hash(json_path: Path) -> str:
     digest = hashlib.sha256()
     digest.update(json_path.read_bytes())
     digest.update(PROFILE_MASK_PATH.read_bytes())
+    digest.update((DATABASE_DIR / "characters.json").read_bytes())
+    manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
+    if manufacturer is not None:
+        logo = IMAGES_DIR / "logos" / f"{manufacturer}.png"
+        if logo.is_file():
+            digest.update(logo.read_bytes())
+    return digest.hexdigest()
+
+
+def _standard_source_hash(json_path: Path) -> str:
+    """SHA-256 of the standard card's inputs — the definition it renders,
+    the standard card mask, the characters database (for the character's
+    manufacturer) and the manufacturer's logo (the files its pixels
+    depend on). Embedded under :data:`SOURCE_HASH_KEY` so an unchanged
+    standard card is skipped instead of re-rendered."""
+    digest = hashlib.sha256()
+    digest.update(json_path.read_bytes())
+    digest.update(STANDARD_MASK_PATH.read_bytes())
     digest.update((DATABASE_DIR / "characters.json").read_bytes())
     manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
     if manufacturer is not None:
@@ -896,6 +949,7 @@ def _stream_composited(
     first_frame: list[Image.Image],
     composite_time: list[float],
     stream_end: list[float],
+    parts: _NameLayers | None = None,
 ) -> Generator[Image.Image]:
     """Composite the viewer's raw RGBA stdout frames and yield them in order.
 
@@ -903,7 +957,8 @@ def _stream_composited(
     block of raw RGBA, in presentation order. Frames are decoded and
     composited over *base*,
     then the *overlay* (the pre-stamped logo and copyright line) is stamped
-    on top, in a sliding window of *composite_workers* threads — Pillow
+    on top — and the name stack (if any, *parts*) is applied, as the profile
+    cards do — in a sliding window of *composite_workers* threads — Pillow
     releases the GIL in its raster ops, so the reader stays ahead of the
     encode and the cores stay busy — and yielded in
     presentation order. At most ~2x the worker
@@ -932,9 +987,10 @@ def _stream_composited(
         frame = Image.frombytes("RGBA", (width, height), data)
         art = _composite_frame(frame, base, base_alpha)
         art.alpha_composite(overlay, overlay_pos)
+        result = _apply_name(art, parts) if parts is not None else art
         with time_lock:
             composite_time[0] += time.perf_counter() - started
-        return art
+        return result
 
     time_lock = threading.Lock()
     workers = max(1, composite_workers)
@@ -1367,6 +1423,23 @@ def _profile_layers(
     # its white).
     mask = _tint_at_luma(mask, tint_rgb)
     return base, tint, mask, tint_rgb
+
+
+def _standard_layers(base: Image.Image) -> Image.Image:
+    """The standard card's static base, composed in memory: *base* (the
+    fitted background) with the standard card mask (:data:`STANDARD_MASK_PATH`)
+    composited over it (the white card face, under the character). The mask
+    is applied to a copy, so *base* is left untouched — the caller still has
+    the unmasked fitted background to sample the subtitle rectangle's tint
+    from (as the profile cards sample their fitted background), so the mask's
+    white does not wash the scene's color out. Nothing touches the disk."""
+    with Image.open(STANDARD_MASK_PATH) as opened:
+        mask = opened.convert("RGBA")
+    if mask.size != base.size:
+        mask = mask.resize(base.size, Image.Resampling.LANCZOS)
+    face = base.copy()
+    face.alpha_composite(mask)
+    return face
 
 
 def _scale_logo(logo: Image.Image, card_width: int) -> Image.Image:
@@ -2623,6 +2696,121 @@ def _render_profile(
     )
 
 
+def _render_standard(
+    json_path: Path,
+    size: tuple[int, int],
+    animated: bool,
+    base: Image.Image,
+    sub_rect_color: tuple[int, int, int],
+    name: str,
+    subtitle: str,
+    manufacturer_logo: Image.Image | None,
+    logo: Image.Image,
+    margin: int,
+    padding: int,
+    copyright_color: tuple[int, int, int, int],
+    framerate: int,
+    ffmpeg_threads: int,
+    composite_workers: int,
+    preset: str,
+    scale: float,
+    out_base: Path,
+    source_hash: str,
+) -> tuple[Path, dict[str, float | None]]:
+    """Render the standard card (a presentation of *json_path*, written out
+    as ``<card>_<variant>Standard.<suffix>``): the definition's
+    *background* (as-is, no monochrome) carries the standard card mask
+    (:data:`STANDARD_MASK_PATH`, already composited into *base*), and the
+    character's upper body (the viewer's ``--half-body`` flag, ignoring the
+    definition's pan/zoom) animates over it. The name and subtitle overlays
+    are applied as usual, like the profile cards (with the character's
+    manufacturer's logo above the name's bar, *manufacturer_logo*); the
+    logo sits at the bottom right and the copyright at the bottom left, both
+    in black.
+
+    Like :func:`_render_and_finish` and :func:`_render_profile`, nothing
+    intermediate touches the disk — the raw RGBA stream is piped straight
+    into the in-memory compositing and (for animations) the ffmpeg encode;
+    only the finished card is written (atomically, as
+    ``<card>_<stem>.<suffix>``). Returns the finished card's path and the
+    stage timings (see :func:`_write_final_card`).
+    """
+    stem = _standard_stem(json_path)
+    # The logo and copyright line sit on top of the art: pre-stamp them onto
+    # a transparent layer and let the compositor apply them to each frame.
+    # The standard card's logo sits at the bottom right (the copyright at
+    # the bottom left), both in black.
+    overlay, overlay_pos = _logo_copyright_overlay(
+        size, logo, margin, padding, copyright_color
+    )
+    parts = (
+        _name_layers(
+            size,
+            name,
+            subtitle,
+            padding,
+            NAME_RECT_COLOR,
+            sub_rect_color,
+            manufacturer_logo,
+        )
+        if (name or subtitle)
+        else None
+    )
+    composite_time: list[float] = [0.0]
+    stream_end: list[float] = [0.0]
+
+    # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
+    # files): the half body over the mask. --half-body ignores the
+    # definition's pan/zoom and frames the upper body. stderr is drained in
+    # a thread so it never blocks the viewer.
+    render_started = time.perf_counter()
+    viewer_args = [VIEWER, "--half-body", "--stdout", str(json_path)]
+    try:
+        viewer = subprocess.Popen(
+            viewer_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=PIPE_BUFSIZE,
+        )
+    except OSError as exc:
+        raise GenerationError(f"could not run {VIEWER!r} (half body): {exc}") from exc
+    assert viewer.stderr is not None
+    # A Popen pipe is a buffered reader (needed for read1).
+    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
+    first_frame: list[Image.Image] = []
+    composited = _stream_composited(
+        viewer,
+        drain,
+        json_path,
+        size,
+        base,
+        overlay,
+        overlay_pos,
+        composite_workers,
+        first_frame,
+        composite_time,
+        stream_end,
+        parts,
+    )
+    return _write_final_card(
+        composited,
+        json_path,
+        out_base,
+        stem,
+        animated,
+        size,
+        framerate,
+        ffmpeg_threads,
+        preset,
+        scale,
+        source_hash,
+        first_frame,
+        composite_time,
+        stream_end,
+        render_started,
+    )
+
+
 def _card_out_path(
     out_base: Path, json_path: Path, suffix: str, stem: str | None = None
 ) -> Path:
@@ -2672,8 +2860,8 @@ def _process_card(
     logo = Image.open(logo_path).convert("RGBA")
     if not FONT.is_file():
         raise GenerationError(f"font not found: {FONT}")
-    # The standard presentations never carry the card name (only the
-    # profile cards render the title and subtitle).
+    # The full-art cards never carry the card name (the profile and
+    # standard cards render the title and subtitle).
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
@@ -2756,6 +2944,13 @@ def _profile_stem(json_path: Path) -> str:
     return f"{json_path.stem}Profile"
 
 
+def _standard_stem(json_path: Path) -> str:
+    """The output stem of the standard card rendered from *json_path*: the
+    variant's stem with the ``Standard`` suffix (a ``Rare.json`` writes out
+    as ``<card>_RareStandard.<suffix>``)."""
+    return f"{json_path.stem}Standard"
+
+
 def _process_profile_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
@@ -2766,9 +2961,11 @@ def _process_profile_card(
     force: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Profile`` profile card for *json_path*
-    (derived from its own definition — every rarity, ``Aim`` and
-    ``Cover`` included, renders one, the ``Goddess`` and ``Classified``
-    presentations excepted): the ``--face`` framing animates (as a
+    (derived from its own definition — one of the ``Classic``, ``Idle``,
+    ``Cover`` and ``Aim`` presentations, see :data:`PROFILE_STEMS`; the
+    ``Rare``, ``Special`` and ``Exotic`` presentations render a standard
+    card instead, and the ``Goddess`` and ``Classified`` presentations
+    render no derived card): the ``--face`` framing animates (as a
     monochrome of the tint's hue) over the background, under its dominant
     tint wash, and the ``--full-body`` framing animates over the card mask
     (both streamed in lockstep from the same definition). The name and
@@ -2872,6 +3069,139 @@ def _process_profile_card(
                 out_base,
                 source_hash,
                 PROFILE_FACE_ZOOM,
+            )
+            timings["total"] = time.perf_counter() - total_started
+            return finished, False, timings
+        except Exception as exc:
+            if attempt >= RENDER_ATTEMPTS:
+                raise GenerationError(
+                    f"render of {json_path.name} ({stem}) still failing after "
+                    f"{RENDER_ATTEMPTS} attempts: {exc}"
+                ) from exc
+            print(
+                f"    ! {json_path.name} ({stem}): {exc}; re-rendering "
+                f"(attempt {attempt}/{RENDER_ATTEMPTS})",
+                flush=True,
+            )
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _process_standard_card(
+    json_path: Path,
+    ffmpeg_threads: int = 1,
+    composite_workers: int = 4,
+    preset: str = DEFAULT_PRESET,
+    scale: float = DEFAULT_SCALE,
+    out_base: Path = OUTPUT_DIR,
+    force: bool = False,
+) -> tuple[Path, bool, dict[str, float | None] | None]:
+    """Render the ``<variant>Standard`` standard card for *json_path*
+    (derived from its own definition — the ``Classic``, ``Rare``,
+    ``Special`` and ``Exotic`` presentations): the definition's
+    ``background`` (as-is, no monochrome) carries the standard card mask
+    (:data:`STANDARD_MASK_PATH`), and the ``--half-body`` framing animates
+    over it. The name and subtitle overlays are applied as usual, like the
+    profile cards (with the character's manufacturer's logo above the
+    name's bar); the logo sits at the bottom right and the copyright at the
+    bottom left, both in black.
+
+    Everything is composited in memory — the viewer's raw frames stream
+    straight into the pipeline and nothing intermediate touches the disk
+    (only the finished card is written). Returns ``(out_path, skipped,
+    timings)`` like :func:`_process_card` (written out as
+    ``<card>_<stem>.<suffix>``).
+    """
+    total_started = time.perf_counter()
+    json_path = json_path.resolve()
+    card = _load_card(json_path)
+    background = Image.open(_background_path(card, json_path)).convert("RGBA")
+
+    # The standard presentation always carries the black logo and black
+    # copyright — the standard card's white face would wash out the white
+    # versions — while the name stays white, as the other rarities.
+    logo_path = LOGO_PATHS[True]
+    if not logo_path.is_file():
+        raise GenerationError(f"logo not found: {logo_path}")
+    logo = Image.open(logo_path).convert("RGBA")
+    if not FONT.is_file():
+        raise GenerationError(f"font not found: {FONT}")
+    if not FONT_NAME.is_file():
+        raise GenerationError(f"font not found: {FONT_NAME}")
+    # The standard presentation carries the card name, as the profile cards
+    # do (a nameless definition renders without the name stack).
+    name = str(card.get("title", ""))
+    subtitle = str(card.get("subtitle", ""))
+    # The character's manufacturer's logo (tinted to the title's
+    # background; None when the character or its manufacturer is
+    # unknown): it sits above the name's bar.
+    manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
+    padding = card["padding"]
+    margin = round(LOGO_PADDING_FACTOR * padding)
+    copyright_color = (0, 0, 0, 255)
+    framerate = card["framerate"] or DEFAULT_FRAMERATE
+
+    viewport = card.get("viewport")
+    if not viewport:
+        raise GenerationError(
+            f"{json_path.name}: missing 'viewport' (needed to size the raw "
+            f"frames streamed by {VIEWER} --stdout)"
+        )
+    size = (int(viewport[0]), int(viewport[1]))
+
+    # A definition without a `time` renders an animation (mp4) plus its first
+    # frame (png); one with a `time` renders a single frame (png).
+    animated = card.get("time") is None
+    stem = _standard_stem(json_path)
+    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
+    source_hash = _standard_source_hash(json_path)
+    if not force:
+        up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
+        if up_to_date and animated:
+            # The animation's first frame is kept alongside it; a missing or
+            # stale copy forces the card to be re-rendered.
+            first_frame_path = _card_out_path(out_base, json_path, "png", stem)
+            up_to_date = (
+                first_frame_path.is_file()
+                and _stored_hash(first_frame_path) == source_hash
+            )
+        if up_to_date:
+            # The definition and the mask are unchanged since the card was
+            # written: skip the render.
+            return out_path, True, None
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # The static base (the fitted background carrying the standard card mask)
+    # is prepared once, ahead of the render (a failure at any stage
+    # re-renders from scratch, up to RENDER_ATTEMPTS times; the viewer
+    # framing streams directly, so nothing intermediate is written to disk in
+    # between). The subtitle rectangle's tint is sampled from the unmasked
+    # fitted background, so the mask's white does not wash the scene's color
+    # out.
+    fitted = _fit_background(background, size)
+    sub_rect_color = _rect_tint(fitted)
+    base = _standard_layers(fitted)
+    for attempt in range(1, RENDER_ATTEMPTS + 1):
+        try:
+            finished, timings = _render_standard(
+                json_path,
+                size,
+                animated,
+                base,
+                sub_rect_color,
+                name,
+                subtitle,
+                manufacturer_logo,
+                logo,
+                margin,
+                padding,
+                copyright_color,
+                framerate,
+                ffmpeg_threads,
+                composite_workers,
+                preset,
+                scale,
+                out_base,
+                source_hash,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings
@@ -3338,7 +3668,8 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "force regeneration: skip the up-to-date (hash) check and "
-            "re-render every selected card, profile card and pack image"
+            "re-render every selected card, profile card, standard card "
+            "and pack image"
         ),
     )
     args = parser.parse_args()
@@ -3367,13 +3698,16 @@ def _generate_profiles(
     out_base: Path,
     force: bool = False,
 ) -> None:
-    """Render the profile cards — one for every rarity except the
-    ``Goddess`` and ``Classified`` presentations (all written out as
-    ``<variant>Profile``) — in a pool of worker processes.
+    """Render the profile cards — one for each of the ``Classic``,
+    ``Idle``, ``Cover`` and ``Aim`` presentations (all written out as
+    ``<variant>Profile``) — in a pool of worker processes. The ``Rare``,
+    ``Special`` and ``Exotic`` presentations render a standard card instead
+    (see :func:`_generate_standards`), and the ``Goddess`` and
+    ``Classified`` presentations render no derived card.
 
     *paths* is passed to :func:`_find_card_configs` (a ``None`` selects every
-    card definition); from the result every definition without a
-    ``Goddess``/``Classified`` stem is kept (see
+    card definition); from the result every definition with a
+    :data:`PROFILE_STEMS` stem is kept (see
     :func:`_process_profile_card`). No pack artwork or metadata is produced.
     """
     _require_executable(VIEWER)
@@ -3383,14 +3717,14 @@ def _generate_profiles(
     profile_configs = [
         path
         for path in configs
-        if path.stem in PROFILE_RARITIES or path.stem not in NO_PROFILE_STEMS
+        if path.stem in PROFILE_RARITIES or path.stem in PROFILE_STEMS
     ]
     if not configs:
         raise GenerationError("no profile card definitions to render")
     if not profile_configs:
         # The selection has no profile-eligible definition (e.g. it only
-        # selects a Goddess presentation): the standard presentations still
-        # render.
+        # selects a Goddess or a Rare presentation): the standard and the
+        # full-art presentations still render.
         print("No profile card definitions selected; skipping the profile pass.")
         return
     start = time.monotonic()
@@ -3484,6 +3818,129 @@ def _generate_profiles(
     )
 
 
+def _generate_standards(
+    paths: list[Path] | None,
+    jobs: int,
+    preset: str,
+    scale: float,
+    out_base: Path,
+    force: bool = False,
+) -> None:
+    """Render the standard cards — one for each of the ``Classic``,
+    ``Rare``, ``Special`` and ``Exotic`` presentations (all written out as
+    ``<variant>Standard``) — in a pool of worker processes.
+
+    *paths* is passed to :func:`_find_card_configs` (a ``None`` selects every
+    card definition); from the result every definition with a
+    :data:`STANDARD_STEMS` stem is kept (see
+    :func:`_process_standard_card`). No pack artwork or metadata is produced.
+    """
+    _require_executable(VIEWER)
+    _require_executable(ENCODER)
+    _require_executable(PROBER)
+    configs = _find_card_configs(paths)
+    standard_configs = [
+        path for path in configs if path.stem in STANDARD_STEMS
+    ]
+    if not configs:
+        raise GenerationError("no standard card definitions to render")
+    if not standard_configs:
+        # The selection has no standard-eligible definition (e.g. it only
+        # selects an Idle presentation): the profile and the full-art
+        # presentations still render.
+        print("No standard card definitions selected; skipping the standard pass.")
+        return
+    start = time.monotonic()
+    total = len(standard_configs)
+    # Split the cores available to each card between the stages that run in
+    # parallel: the frame compositing and the ffmpeg encode.
+    per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
+    ffmpeg_threads = max(2, min(MAX_STAGE_THREADS, per_card // 2))
+    composite_workers = max(2, min(MAX_STAGE_THREADS, per_card - ffmpeg_threads))
+    notes = []
+    if preset != DEFAULT_PRESET:
+        notes.append(f"x264 preset '{preset}'")
+    if scale != 1.0:
+        notes.append(f"{scale:g}x resolution")
+    notes_text = f", {', '.join(notes)} (draft)" if notes else ""
+    print(
+        f"Rendering {total} standard card(s) (written out as "
+        f"<variant>Standard) with {jobs} worker(s){notes_text} ..."
+    )
+    for path in standard_configs:
+        print(f"  - {path.relative_to(REPO_ROOT)}")
+
+    failures: list[tuple[Path, Exception]] = []
+    done = 0
+    skipped = 0
+    with ProcessPoolExecutor(max_workers=jobs) as pool:
+        # Report one finished future. Failures are collected here and reported
+        # (the run exits non-zero) once everything has had its turn, so one
+        # bad card never aborts the rest.
+        def report(
+            future: Future[tuple[Path, bool, dict[str, float | None] | None]],
+            label: Path,
+        ) -> None:
+            nonlocal done, skipped
+            done += 1
+            # Every standard output's stem differs from its definition's
+            # (the Standard suffix); tag it.
+            tag = f" ({_standard_stem(label)})"
+            try:
+                out_path, was_skipped, *rest = future.result()
+                timings = rest[0] if rest else None
+                if was_skipped:
+                    skipped += 1
+                    print(
+                        f"[{done}/{total}] {label}{tag} unchanged, "
+                        f"kept {out_path.relative_to(REPO_ROOT)}",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"[{done}/{total}] {label}{tag} -> "
+                        f"{out_path.relative_to(REPO_ROOT)}"
+                        f"{_timings_suffix(timings)}",
+                        flush=True,
+                    )
+            except Exception as exc:
+                failures.append((label, exc))
+                print(
+                    f"[{done}/{total}] {label}{tag} FAILED: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        card_futures: dict[
+            Future[tuple[Path, bool, dict[str, float | None] | None]], Path
+        ] = {
+            pool.submit(
+                _process_standard_card,
+                path,
+                ffmpeg_threads,
+                composite_workers,
+                preset,
+                scale,
+                out_base,
+                force,
+            ): path
+            for path in standard_configs
+        }
+        for future in as_completed(card_futures):
+            report(future, card_futures[future].relative_to(CARDS_DIR))
+
+    if failures:
+        for label, exc in failures:
+            print(f"error: {label} ({_standard_stem(label)}): {exc}", file=sys.stderr)
+        sys.exit(1)
+    word = "drafts" if out_base == DRAFT_DIR else "final cards"
+    skipped_text = f", {skipped} unchanged" if skipped else ""
+    print(
+        f"Done. {total} standard card(s) in {time.monotonic() - start:.1f}s, "
+        f"{word} written to {out_base.relative_to(REPO_ROOT)}/{skipped_text}"
+    )
+
+
 def _generate_variants(
     paths: list[Path] | None,
     jobs: int,
@@ -3496,8 +3953,10 @@ def _generate_variants(
     _require_executable(VIEWER)
     _require_executable(ENCODER)
     _require_executable(PROBER)
-    # The profile rarities render through the profile pipeline (see
-    # :func:`_generate_profiles`), not the standard one.
+    # Every definition renders its full-art card here (the profile and the
+    # standard presentations render through :func:`_generate_profiles` and
+    # :func:`_generate_standards` respectively); a PROFILE_RARITIES stem, if
+    # any, would skip the full-art card and render only its profile card.
     card_configs = [
         path for path in _find_card_configs(paths) if path.stem not in PROFILE_RARITIES
     ]
