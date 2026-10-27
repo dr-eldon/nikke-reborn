@@ -182,9 +182,9 @@ NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
 # mask (:data:`STANDARD_MASK_PATH`) is composited over it, and the
 # character's upper body (the viewer's ``--half-body`` flag, ignoring the
 # definition's pan/zoom) animates over the mask. The name and subtitle
-# overlays are applied as usual, like the profile cards (with the
-# character's manufacturer's logo above the name's bar); the logo sits at
-# the bottom right and the copyright at the bottom left, both in black.
+# overlays are applied as usual, like the profile cards (but without the
+# manufacturer's logo); the logo sits at the bottom right and the
+# copyright at the bottom left, both in black.
 #: Variant stems that render a ``<variant>Standard`` card: the
 #: ``Classic``, ``Rare``, ``Special`` and ``Exotic`` presentations.
 STANDARD_STEMS = frozenset({"Classic", "Rare", "Special", "Exotic"})
@@ -668,20 +668,13 @@ def _profile_source_hash(json_path: Path) -> str:
 
 
 def _standard_source_hash(json_path: Path) -> str:
-    """SHA-256 of the standard card's inputs — the definition it renders,
-    the standard card mask, the characters database (for the character's
-    manufacturer) and the manufacturer's logo (the files its pixels
-    depend on). Embedded under :data:`SOURCE_HASH_KEY` so an unchanged
-    standard card is skipped instead of re-rendered."""
+    """SHA-256 of the standard card's inputs — the definition it renders and
+    the standard card mask (the files its pixels depend on). Embedded under
+    :data:`SOURCE_HASH_KEY` so an unchanged standard card is skipped instead
+    of re-rendered."""
     digest = hashlib.sha256()
     digest.update(json_path.read_bytes())
     digest.update(STANDARD_MASK_PATH.read_bytes())
-    digest.update((DATABASE_DIR / "characters.json").read_bytes())
-    manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
-    if manufacturer is not None:
-        logo = IMAGES_DIR / "logos" / f"{manufacturer}.png"
-        if logo.is_file():
-            digest.update(logo.read_bytes())
     return digest.hexdigest()
 
 
@@ -2704,7 +2697,6 @@ def _render_standard(
     sub_rect_color: tuple[int, int, int],
     name: str,
     subtitle: str,
-    manufacturer_logo: Image.Image | None,
     logo: Image.Image,
     margin: int,
     padding: int,
@@ -2723,10 +2715,9 @@ def _render_standard(
     (:data:`STANDARD_MASK_PATH`, already composited into *base*), and the
     character's upper body (the viewer's ``--half-body`` flag, ignoring the
     definition's pan/zoom) animates over it. The name and subtitle overlays
-    are applied as usual, like the profile cards (with the character's
-    manufacturer's logo above the name's bar, *manufacturer_logo*); the
-    logo sits at the bottom right and the copyright at the bottom left, both
-    in black.
+    are applied as usual, like the profile cards (but without the
+    manufacturer's logo); the logo sits at the bottom right and the
+    copyright at the bottom left, both in black.
 
     Like :func:`_render_and_finish` and :func:`_render_profile`, nothing
     intermediate touches the disk — the raw RGBA stream is piped straight
@@ -2751,7 +2742,6 @@ def _render_standard(
             padding,
             NAME_RECT_COLOR,
             sub_rect_color,
-            manufacturer_logo,
         )
         if (name or subtitle)
         else None
@@ -3101,9 +3091,8 @@ def _process_standard_card(
     ``background`` (as-is, no monochrome) carries the standard card mask
     (:data:`STANDARD_MASK_PATH`), and the ``--half-body`` framing animates
     over it. The name and subtitle overlays are applied as usual, like the
-    profile cards (with the character's manufacturer's logo above the
-    name's bar); the logo sits at the bottom right and the copyright at the
-    bottom left, both in black.
+    profile cards (but without the manufacturer's logo); the logo sits at
+    the bottom right and the copyright at the bottom left, both in black.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
@@ -3128,13 +3117,10 @@ def _process_standard_card(
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
     # The standard presentation carries the card name, as the profile cards
-    # do (a nameless definition renders without the name stack).
+    # do (a nameless definition renders without the name stack); unlike the
+    # profile cards it does not carry the character's manufacturer's logo.
     name = str(card.get("title", ""))
     subtitle = str(card.get("subtitle", ""))
-    # The character's manufacturer's logo (tinted to the title's
-    # background; None when the character or its manufacturer is
-    # unknown): it sits above the name's bar.
-    manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
@@ -3190,7 +3176,6 @@ def _process_standard_card(
                 sub_rect_color,
                 name,
                 subtitle,
-                manufacturer_logo,
                 logo,
                 margin,
                 padding,
