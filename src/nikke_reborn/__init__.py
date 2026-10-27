@@ -171,11 +171,11 @@ PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
 #: background and the face framing: the partial wash dilutes the
 #: background toward its own main color and gently re-tints the face so
 #: it settles into the card's palette.
-PROFILE_TINT_TOP_OPACITY = 0.5
+PROFILE_TINT_TOP_OPACITY = 0.3
 #: Opacity of the dominant-tint wash's bottom edge: the alpha ramps
 #: linearly from PROFILE_TINT_TOP_OPACITY to this, so the darker bottom
 #: anchors more firmly than the top.
-PROFILE_TINT_BOTTOM_OPACITY = 1.0
+PROFILE_TINT_BOTTOM_OPACITY = 0.5
 #: The wash's bottom color is the background's tint scaled by this factor
 #: (as a fraction of its brightness) in linear light — the channels are
 #: linearized before scaling, so the tint keeps its hue instead of
@@ -199,7 +199,7 @@ PROFILE_FACE_CENTER_Y = 0.1
 #: Brightness scale applied to the monochrome face (its value channel): 1.0
 #: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
 #: against the tinted background.
-PROFILE_FACE_BRIGHTNESS = 0.5
+PROFILE_FACE_BRIGHTNESS = 0.7
 #: Horizontal shifts (px) that move the face framing aside from the centered
 #: full body so it is not occluded by the body: the face is rendered
 #: :data:`PROFILE_FACE_OFFSET_LEFT` px to the left or
@@ -1053,11 +1053,8 @@ def _stream_dual_composited(
 
     def composite(face_data: bytes, body_data: bytes) -> Image.Image:
         started = time.perf_counter()
-        face = _monochrome(
-            Image.frombytes("RGBA", (width, height), face_data),
-            tint_rgb,
-            PROFILE_FACE_BRIGHTNESS,
-        )
+        face = Image.frombytes("RGBA", (width, height), face_data)
+        face = _monochrome(face, tint_rgb, PROFILE_FACE_BRIGHTNESS)
         body = Image.frombytes("RGBA", (width, height), body_data)
         # The face over the raw background, then the single dominant-tint
         # wash over both, then the mask and the body frame.
