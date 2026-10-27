@@ -563,7 +563,7 @@ impl Pipeline {
                 front_face: wgpu::FrontFace::Ccw,
                 // Double-sided: the pack is a thin shell and some meshes
                 // may be single-layer sheets.
-                cull_mode: None,
+                cull_mode: Some(wgpu::Face::Back),
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
