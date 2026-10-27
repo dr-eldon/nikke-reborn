@@ -2,10 +2,9 @@ import math
 
 RARITIES = [
     "ClassicStandard",
+    "ClassicProfile",
     "RareStandard",
     "SpecialStandard",
-    "ExoticStandard",
-    "ClassicProfile",
     "IdleProfile",
     "CoverProfile",
     "AimProfile",
@@ -15,6 +14,7 @@ RARITIES = [
     "Idle",
     "Cover",
     "Aim",
+    "ExoticStandard",
     "Exotic",
     "Goddess",
     "Classified",
@@ -62,9 +62,9 @@ def expansion(set, cards) -> dict:
         "DefaultBorderMultiplierBase": 3.15,
         "DefaultFoilMultiplier": 10.0,
         "RarityDrivenFloor": 0.1,
-        "RarityDrivenStepSize": 0.25,
+        "RarityDrivenStepSize": 2.0,
         "RarityDrivenBorderMultiplierBase": 2.5,
-        "RarityDrivenFoilMultiplier": 40.0,
+        "RarityDrivenFoilMultiplier": 5.0,
         "PlayCardMaterials": [],  # TODO
     }
 
@@ -80,28 +80,46 @@ def pack(set) -> dict:
         exotic=0,
         goddess=0,
         classified=0,
-        profile_factor=2,
         standard_factor=4,
+        profile_factor=2,
+        full_art_factor=0,
     ) -> dict:
-        classic_profile = classic * profile_factor
         rare_standard = rare * standard_factor
         special_standard = special * standard_factor
-        exotic_standard = exotic * standard_factor
+        exotic_standard = exotic * standard_factor / 2
+
+        classic_profile = classic * profile_factor
         idle_profile = idle * profile_factor
         cover_profile = cover * profile_factor
         aim_profile = aim * profile_factor
+
+        classic = classic * full_art_factor
+        rare = rare * full_art_factor
+        special = special * full_art_factor
+        idle = idle * full_art_factor
+        cover = cover * full_art_factor
+        aim = aim * full_art_factor
+        exotic = exotic * full_art_factor
+        classified = classified * full_art_factor
+
         return {
             "ClassicStandard": 100
             - (
-                classic + rare + special + idle + cover + aim
-                + exotic + goddess + classified
+                classic
+                + rare
+                + special
+                + idle
+                + cover
+                + aim
+                + exotic
+                + goddess
+                + classified
             )
             - (rare_standard + special_standard + exotic_standard)
             - (classic_profile + idle_profile + cover_profile + aim_profile),
+            "ClassicProfile": classic_profile,
             "RareStandard": rare_standard,
             "SpecialStandard": special_standard,
-            "ExoticStandard": exotic_standard,
-            "ClassicProfile": classic_profile,
             "IdleProfile": idle_profile,
             "CoverProfile": cover_profile,
             "AimProfile": aim_profile,
@@ -111,24 +129,33 @@ def pack(set) -> dict:
             "Idle": idle,
             "Cover": cover,
             "Aim": aim,
+            "ExoticStandard": exotic_standard,
             "Exotic": exotic,
             "Goddess": goddess,
             "Classified": classified,
         }
 
     common = slot(classic=1, rare=0.5)
-    uncommon = slot(classic=4, rare=1, special=1.5, aim=0.01, cover=0.01)
+    uncommon = slot(
+        classic=1,
+        rare=0.2,
+        special=1.5,
+        aim=0.01,
+        cover=0.01,
+        full_art_factor=0.5,
+    )
 
     rare = slot(
-        classic=8,
-        rare=4,
-        special=2,
-        idle=1,
+        classic=1,
+        rare=0.5,
+        special=0.3,
+        idle=0.2,
         aim=0.1,
         cover=0.1,
-        exotic=0.5,
+        exotic=0.2,
         goddess=0.15,
         classified=0.05,
+        full_art_factor=1,
     )
 
     slot_weights = {
