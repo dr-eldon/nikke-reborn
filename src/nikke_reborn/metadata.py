@@ -1,5 +1,7 @@
 import math
 
+BUNDLE_NAME = "NIKKE_REBORN"
+
 RARITIES = [
     "ClassicStandard",
     "ClassicProfile",
@@ -23,8 +25,8 @@ RARITIES = [
 
 def bundle(name, items=None, expansions=None) -> dict:
     return {
-        "Name": f"NIKKE_{name}",
-        "BundleId": f"NIKKE_{name}",
+        "Name": f"{BUNDLE_NAME}_{name}",
+        "BundleId": f"{BUNDLE_NAME}_{name}",
         "AutoCompressTextures": True,
         "MaxTextureSize": 2048,
         "TextureCompression": "BC7",
@@ -34,7 +36,7 @@ def bundle(name, items=None, expansions=None) -> dict:
         "CardExpansions": expansions or [],
         "CustomShops": [
             {
-                "PhoneAppId": "NIKKE",
+                "PhoneAppId": f"{BUNDLE_NAME}",
                 "AppDisplayName": "NIKKE",
                 "AppIcon": "Shop_Icon",
                 "AppInnerBGImage": "Shop_IBG",
@@ -50,7 +52,7 @@ def bundle(name, items=None, expansions=None) -> dict:
 def expansion(set, cards) -> dict:
     return {
         "Name": f"{set} Set",
-        "CardExpansion": f"NIKKE_{set}",
+        "CardExpansion": f"{BUNDLE_NAME}_{set}",
         "Cards": cards,
         "MenuCategory": "NIKKE",
         "CardbackSprite": "Cardback",
@@ -170,9 +172,9 @@ def pack(set) -> dict:
 
     return {
         "Name": f"{set} Packs",
-        "CardExpansion": f"NIKKE_{set}",
-        "PackType": f"NIKKE_{set}_CardPack",
-        "ItemType": f"NIKKE_{set}_CardPack_Item",
+        "CardExpansion": f"{BUNDLE_NAME}_{set}",
+        "PackType": f"{BUNDLE_NAME}_{set}_CardPack",
+        "ItemType": f"{BUNDLE_NAME}_{set}_CardPack_Item",
         "Material": "CardPack_Material",
         "SpriteName": "CardPack_Item",
         "BaseCost": 2,  # TODO
@@ -181,7 +183,7 @@ def pack(set) -> dict:
         "AddItemAsAccessory": False,
         "AddItemAsFigurine": False,
         "AddItemAsBoardGame": False,
-        "PhoneAppId": "NIKKE",
+        "PhoneAppId": f"{BUNDLE_NAME}",
         "UsesBaseGameMesh": True,
         "MeshToUse": "BasicCardPack",
         "Mesh": "",
@@ -281,14 +283,14 @@ def box(set) -> dict:
         "Name": f"{set} Box",
         "Material": "CardBox_Material",
         "SpriteName": "CardBox_Item",
-        "ItemType": f"NIKKE_{set}_CardBox_Item",
-        "SpawnsPackType": f"NIKKE_{set}_CardPack_Item",
+        "ItemType": f"{BUNDLE_NAME}_{set}_CardBox_Item",
+        "SpawnsPackType": f"{BUNDLE_NAME}_{set}_CardPack_Item",
         "ItemCategory": "TCG",
         "BaseCost": 0,
         "AddItemAsAccessory": False,
         "AddItemAsFigurine": False,
         "AddItemAsBoardGame": False,
-        "PhoneAppId": "NIKKE",
+        "PhoneAppId": f"{BUNDLE_NAME}",
         "UsesBaseGameMesh": False,
         "MeshToUse": "",
         "Mesh": "CardBox_Mesh",

@@ -113,6 +113,8 @@ from nikke_reborn import bundler, metadata
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from PIL.PngImagePlugin import PngInfo
 
+MOD_NAME = "NIKKE REBORN"
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ASSETS_DIR = REPO_ROOT / "assets"
 CARDS_DIR = REPO_ROOT / "cards"
@@ -613,7 +615,7 @@ def bundle() -> None:
         if not target.is_dir():
             continue
 
-        bundle = BUNDLES_DIR / f"NIKKE - {target.name}"
+        bundle = BUNDLES_DIR / f"{MOD_NAME} - {target.name}"
         bundle.mkdir(parents=True)
 
         plugins = bundle / "BepInEx" / "plugins"
@@ -621,11 +623,15 @@ def bundle() -> None:
         for file in ["Shop_Icon.png", "Shop_IBG.png", "Shop_OBG.png"]:
             copy(
                 SHOP_DIR / file,
-                plugins / "Phone - Overhaul" / "App Images" / "NIKKE" / file,
+                plugins
+                / "Phone - Overhaul"
+                / "App Images"
+                / f"{metadata.BUNDLE_NAME}"
+                / file,
             )
 
-        prefab = plugins / "NIKKE" / f"{target.name}_prefabloader"
-        plugin = prefab / f"NIKKE_{target.name}"
+        prefab = plugins / MOD_NAME / f"{target.name}_prefabloader"
+        plugin = prefab / target.name
         animator = plugins / "EPLCardAnimator" / "animated"
 
         if (CARDS_DIR / target.name).is_dir():
@@ -635,7 +641,7 @@ def bundle() -> None:
                 if file.name.endswith(".mp4")
             ]
 
-            videos_dir = animator / f"NIKKE_{target.name}"
+            videos_dir = animator / f"{metadata.BUNDLE_NAME}_{target.name}"
 
             if videos:
                 videos_dir.mkdir(parents=True)
@@ -644,7 +650,12 @@ def bundle() -> None:
                 copy(video, videos_dir / video.name)
 
         copy(target.with_suffix(".json"), plugin.with_suffix(".json"))
-        bundler.build(target, plugin.name, plugin, OUTPUT_DIR)
+        bundler.build(
+            assets_dir=target,
+            name=f"{metadata.BUNDLE_NAME}_{plugin.name}",
+            output=plugin,
+            root=OUTPUT_DIR,
+        )
 
 
 def _require_executable(name: str) -> None:
@@ -3867,9 +3878,7 @@ def _generate_standards(
     _require_executable(ENCODER)
     _require_executable(PROBER)
     configs = _find_card_configs(paths)
-    standard_configs = [
-        path for path in configs if path.stem in STANDARD_STEMS
-    ]
+    standard_configs = [path for path in configs if path.stem in STANDARD_STEMS]
     if not configs:
         raise GenerationError("no standard card definitions to render")
     if not standard_configs:
