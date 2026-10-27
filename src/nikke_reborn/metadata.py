@@ -240,7 +240,7 @@ def box(set) -> dict:
     return {
         "Name": f"{set} Box",
         "Material": "CardBox_Material",
-        "SpriteName": "CardBox_Icon",
+        "SpriteName": "CardBox_Item",
         "ItemType": f"NIKKE_{set}_CardBox_Item",
         "SpawnsPackType": f"NIKKE_{set}_CardPack_Item",
         "ItemCategory": "TCG",
