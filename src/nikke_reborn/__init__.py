@@ -182,9 +182,10 @@ NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
 # mask (:data:`STANDARD_MASK_PATH`) is composited over it, and the
 # character's upper body (the viewer's ``--half-body`` flag, ignoring the
 # definition's pan/zoom) animates over the mask. The name and subtitle
-# overlays are applied as usual, like the profile cards (but without the
-# manufacturer's logo); the logo sits at the bottom right and the
-# copyright at the bottom left, both in black.
+# overlays are applied as usual, like the profile cards; the manufacturer's
+# logo sits at the top right (its corner inset by ``padding * 1.5``, in
+# black), the NIKKE logo at the bottom right and the copyright at the bottom
+# left, both in black.
 #: Variant stems that render a ``<variant>Standard`` card: the
 #: ``Classic``, ``Rare``, ``Special`` and ``Exotic`` presentations.
 STANDARD_STEMS = frozenset({"Classic", "Rare", "Special", "Exotic"})
@@ -668,13 +669,20 @@ def _profile_source_hash(json_path: Path) -> str:
 
 
 def _standard_source_hash(json_path: Path) -> str:
-    """SHA-256 of the standard card's inputs — the definition it renders and
-    the standard card mask (the files its pixels depend on). Embedded under
-    :data:`SOURCE_HASH_KEY` so an unchanged standard card is skipped instead
-    of re-rendered."""
+    """SHA-256 of the standard card's inputs — the definition it renders,
+    the standard card mask, the characters database (for the character's
+    manufacturer) and the manufacturer's logo (the files its pixels
+    depend on). Embedded under :data:`SOURCE_HASH_KEY` so an unchanged
+    standard card is skipped instead of re-rendered."""
     digest = hashlib.sha256()
     digest.update(json_path.read_bytes())
     digest.update(STANDARD_MASK_PATH.read_bytes())
+    digest.update((DATABASE_DIR / "characters.json").read_bytes())
+    manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
+    if manufacturer is not None:
+        logo = IMAGES_DIR / "logos" / f"{manufacturer}.png"
+        if logo.is_file():
+            digest.update(logo.read_bytes())
     return digest.hexdigest()
 
 
@@ -2697,6 +2705,7 @@ def _render_standard(
     sub_rect_color: tuple[int, int, int],
     name: str,
     subtitle: str,
+    manufacturer_logo: Image.Image | None,
     logo: Image.Image,
     margin: int,
     padding: int,
@@ -2715,9 +2724,11 @@ def _render_standard(
     (:data:`STANDARD_MASK_PATH`, already composited into *base*), and the
     character's upper body (the viewer's ``--half-body`` flag, ignoring the
     definition's pan/zoom) animates over it. The name and subtitle overlays
-    are applied as usual, like the profile cards (but without the
-    manufacturer's logo); the logo sits at the bottom right and the
-    copyright at the bottom left, both in black.
+    are applied as usual, like the profile cards; the manufacturer's logo
+    (*manufacturer_logo*) sits at the top right, its corner inset by
+    ``padding * 1.5`` and drawn in black (the white face would hide the white
+    version); the NIKKE logo sits at the bottom right and the copyright at
+    the bottom left, both in black.
 
     Like :func:`_render_and_finish` and :func:`_render_profile`, nothing
     intermediate touches the disk — the raw RGBA stream is piped straight
@@ -2727,13 +2738,31 @@ def _render_standard(
     stage timings (see :func:`_write_final_card`).
     """
     stem = _standard_stem(json_path)
-    # The logo and copyright line sit on top of the art: pre-stamp them onto
-    # a transparent layer and let the compositor apply them to each frame.
-    # The standard card's logo sits at the bottom right (the copyright at
-    # the bottom left), both in black.
+    # The logo, the copyright line and the manufacturer's logo sit on top of
+    # the art: pre-stamp them onto a transparent layer and let the
+    # compositor apply them to each frame. The NIKKE logo sits at the bottom
+    # right (the copyright at the bottom left), both in black; the
+    # manufacturer's logo sits at the top right, its corner inset by
+    # padding * 1.5, in black (the standard card's white face would hide the
+    # white version).
     overlay, overlay_pos = _logo_copyright_overlay(
         size, logo, margin, padding, copyright_color
     )
+    if manufacturer_logo is not None:
+        inset = round(padding * 1.5)
+        mark_w = round(size[0] * MANUFACTURER_LOGO_WIDTH)
+        mark_h = round(mark_w * manufacturer_logo.height / manufacturer_logo.width)
+        mark = manufacturer_logo.resize((mark_w, mark_h), Image.Resampling.LANCZOS)
+        mark = _tint_layer(mark.getchannel("A"), (0, 0, 0), 1.0)
+        # Rebuild on a full frame so both the (already cropped) logo/copyright
+        # overlay and the new top-right mark land at their card positions,
+        # then crop back to the combined ink.
+        full = Image.new("RGBA", size, (0, 0, 0, 0))
+        full.alpha_composite(overlay, overlay_pos)
+        full.alpha_composite(mark, (size[0] - inset - mark_w, inset))
+        box = full.getbbox()
+        assert box is not None, "the standard card's overlay is empty"
+        overlay, overlay_pos = full.crop(box), (box[0], box[1])
     parts = (
         _name_layers(
             size,
@@ -3091,8 +3120,10 @@ def _process_standard_card(
     ``background`` (as-is, no monochrome) carries the standard card mask
     (:data:`STANDARD_MASK_PATH`), and the ``--half-body`` framing animates
     over it. The name and subtitle overlays are applied as usual, like the
-    profile cards (but without the manufacturer's logo); the logo sits at
-    the bottom right and the copyright at the bottom left, both in black.
+    profile cards; the manufacturer's logo sits at the top right, its corner
+    inset by ``padding * 1.5`` and drawn in black (the white face would hide
+    the white version); the NIKKE logo sits at the bottom right and the
+    copyright at the bottom left, both in black.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
@@ -3117,10 +3148,13 @@ def _process_standard_card(
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
     # The standard presentation carries the card name, as the profile cards
-    # do (a nameless definition renders without the name stack); unlike the
-    # profile cards it does not carry the character's manufacturer's logo.
+    # do (a nameless definition renders without the name stack).
     name = str(card.get("title", ""))
     subtitle = str(card.get("subtitle", ""))
+    # The character's manufacturer's logo (None when the character or its
+    # manufacturer is unknown): it sits at the top right, its corner inset by
+    # padding * 1.5, drawn in black.
+    manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
     padding = card["padding"]
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
@@ -3176,6 +3210,7 @@ def _process_standard_card(
                 sub_rect_color,
                 name,
                 subtitle,
+                manufacturer_logo,
                 logo,
                 margin,
                 padding,
