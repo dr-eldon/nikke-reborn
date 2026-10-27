@@ -170,9 +170,6 @@ DEFAULT_FRAMERATE = 60
 #: their profile cards are rendered. Currently empty — every rarity
 #: (including ``Aim`` and ``Cover``) also renders its full-art card.
 PROFILE_RARITIES = frozenset({})
-#: Variant stems with no derived ``<variant>Profile`` card: the
-#: ``Goddess`` and ``Classified`` presentations.
-NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
 # --- the standard presentation -------------------------------------------
 # The ``Standard`` tier is a derived presentation, like the profile cards,
 # rendered through its own pipeline: one card is derived from each of the
@@ -557,16 +554,18 @@ def _write_metadata(out_dir: Path) -> None:
                 else:
                     rarity = character["rarity"]
 
-                if variant.stem not in PROFILE_RARITIES:
+                if variant.stem in STANDARD_STEMS:
+                    standard_stem = _standard_stem(variant)
+
                     new_card = metadata.card(
                         name,
-                        variant.stem,
+                        standard_stem,
                         rarity,
-                        f"{card.stem}_{variant.stem}",
+                        f"{card.stem}_{standard_stem}",
                     )
                     cards.append(new_card)
 
-                if variant.stem not in NO_PROFILE_STEMS:
+                if variant.stem in PROFILE_STEMS:
                     profile_stem = _profile_stem(variant)
 
                     new_card = metadata.card(
@@ -574,6 +573,15 @@ def _write_metadata(out_dir: Path) -> None:
                         profile_stem,
                         rarity,
                         f"{card.stem}_{profile_stem}",
+                    )
+                    cards.append(new_card)
+
+                if variant.stem not in PROFILE_RARITIES:
+                    new_card = metadata.card(
+                        name,
+                        variant.stem,
+                        rarity,
+                        f"{card.stem}_{variant.stem}",
                     )
                     cards.append(new_card)
 

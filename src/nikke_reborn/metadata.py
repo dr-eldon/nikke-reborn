@@ -81,19 +81,30 @@ def pack(set) -> dict:
         goddess=0,
         classified=0,
         profile_factor=2,
+        standard_factor=4,
     ) -> dict:
+        classic_profile = classic * profile_factor
+        rare_standard = rare * standard_factor
+        special_standard = special * standard_factor
+        exotic_standard = exotic * standard_factor
+        idle_profile = idle * profile_factor
+        cover_profile = cover * profile_factor
+        aim_profile = aim * profile_factor
         return {
-            "ClassicProfile": 100
-            - classic
-            - (rare + special + idle + exotic + cover + aim) * (profile_factor + 1)
-            - goddess
-            - classified,
-            "RareProfile": rare * profile_factor,
-            "SpecialProfile": special * profile_factor,
-            "IdleProfile": idle * profile_factor,
-            "CoverProfile": cover * profile_factor,
-            "AimProfile": aim * profile_factor,
-            "ExoticProfile": exotic * profile_factor,
+            "ClassicStandard": 100
+            - (
+                classic + rare + special + idle + cover + aim
+                + exotic + goddess + classified
+            )
+            - (rare_standard + special_standard + exotic_standard)
+            - (classic_profile + idle_profile + cover_profile + aim_profile),
+            "RareStandard": rare_standard,
+            "SpecialStandard": special_standard,
+            "ExoticStandard": exotic_standard,
+            "ClassicProfile": classic_profile,
+            "IdleProfile": idle_profile,
+            "CoverProfile": cover_profile,
+            "AimProfile": aim_profile,
             "Classic": classic,
             "Rare": rare,
             "Special": special,
@@ -187,13 +198,14 @@ def card(name, variant, rarity, sprite) -> dict:
     BORDERS = ["Base", "FirstEdition", "Silver", "Gold", "EX", "FullArt"]
 
     VARIANT_BORDER = {
-        "ClassicProfile": 0,
-        "RareProfile": 1,
-        "SpecialProfile": 1,
+        "ClassicStandard": 0,
+        "RareStandard": 1,
+        "SpecialStandard": 1,
+        "ExoticStandard": 2,
+        "ClassicProfile": 1,
         "IdleProfile": 2,
         "CoverProfile": 1,
         "AimProfile": 1,
-        "ExoticProfile": 2,
         "Classic": 2,
         "Rare": 2,
         "Special": 2,
@@ -230,7 +242,7 @@ def card(name, variant, rarity, sprite) -> dict:
         "Rarity": variant,
         "BorderType": border,
         "Sprite": sprite,
-        "IsFoil": variant in ["ExoticProfile", "Exotic", "Goddess", "Classified"],
+        "IsFoil": variant in ["ExoticStandard", "Exotic", "Goddess", "Classified"],
         "ElementType": "None",
         "FoilMask": "",
         "CardBack": "",
