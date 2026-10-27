@@ -21,10 +21,10 @@ The sheet composites the finished first frames
   labels' numbers align, its words' CamelCase split by whitespace (``#01
   Rapi`` … ``#21 Diesel: Black Sunday``);
 * one column per rarity/variant: every rarity the set carries, in the order
-  of ``metadata.RARITIES`` (the game's own rarity order — profiles first,
-  then the base rarities from the commonest to the rarest), the ``Goddess``
-  and ``Classified`` presentations carrying no profile, each column labeled
-  above the grid with its rarity (whitespace between its capital letters —
+  of ``metadata.RARITIES`` (the game's own rarity order — the ``Standard``
+  and ``Profile`` presentations first, then the base rarities from the
+  commonest to the rarest), each column labeled above the grid with its
+  rarity (whitespace between its capital letters —
   ``ClassicProfile`` reads as ``Classic Profile``). A cell the character
   does not have (a rarity it does not carry) stays empty.
 * the animated cards (an ``.mp4`` next to their first frame) are marked
@@ -130,6 +130,13 @@ LEGEND_GAP = 10
 #: The copyright line's size relative to the cards' width-proportional
 #: size (a bit smaller on the sheet).
 COPYRIGHT_FRACTION = 0.75
+#: The text drawn in a cell whose card is missing: a missing first frame
+#: renders as a black placeholder box with this text, instead of failing
+#: the whole sheet.
+MISSING_TEXT = "MISSING!"
+#: The font sizes tried for the missing placeholder, largest first: the first
+#: whose text fits the cell's width is used.
+MISSING_FONT_SIZES = (28, 24, 20, 18, 16, 14, 12, 10)
 
 
 def spritesheet() -> None:
@@ -204,15 +211,19 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
         (prefix, column): card_dir / f"{prefix}_{column}.png"
         for prefix, column in sorted(cells)
     }
-    missing = [path for path in paths.values() if not path.is_file()]
+    # A cell whose first frame is not on disk renders as a "MISSING!"
+    # placeholder (below) instead of failing the whole sheet.
+    missing = {key for key, path in paths.items() if not path.is_file()}
     if missing:
         shown = ", ".join(
-            str(path.relative_to(nr.REPO_ROOT)) for path in missing[:10]
+            str(paths[key].relative_to(nr.REPO_ROOT)) for key in sorted(missing)[:10]
         )
         more = f" (+{len(missing) - 10} more)" if len(missing) > 10 else ""
-        raise nr.GenerationError(
-            f"{len(missing)} rendered card(s) missing for {pack_dir.name} "
-            f"(run 'generate' first): {shown}{more}"
+        print(
+            f"warning: {len(missing)} rendered card(s) missing for "
+            f"{pack_dir.name} (run 'generate' first); rendering them as a "
+            f"'{MISSING_TEXT}' placeholder: {shown}{more}",
+            file=sys.stderr,
         )
     out_path = out_dir / f"{pack_dir.name}.png"
     background, background_path = _expansion_background(pack_dir)
@@ -221,7 +232,16 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
     if not force and _stored_hash(out_path) == source_hash:
         return out_path, len(rows), len(columns), True
     _compose(
-        rows, columns, cells, paths, logo, background, out_path, source_hash
+        rows,
+        columns,
+        cells,
+        paths,
+        logo,
+        background,
+        out_path,
+        source_hash,
+        missing,
+        _card_aspect(pack_dir),
     )
     return out_path, len(rows), len(columns), False
 
@@ -230,8 +250,14 @@ def _card_grid(pack_dir: Path) -> tuple[list[str], list[str], set[tuple[str, str
     """The sheet's grid: its rows (the card prefixes, sorted), its columns
     (every rarity/variant the set carries, in the order of
     :data:`nikke_reborn.metadata.RARITIES` — the game's own rarity order,
-    the ``Goddess`` and ``Classified`` presentations carrying no profile)
-    and its cells (the prefix/column pairs the set actually has)."""
+    the ``Standard`` and ``Profile`` presentations rendered alongside the
+    full-art cards) and its cells (the prefix/column pairs the set actually
+    has).
+
+    The ``Profile`` and ``Standard`` cells mirror the pipeline's eligibility
+    (:data:`nikke_reborn.PROFILE_STEMS` and
+    :data:`nikke_reborn.STANDARD_STEMS`), so a sheet composed after
+    ``generate`` never asks for a card the pipeline does not render."""
     cards: list[tuple[str, list[str]]] = []
     stems: set[str] = set()
     for card_dir in sorted(pack_dir.iterdir()):
@@ -249,17 +275,38 @@ def _card_grid(pack_dir: Path) -> tuple[list[str], list[str], set[tuple[str, str
     for stem in stems:
         if stem not in nr.PROFILE_RARITIES:
             present.add(stem)
-        if stem not in nr.NO_PROFILE_STEMS:
+        if stem in nr.PROFILE_STEMS:
             present.add(f"{stem}Profile")
+        if stem in nr.STANDARD_STEMS:
+            present.add(f"{stem}Standard")
     columns = [rarity for rarity in metadata.RARITIES if rarity in present]
     cells: set[tuple[str, str]] = set()
     for prefix, variants in cards:
         for stem in variants:
             if stem not in nr.PROFILE_RARITIES:
                 cells.add((prefix, stem))
-            if stem not in nr.NO_PROFILE_STEMS:
+            if stem in nr.PROFILE_STEMS:
                 cells.add((prefix, f"{stem}Profile"))
+            if stem in nr.STANDARD_STEMS:
+                cells.add((prefix, f"{stem}Standard"))
     return rows, columns, cells
+
+
+def _card_aspect(pack_dir: Path) -> float:
+    """The cards' width/height ratio, read from a definition's viewport (every
+    card in a set shares the pipeline's viewport). The grid's cell width is
+    derived from this ratio; a first frame might be missing, so the ratio is
+    not read from the rendered PNGs."""
+    for card_dir in sorted(pack_dir.iterdir()):
+        if not card_dir.is_dir():
+            continue
+        for variant in sorted(card_dir.iterdir()):
+            if not variant.is_file() or variant.suffix != ".json":
+                continue
+            viewport = json.loads(variant.read_text(encoding="utf-8")).get("viewport")
+            if viewport:
+                return viewport[0] / viewport[1]
+    return 4 / 5
 
 
 def _expansion_background(pack_dir: Path) -> tuple[Image.Image, Path]:
@@ -307,10 +354,11 @@ def _source_hash(
     paths: dict[tuple[str, str], Path],
 ) -> str:
     """SHA-256 of the sheet's inputs: the expansion's name, its logo, its
-    background, every first frame it composites and each cell's animated
-    state (an ``.mp4`` next to the first frame; it drives the 📹 markers)
-    — embedded under :data:`nikke_reborn.SOURCE_HASH_KEY` so an unchanged
-    sheet is skipped instead of re-composed."""
+    background, every first frame it composites (a missing card hashes a
+    sentinel, so the sheet re-composes when it appears) and each cell's
+    animated state (an ``.mp4`` next to the first frame; it drives the 📹
+    markers) — embedded under :data:`nikke_reborn.SOURCE_HASH_KEY` so an
+    unchanged sheet is skipped instead of re-composed."""
     digest = hashlib.sha256()
     digest.update(pack_dir.name.encode())
     digest.update(logo_path.read_bytes())
@@ -318,7 +366,10 @@ def _source_hash(
     for key in sorted(paths):
         path = paths[key]
         digest.update(path.name.encode())
-        digest.update(path.read_bytes())
+        if path.is_file():
+            digest.update(path.read_bytes())
+        else:
+            digest.update(b"missing")
         digest.update(b"1" if path.with_suffix(".mp4").is_file() else b"0")
     return digest.hexdigest()
 
@@ -382,6 +433,18 @@ def _column_label_font(labels: list[str], max_w: int) -> ImageFont.FreeTypeFont:
     )
 
 
+def _missing_font(cell_w: int) -> ImageFont.FreeTypeFont:
+    """The font for the *MISSING_TEXT* placeholder: the largest of
+    :data:`MISSING_FONT_SIZES` whose text fits the cell's width (*cell_w*,
+    with a little side padding); the smallest is used as a last resort."""
+    for size in MISSING_FONT_SIZES:
+        font = ImageFont.truetype(str(nr.FONT), size)
+        nr._set_weight(font, COLUMN_LABEL_WEIGHT)
+        if font.getlength(MISSING_TEXT) <= cell_w - 8:
+            return font
+    return ImageFont.truetype(str(nr.FONT), MISSING_FONT_SIZES[-1])
+
+
 def _label_font(labels: list[str], card_w: int) -> tuple[ImageFont.FreeTypeFont, int]:
     """The row-label font and the label column's width: the largest of
     :data:`LABEL_FONT_SIZES` whose longest label fits the column's cap
@@ -406,17 +469,19 @@ def _row_cards(
     columns: list[str],
     cells: set[tuple[str, str]],
     size: tuple[int, int],
+    missing: set[tuple[str, str]],
 ) -> tuple[str, dict[str, Image.Image]]:
     """The row's first frames, each converted and resized to the cell's
-    *size*: one image per column the row has. Runs in a worker thread —
-    Pillow releases the GIL in the decode and the LANCZOS resize — and
-    only ever produces its own images, never touching the shared canvas
-    (Pillow images are not thread-safe)."""
+    *size*: one image per column the row has (the *missing* cells are not
+    loaded here — the placeholder box is drawn by :func:`_compose`). Runs in
+    a worker thread — Pillow releases the GIL in the decode and the LANCZOS
+    resize — and only ever produces its own images, never touching the shared
+    canvas (Pillow images are not thread-safe)."""
     cell_w, cell_h = size
     cards = {}
     for column in columns:
         key = (prefix, column)
-        if key not in cells:
+        if key not in cells or key in missing:
             continue
         with Image.open(paths[key]) as card:
             cards[column] = card.convert("RGBA").resize(
@@ -434,11 +499,14 @@ def _compose(
     background: Image.Image,
     out_path: Path,
     source_hash: str,
+    missing: set[tuple[str, str]],
+    aspect: float,
 ) -> None:
     """Draw the sheet — the logo header (the logo with the pack's and
     box's glow and trail treatment), the column labels, the label
     column and the grid of first frames (the animated cards' cells
-    marked with a white ▶ in a black circle, centered in the cell, and
+    marked with a white ▶ in a black circle, centered in the cell, a
+    black *MISSING_TEXT* placeholder box for the cells in *missing*, and
     a legend — the badge and ``= Animated`` — in the top-right corner) —
     over the expansion's *background* (resized to cover the canvas
     without deformation, bottom edges aligned, the excess cropped off
@@ -455,11 +523,9 @@ def _compose(
     gutter_total = (col_count - 1) * CELL_GAP
 
     # --- the grid's geometry --------------------------------------------
-    # Every card shares the pipeline's viewport: the row's fixed height
-    # sizes its cells (the sheet grows to fit the grid, never the other
-    # way around).
-    with Image.open(min(paths.values())) as first:
-        aspect = first.width / first.height
+    # Every card shares the pipeline's viewport (*aspect*, read from the
+    # definitions): the row's fixed height sizes its cells (the sheet grows
+    # to fit the grid, never the other way around).
     cell_w = round(ROW_HEIGHT * aspect)
     cell_h = ROW_HEIGHT
     grid_h = row_count * cell_h + (row_count - 1) * CELL_GAP
@@ -481,6 +547,9 @@ def _compose(
     col_labels = [_column_label(column) for column in columns]
     col_font = _column_label_font(col_labels, cell_w)
     label_h = sum(col_font.getmetrics())
+
+    # The *MISSING_TEXT* placeholder's font: the largest that fits a cell.
+    missing_font = _missing_font(cell_w)
 
     # The ▶ markers: the cells whose card is animated (an .mp4 next to
     # its first frame) get one centered in the cell. The symbol is a
@@ -604,6 +673,7 @@ def _compose(
             itertools.repeat(columns),
             itertools.repeat(cells),
             itertools.repeat((cell_w, cell_h)),
+            itertools.repeat(missing),
         )
         for i, (prefix, cards) in enumerate(rendered):
             y = grid_y + i * (cell_h + CELL_GAP)
@@ -615,10 +685,26 @@ def _compose(
                 anchor="lm",
             )
             for j, column in enumerate(columns):
+                x = grid_x + j * (cell_w + CELL_GAP)
+                key = (prefix, column)
+                if key in missing:
+                    # A cell whose card was not rendered: a black box with
+                    # the MISSING_TEXT, instead of a first frame.
+                    draw.rectangle(
+                        (x, y, x + cell_w - 1, y + cell_h - 1), fill=(0, 0, 0, 255)
+                    )
+                    draw.text(
+                        (x + cell_w // 2, y + cell_h // 2),
+                        MISSING_TEXT,
+                        font=missing_font,
+                        fill=(255, 255, 255, 255),
+                        anchor="mm",
+                    )
+                    continue
                 card = cards.get(column)
                 if card is None:
                     continue
-                if (prefix, column) in animated:
+                if key in animated:
                     card.alpha_composite(
                         badge,
                         (
@@ -626,7 +712,7 @@ def _compose(
                             (card.height - badge.height) // 2,
                         ),
                     )
-                canvas.alpha_composite(card, (grid_x + j * (cell_w + CELL_GAP), y))
+                canvas.alpha_composite(card, (x, y))
 
     # --- the copyright line: the cards' notice, bottom left, white -----
     # (the cards' rendering — supersampled, light-weight Oswald, ink
