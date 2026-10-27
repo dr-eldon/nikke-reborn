@@ -582,7 +582,7 @@ def bundle() -> None:
 
         prefab = plugins / "NIKKE" / f"{target.name}_prefabloader"
         plugin = prefab / f"NIKKE_{target.name}"
-        animator = prefab / "VideoCardAnimator"
+        animator = plugins / "EPLCardAnimator" / "animated"
 
         if (CARDS_DIR / target.name).is_dir():
             videos = [
@@ -657,7 +657,7 @@ def _stored_hash(out_path: Path) -> str | None:
             text=True,
             timeout=60,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     if result.returncode != 0:
         return None
@@ -841,7 +841,7 @@ class _PipeDrain:
                     self._buf.extend(chunk)
                     if len(self._buf) > self._cap:
                         del self._buf[: len(self._buf) - self._cap]
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass
 
     def text(self) -> str:
@@ -3700,13 +3700,17 @@ def _generate_variants(
         # whose material is already up to date need no wait: their item
         # renders from the material that is already on disk.
         item_futures: dict[Future[tuple[Path, bool]], Path] = {
-            pool.submit(_process_pack_item, pack_dir, out_base, force): item_label(pack_dir)
+            pool.submit(_process_pack_item, pack_dir, out_base, force): item_label(
+                pack_dir
+            )
             for pack_dir in sorted(item_needs - material_needs)
         }
         # The box's item is rendered from the box material's output file,
         # so each box's item starts only after its material has finished.
         box_item_futures: dict[Future[tuple[Path, bool]], Path] = {
-            pool.submit(_process_box_item, pack_dir, out_base, force): box_item_label(pack_dir)
+            pool.submit(_process_box_item, pack_dir, out_base, force): box_item_label(
+                pack_dir
+            )
             for pack_dir in sorted(box_item_needs - box_needs)
         }
         material_futures: dict[Future[tuple[Path, bool]], Path] = {
@@ -3743,18 +3747,18 @@ def _generate_variants(
             if future.exception() is not None:
                 continue  # no material -> no item for this pack
             if pack_dir in item_needs:
-                item_futures[pool.submit(_process_pack_item, pack_dir, out_base, force)] = (
-                    item_label(pack_dir)
-                )
+                item_futures[
+                    pool.submit(_process_pack_item, pack_dir, out_base, force)
+                ] = item_label(pack_dir)
         for future in as_completed(box_futures):
             pack_dir = box_futures[future]
             report(future, box_label(pack_dir))
             if future.exception() is not None:
                 continue  # no box material -> no box item for this pack
             if pack_dir in box_item_needs:
-                box_item_futures[pool.submit(_process_box_item, pack_dir, out_base, force)] = (
-                    box_item_label(pack_dir)
-                )
+                box_item_futures[
+                    pool.submit(_process_box_item, pack_dir, out_base, force)
+                ] = box_item_label(pack_dir)
         for future in as_completed(card_futures):
             report(future, card_futures[future])
         for future in as_completed(item_futures):
