@@ -166,7 +166,7 @@ NO_PROFILE_STEMS = frozenset({"Goddess", "Classified"})
 #: The profile card's mask (tinted with the background's dominant tint at
 #: each pixel's own lightness, the white staying white; composited over
 #: the diluted background, under the character), next to its GIMP source.
-PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask.png"
+PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask_Profile.png"
 #: Opacity of the dominant-tint wash's top edge: laid over the monochrome
 #: background and the face framing: the partial wash dilutes the
 #: background toward its own main color and gently re-tints the face so
