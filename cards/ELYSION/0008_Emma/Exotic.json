@@ -20,5 +20,5 @@
     2048
   ],
   "padding": 50,
-  "background": "../../../images/backgrounds/corridor.png"
+  "background": "../../../assets/images/backgrounds/corridor.png"
 }

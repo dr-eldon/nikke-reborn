@@ -21,7 +21,7 @@ use crate::config::Config;
 use crate::scene::{Camera, Material, Model, Pipeline, Primitive};
 use iced::Rectangle;
 
-use crate::{mesh, ASSETS_DIR, IMAGES_DIR, OUTPUT_DIR, ROOT};
+use crate::{mesh, IMAGES_DIR, MESHES_DIR, OUTPUT_DIR, ROOT};
 
 const DEFAULT_WIDTH: u32 = 1024;
 const DEFAULT_HEIGHT: u32 = 1024;
@@ -51,8 +51,10 @@ Usage:
   unity-viewer <mesh> <material> [options]
 
 Arguments:
-  <mesh>            Path to a .asset or .obj mesh, or its name inside assets/
-  <material>        Path to a PNG, or its name inside images/ or output/
+  <mesh>            Path to a .asset or .obj mesh, or its name inside
+                    assets/meshes/
+  <material>        Path to a PNG, or its name inside assets/images/ or
+                    output/
                     (use 'none' to render without a material)
 
 Options:
@@ -78,7 +80,7 @@ the asset itself so the fixed world-space lights land where you want them.
 Examples:
   unity-viewer CardPackStatic_Mesh Cardback
   unity-viewer CardPackStatic_Mesh Cardback --rotation -30 --zoom 1.2
-  unity-viewer assets/CardPack_Mesh.obj images/Cardback.png \\
+  unity-viewer assets/meshes/CardPack_Mesh.obj assets/images/Cardback.png \\
       --rotation 20 --zoom 0.9 --pitch 10 --out /tmp/shot.png
 ",
         rotation = fmt_deg(model.yaw),
@@ -466,15 +468,15 @@ fn resolve_mesh(name: &str) -> Result<PathBuf, String> {
     let candidates = [
         Path::new(name).to_path_buf(),
         Path::new(ROOT).join(name),
-        Path::new(ASSETS_DIR).join(name),
-        Path::new(ASSETS_DIR).join(format!("{name}.asset")),
-        Path::new(ASSETS_DIR).join(format!("{name}.obj")),
+        Path::new(MESHES_DIR).join(name),
+        Path::new(MESHES_DIR).join(format!("{name}.asset")),
+        Path::new(MESHES_DIR).join(format!("{name}.obj")),
     ];
     candidates
         .iter()
         .find(|p| p.is_file())
         .cloned()
-        .ok_or_else(|| format!("mesh not found: {name} (tried the given path and {ASSETS_DIR}/)"))
+        .ok_or_else(|| format!("mesh not found: {name} (tried the given path and {MESHES_DIR}/)"))
 }
 
 fn resolve_material(name: &str) -> Result<PathBuf, String> {

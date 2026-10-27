@@ -20,5 +20,5 @@
     2048
   ],
   "padding": 50,
-  "background": "../../../images/backgrounds/land-night.png"
+  "background": "../../../assets/images/backgrounds/land-night.png"
 }

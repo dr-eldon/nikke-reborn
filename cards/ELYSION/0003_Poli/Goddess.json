@@ -20,5 +20,5 @@
     2048
   ],
   "padding": 50,
-  "background": "../../../images/backgrounds/lobby-day.png"
+  "background": "../../../assets/images/backgrounds/lobby-day.png"
 }

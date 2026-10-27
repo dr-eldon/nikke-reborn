@@ -514,7 +514,7 @@ mod tests {
 
     fn repo_assets(name: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets")
+            .join("../assets/meshes")
             .join(name)
     }
 
@@ -607,7 +607,8 @@ mod material_tests {
 
     #[test]
     fn decodes_a_png_material() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../images/Cardback.png");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../assets/images/Cardback.png");
         if !path.exists() {
             eprintln!("skipping: {}", path.display());
             return;

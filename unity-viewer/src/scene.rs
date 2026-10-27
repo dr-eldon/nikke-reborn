@@ -1492,8 +1492,10 @@ mod blit_tests {
 
             let format = wgpu::TextureFormat::Rgba8UnormSrgb;
             let mut pipeline = Pipeline::create(&device, &queue, format);
-            let mesh = crate::mesh::load(std::path::Path::new("../assets/CardPackStatic_Mesh.obj"))
-                .ok()?;
+            let mesh = crate::mesh::load(
+                std::path::Path::new("../assets/meshes/CardPackStatic_Mesh.obj"),
+            )
+            .ok()?;
             let primitive = Primitive {
                 mesh: Some(Arc::new(mesh)),
                 material: None,

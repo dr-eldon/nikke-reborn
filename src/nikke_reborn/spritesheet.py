@@ -11,10 +11,10 @@ The sheet composites the finished first frames
 
 * the expansion's logo at the top, centered — from the set's
   ``Expansion.json`` ``logo.path`` (resolved against the pack directory)
-  when the file exists, else ``images/logos/<set>.png`` — rendered the
-  way the pack's and box's fronts render it: a screen-blended halo tinted
-  by the sheet's own background, a solid trail behind the mark, the sharp
-  mark on top;
+  when the file exists, else ``assets/images/logos/<set>.png`` — rendered
+  the way the pack's and box's fronts render it: a screen-blended halo
+  tinted by the sheet's own background, a solid trail behind the mark,
+  the sharp mark on top;
 * one row per card prefix (``<number>_<card>`` — the card's directory, the
   rarity stripped), rendered in a label column on the left as
   ``#<number> <character>[: <skin>]`` — the number zero-padded so the
@@ -279,7 +279,7 @@ def _expansion_background(pack_dir: Path) -> tuple[Image.Image, Path]:
 def _expansion_logo(pack_dir: Path) -> tuple[Image.Image, Path]:
     """The expansion's logo (RGBA) and its file: its ``Expansion.json``
     ``logo.path`` (resolved against the pack directory) when the file
-    exists, else ``images/logos/<set>.png``."""
+    exists, else ``assets/images/logos/<set>.png``."""
     expansion_json = pack_dir / expansion.EXPANSION_NAME
     if expansion_json.is_file():
         try:

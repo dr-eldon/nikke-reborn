@@ -1,7 +1,8 @@
 //! A small Unity mesh + material viewer.
 //!
-//! Pick a `.asset` or `.obj` mesh from `../assets` and a PNG material (from
-//! `../images` or `../output/*`, or any file via "Open…") and the viewer
+//! Pick a `.asset` or `.obj` mesh from `../assets/meshes` and a PNG material
+//! (from `../assets/images` or `../output/*`, or any file via "Open…") and
+//! the viewer
 //! renders it with
 //! a fixed camera: left-drag grabs and rotates the *asset* (a trackball —
 //! the drag spins it about the screen's up/right axes, which are fixed to
@@ -37,7 +38,7 @@ use iced::{Alignment, Bottom, Color, Fill, Font, Point, Right, Task, Theme, Vect
 use unity_viewer::cli;
 use unity_viewer::config::Config;
 use unity_viewer::scene::{Camera, FOV_Y, Material, Model, Primitive};
-use unity_viewer::{mesh, unity::Mesh, ASSETS_DIR, IMAGES_DIR, OUTPUT_DIR, ROOT};
+use unity_viewer::{mesh, unity::Mesh, IMAGES_DIR, MESHES_DIR, OUTPUT_DIR, ROOT};
 
 /// Sensitivity of the drag trackball: degrees of asset rotation produced by
 /// a drag spanning the full canvas width (a half turn — like grabbing the
@@ -175,7 +176,7 @@ fn main() -> iced::Result {
 // --- scanning -------------------------------------------------------------
 
 fn scan_meshes() -> Vec<MeshEntry> {
-    let Some(rd) = std::fs::read_dir(ASSETS_DIR).ok() else {
+    let Some(rd) = std::fs::read_dir(MESHES_DIR).ok() else {
         return Vec::new();
     };
     let mut entries: Vec<MeshEntry> = rd

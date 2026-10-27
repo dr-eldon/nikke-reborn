@@ -2,8 +2,8 @@
 
 Walks :mod:`cards` for card definitions (``*.json``), renders each one with
 the ``nikke-viewer`` executable, composites every rendered frame on top of
-the card's ``background``, stamps the matching logo from ``images/`` at
-the bottom right and the copyright line at the bottom left, and overlays
+the card's ``background``, stamps the matching logo from ``assets/images/``
+at the bottom right and the copyright line at the bottom left, and overlays
 the card name on top of the art, per frame: the title (uppercase, in a
 dark rectangle at three-quarters of the height, with a small slanted bar
 and three slanted squares of the same fill above it) and the subtitle
@@ -11,29 +11,29 @@ above the title (uppercase, in a background-tinted rectangle). The
 ``Goddess`` and ``Classified`` variants are generated without any card
 name. Packs (``cards/`` subdirectories carrying an
 ``Expansion.json``) additionally get their two artwork images, built from
-the templates in ``images/``. The pack's front and back are composed on the
-fly (by :mod:`nikke_reborn.pack`) from the expansion's metadata — the front
-is its ``background`` with its featured NIKKES (``pack``) drawn over it and
-its ``logo`` when the expansion names one; the back is the same
-``background`` resized and left-cropped — and neither is stored. The
+the templates in ``assets/images/``. The pack's front and back are composed
+on the fly (by :mod:`nikke_reborn.pack`) from the expansion's metadata —
+the front is its ``background`` with its featured NIKKES (``pack``) drawn
+over it and its ``logo`` when the expansion names one; the back is the
+same ``background`` resized and left-cropped — and neither is stored. The
 material (``CardPack_Material.png``) has two pure-blue mask rectangles
 holding the composed back (left) and front (right); the item
 (``CardPack_Item.png``) is the pack's mesh
-(``assets/CardPackStatic_Mesh.obj``) textured with the finished
+(``assets/meshes/CardPackStatic_Mesh.obj``) textured with the finished
 material and rendered by the ``unity-viewer`` executable with the
 model rotation and camera zoom/pan from
-``assets/CardPackStatic_Mesh.json`` — so it is generated after the
+``assets/meshes/CardPackStatic_Mesh.json`` — so it is generated after the
 material, which it reads from disk. The box (``CardBox_Material.png``)
 holds the same composed front in the blue rectangle of its three mask
 rectangles (blue front, red top, green side), the top (a center-cropped
 background with the expansion's logo and the white NIKKE logo) in the red
 one and the side (the background with the expansion's logo and the white
 NIKKE logo) in the green one; the box's item (``CardBox_Item.png``) is the
-box's mesh (``assets/CardBox_Mesh.obj``) textured with the finished
+box's mesh (``assets/meshes/CardBox_Mesh.obj``) textured with the finished
 material and rendered by the ``unity-viewer`` executable with the model
-rotation and camera zoom/pan from ``assets/CardBox_Mesh.json``, so it is
-generated after the box's material, which it reads from disk. The finished results are
-written under ``output/``, with
+rotation and camera zoom/pan from ``assets/meshes/CardBox_Mesh.json``, so it
+is generated after the box's material, which it reads from disk. The
+finished results are written under ``output/``, with
 the SHA-256 of their inputs embedded as metadata (a PNG text chunk, an
 MP4 tag); a result whose stored hash matches the current inputs is
 skipped instead of re-rendered.
@@ -106,7 +106,8 @@ from PIL.PngImagePlugin import PngInfo
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ASSETS_DIR = REPO_ROOT / "assets"
 CARDS_DIR = REPO_ROOT / "cards"
-IMAGES_DIR = REPO_ROOT / "images"
+IMAGES_DIR = ASSETS_DIR / "images"
+MESHES_DIR = ASSETS_DIR / "meshes"
 FONTS_DIR = REPO_ROOT / "fonts"
 OUTPUT_DIR = REPO_ROOT / "output"
 DRAFT_DIR = REPO_ROOT / "draft"
@@ -405,7 +406,7 @@ LOGO_PATHS = {
     True: IMAGES_DIR / "Logo_Black.png",
 }
 
-#: Pack artwork: ``images/`` holds the material template, whose two
+#: Pack artwork: ``assets/images/`` holds the material template, whose two
 #: pure-blue mask rectangles hold the pack's back (left) and front
 #: (right) — both composed on the fly (see :mod:`nikke_reborn.pack`) —
 #: written to ``<out>/<pack>/CardPack_Material.png``. The item
@@ -414,12 +415,12 @@ LOGO_PATHS = {
 PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
 PACK_MATERIAL_NAME = "CardPack_Material.png"
 PACK_ITEM_NAME = "CardPack_Item.png"
-PACK_MESH = REPO_ROOT / "assets" / "CardPackStatic_Mesh.obj"
+PACK_MESH = MESHES_DIR / "CardPackStatic_Mesh.obj"
 
 #: The item's viewer configuration (model rotation and camera zoom/pan
 #: as a JSON file, exported by the viewer's GUI), passed to
 #: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
-PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
+PACK_CONFIG = MESHES_DIR / "CardPackStatic_Mesh.json"
 
 
 #: The box's material template: its three solid mask rectangles mark the
@@ -433,12 +434,12 @@ PACK_CONFIG = REPO_ROOT / "assets" / "CardPackStatic_Mesh.json"
 BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
 BOX_MATERIAL_NAME = "CardBox_Material.png"
 BOX_ITEM_NAME = "CardBox_Item.png"
-BOX_MESH = ASSETS_DIR / "CardBox_Mesh.obj"
+BOX_MESH = MESHES_DIR / "CardBox_Mesh.obj"
 
 #: The box item's viewer configuration (model rotation and camera
 #: zoom/pan, as a JSON file exported by the viewer's GUI), passed to
 #: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
-BOX_CONFIG = ASSETS_DIR / "CardBox_Mesh.json"
+BOX_CONFIG = MESHES_DIR / "CardBox_Mesh.json"
 
 
 class GenerationError(RuntimeError):
@@ -781,8 +782,9 @@ def _character_manufacturer(card_id: str) -> str | None:
 
 
 def _manufacturer_logo(card_id: str) -> Image.Image | None:
-    """The character's manufacturer logo: ``images/logos/<manufacturer>.png``
-    (white on transparency, tinted to the bar's fill when placed) — None
+    """The character's manufacturer logo:
+    ``assets/images/logos/<manufacturer>.png`` (white on transparency,
+    tinted to the bar's fill when placed) — None
     when the character has no manufacturer or its logo file is missing."""
     manufacturer = _character_manufacturer(card_id)
     if manufacturer is None:

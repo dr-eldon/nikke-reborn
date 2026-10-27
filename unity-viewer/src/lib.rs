@@ -12,12 +12,15 @@ pub mod obj;
 pub mod scene;
 pub mod unity;
 
-/// The repository root (the directory that holds `assets/`, `images/`, …).
+/// The repository root (the directory that holds `assets/`, `cards/`, …).
 pub const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
-/// The `assets/` directory: meshes (`.asset`/`.obj`) and their viewer
-/// configuration JSON files.
+/// The `assets/` directory (the assets submodule): `images/` and `meshes/`
+/// below it.
 pub const ASSETS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets");
-/// The `images/` directory: material templates and shared artwork.
-pub const IMAGES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../images");
+/// The `assets/images/` directory: material templates and shared artwork.
+pub const IMAGES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/images");
+/// The `assets/meshes/` directory: meshes (`.asset`/`.obj`) and their
+/// viewer configuration JSON files.
+pub const MESHES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/meshes");
 /// The `output/` directory: finished generated images.
 pub const OUTPUT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../output");
