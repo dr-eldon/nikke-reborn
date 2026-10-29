@@ -12,10 +12,10 @@ RARITIES = [
     "AimProfile",
     "Classic",
     "Rare",
-    "Special",
     "Idle",
     "Cover",
     "Aim",
+    "Special",
     "ExoticStandard",
     "Exotic",
     "Goddess",
@@ -64,9 +64,9 @@ def expansion(set, cards) -> dict:
         "DefaultBorderMultiplierBase": 3.15,
         "DefaultFoilMultiplier": 10.0,
         "RarityDrivenFloor": 0.1,
-        "RarityDrivenStepSize": 2.0,
-        "RarityDrivenBorderMultiplierBase": 2.5,
-        "RarityDrivenFoilMultiplier": 5.0,
+        "RarityDrivenStepSize": 0.2,
+        "RarityDrivenBorderMultiplierBase": 3.0,
+        "RarityDrivenFoilMultiplier": 20.0,
         "PlayCardMaterials": [],  # TODO
     }
 
@@ -82,13 +82,13 @@ def pack(set) -> dict:
         exotic=0,
         goddess=0,
         classified=0,
-        standard_factor=4,
-        profile_factor=2,
+        standard_factor=20,
+        profile_factor=4,
         full_art_factor=0,
     ) -> dict:
         rare_standard = rare * standard_factor
         special_standard = special * standard_factor
-        exotic_standard = exotic * standard_factor / 2
+        exotic_standard = exotic * standard_factor / 18
 
         classic_profile = classic * profile_factor
         idle_profile = idle * profile_factor
@@ -137,25 +137,25 @@ def pack(set) -> dict:
             "Classified": classified,
         }
 
-    common = slot(classic=1, rare=0.5)
+    common = slot(classic=1, rare=0.05, special=0.025)
     uncommon = slot(
-        classic=1,
-        rare=0.2,
-        special=1.5,
-        aim=0.01,
-        cover=0.01,
+        classic=2,
+        rare=0.1,
+        special=0.05,
+        aim=0.05,
+        cover=0.05,
         full_art_factor=0.5,
     )
 
     rare = slot(
         classic=1,
-        rare=0.5,
-        special=0.3,
-        idle=0.2,
-        aim=0.1,
-        cover=0.1,
-        exotic=0.2,
-        goddess=0.15,
+        rare=0.3,
+        special=0.4,
+        idle=0.5,
+        aim=0.5,
+        cover=0.5,
+        exotic=0.5,
+        goddess=0.2,
         classified=0.05,
         full_art_factor=1,
     )
@@ -228,10 +228,9 @@ def card(name, variant, rarity, sprite) -> dict:
 
     VARIANT_BORDER = {
         "ClassicStandard": 0,
-        "RareStandard": 1,
-        "SpecialStandard": 1,
-        "ExoticStandard": 2,
-        "ClassicProfile": 1,
+        "RareStandard": 0,
+        "SpecialStandard": 0,
+        "ClassicProfile": 0,
         "IdleProfile": 2,
         "CoverProfile": 1,
         "AimProfile": 1,
@@ -241,6 +240,7 @@ def card(name, variant, rarity, sprite) -> dict:
         "Idle": 2,
         "Cover": 2,
         "Aim": 2,
+        "ExoticStandard": 2,
         "Exotic": 3,
         "Goddess": 4,
         "Classified": 5,
@@ -271,7 +271,13 @@ def card(name, variant, rarity, sprite) -> dict:
         "Rarity": variant,
         "BorderType": border,
         "Sprite": sprite,
-        "IsFoil": variant in ["ExoticStandard", "Exotic", "Goddess", "Classified"],
+        "IsFoil": variant
+        in [
+            "ExoticStandard",
+            "Exotic",
+            "Goddess",
+            "Classified",
+        ],
         "ElementType": "None",
         "FoilMask": "",
         "CardBack": "",

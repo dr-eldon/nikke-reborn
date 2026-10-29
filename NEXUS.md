@@ -9,7 +9,7 @@ Inspired by [the amazing old modpack by daidangodan](https://www.nexusmods.com/t
 > Coming up next: the TETRA expansion!
 
 ## New Content (for now)
-- ELYSION — an expansion featuring 19 NIKKEs from the original launch + 2 skins, with 16 different rarities. Totaling 244 cards; many animated!
+- ELYSION — an expansion featuring 19 NIKKEs from the original launch + 2 skins, with 16 different variants. Totaling 263 cards; many animated!
 
 ![ELYSION Expansion](images/expansions/ELYSION.png)
 

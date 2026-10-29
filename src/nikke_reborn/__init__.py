@@ -546,13 +546,94 @@ def generate() -> None:
         sys.exit(1)
 
 
+def _set_cards(set_dir: Path) -> list[dict]:
+    """The card entries of *set_dir*'s metadata bundle: every variant
+    definition under the set, expanded into the derived presentations the
+    way the finished cards are written out (the ``Standard`` cards of
+    :data:`STANDARD_STEMS`, the ``Profile`` cards of :data:`PROFILE_STEMS`
+    and the full-art card of every variant outside :data:`PROFILE_RARITIES`),
+    each carrying the character's rarity from ``database/characters.json``
+    (a skin variant's suffixed id, c010_02, inherits the base character's
+    rarity; an unknown id defaults to ``R`` with a warning). Shared by
+    :func:`_write_metadata` (which writes the bundle to ``output/``) and
+    :mod:`nikke_reborn.simulation` (which simulates pack openings against
+    the current tuning)."""
+    characters = json.load((DATABASE_DIR / "characters.json").open())
+    characters = {character["id"]: character for character in characters}
+
+    cards = []
+    missing_ids: set[str] = set()
+
+    for card in sorted(set_dir.iterdir()):
+        if not card.is_dir():
+            continue
+
+        for variant in sorted(card.iterdir()):
+            if not variant.name.endswith(".json"):
+                continue
+
+            config = json.load(variant.open())
+
+            id = config["id"]
+            title = config["title"]
+            subtitle = config["subtitle"]
+
+            name = f"{title}: {subtitle}" if subtitle else title
+
+            # Skin variants carry a suffixed id (c010_02); strip the
+            # suffix so they inherit the base character's rarity.
+            character = characters.get(id) or characters.get(id.split("_", 1)[0])
+            if character is None:
+                missing_ids.add(id)
+                rarity = "R"
+            else:
+                rarity = character["rarity"]
+
+            if variant.stem in STANDARD_STEMS:
+                standard_stem = _standard_stem(variant)
+
+                new_card = metadata.card(
+                    name,
+                    standard_stem,
+                    rarity,
+                    f"{card.stem}_{standard_stem}",
+                )
+                cards.append(new_card)
+
+            if variant.stem in PROFILE_STEMS:
+                profile_stem = _profile_stem(variant)
+
+                new_card = metadata.card(
+                    name,
+                    profile_stem,
+                    rarity,
+                    f"{card.stem}_{profile_stem}",
+                )
+                cards.append(new_card)
+
+            if variant.stem not in PROFILE_RARITIES:
+                new_card = metadata.card(
+                    name,
+                    variant.stem,
+                    rarity,
+                    f"{card.stem}_{variant.stem}",
+                )
+                cards.append(new_card)
+
+    for missing in sorted(missing_ids):
+        print(
+            f"warning: no character {missing!r} in characters.json; "
+            f"its cards default to rarity 'R'",
+            file=sys.stderr,
+        )
+
+    return cards
+
+
 def _write_metadata(out_dir: Path) -> None:
     """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
     set's shared assets (foilmask, cardback, box mesh, shop images) to
     ``<out>/<set>/``."""
-    characters = json.load((DATABASE_DIR / "characters.json").open())
-    characters = {character["id"]: character for character in characters}
-
     for set_dir in CARDS_DIR.iterdir():
         if not set_dir.is_dir():
             continue
@@ -575,71 +656,7 @@ def _write_metadata(out_dir: Path) -> None:
 
             copy(file, out_dir / set_dir.stem / file.name)
 
-        cards = []
-        missing_ids: set[str] = set()
-
-        for card in sorted(set_dir.iterdir()):
-            if not card.is_dir():
-                continue
-
-            for variant in sorted(card.iterdir()):
-                if not variant.name.endswith(".json"):
-                    continue
-
-                config = json.load(variant.open())
-
-                id = config["id"]
-                title = config["title"]
-                subtitle = config["subtitle"]
-
-                name = f"{title}: {subtitle}" if subtitle else title
-
-                # Skin variants carry a suffixed id (c010_02); strip the
-                # suffix so they inherit the base character's rarity.
-                character = characters.get(id) or characters.get(id.split("_", 1)[0])
-                if character is None:
-                    missing_ids.add(id)
-                    rarity = "R"
-                else:
-                    rarity = character["rarity"]
-
-                if variant.stem in STANDARD_STEMS:
-                    standard_stem = _standard_stem(variant)
-
-                    new_card = metadata.card(
-                        name,
-                        standard_stem,
-                        rarity,
-                        f"{card.stem}_{standard_stem}",
-                    )
-                    cards.append(new_card)
-
-                if variant.stem in PROFILE_STEMS:
-                    profile_stem = _profile_stem(variant)
-
-                    new_card = metadata.card(
-                        name,
-                        profile_stem,
-                        rarity,
-                        f"{card.stem}_{profile_stem}",
-                    )
-                    cards.append(new_card)
-
-                if variant.stem not in PROFILE_RARITIES:
-                    new_card = metadata.card(
-                        name,
-                        variant.stem,
-                        rarity,
-                        f"{card.stem}_{variant.stem}",
-                    )
-                    cards.append(new_card)
-
-        for missing in sorted(missing_ids):
-            print(
-                f"warning: no character {missing!r} in characters.json; "
-                f"its cards default to rarity 'R'",
-                file=sys.stderr,
-            )
+        cards = _set_cards(set_dir)
 
         expansion = metadata.expansion(set_dir.stem, cards)
         pack = metadata.pack(set_dir.stem)
@@ -777,7 +794,7 @@ def _stored_hash(out_path: Path) -> str | None:
             text=True,
             timeout=60,
         )
-    except OSError, subprocess.SubprocessError:
+    except (OSError, subprocess.SubprocessError):
         return None
     if result.returncode != 0:
         return None
@@ -961,7 +978,7 @@ class _PipeDrain:
                     self._buf.extend(chunk)
                     if len(self._buf) > self._cap:
                         del self._buf[: len(self._buf) - self._cap]
-        except OSError, ValueError:
+        except (OSError, ValueError):
             pass
 
     def text(self) -> str:

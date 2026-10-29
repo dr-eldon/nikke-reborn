@@ -16,6 +16,7 @@ dependencies = [
 generate = "nikke_reborn:generate"
 bundle = "nikke_reborn:bundle"
 spritesheet = "nikke_reborn.spritesheet:spritesheet"
+simulate = "nikke_reborn.simulation:simulate"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
