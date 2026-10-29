@@ -90,8 +90,9 @@ definition: the ``Profile`` presentation (the ``Classic``, ``Idle``,
 the profile presentation section below) and the ``Standard`` presentation
 (the ``Classic``, ``Rare``, ``Special`` and ``Exotic`` variants, written out
 with a ``Standard`` suffix; the standard card keeps the definition's
-``background``, composites the standard card mask over it, and frames the
-character's upper body with the viewer's ``--half-body`` flag).
+``background`` (faded a bit toward its dominant color), composites the
+standard card mask over it, and frames the character's upper body with the
+viewer's ``--half-body`` flag).
 
 By default every ``*.json`` under ``cards/`` is generated; one or more card
 paths (a set, a card, or a definition file, relative to the repo root or to
@@ -128,7 +129,14 @@ from pathlib import Path
 from typing import IO, cast
 from nikke_reborn import bundler, metadata
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
+from PIL import (
+    Image,
+    ImageChops,
+    ImageDraw,
+    ImageFont,
+    ImageStat,
+    ImageOps,
+)
 from PIL.PngImagePlugin import PngInfo
 
 MOD_NAME = "NIKKE REBORN"
@@ -195,7 +203,8 @@ PROFILE_RARITIES = frozenset({})
 # rendered through its own pipeline: one card is derived from each of the
 # ``Classic``, ``Rare``, ``Special`` and ``Exotic`` definitions and written
 # out with the variant's stem plus the ``Standard`` suffix. The card keeps
-# the definition's ``background`` (as-is, no monochrome), the standard card
+# the definition's ``background`` (in color, no monochrome, but faded a bit
+# toward its dominant color, :data:`STANDARD_BG_FADE`), the standard card
 # mask (:data:`STANDARD_MASK_PATH`) is composited over it, and the
 # character's upper body (the viewer's ``--half-body`` flag, ignoring the
 # definition's pan/zoom) animates over the mask. The name and subtitle
@@ -1485,12 +1494,13 @@ def _profile_layers(
 
 def _standard_layers(base: Image.Image) -> Image.Image:
     """The standard card's static base, composed in memory: *base* (the
-    fitted background) with the standard card mask (:data:`STANDARD_MASK_PATH`)
-    composited over it (the white card face, under the character). The mask
-    is applied to a copy, so *base* is left untouched — the caller still has
-    the unmasked fitted background to sample the subtitle rectangle's tint
-    from (as the profile cards sample their fitted background), so the mask's
-    white does not wash the scene's color out. Nothing touches the disk."""
+    fitted background, faded toward its dominant color by the caller) with
+    the standard card mask (:data:`STANDARD_MASK_PATH`) composited over it
+    (the white card face, under the character). The mask is applied to a
+    copy, so *base* is left untouched — the caller still has the unmasked
+    fitted background to sample the subtitle rectangle's tint from (as the
+    profile cards sample their fitted background), so the mask's white does
+    not wash the scene's color out. Nothing touches the disk."""
     with Image.open(STANDARD_MASK_PATH) as opened:
         mask = opened.convert("RGBA")
     if mask.size != base.size:
@@ -1498,6 +1508,23 @@ def _standard_layers(base: Image.Image) -> Image.Image:
     face = base.copy()
     face.alpha_composite(mask)
     return face
+
+
+def _fade_to_dominant(image: Image.Image, factor: float = 0.5) -> Image.Image:
+    """*image* faded *factor* of the way toward its own dominant color: its
+    colors blended with a solid fill of :func:`_dominant_color` (its mean
+    tint, sampled on a small downscale) — a busy scene diluted a little
+    toward its main color while keeping its content (the standard tier's
+    gentle version of the profile cards' full monochrome,
+    :func:`_monochrome`). 0.0 keeps *image* as-is, 1.0 a flat fill of its
+    dominant tint. The alpha channel is passed through untouched (a fully
+    opaque background stays fully opaque)."""
+    dominant = _dominant_color(image)
+    faded = Image.blend(
+        image.convert("RGB"), Image.new("RGB", image.size, dominant), factor
+    )
+    faded.putalpha(image.getchannel("A"))
+    return faded
 
 
 def _scale_logo(logo: Image.Image, card_width: int) -> Image.Image:
@@ -2777,7 +2804,8 @@ def _render_standard(
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the standard card (a presentation of *json_path*, written out
     as ``<card>_<variant>Standard.<suffix>``): the definition's
-    *background* (as-is, no monochrome) carries the standard card mask
+    *background* (faded toward its dominant color, no monochrome) carries
+    the standard card mask
     (:data:`STANDARD_MASK_PATH`, already composited into *base*), and the
     character's upper body (the viewer's ``--half-body`` flag, ignoring the
     definition's pan/zoom) animates over it. The name and subtitle overlays
@@ -3191,7 +3219,8 @@ def _process_standard_card(
     """Render the ``<variant>Standard`` standard card for *json_path*
     (derived from its own definition — the ``Classic``, ``Rare``,
     ``Special`` and ``Exotic`` presentations): the definition's
-    ``background`` (as-is, no monochrome) carries the standard card mask
+    ``background`` (faded toward its dominant color, no monochrome) carries
+    the standard card mask
     (:data:`STANDARD_MASK_PATH`), and the ``--half-body`` framing animates
     over it. The name and subtitle overlays are applied as usual, like the
     profile cards; the manufacturer's logo sits at the top right, its corner
@@ -3271,15 +3300,28 @@ def _process_standard_card(
             return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # The static base (the fitted background carrying the standard card mask)
-    # is prepared once, ahead of the render (a failure at any stage
-    # re-renders from scratch, up to RENDER_ATTEMPTS times; the viewer
-    # framing streams directly, so nothing intermediate is written to disk in
-    # between). The subtitle rectangle's tint is sampled from the unmasked
-    # fitted background, so the mask's white does not wash the scene's color
-    # out.
+    # The static base (the fitted background, faded toward its dominant
+    # color, carrying the standard card mask) is prepared once, ahead of the
+    # render (a failure at any stage re-renders from scratch, up to
+    # RENDER_ATTEMPTS times; the viewer framing streams directly, so nothing
+    # intermediate is written to disk in between). The subtitle rectangle's
+    # tint is sampled from the unmasked fitted background, so the mask's
+    # white does not wash the scene's color out.
     background = _fit_background(background, size)
     sub_rect_color = _rect_tint(background)
+
+    background = ImageOps.autocontrast(
+        background.convert("RGB"),
+        cutoff=(20, 0),
+        preserve_tone=True,
+    ).convert("RGBA")
+    brightness = ImageStat.Stat(background).mean[0]
+
+    background = _fade_to_dominant(
+        background,
+        factor=min(4.0 * max(brightness - 80, 0) / 255, 1.0),
+    )
+
     base = _standard_layers(background)
 
     for attempt in range(1, RENDER_ATTEMPTS + 1):
@@ -3830,10 +3872,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-full-art",
         action="store_true",
-        help=(
-            "skip the full-art pass: render no full-art cards and no pack "
-            "images"
-        ),
+        help=("skip the full-art pass: render no full-art cards and no pack images"),
     )
     args = parser.parse_args()
     if args.jobs < 1:

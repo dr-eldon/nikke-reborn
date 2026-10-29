@@ -9,10 +9,10 @@
   "time": null,
   "mipmapping": true,
   "pan": [
-    109.59462,
-    213.83188
+    168.86716,
+    588.5919
   ],
-  "zoom": 1.4,
+  "zoom": 2.25,
   "invert_logo": false,
   "invert_copyright": false,
   "viewport": [
@@ -20,5 +20,5 @@
     2048
   ],
   "padding": 50,
-  "background": "../../../assets/images/backgrounds/nikke-room.png"
+  "background": "../../../assets/images/backgrounds/pilot-house-night.png"
 }
