@@ -256,10 +256,8 @@ PROFILE_FACE_OFFSET_RIGHT = 420
 #: between the squares.
 PROFILE_REEL_COUNT = 3
 #: The photo-reel square's side, as a fraction of the frame width
-#: (frame_width * 2 / 15).
-PROFILE_REEL_SIDE = 2 / 15
+PROFILE_REEL_SIDE = 1 / 7
 #: The first photo-reel square's top edge, as a fraction of the frame
-#: height (frame_height * 3 / 7).
 PROFILE_REEL_TOP = 3 / 7
 #: The photo reel's inset from the card's right edge, as a multiple of
 #: the card's padding (padding * 1.5).
