@@ -41,6 +41,7 @@ skipped instead of re-rendered.
 * single-frame cards -> ``output/<set>/<card>_<variant>.png``
 * animated cards     -> ``output/<set>/<card>_<variant>.mp4`` alongside
                        its first frame, ``output/<set>/<card>_<variant>.png``
+                       (with ``--no-video``: the first frame alone)
 
 (the card's directory is folded into the filename, so a set's cards
 sit flat in ``output/<set>/``)
@@ -49,6 +50,14 @@ sit flat in ``output/<set>/``)
 preset, half-resolution MP4s (downscaled inside ffmpeg), and results
 written to ``draft/`` instead of ``output/`` so draft runs never clobber
 the final cards.
+
+``--no-video`` skips the MP4 generation altogether: an animated card is
+written out as its first frame alone (the same PNG an animation keeps
+alongside its MP4), the viewer stream is abandoned after that frame and
+the viewer reaped, and the run never invokes ffmpeg or ffprobe — the
+fastest pass through the pipeline, for iterating on the frames themselves.
+The up-to-date check then covers the first frame alone; a run without the
+flag generates the MP4 as usual whenever it is missing or stale.
 
 ``--force`` skips the up-to-date (hash) check and re-renders every selected
 card, profile card, standard card and pack image, even when the finished
@@ -483,14 +492,21 @@ def generate() -> None:
     args = _parse_args()
     draft = args.draft
     force = args.force
+    no_video = args.no_video
     out_dir = DRAFT_DIR if draft else OUTPUT_DIR
     preset = DRAFT_PRESET if draft else DEFAULT_PRESET
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
     try:
         selection = _selected_configs(args.paths)
-        _generate_profiles(selection, args.jobs, preset, scale, out_dir, force)
-        _generate_standards(selection, args.jobs, preset, scale, out_dir, force)
-        _generate_variants(selection, args.jobs, preset, scale, out_dir, force)
+        _generate_profiles(
+            selection, args.jobs, preset, scale, out_dir, force, no_video
+        )
+        _generate_standards(
+            selection, args.jobs, preset, scale, out_dir, force, no_video
+        )
+        _generate_variants(
+            selection, args.jobs, preset, scale, out_dir, force, no_video
+        )
         _write_metadata(out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -2876,8 +2892,14 @@ def _process_card(
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
+    no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render, composite and encode a single card definition.
+
+    With *no_video* (``--no-video``) an animated definition renders its
+    first frame alone — its MP4 is skipped and the viewer reaped right
+    after that frame — so the output, and the up-to-date check, cover the
+    first-frame PNG.
 
     Returns ``(out_path, skipped, timings)``; *skipped* is True when the
     output already exists and the definition hash it embeds matches the
@@ -2915,7 +2937,9 @@ def _process_card(
 
     # A definition without a `time` renders an animation (mp4) plus its
     # first frame (png); one with a `time` renders a single frame (png).
-    animated = card.get("time") is None
+    # With --no-video an animation renders its first frame (png) alone:
+    # the mp4 is skipped and the viewer reaped right after that frame.
+    animated = card.get("time") is None and not no_video
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
     source_hash = _source_hash(json_path)
     if not force:
@@ -2995,6 +3019,7 @@ def _process_profile_card(
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
+    no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Profile`` profile card for *json_path*
     (derived from its own definition — one of the ``Classic``, ``Idle``,
@@ -3008,6 +3033,11 @@ def _process_profile_card(
     subtitle overlays are applied as usual, like the other rarities; the
     logo sits at the top right. The card's photo reel (the face stills down
     the right edge, :func:`_photo_reel`) is composited onto every frame.
+
+    With *no_video* (``--no-video``) an animated profile card renders its
+    first frame alone — its MP4 is skipped and the viewers reaped right
+    after that frame — so the output, and the up-to-date check, cover the
+    first-frame PNG.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
@@ -3053,8 +3083,10 @@ def _process_profile_card(
     size = (int(viewport[0]), int(viewport[1]))
 
     # A definition without a `time` renders an animation (mp4) plus its first
-    # frame (png); one with a `time` renders a single frame (png).
-    animated = card.get("time") is None
+    # frame (png); one with a `time` renders a single frame (png). With
+    # --no-video an animation renders its first frame (png) alone: the mp4
+    # is skipped and the viewers reaped right after that frame.
+    animated = card.get("time") is None and not no_video
     stem = _profile_stem(json_path)
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
     source_hash = _profile_source_hash(json_path)
@@ -3130,6 +3162,7 @@ def _process_standard_card(
     scale: float = DEFAULT_SCALE,
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
+    no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Standard`` standard card for *json_path*
     (derived from its own definition — the ``Classic``, ``Rare``,
@@ -3141,6 +3174,11 @@ def _process_standard_card(
     inset by ``padding * 1.5`` and drawn in black (the white face would hide
     the white version); the NIKKE logo sits at the bottom right and the
     copyright at the bottom left, both in black.
+
+    With *no_video* (``--no-video``) an animated standard card renders its
+    first frame alone — its MP4 is skipped and the viewer reaped right
+    after that frame — so the output, and the up-to-date check, cover the
+    first-frame PNG.
 
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
@@ -3186,8 +3224,10 @@ def _process_standard_card(
     size = (int(viewport[0]), int(viewport[1]))
 
     # A definition without a `time` renders an animation (mp4) plus its first
-    # frame (png); one with a `time` renders a single frame (png).
-    animated = card.get("time") is None
+    # frame (png); one with a `time` renders a single frame (png). With
+    # --no-video an animation renders its first frame (png) alone: the mp4
+    # is skipped and the viewer reaped right after that frame.
+    animated = card.get("time") is None and not no_video
     stem = _standard_stem(json_path)
     out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
     source_hash = _standard_source_hash(json_path)
@@ -3671,6 +3711,40 @@ def _default_jobs() -> int:
     return min(4, max(1, (os.cpu_count() or 4) // 4))
 
 
+def _stage_threads(jobs: int, total: int, no_video: bool) -> tuple[int, int]:
+    """``(ffmpeg_threads, composite_workers)`` for a run of *jobs* workers
+    over *total* outputs: the split of the cores available to each card
+    between the stages that run in parallel — the frame compositing and
+    the ffmpeg encode: half each (at least 2 each, capped at
+    :data:`MAX_STAGE_THREADS`) — or all of it to the compositing when
+    there is no encode (*no_video*): the returned encode count is then a
+    placeholder the encode never sees."""
+    per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
+    if no_video:
+        return 1, max(2, min(MAX_STAGE_THREADS, per_card))
+    ffmpeg_threads = max(2, min(MAX_STAGE_THREADS, per_card // 2))
+    composite_workers = max(2, min(MAX_STAGE_THREADS, per_card - ffmpeg_threads))
+    return ffmpeg_threads, composite_workers
+
+
+def _run_notes(preset: str, scale: float, no_video: bool) -> str:
+    """The run-mode notes for the ``Rendering ...`` line — the draft's
+    x264 preset and resolution (when not the defaults) and the skipped
+    MP4 (``--no-video``) — as ``', x264 preset ..., (draft)'``: empty
+    when the run is a plain full-quality pass."""
+    notes = []
+    if preset != DEFAULT_PRESET:
+        notes.append(f"x264 preset '{preset}'")
+    if scale != 1.0:
+        notes.append(f"{scale:g}x resolution")
+    if no_video:
+        notes.append("no MP4")
+    if not notes:
+        return ""
+    suffix = " (draft)" if preset != DEFAULT_PRESET else ""
+    return f", {', '.join(notes)}{suffix}"
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Render and composite Nikke trading cards from cards/"
@@ -3710,6 +3784,15 @@ def _parse_args() -> argparse.Namespace:
             "and pack image"
         ),
     )
+    parser.add_argument(
+        "--no-video",
+        action="store_true",
+        help=(
+            "skip the MP4 generation: animated cards are written out as "
+            "their first frame (PNG) alone, and the run never needs "
+            "ffmpeg (quick iteration)"
+        ),
+    )
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
@@ -3735,6 +3818,7 @@ def _generate_profiles(
     scale: float,
     out_base: Path,
     force: bool = False,
+    no_video: bool = False,
 ) -> None:
     """Render the profile cards — one for each of the ``Classic``,
     ``Idle``, ``Cover`` and ``Aim`` presentations (all written out as
@@ -3747,10 +3831,17 @@ def _generate_profiles(
     card definition); from the result every definition with a
     :data:`PROFILE_STEMS` stem is kept (see
     :func:`_process_profile_card`). No pack artwork or metadata is produced.
+
+    With *no_video* (``--no-video``) the animated profile cards skip their
+    MP4 and write out their first frame (PNG) alone — and the run needs
+    only the viewer, no ffmpeg.
     """
     _require_executable(VIEWER)
-    _require_executable(ENCODER)
-    _require_executable(PROBER)
+    if not no_video:
+        # The encode (and the mp4's stored-hash probe) are the run's only
+        # ffmpeg users; a --no-video run needs the viewer alone.
+        _require_executable(ENCODER)
+        _require_executable(PROBER)
     configs = _find_card_configs(paths)
     profile_configs = [
         path
@@ -3767,17 +3858,10 @@ def _generate_profiles(
         return
     start = time.monotonic()
     total = len(profile_configs)
-    # Split the cores available to each card between the stages that run in
-    # parallel: the frame compositing and the ffmpeg encode.
-    per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
-    ffmpeg_threads = max(2, min(MAX_STAGE_THREADS, per_card // 2))
-    composite_workers = max(2, min(MAX_STAGE_THREADS, per_card - ffmpeg_threads))
-    notes = []
-    if preset != DEFAULT_PRESET:
-        notes.append(f"x264 preset '{preset}'")
-    if scale != 1.0:
-        notes.append(f"{scale:g}x resolution")
-    notes_text = f", {', '.join(notes)} (draft)" if notes else ""
+    # The per-card split of the cores between the stages that run in
+    # parallel (see _stage_threads).
+    ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
+    notes_text = _run_notes(preset, scale, no_video)
     print(
         f"Rendering {total} profile card(s) (written out as "
         f"<variant>Profile) with {jobs} worker(s){notes_text} ..."
@@ -3838,6 +3922,7 @@ def _generate_profiles(
                 scale,
                 out_base,
                 force,
+                no_video,
             ): path
             for path in profile_configs
         }
@@ -3863,6 +3948,7 @@ def _generate_standards(
     scale: float,
     out_base: Path,
     force: bool = False,
+    no_video: bool = False,
 ) -> None:
     """Render the standard cards — one for each of the ``Classic``,
     ``Rare``, ``Special`` and ``Exotic`` presentations (all written out as
@@ -3872,10 +3958,17 @@ def _generate_standards(
     card definition); from the result every definition with a
     :data:`STANDARD_STEMS` stem is kept (see
     :func:`_process_standard_card`). No pack artwork or metadata is produced.
+
+    With *no_video* (``--no-video``) the animated standard cards skip their
+    MP4 and write out their first frame (PNG) alone — and the run needs
+    only the viewer, no ffmpeg.
     """
     _require_executable(VIEWER)
-    _require_executable(ENCODER)
-    _require_executable(PROBER)
+    if not no_video:
+        # The encode (and the mp4's stored-hash probe) are the run's only
+        # ffmpeg users; a --no-video run needs the viewer alone.
+        _require_executable(ENCODER)
+        _require_executable(PROBER)
     configs = _find_card_configs(paths)
     standard_configs = [path for path in configs if path.stem in STANDARD_STEMS]
     if not configs:
@@ -3888,17 +3981,10 @@ def _generate_standards(
         return
     start = time.monotonic()
     total = len(standard_configs)
-    # Split the cores available to each card between the stages that run in
-    # parallel: the frame compositing and the ffmpeg encode.
-    per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
-    ffmpeg_threads = max(2, min(MAX_STAGE_THREADS, per_card // 2))
-    composite_workers = max(2, min(MAX_STAGE_THREADS, per_card - ffmpeg_threads))
-    notes = []
-    if preset != DEFAULT_PRESET:
-        notes.append(f"x264 preset '{preset}'")
-    if scale != 1.0:
-        notes.append(f"{scale:g}x resolution")
-    notes_text = f", {', '.join(notes)} (draft)" if notes else ""
+    # The per-card split of the cores between the stages that run in
+    # parallel (see _stage_threads).
+    ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
+    notes_text = _run_notes(preset, scale, no_video)
     print(
         f"Rendering {total} standard card(s) (written out as "
         f"<variant>Standard) with {jobs} worker(s){notes_text} ..."
@@ -3959,6 +4045,7 @@ def _generate_standards(
                 scale,
                 out_base,
                 force,
+                no_video,
             ): path
             for path in standard_configs
         }
@@ -3984,11 +4071,20 @@ def _generate_variants(
     scale: float,
     out_base: Path,
     force: bool = False,
+    no_video: bool = False,
 ) -> None:
-    """Process the selected cards in a pool of worker processes."""
+    """Process the selected cards in a pool of worker processes.
+
+    With *no_video* (``--no-video``) the animated cards skip their MP4 and
+    write out their first frame (PNG) alone — and the run needs only the
+    viewer, no ffmpeg.
+    """
     _require_executable(VIEWER)
-    _require_executable(ENCODER)
-    _require_executable(PROBER)
+    if not no_video:
+        # The encode (and the mp4's stored-hash probe) are the run's only
+        # ffmpeg users; a --no-video run needs the viewer alone.
+        _require_executable(ENCODER)
+        _require_executable(PROBER)
     # Every definition renders its full-art card here (the profile and the
     # standard presentations render through :func:`_generate_profiles` and
     # :func:`_generate_standards` respectively); a PROFILE_RARITIES stem, if
@@ -4089,17 +4185,10 @@ def _generate_variants(
         + len(box_needs)
         + len(box_item_needs)
     )
-    # Split the cores available to each card between the stages that run
-    # in parallel: the frame compositing and the ffmpeg encode.
-    per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
-    ffmpeg_threads = max(2, min(MAX_STAGE_THREADS, per_card // 2))
-    composite_workers = max(2, min(MAX_STAGE_THREADS, per_card - ffmpeg_threads))
-    notes = []
-    if preset != DEFAULT_PRESET:
-        notes.append(f"x264 preset '{preset}'")
-    if scale != 1.0:
-        notes.append(f"{scale:g}x resolution")
-    notes_text = f", {', '.join(notes)} (draft)" if notes else ""
+    # The per-card split of the cores between the stages that run in
+    # parallel (see _stage_threads).
+    ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
+    notes_text = _run_notes(preset, scale, no_video)
     what = f"{len(card_configs)} card(s)" + (
         f" and {len(material_needs) + len(item_needs) + len(box_needs) + len(box_item_needs)} pack image(s)"
         if material_needs or item_needs or box_needs or box_item_needs
@@ -4184,6 +4273,7 @@ def _generate_variants(
                 scale,
                 out_base,
                 force,
+                no_video,
             ): path.relative_to(CARDS_DIR)
             for path in card_configs
         }
