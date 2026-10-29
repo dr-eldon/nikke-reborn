@@ -4,7 +4,7 @@
   "subtitle": "Black Sunday",
   "variant": "fb",
   "skin": "default",
-  "animation": "idle",
+  "animation": "action",
   "framerate": 0,
   "time": null,
   "mipmapping": true,
