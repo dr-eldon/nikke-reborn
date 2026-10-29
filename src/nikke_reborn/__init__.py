@@ -3214,9 +3214,10 @@ def _process_standard_card(
     # between). The subtitle rectangle's tint is sampled from the unmasked
     # fitted background, so the mask's white does not wash the scene's color
     # out.
-    fitted = _fit_background(background, size)
-    sub_rect_color = _rect_tint(fitted)
-    base = _standard_layers(fitted)
+    background = _fit_background(background, size)
+    sub_rect_color = _rect_tint(background)
+    base = _standard_layers(background)
+
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
             finished, timings = _render_standard(
