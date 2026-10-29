@@ -59,6 +59,15 @@ fastest pass through the pipeline, for iterating on the frames themselves.
 The up-to-date check then covers the first frame alone; a run without the
 flag generates the MP4 as usual whenever it is missing or stale.
 
+``--no-profile``, ``--no-standard`` and ``--no-full-art`` disable the
+three generation passes outright — the ``Profile`` presentation (the
+``<variant>Profile`` cards), the ``Standard`` presentation (the
+``<variant>Standard`` cards) and the full-art cards with the pack's
+artwork (the pack's and the box's materials and items) — so a run renders
+only the presentations it is not told to skip. The metadata bundle is
+written either way, and a later run without the flag renders the skipped
+outputs whenever they are missing or stale.
+
 ``--force`` skips the up-to-date (hash) check and re-renders every selected
 card, profile card, standard card and pack image, even when the finished
 result on disk is already current.
@@ -493,20 +502,35 @@ def generate() -> None:
     draft = args.draft
     force = args.force
     no_video = args.no_video
+    no_profile = args.no_profile
+    no_standard = args.no_standard
+    no_full_art = args.no_full_art
     out_dir = DRAFT_DIR if draft else OUTPUT_DIR
     preset = DRAFT_PRESET if draft else DEFAULT_PRESET
     scale = DRAFT_SCALE if draft else DEFAULT_SCALE
     try:
         selection = _selected_configs(args.paths)
-        _generate_profiles(
-            selection, args.jobs, preset, scale, out_dir, force, no_video
-        )
-        _generate_standards(
-            selection, args.jobs, preset, scale, out_dir, force, no_video
-        )
-        _generate_variants(
-            selection, args.jobs, preset, scale, out_dir, force, no_video
-        )
+        if no_profile:
+            print("Skipping the profile pass (--no-profile).")
+        else:
+            _generate_profiles(
+                selection, args.jobs, preset, scale, out_dir, force, no_video
+            )
+        if no_standard:
+            print("Skipping the standard pass (--no-standard).")
+        else:
+            _generate_standards(
+                selection, args.jobs, preset, scale, out_dir, force, no_video
+            )
+        if no_full_art:
+            print(
+                "Skipping the full-art pass (--no-full-art): no full-art "
+                "cards, no pack images."
+            )
+        else:
+            _generate_variants(
+                selection, args.jobs, preset, scale, out_dir, force, no_video
+            )
         _write_metadata(out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3791,6 +3815,24 @@ def _parse_args() -> argparse.Namespace:
             "skip the MP4 generation: animated cards are written out as "
             "their first frame (PNG) alone, and the run never needs "
             "ffmpeg (quick iteration)"
+        ),
+    )
+    parser.add_argument(
+        "--no-profile",
+        action="store_true",
+        help="skip the profile pass: render no <variant>Profile cards",
+    )
+    parser.add_argument(
+        "--no-standard",
+        action="store_true",
+        help="skip the standard pass: render no <variant>Standard cards",
+    )
+    parser.add_argument(
+        "--no-full-art",
+        action="store_true",
+        help=(
+            "skip the full-art pass: render no full-art cards and no pack "
+            "images"
         ),
     )
     args = parser.parse_args()
