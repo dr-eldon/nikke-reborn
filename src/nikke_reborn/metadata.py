@@ -3,11 +3,6 @@ import math
 import sys
 from pathlib import Path
 
-# Self-import: _write_metadata/_set_cards call the sibling builders below
-# (expansion/pack/box/bundle/card) by module-qualified name to keep the
-# moved code byte-identical and avoid the local-variable shadowing that
-# bare names would introduce in _write_metadata.
-import nikke_reborn.metadata as metadata  # noqa: PLW0406
 from nikke_reborn.card import _profile_stem, _standard_stem
 from nikke_reborn.config import (
     BOX_MESH,
@@ -42,6 +37,130 @@ RARITIES = [
     "Goddess",
     "Classified",
 ]
+
+
+def write(out_dir: Path) -> None:
+    """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
+    set's shared assets (foilmask, cardback, box mesh, shop images) to
+    ``<out>/<set>/``."""
+    for set_dir in CARDS_DIR.iterdir():
+        if not set_dir.is_dir():
+            continue
+
+        if (set_dir / "Foilmask.png").is_file():
+            copy(set_dir / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
+        else:
+            copy(IMAGES_DIR / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
+
+        if (set_dir / "Cardback.png").is_file():
+            copy(set_dir / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
+        else:
+            copy(IMAGES_DIR / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
+
+        copy(BOX_MESH, out_dir / set_dir.stem / BOX_MESH.name)
+
+        for file in SHOP_DIR.iterdir():
+            if not file.is_file():
+                continue
+
+            copy(file, out_dir / set_dir.stem / file.name)
+
+        with (out_dir / f"{set_dir.stem}.json").open(
+            "w", newline="\n", encoding="utf-8"
+        ) as file:
+            json.dump(
+                bundle(
+                    set_dir.stem,
+                    items=[pack(set_dir.stem), box(set_dir.stem)],
+                    expansions=[expansion(set_dir.stem, cards(set_dir))],
+                ),
+                file,
+                indent=2,
+            )
+
+
+def cards(set_dir: Path) -> list[dict]:
+    """The card entries of *set_dir*'s metadata bundle: every variant
+    definition under the set, expanded into the derived presentations the
+    way the finished cards are written out (the ``Standard`` cards of
+    :data:`STANDARD_STEMS`, the ``Profile`` cards of :data:`PROFILE_STEMS`
+    and the full-art card of every variant outside :data:`PROFILE_RARITIES`),
+    each carrying the character's rarity from ``database/characters.json``
+    (a skin variant's suffixed id, c010_02, inherits the base character's
+    rarity; an unknown id defaults to ``R`` with a warning). Shared by
+    :func:`write` (which writes each set's bundle to the output directory)
+    and :mod:`nikke_reborn.simulation` (which simulates pack openings
+    against the current tuning)."""
+    characters = json.load((DATABASE_DIR / "characters.json").open())
+    characters = {character["id"]: character for character in characters}
+
+    cards = []
+    missing_ids: set[str] = set()
+
+    for card in sorted(set_dir.iterdir()):
+        if not card.is_dir():
+            continue
+
+        for variant in sorted(card.iterdir()):
+            if not variant.name.endswith(".json"):
+                continue
+
+            config = json.load(variant.open())
+
+            id = config["id"]
+            title = config["title"]
+            subtitle = config["subtitle"]
+
+            name = f"{title}: {subtitle}" if subtitle else title
+
+            # Skin variants carry a suffixed id (c010_02); strip the
+            # suffix so they inherit the base character's rarity.
+            character = characters.get(id) or characters.get(id.split("_", 1)[0])
+            if character is None:
+                missing_ids.add(id)
+                rarity = "R"
+            else:
+                rarity = character["rarity"]
+
+            if variant.stem in STANDARD_STEMS:
+                standard_stem = _standard_stem(variant)
+
+                new_card = _card(
+                    name,
+                    standard_stem,
+                    rarity,
+                    f"{card.stem}_{standard_stem}",
+                )
+                cards.append(new_card)
+
+            if variant.stem in PROFILE_STEMS:
+                profile_stem = _profile_stem(variant)
+
+                new_card = _card(
+                    name,
+                    profile_stem,
+                    rarity,
+                    f"{card.stem}_{profile_stem}",
+                )
+                cards.append(new_card)
+
+            if variant.stem not in PROFILE_RARITIES:
+                new_card = _card(
+                    name,
+                    variant.stem,
+                    rarity,
+                    f"{card.stem}_{variant.stem}",
+                )
+                cards.append(new_card)
+
+    for missing in sorted(missing_ids):
+        print(
+            f"warning: no character {missing!r} in characters.json; "
+            f"its cards default to rarity 'R'",
+            file=sys.stderr,
+        )
+
+    return cards
 
 
 def bundle(name, items=None, expansions=None) -> dict:
@@ -244,7 +363,7 @@ def pack(set) -> dict:
     }
 
 
-def card(name, variant, rarity, sprite) -> dict:
+def _card(name, variant, rarity, sprite) -> dict:
     BORDERS = ["Base", "FirstEdition", "Silver", "Gold", "EX", "FullArt"]
 
     VARIANT_BORDER = {
@@ -357,128 +476,3 @@ def box(set) -> dict:
         "GodWeights": {},
         "SlotWeights": {},
     }
-
-
-def _set_cards(set_dir: Path) -> list[dict]:
-    """The card entries of *set_dir*'s metadata bundle: every variant
-    definition under the set, expanded into the derived presentations the
-    way the finished cards are written out (the ``Standard`` cards of
-    :data:`STANDARD_STEMS`, the ``Profile`` cards of :data:`PROFILE_STEMS`
-    and the full-art card of every variant outside :data:`PROFILE_RARITIES`),
-    each carrying the character's rarity from ``database/characters.json``
-    (a skin variant's suffixed id, c010_02, inherits the base character's
-    rarity; an unknown id defaults to ``R`` with a warning). Shared by
-    :func:`_write_metadata` (which writes the bundle to ``output/``) and
-    :mod:`nikke_reborn.simulation` (which simulates pack openings against
-    the current tuning)."""
-    characters = json.load((DATABASE_DIR / "characters.json").open())
-    characters = {character["id"]: character for character in characters}
-
-    cards = []
-    missing_ids: set[str] = set()
-
-    for card in sorted(set_dir.iterdir()):
-        if not card.is_dir():
-            continue
-
-        for variant in sorted(card.iterdir()):
-            if not variant.name.endswith(".json"):
-                continue
-
-            config = json.load(variant.open())
-
-            id = config["id"]
-            title = config["title"]
-            subtitle = config["subtitle"]
-
-            name = f"{title}: {subtitle}" if subtitle else title
-
-            # Skin variants carry a suffixed id (c010_02); strip the
-            # suffix so they inherit the base character's rarity.
-            character = characters.get(id) or characters.get(id.split("_", 1)[0])
-            if character is None:
-                missing_ids.add(id)
-                rarity = "R"
-            else:
-                rarity = character["rarity"]
-
-            if variant.stem in STANDARD_STEMS:
-                standard_stem = _standard_stem(variant)
-
-                new_card = metadata.card(
-                    name,
-                    standard_stem,
-                    rarity,
-                    f"{card.stem}_{standard_stem}",
-                )
-                cards.append(new_card)
-
-            if variant.stem in PROFILE_STEMS:
-                profile_stem = _profile_stem(variant)
-
-                new_card = metadata.card(
-                    name,
-                    profile_stem,
-                    rarity,
-                    f"{card.stem}_{profile_stem}",
-                )
-                cards.append(new_card)
-
-            if variant.stem not in PROFILE_RARITIES:
-                new_card = metadata.card(
-                    name,
-                    variant.stem,
-                    rarity,
-                    f"{card.stem}_{variant.stem}",
-                )
-                cards.append(new_card)
-
-    for missing in sorted(missing_ids):
-        print(
-            f"warning: no character {missing!r} in characters.json; "
-            f"its cards default to rarity 'R'",
-            file=sys.stderr,
-        )
-
-    return cards
-
-
-def _write_metadata(out_dir: Path) -> None:
-    """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
-    set's shared assets (foilmask, cardback, box mesh, shop images) to
-    ``<out>/<set>/``."""
-    for set_dir in CARDS_DIR.iterdir():
-        if not set_dir.is_dir():
-            continue
-
-        if (set_dir / "Foilmask.png").is_file():
-            copy(set_dir / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
-        else:
-            copy(IMAGES_DIR / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
-
-        if (set_dir / "Cardback.png").is_file():
-            copy(set_dir / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
-        else:
-            copy(IMAGES_DIR / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
-
-        copy(BOX_MESH, out_dir / set_dir.stem / BOX_MESH.name)
-
-        for file in SHOP_DIR.iterdir():
-            if not file.is_file():
-                continue
-
-            copy(file, out_dir / set_dir.stem / file.name)
-
-        cards = _set_cards(set_dir)
-
-        expansion = metadata.expansion(set_dir.stem, cards)
-        pack = metadata.pack(set_dir.stem)
-        box = metadata.box(set_dir.stem)
-        bundle = metadata.bundle(
-            set_dir.stem, items=[pack, box], expansions=[expansion]
-        )
-
-        with (out_dir / f"{set_dir.stem}.json").open(
-            "w", newline="\n", encoding="utf-8"
-        ) as file:
-            json.dump(bundle, file, indent=2)

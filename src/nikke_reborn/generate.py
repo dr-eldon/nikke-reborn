@@ -20,7 +20,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from nikke_reborn import box, expansion, pack
+from nikke_reborn import box, expansion, metadata, pack
 from nikke_reborn.box import _process_box_item, _process_box_material
 from nikke_reborn.card import (
     _find_card_configs,
@@ -61,7 +61,6 @@ from nikke_reborn.file import (
     _require_executable,
     _viewer_output_up_to_date,
 )
-from nikke_reborn.metadata import _write_metadata
 from nikke_reborn.pack import _process_pack_item, _process_pack_material
 from nikke_reborn.render import (
     _process_card,
@@ -106,7 +105,7 @@ def run() -> None:
             _generate_variants(
                 selection, args.jobs, preset, scale, out_dir, force, no_video
             )
-        _write_metadata(out_dir)
+        metadata.write(out_dir)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)

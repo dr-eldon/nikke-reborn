@@ -34,15 +34,16 @@ and its three passes + the CLI helpers moved to `generate.py` (renamed `run`,
 §6.4), and `bundle()` to a new `bundle.py` (renamed `run`); the function-local
 `box`/`pack`/`expansion` imports in `_generate_variants` were hoisted to module
 level. `_write_metadata` and `_set_cards` moved into `metadata.py` alongside
-the builders they call; because the moved code calls those builders
-module-qualified (`metadata.card`, …) and `_write_metadata`'s locals
-(`expansion`/`pack`/`box`/`bundle`) share their names with the functions, a
-`metadata` self-import was added to keep the moved code byte-identical (and to
-avoid the local-variable shadowing bare names would introduce) — it carries a
-targeted `# noqa: PLW0406`. The five siblings dropped `import nikke_reborn as
-nr` for explicit imports (§6.3), and `spritesheet()`/`simulate()` were renamed
-to `run` so all four console entrypoints are `run` (`pyproject.toml` rewired
-and reinstalled).
+the builders they call, and were renamed to the public `write` and `cards`.
+The local-variable shadowing (`_write_metadata`'s locals
+`expansion`/`pack`/`box`/`bundle` share their names with the builders, and
+`_set_cards`'s loop variable is `card`, the name of the card builder) was
+resolved without a `metadata` self-import: the card builder became the
+private `_card`, and `write()` inlines the `expansion`/`pack`/`box`/`bundle`
+calls so nothing shadows them. The five siblings dropped `import nikke_reborn
+as nr` for explicit imports (§6.3), and `spritesheet()`/`simulate()` were
+renamed to `run` so all four console entrypoints are `run` (`pyproject.toml`
+rewired and reinstalled).
 
 ## 1. Background
 

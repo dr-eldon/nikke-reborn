@@ -156,7 +156,7 @@ def _load_expansion(name: str) -> tuple[dict, dict]:
             sorted(path.name for path in CARDS_DIR.iterdir() if path.is_dir())
         )
         raise GenerationError(f"unknown expansion {name!r} (available: {available})")
-    cards = metadata._set_cards(set_dir)
+    cards = metadata.cards(set_dir)
     if not cards:
         raise GenerationError(
             f"no card definitions under {set_dir.relative_to(REPO_ROOT)}/"
@@ -176,7 +176,9 @@ def _pool(expansion: dict) -> list[Card]:
                 border=entry["BorderType"],
                 foil=entry["IsFoil"],
                 sprite=entry["Sprite"],
-                price=card_price(expansion, entry["Rarity"], entry["BorderType"], entry["IsFoil"]),
+                price=card_price(
+                    expansion, entry["Rarity"], entry["BorderType"], entry["IsFoil"]
+                ),
             )
         )
     return cards
@@ -230,7 +232,8 @@ def _available_table(
     return {
         rarity: weight
         for rarity, weight in table.items()
-        if weight > 0 and any(card.sprite not in taken for card in pools.get(rarity, []))
+        if weight > 0
+        and any(card.sprite not in taken for card in pools.get(rarity, []))
     }
 
 
@@ -289,9 +292,7 @@ def run_simulation(
         have an untaken card), then a random untaken card of it."""
         if table is None:
             options = [
-                card
-                for card in cards
-                if not no_duplicates or card.sprite not in taken
+                card for card in cards if not no_duplicates or card.sprite not in taken
             ]
             return rng.choice(options) if options else None
         available = (
@@ -378,9 +379,7 @@ def _pool_means(pools: dict[str, list[Card]]) -> dict[str, float]:
     }
 
 
-def _god_pool_means(
-    expansion: dict, pools: dict[str, list[Card]]
-) -> dict[str, float]:
+def _god_pool_means(expansion: dict, pools: dict[str, list[Card]]) -> dict[str, float]:
     """The average price of each rarity's pool when every card is foil
     (the god pack's price in place)."""
     return {
@@ -461,11 +460,7 @@ def _probability_pack_contains(
     }
     god_fraction = {
         rarity: (
-            sum(
-                1
-                for card in cards
-                if predicate(_god_twin(expansion, card))
-            )
+            sum(1 for card in cards if predicate(_god_twin(expansion, card)))
             / len(cards)
         )
         for rarity, cards in pools.items()
@@ -503,9 +498,7 @@ def _hit_indices(packs: list[Pack], threshold: float) -> list[int]:
     return [
         i
         for i, pack in enumerate(packs, start=1)
-        if any(
-            drawn is not None and drawn.price > threshold for drawn in pack.cards
-        )
+        if any(drawn is not None and drawn.price > threshold for drawn in pack.cards)
     ]
 
 
@@ -527,9 +520,7 @@ def compute_statistics(
     values = [pack.value for pack in result.packs]
     sorted_values = sorted(values)
     total_value = sum(values)
-    total_cards = sum(
-        sum(counter.values()) for counter in result.per_slot_rarity
-    )
+    total_cards = sum(sum(counter.values()) for counter in result.per_slot_rarity)
 
     rarity_counts: Counter[str] = Counter()
     rarity_value: dict[str, float] = {}
@@ -569,7 +560,9 @@ def compute_statistics(
                     rarity_value.get(rarity, 0.0) / total_value if total_value else 0.0
                 ),
                 "first_pack": first,
-                "expected_first_pack": _expected_first_pack(expansion, pack, pools, rarity),
+                "expected_first_pack": _expected_first_pack(
+                    expansion, pack, pools, rarity
+                ),
             }
         )
 
@@ -669,9 +662,7 @@ def compute_statistics(
         "hit_first": hit_indices[0] if hit_indices else None,
         "hit_mean_gap": statistics.fmean(hit_gaps) if len(hit_gaps) > 1 else None,
         "hit_probability": hit_probability,
-        "hit_expected_packs": (
-            1.0 / hit_probability if hit_probability > 0 else None
-        ),
+        "hit_expected_packs": (1.0 / hit_probability if hit_probability > 0 else None),
         "rarity_rows": rarity_rows,
         "slot_rows": slot_rows,
         "threshold_rows": threshold_rows,
@@ -798,80 +789,80 @@ def render_report(
     summary = f"""
     <div class="cards">
       <div class="stat"><div class="label">Expected value per pack</div>
-        <div class="value">{_money(stats['simulated_ev'])}</div>
-        <div class="sub">theoretical {_money(stats['theoretical_ev'])} ({ev_delta:+.1f}%)</div></div>
+        <div class="value">{_money(stats["simulated_ev"])}</div>
+        <div class="sub">theoretical {_money(stats["theoretical_ev"])} ({ev_delta:+.1f}%)</div></div>
       <div class="stat"><div class="label">Median pack value</div>
-        <div class="value">{_money(stats['median'])}</div>
+        <div class="value">{_money(stats["median"])}</div>
         <div class="sub">of {n:,} packs</div></div>
       <div class="stat"><div class="label">Pack market price</div>
         <div class="value">{_money(price_min)} – {_money(price_max)}</div>
-        <div class="sub">BaseCost {pack['BaseCost']:g} x [{pack['MinMarketPricePercent']:g}, {pack['MaxMarketPricePercent']:g}]</div></div>
+        <div class="sub">BaseCost {pack["BaseCost"]:g} x [{pack["MinMarketPricePercent"]:g}, {pack["MaxMarketPricePercent"]:g}]</div></div>
       <div class="stat"><div class="label">Pack license price</div>
-        <div class="value">{_money(pack['LicensePrice'])}</div>
+        <div class="value">{_money(pack["LicensePrice"])}</div>
         <div class="sub">one-time unlock</div></div>
       <div class="stat"><div class="label">Hits over {_money(hit_threshold)}</div>
-        <div class="value">{stats['hit_count']:,} / {n:,}</div>
-        <div class="sub">{_pct(stats['hit_share'])} of the packs</div></div>
+        <div class="value">{stats["hit_count"]:,} / {n:,}</div>
+        <div class="sub">{_pct(stats["hit_share"])} of the packs</div></div>
       <div class="stat"><div class="label">Packs until first hit</div>
-        <div class="value">{stats['hit_first'] if stats['hit_first'] is not None else '—'}</div>
-        <div class="sub">expected {_packs(stats['hit_expected_packs'])}</div></div>
+        <div class="value">{stats["hit_first"] if stats["hit_first"] is not None else "—"}</div>
+        <div class="sub">expected {_packs(stats["hit_expected_packs"])}</div></div>
       <div class="stat"><div class="label">Average packs per hit</div>
-        <div class="value">{_packs(stats['hit_mean_gap'])}</div>
-        <div class="sub">expected {_packs(stats['hit_expected_packs'])}</div></div>
+        <div class="value">{_packs(stats["hit_mean_gap"])}</div>
+        <div class="sub">expected {_packs(stats["hit_expected_packs"])}</div></div>
       <div class="stat"><div class="label">Total value</div>
-        <div class="value">{_money(stats['total_value'])}</div>
-        <div class="sub">{stats['total_cards']:,} cards over {n:,} packs</div></div>
+        <div class="value">{_money(stats["total_value"])}</div>
+        <div class="sub">{stats["total_cards"]:,} cards over {n:,} packs</div></div>
     </div>"""
 
     rarity_rows = "".join(
         f"""<tr>
-          <td class="name">{e(row['rarity'])}</td>
-          <td>{row['pool']}</td>
-          <td>{row['count']:,}</td>
-          <td>{row['expected']:,.1f}</td>
-          <td>{_pct(row['observed_share'])}</td>
-          <td>{_money(row['bottom_price'])}</td>
-          <td>{_money(row['average_price'])}</td>
-          <td>{_money(row['max_price'])}</td>
-          <td>{_money(row['total_value'])}</td>
-          <td>{_pct(row['value_share'])}</td>
-          <td>{row['first_pack'] if row['first_pack'] is not None else '—'}</td>
-          <td>{_packs(row['expected_first_pack'])}</td>
+          <td class="name">{e(row["rarity"])}</td>
+          <td>{row["pool"]}</td>
+          <td>{row["count"]:,}</td>
+          <td>{row["expected"]:,.1f}</td>
+          <td>{_pct(row["observed_share"])}</td>
+          <td>{_money(row["bottom_price"])}</td>
+          <td>{_money(row["average_price"])}</td>
+          <td>{_money(row["max_price"])}</td>
+          <td>{_money(row["total_value"])}</td>
+          <td>{_pct(row["value_share"])}</td>
+          <td>{row["first_pack"] if row["first_pack"] is not None else "—"}</td>
+          <td>{_packs(row["expected_first_pack"])}</td>
         </tr>"""
         for row in stats["rarity_rows"]
     )
 
     slot_rows = "".join(
         f"""<tr>
-          <td>Slot {row['slot']}</td>
-          <td>{_money(row['observed_value'])}</td>
-          <td>{_money(row['expected_value'])}</td>
-          <td>{row['hits']:,}</td>
-          <td class="name">{e(row['top_rarity'] or '—')} ({_pct(row['top_probability'])})</td>
+          <td>Slot {row["slot"]}</td>
+          <td>{_money(row["observed_value"])}</td>
+          <td>{_money(row["expected_value"])}</td>
+          <td>{row["hits"]:,}</td>
+          <td class="name">{e(row["top_rarity"] or "—")} ({_pct(row["top_probability"])})</td>
         </tr>"""
         for row in stats["slot_rows"]
     )
 
     threshold_rows = "".join(
         f"""<tr>
-          <td>{_money(row['threshold'])}</td>
-          <td>{_pct(row['probability'])}</td>
-          <td>{_packs(row['expected_packs'])}</td>
-          <td>{row['count']:,} / {n:,}</td>
-          <td>{row['first'] if row['first'] is not None else '—'}</td>
-          <td>{_packs(row['mean_gap'])}</td>
+          <td>{_money(row["threshold"])}</td>
+          <td>{_pct(row["probability"])}</td>
+          <td>{_packs(row["expected_packs"])}</td>
+          <td>{row["count"]:,} / {n:,}</td>
+          <td>{row["first"] if row["first"] is not None else "—"}</td>
+          <td>{_packs(row["mean_gap"])}</td>
         </tr>"""
         for row in stats["threshold_rows"]
     )
 
     top_rows = "".join(
         f"""<tr>
-          <td class="name">{e(row['name'])}</td>
-          <td>{e(row['rarity'])}</td>
-          <td>{e(row['border'])}</td>
-          <td>{'yes' if row['foil'] else 'no'}</td>
-          <td>{_money(row['price'])}</td>
-          <td>{_packs(row['expected_packs'])}</td>
+          <td class="name">{e(row["name"])}</td>
+          <td>{e(row["rarity"])}</td>
+          <td>{e(row["border"])}</td>
+          <td>{"yes" if row["foil"] else "no"}</td>
+          <td>{_money(row["price"])}</td>
+          <td>{_packs(row["expected_packs"])}</td>
         </tr>"""
         for row in stats["top_cards"]
     )
@@ -940,16 +931,16 @@ def render_report(
 <div class="container">
   <h1>Pack simulation — {e(name)}</h1>
   <div class="meta">
-    {n:,} packs of <code>{e(pack['Name'])}</code> &middot; seed {result.seed}
-    &middot; {datetime.now().strftime('%Y-%m-%d %H:%M')} &middot;
+    {n:,} packs of <code>{e(pack["Name"])}</code> &middot; seed {result.seed}
+    &middot; {datetime.now().strftime("%Y-%m-%d %H:%M")} &middot;
     built from <code>cards/{e(name)}</code> + <code>database/characters.json</code>
     through the current <code>metadata.py</code> tuning
   </div>
 
   <h2>Price model</h2>
   <div class="meta">
-    <code>{e(expansion['CardPriceStrategy'])}</code> strategy,
-    {len(expansion['Cards']):,} cards in the pool
+    <code>{e(expansion["CardPriceStrategy"])}</code> strategy,
+    {len(expansion["Cards"]):,} cards in the pool
   </div>
   <code class="formula">{e(formula)}</code>
 
@@ -966,7 +957,7 @@ def render_report(
     {rarity_rows}
   </table>
   <div class="note">Obtained/expected over {n:,} packs ({7 * n:,} slot draws,
-  {stats['total_cards']:,} cards). &ldquo;Bottom price&rdquo;/&ldquo;Avg
+  {stats["total_cards"]:,} cards). &ldquo;Bottom price&rdquo;/&ldquo;Avg
   price&rdquo;/&ldquo;Top price&rdquo; are the rarity's pool's cheapest,
   average and most expensive cards — what a draw of the rarity is worth at
   the low, average and high end. &ldquo;First pack&rdquo; is the first pack
@@ -1005,7 +996,7 @@ def render_report(
     <p>Simulated with <code>simulate {e(name)}</code>
     ({n:,} packs, seed {result.seed}). {e(god_note)}; {duplicate_note}.{empty_note}</p>
     <p>Every card is priced with the expansion's
-    <code>{e(expansion['CardPriceStrategy'])}</code> parameters. The theoretical values are
+    <code>{e(expansion["CardPriceStrategy"])}</code> parameters. The theoretical values are
     derived straight from the pack's weight tables under the assumption that every slot
     draws from a fresh pool (duplicates allowed): they match the simulation when a pack
     rarely repeats a card. With a small pool the no-duplicate rule interacts with the
@@ -1072,14 +1063,14 @@ def run() -> None:
         parser.error("--hit must be positive")
 
     name = args.expansion.removeprefix("cards/")
-    seed = args.seed if args.seed is not None else random.SystemRandom().randrange(1 << 31)
+    seed = (
+        args.seed if args.seed is not None else random.SystemRandom().randrange(1 << 31)
+    )
 
     try:
         expansion, pack = _load_expansion(name)
         cards = _pool(expansion)
-        result = run_simulation(
-            expansion, pack, cards, args.packs, seed, args.hit
-        )
+        result = run_simulation(expansion, pack, cards, args.packs, seed, args.hit)
         stats = compute_statistics(expansion, pack, cards, result, args.hit)
         report = render_report(name, expansion, pack, result, stats, args.hit)
 
@@ -1097,9 +1088,7 @@ def run() -> None:
             f"median {_money(stats['median'])}"
         )
         first = (
-            f"pack {stats['hit_first']}"
-            if stats["hit_first"] is not None
-            else "none"
+            f"pack {stats['hit_first']}" if stats["hit_first"] is not None else "none"
         )
         gap = (
             f"{_packs(stats['hit_mean_gap'])} on average"
