@@ -58,7 +58,6 @@ from nikke_reborn.expansion import (
 from nikke_reborn.file import (
     _material_hash,
     _save_atomic,
-    _set_out_name,
     _stored_hash,
     _viewer_hash,
 )
@@ -68,6 +67,7 @@ from nikke_reborn.image import (
     _pack_mask,
     _pack_mask_rects,
 )
+from nikke_reborn.preset import Preset
 
 # --- the white NIKKE logo -----------------------------------------------------
 #: The white logo stamped on the box's front (top-left), side
@@ -347,8 +347,7 @@ def _process_box_material(
     side: Image.Image,
     top: Image.Image,
     force: bool = False,
-    scale: float = 1.0,
-    ultra: bool = False,
+    preset: Preset = Preset.DEFAULT,
 ) -> tuple[Path, bool]:
     """Composite the box's front, side and top onto the box material
     template.
@@ -363,19 +362,20 @@ def _process_box_material(
     happens at native (the template's) size — into the exact mask
     rectangles — and only the finished material is scaled, in one
     whole-image pass, to the run's size and written to
-    ``<out>/<pack>/CardBox_Material.png`` (or the ``<pack> (Ultra)`` set
-    folder for an ``--ultra`` run), atomically, with the SHA-256 of the
-    template, the scale and the front's inputs embedded, like a finished
-    card (the side's and top's inputs are subsets of the front's);
-    returns ``(out_path, skipped)``, where *skipped* is True when the
-    output already exists and its stored hash matches the current
-    inputs.
+    ``<out>/<pack>/CardBox_Material.png`` (the output preset's set
+    folder — the ``<pack> (Ultra)`` twin for the ultra preset),
+    atomically, with the SHA-256 of the template, the output preset's
+    scale and the front's inputs embedded, like a finished card (the
+    side's and top's inputs are subsets of the front's); returns
+    ``(out_path, skipped)``, where *skipped* is True when the output
+    already exists and its stored hash matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
-    source_hash = _material_hash(BOX_TEMPLATE, front_source=front_source, scale=scale)
+    source_hash = _material_hash(
+        BOX_TEMPLATE, front_source=front_source, preset=preset
+    )
     out_path = (
-        out_base
-        / _set_out_name(pack_dir.relative_to(CARDS_DIR).name, ultra)
+        preset.set_path(out_base, pack_dir.relative_to(CARDS_DIR).name)
         / BOX_MATERIAL_NAME
     )
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
@@ -422,12 +422,15 @@ def _process_box_material(
             top = top.resize(top_target, Image.Resampling.LANCZOS)
         template.alpha_composite(top, (top_rect[0], top_rect[1]))
         final = template.convert("RGB")
-    if scale != 1.0:
+    if preset.scale != 1.0:
         # One whole-image pass down to the run's size: the composition
         # stayed native (into the exact mask rectangles), so nothing is
         # resampled twice and the paste edges carry no bleed.
         final = final.resize(
-            (round(final.width * scale), round(final.height * scale)),
+            (
+                round(final.width * preset.scale),
+                round(final.height * preset.scale),
+            ),
             Image.Resampling.LANCZOS,
         )
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -439,19 +442,19 @@ def _process_box_item(
     pack_dir: Path,
     out_base: Path,
     force: bool = False,
-    scale: float = 1.0,
-    ultra: bool = False,
+    preset: Preset = Preset.DEFAULT,
 ) -> tuple[Path, bool]:
     """Render the box's item with :data:`UNITY_VIEWER`: the box's mesh
     (:data:`BOX_MESH`) textured with the box's finished material
-    (``<out>/<pack>/CardBox_Material.png``, or the ``<pack> (Ultra)``
-    set folder for an ``--ultra`` run), posed by the box's viewer
-    configuration (:data:`BOX_CONFIG`): the model rotation and camera
-    zoom/pan from that JSON file, the camera's fixed viewing pose and an
-    output size of ``round(ITEM_VIEWER_WIDTH * scale)`` by
-    ``round(ITEM_VIEWER_HEIGHT * scale)`` pixels (the viewer's own
-    defaults at the full scale). The material must have been generated
-    first — the item is rendered from its output file.
+    (``<out>/<pack>/CardBox_Material.png`` in the output preset's set
+    folder — the ``<pack> (Ultra)`` twin for the ultra preset), posed by
+    the box's viewer configuration (:data:`BOX_CONFIG`): the model
+    rotation and camera zoom/pan from that JSON file, the camera's fixed
+    viewing pose and an output size of ``round(ITEM_VIEWER_WIDTH *
+    preset.scale)`` by ``round(ITEM_VIEWER_HEIGHT * preset.scale)``
+    pixels (the viewer's own defaults at the full scale). The material
+    must have been generated first — the item is rendered from its
+    output file.
 
     The viewer writes a plain PNG, which is re-saved with the SHA-256 of
     the mesh, the material and the output size embedded (a PNG text
@@ -461,12 +464,12 @@ def _process_box_item(
     already exists and its stored hash matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
-    width = round(ITEM_VIEWER_WIDTH * scale)
-    height = round(ITEM_VIEWER_HEIGHT * scale)
-    set_name = _set_out_name(pack_dir.relative_to(CARDS_DIR).name, ultra)
-    material_path = out_base / set_name / BOX_MATERIAL_NAME
-    source_hash = _viewer_hash(BOX_MESH, material_path, BOX_CONFIG, width, height)
-    out_path = out_base / set_name / BOX_ITEM_NAME
+    width = round(ITEM_VIEWER_WIDTH * preset.scale)
+    height = round(ITEM_VIEWER_HEIGHT * preset.scale)
+    set_path = preset.set_path(out_base, pack_dir.relative_to(CARDS_DIR).name)
+    material_path = set_path / BOX_MATERIAL_NAME
+    source_hash = _viewer_hash(BOX_MESH, material_path, BOX_CONFIG, preset)
+    out_path = set_path / BOX_ITEM_NAME
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     out_path.parent.mkdir(parents=True, exist_ok=True)

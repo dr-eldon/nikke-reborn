@@ -35,13 +35,9 @@ from nikke_reborn.config import (
     BOX_MESH,
     BOX_TEMPLATE,
     CARDS_DIR,
-    DEFAULT_PRESET,
-    DEFAULT_SCALE,
+    DEFAULT_X264_PRESET,
     DRAFT_DIR,
-    DRAFT_PRESET,
-    DRAFT_SCALE,
-    ITEM_VIEWER_HEIGHT,
-    ITEM_VIEWER_WIDTH,
+    DRAFT_X264_PRESET,
     MAX_STAGE_THREADS,
     OUTPUT_DIR,
     PACK_CONFIG,
@@ -54,7 +50,6 @@ from nikke_reborn.config import (
     PROFILE_STEMS,
     REPO_ROOT,
     STANDARD_STEMS,
-    ULTRA_SCALE,
     VIEWER,
 )
 from nikke_reborn.error import GenerationError
@@ -62,10 +57,10 @@ from nikke_reborn.expansion import _find_pack_dirs
 from nikke_reborn.file import (
     _material_output_up_to_date,
     _require_executable,
-    _set_out_name,
     _viewer_output_up_to_date,
 )
 from nikke_reborn.pack import _process_pack_item, _process_pack_material
+from nikke_reborn.preset import Preset
 from nikke_reborn.render import (
     _process_card,
     _process_profile_card,
@@ -85,24 +80,24 @@ def run() -> None:
     no_standard = args.no_standard
     no_full_art = args.no_full_art
     out_dir = DRAFT_DIR if draft else OUTPUT_DIR
-    preset = DRAFT_PRESET if draft else DEFAULT_PRESET
-    # Ultra runs write to the "<set> (Ultra)" set folders inside
-    # OUTPUT_DIR (the root is unchanged); everything else is a plain run
-    # at the mode's scale.
-    scale = DRAFT_SCALE if draft else ULTRA_SCALE if ultra else DEFAULT_SCALE
+    x264_preset = DRAFT_X264_PRESET if draft else DEFAULT_X264_PRESET
+    # The output preset: ultra runs write to the "<set> (Ultra)" set
+    # folders inside OUTPUT_DIR (the root is unchanged); a draft run is
+    # a plain default-preset run in DRAFT_DIR.
+    preset = Preset.ULTRA if ultra else Preset.DEFAULT
     try:
         selection = _selected_configs(args.paths)
         if no_profile:
             print("Skipping the profile pass (--no-profile).")
         else:
             _generate_profiles(
-                selection, args.jobs, preset, scale, out_dir, force, no_video, ultra
+                selection, args.jobs, x264_preset, preset, out_dir, force, no_video
             )
         if no_standard:
             print("Skipping the standard pass (--no-standard).")
         else:
             _generate_standards(
-                selection, args.jobs, preset, scale, out_dir, force, no_video, ultra
+                selection, args.jobs, x264_preset, preset, out_dir, force, no_video
             )
         if no_full_art:
             print(
@@ -111,9 +106,9 @@ def run() -> None:
             )
         else:
             _generate_variants(
-                selection, args.jobs, preset, scale, out_dir, force, no_video, ultra
+                selection, args.jobs, x264_preset, preset, out_dir, force, no_video
             )
-        metadata.write(out_dir, ultra)
+        metadata.write(out_dir, preset)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -140,30 +135,18 @@ def _stage_threads(jobs: int, total: int, no_video: bool) -> tuple[int, int]:
     return ffmpeg_threads, composite_workers
 
 
-def _run_notes(
-    preset: str, scale: float, no_video: bool, ultra: bool = False
-) -> str:
+def _run_notes(x264_preset: str, preset: Preset, no_video: bool) -> str:
     """The run-mode notes for the ``Rendering ...`` line — the draft's
-    x264 preset, a resolution that deviates from the run mode's own
-    scale, and the skipped MP4 (``--no-video``) — as ``', x264 preset
-    ..., (draft)'``; ultra runs carry an ``(ultra)`` suffix. The
-    resolution note is relative to the mode's scale, so a plain default
-    run at the new half resolution stays quiet."""
+    x264 preset and the skipped MP4 (``--no-video``) — as ``', x264
+    preset ..., (draft)'``; ultra runs carry an ``(ultra)`` suffix."""
     notes = []
-    if preset != DEFAULT_PRESET:
-        notes.append(f"x264 preset '{preset}'")
-    expected = (
-        DRAFT_SCALE
-        if preset == DRAFT_PRESET
-        else ULTRA_SCALE if ultra else DEFAULT_SCALE
-    )
-    if scale != expected:
-        notes.append(f"{scale:g}x resolution")
+    if x264_preset != DEFAULT_X264_PRESET:
+        notes.append(f"x264 preset '{x264_preset}'")
     if no_video:
         notes.append("no MP4")
-    if preset != DEFAULT_PRESET:
+    if x264_preset != DEFAULT_X264_PRESET:
         suffix = " (draft)"
-    elif ultra:
+    elif preset is Preset.ULTRA:
         suffix = " (ultra)"
     else:
         suffix = ""
@@ -268,12 +251,11 @@ def _timings_suffix(timings: dict[str, float | None] | None) -> str:
 def _generate_profiles(
     paths: list[Path] | None,
     jobs: int,
-    preset: str,
-    scale: float,
+    x264_preset: str,
+    preset: Preset,
     out_base: Path,
     force: bool = False,
     no_video: bool = False,
-    ultra: bool = False,
 ) -> None:
     """Render the profile cards — one for each of the ``Classic``,
     ``Idle``, ``Cover`` and ``Aim`` presentations (all written out as
@@ -316,7 +298,7 @@ def _generate_profiles(
     # The per-card split of the cores between the stages that run in
     # parallel (see _stage_threads).
     ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
-    notes_text = _run_notes(preset, scale, no_video, ultra)
+    notes_text = _run_notes(x264_preset, preset, no_video)
     print(
         f"Rendering {total} profile card(s) (written out as "
         f"<variant>Profile) with {jobs} worker(s){notes_text} ..."
@@ -373,12 +355,11 @@ def _generate_profiles(
                 path,
                 ffmpeg_threads,
                 composite_workers,
+                x264_preset,
                 preset,
-                scale,
                 out_base,
                 force,
                 no_video,
-                ultra,
             ): path
             for path in profile_configs
         }
@@ -392,7 +373,7 @@ def _generate_profiles(
     word = (
         "drafts"
         if out_base == DRAFT_DIR
-        else "final cards (ultra)" if ultra else "final cards"
+        else "final cards (ultra)" if preset is Preset.ULTRA else "final cards"
     )
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(
@@ -404,12 +385,11 @@ def _generate_profiles(
 def _generate_standards(
     paths: list[Path] | None,
     jobs: int,
-    preset: str,
-    scale: float,
+    x264_preset: str,
+    preset: Preset,
     out_base: Path,
     force: bool = False,
     no_video: bool = False,
-    ultra: bool = False,
 ) -> None:
     """Render the standard cards — one for each of the ``Classic``,
     ``Rare``, ``Special`` and ``Exotic`` presentations (all written out as
@@ -445,7 +425,7 @@ def _generate_standards(
     # The per-card split of the cores between the stages that run in
     # parallel (see _stage_threads).
     ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
-    notes_text = _run_notes(preset, scale, no_video, ultra)
+    notes_text = _run_notes(x264_preset, preset, no_video)
     print(
         f"Rendering {total} standard card(s) (written out as "
         f"<variant>Standard) with {jobs} worker(s){notes_text} ..."
@@ -502,12 +482,11 @@ def _generate_standards(
                 path,
                 ffmpeg_threads,
                 composite_workers,
+                x264_preset,
                 preset,
-                scale,
                 out_base,
                 force,
                 no_video,
-                ultra,
             ): path
             for path in standard_configs
         }
@@ -521,7 +500,7 @@ def _generate_standards(
     word = (
         "drafts"
         if out_base == DRAFT_DIR
-        else "final cards (ultra)" if ultra else "final cards"
+        else "final cards (ultra)" if preset is Preset.ULTRA else "final cards"
     )
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(
@@ -533,12 +512,11 @@ def _generate_standards(
 def _generate_variants(
     paths: list[Path] | None,
     jobs: int,
-    preset: str,
-    scale: float,
+    x264_preset: str,
+    preset: Preset,
     out_base: Path,
     force: bool = False,
     no_video: bool = False,
-    ultra: bool = False,
 ) -> None:
     """Process the selected cards in a pool of worker processes.
 
@@ -587,11 +565,9 @@ def _generate_variants(
         front_source = pack.front_source_hash(pack_dir)
         back_source = pack.back_source_hash(pack_dir)
         box_front_source = box.front_source_hash(pack_dir)
-        # The run's set folder (the "<set> (Ultra)" twin under --ultra)
-        # and the item's output size (the viewer's defaults at scale 1).
-        set_name = _set_out_name(pack_dir.relative_to(CARDS_DIR).name, ultra)
-        item_width = round(ITEM_VIEWER_WIDTH * scale)
-        item_height = round(ITEM_VIEWER_HEIGHT * scale)
+        # The run's set folder (the "<set> (Ultra)" twin for the ultra
+        # preset).
+        set_path = preset.set_path(out_base, pack_dir.relative_to(CARDS_DIR).name)
         material_ok = _material_output_up_to_date(
             PACK_TEMPLATE,
             PACK_MATERIAL_NAME,
@@ -600,17 +576,15 @@ def _generate_variants(
             front_source,
             back_source,
             force,
-            scale=scale,
-            ultra=ultra,
+            preset,
         )
         item_ok = _viewer_output_up_to_date(
             PACK_MESH,
-            out_base / set_name / PACK_MATERIAL_NAME,
+            set_path / PACK_MATERIAL_NAME,
             PACK_CONFIG,
-            out_base / set_name / PACK_ITEM_NAME,
+            set_path / PACK_ITEM_NAME,
             force,
-            item_width,
-            item_height,
+            preset,
         )
         box_ok = _material_output_up_to_date(
             BOX_TEMPLATE,
@@ -620,17 +594,15 @@ def _generate_variants(
             box_front_source,
             "",  # the box's material has no back
             force,
-            scale=scale,
-            ultra=ultra,
+            preset,
         )
         box_item_ok = _viewer_output_up_to_date(
             BOX_MESH,
-            out_base / set_name / BOX_MATERIAL_NAME,
+            set_path / BOX_MATERIAL_NAME,
             BOX_CONFIG,
-            out_base / set_name / BOX_ITEM_NAME,
+            set_path / BOX_ITEM_NAME,
             force,
-            item_width,
-            item_height,
+            preset,
         )
         if material_ok and item_ok and box_ok and box_item_ok:
             continue  # nothing changed for this pack; skip the fronts' renders
@@ -668,7 +640,7 @@ def _generate_variants(
     # The per-card split of the cores between the stages that run in
     # parallel (see _stage_threads).
     ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
-    notes_text = _run_notes(preset, scale, no_video, ultra)
+    notes_text = _run_notes(x264_preset, preset, no_video)
     what = f"{len(card_configs)} card(s)" + (
         f" and {len(material_needs) + len(item_needs) + len(box_needs) + len(box_item_needs)} pack image(s)"
         if material_needs or item_needs or box_needs or box_item_needs
@@ -749,12 +721,11 @@ def _generate_variants(
                 path,
                 ffmpeg_threads,
                 composite_workers,
+                x264_preset,
                 preset,
-                scale,
                 out_base,
                 force,
                 no_video,
-                ultra,
             ): path.relative_to(CARDS_DIR)
             for path in card_configs
         }
@@ -764,7 +735,7 @@ def _generate_variants(
         # renders from the material that is already on disk.
         item_futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
-                _process_pack_item, pack_dir, out_base, force, scale, ultra
+                _process_pack_item, pack_dir, out_base, force, preset
             ): item_label(pack_dir)
             for pack_dir in sorted(item_needs - material_needs)
         }
@@ -772,7 +743,7 @@ def _generate_variants(
         # so each box's item starts only after its material has finished.
         box_item_futures: dict[Future[tuple[Path, bool]], Path] = {
             pool.submit(
-                _process_box_item, pack_dir, out_base, force, scale, ultra
+                _process_box_item, pack_dir, out_base, force, preset
             ): box_item_label(pack_dir)
             for pack_dir in sorted(box_item_needs - box_needs)
         }
@@ -786,8 +757,7 @@ def _generate_variants(
                 backs[pack_dir],
                 back_sources[pack_dir],
                 force,
-                scale,
-                ultra,
+                preset,
             ): pack_dir
             for pack_dir in material_needs
         }
@@ -803,8 +773,7 @@ def _generate_variants(
                 box_sides[pack_dir],
                 box_tops[pack_dir],
                 force,
-                scale,
-                ultra,
+                preset,
             ): pack_dir
             for pack_dir in sorted(box_needs)
         }
@@ -816,7 +785,7 @@ def _generate_variants(
             if pack_dir in item_needs:
                 item_futures[
                     pool.submit(
-                        _process_pack_item, pack_dir, out_base, force, scale, ultra
+                        _process_pack_item, pack_dir, out_base, force, preset
                     )
                 ] = item_label(pack_dir)
         for future in as_completed(box_futures):
@@ -827,7 +796,7 @@ def _generate_variants(
             if pack_dir in box_item_needs:
                 box_item_futures[
                     pool.submit(
-                        _process_box_item, pack_dir, out_base, force, scale, ultra
+                        _process_box_item, pack_dir, out_base, force, preset
                     )
                 ] = box_item_label(pack_dir)
         for future in as_completed(card_futures):
@@ -843,7 +812,7 @@ def _generate_variants(
     word = (
         "drafts"
         if out_base == DRAFT_DIR
-        else "final cards (ultra)" if ultra else "final cards"
+        else "final cards (ultra)" if preset is Preset.ULTRA else "final cards"
     )
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(

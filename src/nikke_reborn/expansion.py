@@ -57,6 +57,7 @@ from PIL import Image, ImageChops, ImageFilter
 from nikke_reborn.card import _load_card, _source_hash
 from nikke_reborn.config import CARDS_DIR, VIEWER
 from nikke_reborn.error import GenerationError
+from nikke_reborn.preset import Preset
 from nikke_reborn.video import _PipeDrain, _read_exact, _reap_viewer
 
 EXPANSION_NAME = "Expansion.json"
@@ -131,7 +132,10 @@ def front_source_digest(pack_dir: Path, logo: Path, template: Path) -> str:
     digest = hashlib.sha256()
     digest.update((pack_dir / EXPANSION_NAME).read_bytes())
     for rel in expansion.get("pack", []):
-        digest.update(_source_hash((pack_dir / rel).resolve()).encode())
+        # The front composes at native size and so does not depend on the
+        # run's scale: hash the featured definitions at the legacy
+        # (scale-1.0) preset, keeping the digest scale-independent.
+        digest.update(_source_hash((pack_dir / rel).resolve(), Preset.ULTRA).encode())
     background = expansion.get("background")
     if background:
         digest.update((pack_dir / background).resolve().read_bytes())

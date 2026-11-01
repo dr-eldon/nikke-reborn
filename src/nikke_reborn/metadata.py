@@ -14,7 +14,8 @@ from nikke_reborn.config import (
     SHOP_DIR,
     STANDARD_STEMS,
 )
-from nikke_reborn.file import _set_out_name, copy
+from nikke_reborn.file import copy
+from nikke_reborn.preset import Preset
 
 BUNDLE_NAME = "NIKKE_REBORN"
 
@@ -39,18 +40,17 @@ RARITIES = [
 ]
 
 
-def write(out_dir: Path, ultra: bool = False) -> None:
+def write(out_dir: Path, preset: Preset = Preset.DEFAULT) -> None:
     """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
     set's shared assets (foilmask, cardback, box mesh, shop images) to
-    ``<out>/<set>/``. An ``--ultra`` run (*ultra*) writes them to the
-    ``<set> (Ultra)`` set folder and ``<set> (Ultra).json`` instead, so
-    the ultra set folders are self-contained and parallel to the
-    default ones."""
+    ``<out>/<set>/``. An ultra run writes them to the ``<set> (Ultra)``
+    set folder and ``<set> (Ultra).json`` instead, so the ultra set
+    folders are self-contained and parallel to the default ones."""
     for set_dir in CARDS_DIR.iterdir():
         if not set_dir.is_dir():
             continue
 
-        out_set = out_dir / _set_out_name(set_dir.stem, ultra)
+        out_set = out_dir / preset.set_name(set_dir.stem)
 
         if (set_dir / "Foilmask.png").is_file():
             copy(set_dir / "Foilmask.png", out_set / "Foilmask.png")
@@ -70,7 +70,7 @@ def write(out_dir: Path, ultra: bool = False) -> None:
 
             copy(file, out_set / file.name)
 
-        with (out_dir / f"{_set_out_name(set_dir.stem, ultra)}.json").open(
+        with (out_dir / f"{preset.set_name(set_dir.stem)}.json").open(
             "w", newline="\n", encoding="utf-8"
         ) as file:
             json.dump(

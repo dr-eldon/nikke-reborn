@@ -421,12 +421,13 @@ def _encode_mp4(
     framerate: int,
     out_path: Path,
     threads: int,
-    preset: str,
+    x264_preset: str,
     source_hash: str | None = None,
 ) -> None:
     """Encode an RGBA frame stream into an MP4 using ffmpeg. The frames
-    are *size* — the run's final size (see the scale note in
-    :mod:`nikke_reborn.config`), so no rescaling filter is applied."""
+    are *size* — the run's final size (the definition's viewport at the
+    output preset's scale, :mod:`nikke_reborn.preset`) — so no rescaling
+    filter is applied."""
     width, height = size
     command = [
         ENCODER,
@@ -448,7 +449,7 @@ def _encode_mp4(
         "-c:v",
         "libx264",
         "-preset",
-        preset,
+        x264_preset,
         *FFMPEG_QUALITY_ARGS,
         "-threads",
         str(max(1, threads)),

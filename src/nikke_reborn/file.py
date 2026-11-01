@@ -27,15 +27,9 @@ from nikke_reborn.config import (
     PROBER,
     REPO_ROOT,
     SOURCE_HASH_KEY,
-    ULTRA_SUFFIX,
 )
 from nikke_reborn.error import GenerationError
-
-
-def _set_out_name(set_name: str, ultra: bool = False) -> str:
-    """The set's output folder name: ``<set>``, or
-    ``<set> (Ultra)`` for an ``--ultra`` run (see :data:`ULTRA_SUFFIX`)."""
-    return f"{set_name}{ULTRA_SUFFIX}" if ultra else set_name
+from nikke_reborn.preset import Preset
 
 
 def _require_executable(name: str) -> None:
@@ -130,14 +124,14 @@ def _material_hash(
     template: Path,
     front_source: str = "",
     back_source: str = "",
-    scale: float = 1.0,
+    preset: Preset = Preset.DEFAULT,
 ) -> str:
     """The source hash of a finished pack image: the SHA-256 of its
-    template, the output *scale* (mixed in only when it deviates from
-    1.0, the full-resolution default, so a scale-1.0 material carries
-    exactly the hash the code embedded before scales existed) and — when
-    *front_source* / *back_source* are given — those hashes of the
-    composed front's and back's inputs (see
+    template, the output preset's scale (mixed in only when it deviates
+    from 1.0, the full-resolution default, so a scale-1.0 material
+    carries exactly the hash the code embedded before scales existed)
+    and — when *front_source* / *back_source* are given — those hashes
+    of the composed front's and back's inputs (see
     :func:`pack.front_source_hash` / :func:`pack.back_source_hash` /
     :func:`box.front_source_hash`), every input the result depends on.
     Using the front's and back's *inputs* rather than their pixels lets
@@ -146,6 +140,7 @@ def _material_hash(
     if not template.is_file():
         raise GenerationError(f"pack template not found: {template}")
     digest.update(template.read_bytes())
+    scale = preset.scale
     if scale != 1.0:
         digest.update(f"{scale:g}".encode())
     if front_source:
@@ -163,48 +158,47 @@ def _material_output_up_to_date(
     front_source: str = "",
     back_source: str = "",
     force: bool = False,
-    scale: float = 1.0,
-    ultra: bool = False,
+    preset: Preset = Preset.DEFAULT,
 ) -> bool:
     """True when the pack's finished *out_name* already exists and its stored
-    hash matches the current inputs (the template, the output *scale* and the
-    front's and back's *sources*) — computed without rendering the front or
-    back, so their renders can be skipped when nothing has changed. Always
-    False when *force* is set (everything is re-rendered). The output is
-    looked up in the ``<set> (Ultra)`` set folder when *ultra*."""
+    hash matches the current inputs (the template, the output preset's scale
+    and the front's and back's *sources*) — computed without rendering the
+    front or back, so their renders can be skipped when nothing has changed.
+    Always False when *force* is set (everything is re-rendered). The output
+    is looked up in the output preset's set folder (the ``<set> (Ultra)``
+    twin for the ultra preset)."""
     if force:
         return False
     pack_dir = pack_dir.resolve()
-    out_path = (
-        out_base
-        / _set_out_name(pack_dir.relative_to(CARDS_DIR).name, ultra)
-        / out_name
-    )
+    out_path = preset.set_path(out_base, pack_dir.relative_to(CARDS_DIR).name) / out_name
     source_hash = _material_hash(
         template,
         front_source=front_source,
         back_source=back_source,
-        scale=scale,
+        preset=preset,
     )
     return out_path.is_file() and _stored_hash(out_path) == source_hash
 
 
 def _viewer_hash(
-    mesh: Path, material: Path, config: Path, width: int, height: int
+    mesh: Path, material: Path, config: Path, preset: Preset = Preset.DEFAULT
 ) -> str:
     """SHA-256 of the item's inputs: the pack's mesh, its generated
     material (whose bytes change whenever the material does), the viewer
     configuration (model rotation and camera zoom/pan) and the output
-    size — the size term mixed in only when it deviates from the
-    viewer's own defaults (:data:`ITEM_VIEWER_WIDTH` by
-    :data:`ITEM_VIEWER_HEIGHT`), so an item rendered at the defaults
-    carries exactly the hash the code embedded before sizes existed —
-    and a finished item whose stored hash matches them is up to date."""
+    size — the viewer's defaults (:data:`ITEM_VIEWER_WIDTH` by
+    :data:`ITEM_VIEWER_HEIGHT`) at the output preset's scale — the size
+    term mixed in only when it deviates from the viewer's own defaults,
+    so an item rendered at the defaults carries exactly the hash the
+    code embedded before sizes existed, and a finished item whose stored
+    hash matches them is up to date."""
     digest = hashlib.sha256()
     for path in (mesh, material, config):
         if not path.is_file():
             raise GenerationError(f"item input not found: {path}")
         digest.update(path.read_bytes())
+    width = round(ITEM_VIEWER_WIDTH * preset.scale)
+    height = round(ITEM_VIEWER_HEIGHT * preset.scale)
     if (width, height) != (ITEM_VIEWER_WIDTH, ITEM_VIEWER_HEIGHT):
         digest.update(f"{width}x{height}".encode())
     return digest.hexdigest()
@@ -216,15 +210,15 @@ def _viewer_output_up_to_date(
     config: Path,
     out_path: Path,
     force: bool = False,
-    width: int = ITEM_VIEWER_WIDTH,
-    height: int = ITEM_VIEWER_HEIGHT,
+    preset: Preset = Preset.DEFAULT,
 ) -> bool:
     """True when the viewer's finished *out_path* already exists and its
     stored hash matches the current *mesh*, *material*, *config* and
-    output size — computed without rendering, so the render can be
-    skipped when nothing has changed. A missing output or input (the
-    material not generated yet) is simply not up to date. Always False
-    when *force* is set (everything is re-rendered)."""
+    output size (the viewer's defaults at the output preset's scale) —
+    computed without rendering, so the render can be skipped when
+    nothing has changed. A missing output or input (the material not
+    generated yet) is simply not up to date. Always False when *force*
+    is set (everything is re-rendered)."""
     if force:
         return False
     if not (
@@ -234,6 +228,4 @@ def _viewer_output_up_to_date(
         and out_path.is_file()
     ):
         return False
-    return _stored_hash(out_path) == _viewer_hash(
-        mesh, material, config, width, height
-    )
+    return _stored_hash(out_path) == _viewer_hash(mesh, material, config, preset)

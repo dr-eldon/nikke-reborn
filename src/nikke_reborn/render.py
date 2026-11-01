@@ -30,7 +30,7 @@ from nikke_reborn.card import (
     _standard_source_hash,
     _standard_stem,
 )
-from nikke_reborn.config import DEFAULT_PRESET, DEFAULT_SCALE, FONT, OUTPUT_DIR, VIEWER
+from nikke_reborn.config import DEFAULT_X264_PRESET, FONT, OUTPUT_DIR, VIEWER
 from nikke_reborn.error import GenerationError
 from nikke_reborn.file import _save_atomic, _stored_hash
 from nikke_reborn.image import (
@@ -49,6 +49,7 @@ from nikke_reborn.lettering import (
     _rect_tint,
     _tint_layer,
 )
+from nikke_reborn.preset import Preset
 from nikke_reborn.video import (
     DEFAULT_FRAMERATE,
     PIPE_BUFSIZE,
@@ -176,8 +177,8 @@ def _render_and_finish(
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
-    preset: str,
-    ultra: bool,
+    x264_preset: str,
+    preset: Preset,
     out_base: Path,
     source_hash: str,
     base: Image.Image | None = None,
@@ -278,8 +279,8 @@ def _render_and_finish(
         size,
         framerate,
         ffmpeg_threads,
+        x264_preset,
         preset,
-        ultra,
         source_hash,
         first_frame,
         composite_time,
@@ -346,8 +347,8 @@ def _write_final_card(
     size: tuple[int, int],
     framerate: int,
     ffmpeg_threads: int,
-    preset: str,
-    ultra: bool,
+    x264_preset: str,
+    preset: Preset,
     source_hash: str,
     first_frame: list[Image.Image],
     composite_time: list[float],
@@ -373,14 +374,14 @@ def _write_final_card(
     partition.
     """
     out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", stem, ultra=ultra
+        out_base, json_path, "mp4" if animated else "png", stem, preset
     )
     encode_time: float | None = None
     try:
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
             png_writer = _FirstFrameWriter(
-                _card_out_path(out_base, json_path, "png", stem, ultra=ultra),
+                _card_out_path(out_base, json_path, "png", stem, preset),
                 source_hash,
             )
 
@@ -400,7 +401,7 @@ def _write_final_card(
                     framerate,
                     tmp_path,
                     ffmpeg_threads,
-                    preset,
+                    x264_preset,
                     source_hash,
                 )
                 encode_time = time.perf_counter() - encode_started
@@ -487,11 +488,12 @@ def _first_frame(
     return Image.frombytes("RGBA", (width, height), data)
 
 
-def _face_offset(json_path: Path, size: tuple[int, int], scale: float) -> int:
+def _face_offset(json_path: Path, size: tuple[int, int], preset: Preset) -> int:
     """The face framing's ``--offset-x``: :data:`PROFILE_FACE_OFFSET_LEFT` px to
     the left or :data:`PROFILE_FACE_OFFSET_RIGHT` px to the right (both
-    native-px — the definition's viewport — scaled by *scale* to the run's
-    final size, since the viewer's ``--offset-x`` is screen px), whichever
+    native-px — the definition's viewport — scaled by the output preset's
+    scale to the run's final size, since the viewer's ``--offset-x`` is
+    screen px), whichever
     leaves the face's footprint least occluded by the full body, so the face
     sits clear rather than behind it.
 
@@ -521,8 +523,8 @@ def _face_offset(json_path: Path, size: tuple[int, int], scale: float) -> int:
 
     if not ImageStat.Stat(alpha).sum[0]:
         return 0  # no body at all; keep the face centered
-    left_offset = round(PROFILE_FACE_OFFSET_LEFT * scale)
-    right_offset = round(PROFILE_FACE_OFFSET_RIGHT * scale)
+    left_offset = round(PROFILE_FACE_OFFSET_LEFT * preset.scale)
+    right_offset = round(PROFILE_FACE_OFFSET_RIGHT * preset.scale)
     left = occlusion(width // 2 - left_offset)
     right = occlusion(width // 2 + right_offset)
     # Both footprints empty means the body sits *between* them, so the face
@@ -640,12 +642,11 @@ def _render_profile(
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
-    preset: str,
-    scale: float,
+    x264_preset: str,
+    preset: Preset,
     out_base: Path,
     source_hash: str,
     face_zoom: float,
-    ultra: bool = False,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the profile card (a presentation of *json_path*, written out
     as ``<card>_<variant>Profile.<suffix>``): the ``--face <face_zoom>``
@@ -693,7 +694,7 @@ def _render_profile(
     # The face is shifted to the side the body leaves most room on (measured
     # from the body's first frame), so it is not occluded by the centered
     # body.
-    face_offset = _face_offset(json_path, size, scale)
+    face_offset = _face_offset(json_path, size, preset)
 
     # The photo reel (the face stills down the right edge): the stills are
     # taken once — one frame at time 0 per animation — and reused for
@@ -782,8 +783,8 @@ def _render_profile(
         size,
         framerate,
         ffmpeg_threads,
+        x264_preset,
         preset,
-        ultra,
         source_hash,
         first_frame,
         composite_time,
@@ -808,8 +809,8 @@ def _render_standard(
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
-    preset: str,
-    ultra: bool,
+    x264_preset: str,
+    preset: Preset,
     out_base: Path,
     source_hash: str,
 ) -> tuple[Path, dict[str, float | None]]:
@@ -925,8 +926,8 @@ def _render_standard(
         size,
         framerate,
         ffmpeg_threads,
+        x264_preset,
         preset,
-        ultra,
         source_hash,
         first_frame,
         composite_time,
@@ -939,12 +940,11 @@ def _process_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
-    preset: str = DEFAULT_PRESET,
-    scale: float = DEFAULT_SCALE,
+    x264_preset: str = DEFAULT_X264_PRESET,
+    preset: Preset = Preset.DEFAULT,
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
-    ultra: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render, composite and encode a single card definition.
 
@@ -975,7 +975,7 @@ def _process_card(
     # The definition's padding is native-px (its viewport); the effective
     # padding at the run's final size drives the lettering, the logo
     # placement, the reel insets and the like.
-    padding = round(card["padding"] * scale)
+    padding = round(card["padding"] * preset.scale)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
         (0, 0, 0, 255) if card.get("invert_copyright", False) else (255, 255, 255, 255)
@@ -993,8 +993,8 @@ def _process_card(
     # viewer, the compositing and the finished card — runs at this size,
     # so no frame is ever resampled on the way out.
     size = (
-        round(int(viewport[0]) * scale) & ~1,
-        round(int(viewport[1]) * scale) & ~1,
+        round(int(viewport[0]) * preset.scale) & ~1,
+        round(int(viewport[1]) * preset.scale) & ~1,
     )
 
     # A definition without a `time` renders an animation (mp4) plus its
@@ -1003,15 +1003,15 @@ def _process_card(
     # the mp4 is skipped and the viewer reaped right after that frame.
     animated = card.get("time") is None and not no_video
     out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", ultra=ultra
+        out_base, json_path, "mp4" if animated else "png", preset=preset
     )
-    source_hash = _source_hash(json_path, scale)
+    source_hash = _source_hash(json_path, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(out_base, json_path, "png", ultra=ultra)
+            first_frame_path = _card_out_path(out_base, json_path, "png", preset=preset)
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
@@ -1040,8 +1040,8 @@ def _process_card(
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
+                x264_preset,
                 preset,
-                ultra,
                 out_base,
                 source_hash,
             )
@@ -1065,12 +1065,11 @@ def _process_profile_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
-    preset: str = DEFAULT_PRESET,
-    scale: float = DEFAULT_SCALE,
+    x264_preset: str = DEFAULT_X264_PRESET,
+    preset: Preset = Preset.DEFAULT,
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
-    ultra: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Profile`` profile card for *json_path*
     (derived from its own definition — one of the ``Classic``, ``Idle``,
@@ -1123,7 +1122,7 @@ def _process_profile_card(
     # The definition's padding is native-px (its viewport); the effective
     # padding at the run's final size drives the lettering, the logo
     # placement, the reel insets and the like.
-    padding = round(card["padding"] * scale)
+    padding = round(card["padding"] * preset.scale)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
     framerate = card["framerate"] or DEFAULT_FRAMERATE
@@ -1139,8 +1138,8 @@ def _process_profile_card(
     # viewer, the compositing and the finished card — runs at this size,
     # so no frame is ever resampled on the way out.
     size = (
-        round(int(viewport[0]) * scale) & ~1,
-        round(int(viewport[1]) * scale) & ~1,
+        round(int(viewport[0]) * preset.scale) & ~1,
+        round(int(viewport[1]) * preset.scale) & ~1,
     )
 
     # A definition without a `time` renders an animation (mp4) plus its first
@@ -1150,16 +1149,16 @@ def _process_profile_card(
     animated = card.get("time") is None and not no_video
     stem = _profile_stem(json_path)
     out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", stem, ultra=ultra
+        out_base, json_path, "mp4" if animated else "png", stem, preset
     )
-    source_hash = _profile_source_hash(json_path, scale)
+    source_hash = _profile_source_hash(json_path, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
             first_frame_path = _card_out_path(
-                out_base, json_path, "png", stem, ultra=ultra
+                out_base, json_path, "png", stem, preset
             )
             up_to_date = (
                 first_frame_path.is_file()
@@ -1197,12 +1196,11 @@ def _process_profile_card(
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
+                x264_preset,
                 preset,
-                scale,
                 out_base,
                 source_hash,
                 PROFILE_FACE_ZOOM,
-                ultra=ultra,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings
@@ -1224,12 +1222,11 @@ def _process_standard_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
-    preset: str = DEFAULT_PRESET,
-    scale: float = DEFAULT_SCALE,
+    x264_preset: str = DEFAULT_X264_PRESET,
+    preset: Preset = Preset.DEFAULT,
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
-    ultra: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Standard`` standard card for *json_path*
     (derived from its own definition — the ``Classic``, ``Rare``,
@@ -1281,7 +1278,7 @@ def _process_standard_card(
     # The definition's padding is native-px (its viewport); the effective
     # padding at the run's final size drives the lettering, the logo
     # placement, the reel insets and the like.
-    padding = round(card["padding"] * scale)
+    padding = round(card["padding"] * preset.scale)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
     framerate = card["framerate"] or DEFAULT_FRAMERATE
@@ -1297,8 +1294,8 @@ def _process_standard_card(
     # viewer, the compositing and the finished card — runs at this size,
     # so no frame is ever resampled on the way out.
     size = (
-        round(int(viewport[0]) * scale) & ~1,
-        round(int(viewport[1]) * scale) & ~1,
+        round(int(viewport[0]) * preset.scale) & ~1,
+        round(int(viewport[1]) * preset.scale) & ~1,
     )
 
     # A definition without a `time` renders an animation (mp4) plus its first
@@ -1308,16 +1305,16 @@ def _process_standard_card(
     animated = card.get("time") is None and not no_video
     stem = _standard_stem(json_path)
     out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", stem, ultra=ultra
+        out_base, json_path, "mp4" if animated else "png", stem, preset
     )
-    source_hash = _standard_source_hash(json_path, scale)
+    source_hash = _standard_source_hash(json_path, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
             first_frame_path = _card_out_path(
-                out_base, json_path, "png", stem, ultra=ultra
+                out_base, json_path, "png", stem, preset
             )
             up_to_date = (
                 first_frame_path.is_file()
@@ -1371,8 +1368,8 @@ def _process_standard_card(
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
+                x264_preset,
                 preset,
-                ultra,
                 out_base,
                 source_hash,
             )

@@ -11,14 +11,9 @@ from __future__ import annotations
 import shutil
 
 from nikke_reborn import bundler, metadata
-from nikke_reborn.config import (
-    BUNDLES_DIR,
-    CARDS_DIR,
-    OUTPUT_DIR,
-    SHOP_DIR,
-    ULTRA_SUFFIX,
-)
+from nikke_reborn.config import BUNDLES_DIR, CARDS_DIR, OUTPUT_DIR, SHOP_DIR
 from nikke_reborn.file import copy
+from nikke_reborn.preset import ULTRA_SUFFIX
 
 MOD_NAME = "NIKKE REBORN"
 
