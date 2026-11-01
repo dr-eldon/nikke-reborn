@@ -31,7 +31,7 @@ from nikke_reborn.card import (
     _standard_source_hash,
     _standard_stem,
 )
-from nikke_reborn.config import FONT, VIEWER
+from nikke_reborn.config import FONT, HALF_BODY_VARIANT, VIEWER
 from nikke_reborn.error import GenerationError
 from nikke_reborn.file import _save_atomic, _stored_hash
 from nikke_reborn.image import (
@@ -184,6 +184,7 @@ def _render_and_finish(
     render_path: Path | None = None,
     stem: str | None = None,
     full_body: bool = False,
+    half_body: bool = False,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render *json_path* via the viewer's ``--stdout`` raw stream and write
     the final PNG, or the MP4 alongside its first frame as a PNG.
@@ -193,7 +194,11 @@ def _render_and_finish(
     viewer reads (defaults to *json_path* itself); *stem* overrides the
     variant in the output filename (defaults to the definition's stem);
     *full_body* passes the viewer's ``--full-body`` flag, which ignores the
-    config's pan/zoom to render the full body (the profile cards).
+    config's pan/zoom to render the full body (the profile cards);
+    *half_body* passes the viewer's ``--half-body`` flag, which ignores the
+    config's pan/zoom to frame the upper body (head to waist) — the
+    ``fb`` variant's full-art cards. The two are mutually exclusive
+    framings; *full_body* wins if both are ever set.
 
     Nothing intermediate touches the disk: the viewer's raw RGBA frames are
     piped straight into the in-memory compositing and (for animations) the
@@ -227,14 +232,17 @@ def _render_and_finish(
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
     # files). --full-body, when set, ignores the config's pan/zoom and
-    # renders the full body. The viewer renders at the run's final size
-    # (*size* — the definition's viewport at the run's scale, see the
+    # renders the full body; --half-body (mutually exclusive with it)
+    # frames the upper body instead. The viewer renders at the run's final
+    # size (*size* — the definition's viewport at the run's scale, see the
     # _process_* callers); the save's viewport stays the native reference.
     # stderr is drained in a thread so it never blocks the viewer.
     render_started = time.perf_counter()
     viewer_args = [VIEWER]
     if full_body:
         viewer_args.append("--full-body")
+    elif half_body:
+        viewer_args.append("--half-body")
     viewer_args += [
         "--width",
         str(size[0]),
@@ -936,6 +944,10 @@ def _process_card(
     after that frame — so the output, and the up-to-date check, cover the
     first-frame PNG.
 
+    The ``fb`` variant is framed by the viewer's ``--half-body`` flag (the
+    upper body, head to waist, ignoring the definition's pan/zoom); the
+    other variants keep the definition's pan/zoom.
+
     Returns ``(out_path, skipped, timings)``; *skipped* is True when the
     output already exists and the definition hash it embeds matches the
     current one (nothing was re-rendered), in which case *timings* is None;
@@ -985,6 +997,12 @@ def _process_card(
     # With --no-video an animation renders its first frame (png) alone:
     # the mp4 is skipped and the viewer reaped right after that frame.
     animated = card.get("time") is None and not no_video
+    # The ``fb`` variant's full-art card is framed by the viewer's
+    # ``--half-body`` flag (the upper body, head to waist, ignoring the
+    # definition's pan/zoom); the other variants keep the definition's
+    # pan/zoom. The derived presentations (the profile and the standard
+    # cards) frame the body themselves and do not use this.
+    half_body = card.get("variant") == HALF_BODY_VARIANT
     out_path = _card_out_path(json_path, "mp4" if animated else "png", preset=preset)
     source_hash = _source_hash(json_path, preset)
     if not force:
@@ -1023,6 +1041,7 @@ def _process_card(
                 composite_workers,
                 preset,
                 source_hash,
+                half_body=half_body,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings

@@ -84,6 +84,10 @@ worker processes (see ``--jobs``); within an animated card, the frames are
 composited in parallel threads, and the cores are split between that stage
 and the ffmpeg encode so the parallel work stays within the core count.
 
+The full-art card keeps the definition's own pan/zoom, except the ``fb``
+variant, which the viewer frames with the ``--half-body`` flag (the upper
+body, head to waist).
+
 Beyond the full-art card, two derived presentations are rendered from a
 definition: the ``Profile`` presentation (the ``Classic``, ``Idle``,
 ``Cover`` and ``Aim`` variants, written out with a ``Profile`` suffix; see

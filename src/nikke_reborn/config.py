@@ -51,6 +51,13 @@ STANDARD_STEMS = frozenset({"Classic", "Rare", "Special", "Exotic"})
 #: ``Goddess`` and ``Classified`` presentations render no derived card.
 PROFILE_STEMS = frozenset({"Classic", "Idle", "Cover", "Aim"})
 
+#: The value of the definition's ``variant`` field whose full-art card the
+#: viewer frames with the ``--half-body`` flag (the upper body, head to
+#: waist, ignoring the definition's pan/zoom) instead of the definition's
+#: own pan/zoom: the ``fb`` variant. The derived presentations (the
+#: profile and the standard cards) frame the body themselves.
+HALF_BODY_VARIANT = "fb"
+
 #: Reference card width (pixels): the nominal sizes below are expressed at
 #: this width and scale proportionally for other viewport widths.
 CARD_REFERENCE_WIDTH = 1640
