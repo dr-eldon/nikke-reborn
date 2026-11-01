@@ -154,7 +154,6 @@ def _material_output_up_to_date(
     template: Path,
     out_name: str,
     pack_dir: Path,
-    out_base: Path,
     front_source: str = "",
     back_source: str = "",
     force: bool = False,
@@ -165,12 +164,12 @@ def _material_output_up_to_date(
     and the front's and back's *sources*) — computed without rendering the
     front or back, so their renders can be skipped when nothing has changed.
     Always False when *force* is set (everything is re-rendered). The output
-    is looked up in the output preset's set folder (the ``<set> (Ultra)``
-    twin for the ultra preset)."""
+    is looked up in the output preset's set folder
+    (:meth:`Preset.set_path`)."""
     if force:
         return False
     pack_dir = pack_dir.resolve()
-    out_path = preset.set_path(out_base, pack_dir.relative_to(CARDS_DIR).name) / out_name
+    out_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name) / out_name
     source_hash = _material_hash(
         template,
         front_source=front_source,

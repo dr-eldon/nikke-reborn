@@ -40,17 +40,19 @@ RARITIES = [
 ]
 
 
-def write(out_dir: Path, preset: Preset = Preset.DEFAULT) -> None:
+def write(preset: Preset = Preset.DEFAULT) -> None:
     """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
     set's shared assets (foilmask, cardback, box mesh, shop images) to
     ``<out>/<set>/``. An ultra run writes them to the ``<set> (Ultra)``
     set folder and ``<set> (Ultra).json`` instead, so the ultra set
-    folders are self-contained and parallel to the default ones."""
+    folders are self-contained and parallel to the default ones; a draft
+    run writes them to ``draft/`` instead of ``output/`` (the preset's
+    output root, :meth:`Preset.set_path`)."""
     for set_dir in CARDS_DIR.iterdir():
         if not set_dir.is_dir():
             continue
 
-        out_set = out_dir / preset.set_name(set_dir.stem)
+        out_set = preset.set_path(set_dir.stem)
 
         if (set_dir / "Foilmask.png").is_file():
             copy(set_dir / "Foilmask.png", out_set / "Foilmask.png")
@@ -70,7 +72,7 @@ def write(out_dir: Path, preset: Preset = Preset.DEFAULT) -> None:
 
             copy(file, out_set / file.name)
 
-        with (out_dir / f"{preset.set_name(set_dir.stem)}.json").open(
+        with (out_set.with_name(f"{set_dir.stem}.json")).open(
             "w", newline="\n", encoding="utf-8"
         ) as file:
             json.dump(

@@ -30,7 +30,7 @@ from nikke_reborn.card import (
     _standard_source_hash,
     _standard_stem,
 )
-from nikke_reborn.config import DEFAULT_X264_PRESET, FONT, OUTPUT_DIR, VIEWER
+from nikke_reborn.config import FONT, VIEWER
 from nikke_reborn.error import GenerationError
 from nikke_reborn.file import _save_atomic, _stored_hash
 from nikke_reborn.image import (
@@ -177,9 +177,7 @@ def _render_and_finish(
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
-    x264_preset: str,
     preset: Preset,
-    out_base: Path,
     source_hash: str,
     base: Image.Image | None = None,
     render_path: Path | None = None,
@@ -273,13 +271,11 @@ def _render_and_finish(
     return _write_final_card(
         composited,
         json_path,
-        out_base,
         stem,
         animated,
         size,
         framerate,
         ffmpeg_threads,
-        x264_preset,
         preset,
         source_hash,
         first_frame,
@@ -341,13 +337,11 @@ class _FirstFrameWriter:
 def _write_final_card(
     composited: Generator[Image.Image],
     json_path: Path,
-    out_base: Path,
     stem: str,
     animated: bool,
     size: tuple[int, int],
     framerate: int,
     ffmpeg_threads: int,
-    x264_preset: str,
     preset: Preset,
     source_hash: str,
     first_frame: list[Image.Image],
@@ -373,15 +367,13 @@ def _write_final_card(
     its own thread — so the numbers are per-stage costs, not a sequential
     partition.
     """
-    out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", stem, preset
-    )
+    out_path = _card_out_path(json_path, "mp4" if animated else "png", stem, preset)
     encode_time: float | None = None
     try:
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
             png_writer = _FirstFrameWriter(
-                _card_out_path(out_base, json_path, "png", stem, preset),
+                _card_out_path(json_path, "png", stem, preset),
                 source_hash,
             )
 
@@ -401,7 +393,7 @@ def _write_final_card(
                     framerate,
                     tmp_path,
                     ffmpeg_threads,
-                    x264_preset,
+                    preset.x264_preset,
                     source_hash,
                 )
                 encode_time = time.perf_counter() - encode_started
@@ -642,9 +634,7 @@ def _render_profile(
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
-    x264_preset: str,
     preset: Preset,
-    out_base: Path,
     source_hash: str,
     face_zoom: float,
 ) -> tuple[Path, dict[str, float | None]]:
@@ -777,13 +767,11 @@ def _render_profile(
     return _write_final_card(
         composited,
         json_path,
-        out_base,
         stem,
         animated,
         size,
         framerate,
         ffmpeg_threads,
-        x264_preset,
         preset,
         source_hash,
         first_frame,
@@ -809,9 +797,7 @@ def _render_standard(
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
-    x264_preset: str,
     preset: Preset,
-    out_base: Path,
     source_hash: str,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the standard card (a presentation of *json_path*, written out
@@ -920,13 +906,11 @@ def _render_standard(
     return _write_final_card(
         composited,
         json_path,
-        out_base,
         stem,
         animated,
         size,
         framerate,
         ffmpeg_threads,
-        x264_preset,
         preset,
         source_hash,
         first_frame,
@@ -940,9 +924,7 @@ def _process_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
-    x264_preset: str = DEFAULT_X264_PRESET,
     preset: Preset = Preset.DEFAULT,
-    out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
@@ -1002,16 +984,14 @@ def _process_card(
     # With --no-video an animation renders its first frame (png) alone:
     # the mp4 is skipped and the viewer reaped right after that frame.
     animated = card.get("time") is None and not no_video
-    out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", preset=preset
-    )
+    out_path = _card_out_path(json_path, "mp4" if animated else "png", preset=preset)
     source_hash = _source_hash(json_path, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(out_base, json_path, "png", preset=preset)
+            first_frame_path = _card_out_path(json_path, "png", preset=preset)
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
@@ -1040,9 +1020,7 @@ def _process_card(
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
-                x264_preset,
                 preset,
-                out_base,
                 source_hash,
             )
             timings["total"] = time.perf_counter() - total_started
@@ -1065,9 +1043,7 @@ def _process_profile_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
-    x264_preset: str = DEFAULT_X264_PRESET,
     preset: Preset = Preset.DEFAULT,
-    out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
@@ -1149,7 +1125,7 @@ def _process_profile_card(
     animated = card.get("time") is None and not no_video
     stem = _profile_stem(json_path)
     out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", stem, preset
+        json_path, "mp4" if animated else "png", stem, preset
     )
     source_hash = _profile_source_hash(json_path, preset)
     if not force:
@@ -1158,7 +1134,7 @@ def _process_profile_card(
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
             first_frame_path = _card_out_path(
-                out_base, json_path, "png", stem, preset
+                json_path, "png", stem, preset
             )
             up_to_date = (
                 first_frame_path.is_file()
@@ -1196,9 +1172,7 @@ def _process_profile_card(
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
-                x264_preset,
                 preset,
-                out_base,
                 source_hash,
                 PROFILE_FACE_ZOOM,
             )
@@ -1222,9 +1196,7 @@ def _process_standard_card(
     json_path: Path,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
-    x264_preset: str = DEFAULT_X264_PRESET,
     preset: Preset = Preset.DEFAULT,
-    out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
@@ -1305,7 +1277,7 @@ def _process_standard_card(
     animated = card.get("time") is None and not no_video
     stem = _standard_stem(json_path)
     out_path = _card_out_path(
-        out_base, json_path, "mp4" if animated else "png", stem, preset
+        json_path, "mp4" if animated else "png", stem, preset
     )
     source_hash = _standard_source_hash(json_path, preset)
     if not force:
@@ -1314,7 +1286,7 @@ def _process_standard_card(
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
             first_frame_path = _card_out_path(
-                out_base, json_path, "png", stem, preset
+                json_path, "png", stem, preset
             )
             up_to_date = (
                 first_frame_path.is_file()
@@ -1368,9 +1340,7 @@ def _process_standard_card(
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
-                x264_preset,
                 preset,
-                out_base,
                 source_hash,
             )
             timings["total"] = time.perf_counter() - total_started

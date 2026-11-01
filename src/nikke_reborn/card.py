@@ -213,7 +213,6 @@ def _manufacturer_logo(card_id: str) -> Image.Image | None:
 
 
 def _card_out_path(
-    out_base: Path,
     json_path: Path,
     suffix: str,
     stem: str | None = None,
@@ -222,21 +221,22 @@ def _card_out_path(
     """The flat output path for a card definition: the card's
     directory is folded into the filename, so
     ``cards/<set>/<card>/<variant>.json`` renders to
-    ``<out_base>/<set>/<card>_<variant>.<suffix>`` (deeper nesting,
-    if ever used, is folded the same way, one dash per directory).
+    ``<base>/<set>/<card>_<variant>.<suffix>`` under the preset's
+    output root (deeper nesting, if ever used, is folded the same
+    way, one dash per directory).
 
     *stem* overrides the variant in the filename (defaults to the
     definition's own stem) — the profile cards pass their output stem, so a
     profile card writes out as ``<card>_<variant>Profile.<suffix>``.
-    An ultra run writes to the ``<set> (Ultra)`` set folder instead of
-    ``<set>`` (the output preset's set folder, :meth:`Preset.set_name`).
+    The set folder is the output preset's
+    (:meth:`Preset.set_path`): ``<set>``, the ``<set> (Ultra)`` twin
+    under ultra, or ``draft/<set>`` for a draft.
     """
     if stem is None:
         stem = json_path.stem
     card_rel = json_path.parent.relative_to(CARDS_DIR)
     return (
-        out_base
-        / preset.set_name(card_rel.parts[0])
+        preset.set_path(card_rel.parts[0])
         / f"{'_'.join(card_rel.parts[1:])}_{stem}.{suffix}"
     )
 

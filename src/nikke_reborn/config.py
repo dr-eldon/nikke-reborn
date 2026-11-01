@@ -4,11 +4,11 @@ The constants more than one part of the pipeline needs: the repository
 and asset directories, the external executables, the source-hash key,
 the shared variant stems, the reference card width, the copyright line
 and its face, the stage-thread cap, and the pack's and the box's asset
-names, the x264 encoder presets and the item's viewer size, and
-ffprobe. The run's output preset (its scale and the ultra set-folder
-suffix) lives in :mod:`nikke_reborn.preset`. Everything that only one
-part needs (masks, tints, name placement, encode flags) lives with the
-code that uses it.
+names, the item's viewer size, and ffprobe. The run's output preset
+(its scale, its output root, its encoding settings and the ultra
+set-folder suffix) lives in :mod:`nikke_reborn.preset`. Everything that
+only one part needs (masks, tints, name placement, encode flags) lives
+with the code that uses it.
 """
 
 from pathlib import Path
@@ -61,13 +61,6 @@ FONT = FONTS_DIR / "Oswald.ttf"
 #: ffmpeg encodes and frame compositing get at most this many threads
 #: each, even when a single card uses all the cores.
 MAX_STAGE_THREADS = 16
-
-#: The x264 encoder preset per run mode: ``slow`` by default and
-#: ``ultrafast`` for drafts (``--draft``). The output scale and the
-#: ``<set> (Ultra)`` set folders of a run are its output preset's
-#: (see :mod:`nikke_reborn.preset`).
-DEFAULT_X264_PRESET = "slow"
-DRAFT_X264_PRESET = "ultrafast"
 
 #: The item's (pack's and box's) viewer output size in pixels: the
 #: unity-viewer's defaults, mirrored here so the pipeline computes the

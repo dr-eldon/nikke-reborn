@@ -341,7 +341,6 @@ def build_top(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.I
 
 def _process_box_material(
     pack_dir: Path,
-    out_base: Path,
     front: Image.Image,
     front_source: str,
     side: Image.Image,
@@ -374,10 +373,7 @@ def _process_box_material(
     source_hash = _material_hash(
         BOX_TEMPLATE, front_source=front_source, preset=preset
     )
-    out_path = (
-        preset.set_path(out_base, pack_dir.relative_to(CARDS_DIR).name)
-        / BOX_MATERIAL_NAME
-    )
+    out_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name) / BOX_MATERIAL_NAME
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(BOX_TEMPLATE) as opened:
@@ -440,7 +436,6 @@ def _process_box_material(
 
 def _process_box_item(
     pack_dir: Path,
-    out_base: Path,
     force: bool = False,
     preset: Preset = Preset.DEFAULT,
 ) -> tuple[Path, bool]:
@@ -466,7 +461,7 @@ def _process_box_item(
     pack_dir = pack_dir.resolve()
     width = round(ITEM_VIEWER_WIDTH * preset.scale)
     height = round(ITEM_VIEWER_HEIGHT * preset.scale)
-    set_path = preset.set_path(out_base, pack_dir.relative_to(CARDS_DIR).name)
+    set_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name)
     material_path = set_path / BOX_MATERIAL_NAME
     source_hash = _viewer_hash(BOX_MESH, material_path, BOX_CONFIG, preset)
     out_path = set_path / BOX_ITEM_NAME
