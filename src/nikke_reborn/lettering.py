@@ -159,7 +159,7 @@ def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int
     ImageDraw.Draw(probe).text((origin, origin), text, font=font, fill=255)
     bbox = probe.getbbox()
     assert bbox is not None  # the ink is drawn (fill 255 on a black probe)
-    left, top, right, bottom = bbox
+    left, top, _, bottom = bbox
     return left - origin, top - origin, bottom - origin
 
 
@@ -373,7 +373,7 @@ def _name_layers(
         if rect_top is not None:
             sub_bbox = sub_mask.getbbox()
             assert sub_bbox is not None  # the subtitle's ink was just pasted
-            srx0, sry0, srx1, sry1 = sub_bbox
+            _, sry0, srx1, sry1 = sub_bbox
             sub_right_pad = sub_pad + round(
                 (sry1 - sry0) * NAME_SUB_RECT_RIGHT_PAD_EXTRA
             )
@@ -402,7 +402,7 @@ def _name_layers(
     rect = None
     arrow_alpha = None
     if title_box is not None:
-        rx0, ry0, rx1, ry1 = title_box
+        _, ry0, rx1, ry1 = title_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
         # rect_top / rect_bottom were derived from title_box above.
         assert rect_top is not None

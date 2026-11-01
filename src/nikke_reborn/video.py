@@ -88,7 +88,7 @@ class _PipeDrain:
     its stdout is streamed; only the tail is kept, for error reporting.
     """
 
-    def __init__(self, stream: "io.BufferedReader", cap: int = 1 << 20) -> None:
+    def __init__(self, stream: io.BufferedReader, cap: int = 1 << 20) -> None:
         self._stream = stream
         self._cap = cap
         self._buf = bytearray()

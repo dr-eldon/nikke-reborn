@@ -9,6 +9,7 @@ full-art pipeline — the Profile and the Standard.
 
 from __future__ import annotations
 
+import io
 import subprocess
 import threading
 import time
@@ -253,7 +254,7 @@ def _render_and_finish(
         raise GenerationError(f"could not run {VIEWER!r}: {exc}") from exc
     assert viewer.stderr is not None
     # A Popen pipe is a buffered reader (needed for read1).
-    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
+    drain = _PipeDrain(cast(io.BufferedReader, viewer.stderr))
     first_frame: list[Image.Image] = []
     composited = _stream_composited(
         viewer,
@@ -464,7 +465,7 @@ def _first_frame(
     assert viewer.stdout is not None
     assert viewer.stderr is not None
     # A Popen pipe is a buffered reader (needed for read1).
-    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
+    drain = _PipeDrain(cast(io.BufferedReader, viewer.stderr))
     try:
         data = _read_exact(viewer.stdout, width * height * 4)
     finally:
@@ -532,8 +533,8 @@ def _reel_animations(json_path: Path) -> list[str]:
     when fewer of the list match."""
     result = subprocess.run(
         [VIEWER, "--list-animations", str(json_path)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        check=False,  # the exit code is checked below (with the stderr tail)
     )
     if result.returncode != 0:
         detail = result.stderr.decode(errors="replace").strip()
@@ -742,8 +743,8 @@ def _render_profile(
     assert face_viewer.stderr is not None
     assert body_viewer.stderr is not None
     # A Popen pipe is a buffered reader (needed for read1).
-    face_drain = _PipeDrain(cast("io.BufferedReader", face_viewer.stderr))
-    body_drain = _PipeDrain(cast("io.BufferedReader", body_viewer.stderr))
+    face_drain = _PipeDrain(cast(io.BufferedReader, face_viewer.stderr))
+    body_drain = _PipeDrain(cast(io.BufferedReader, body_viewer.stderr))
     first_frame: list[Image.Image] = []
     composited = _stream_dual_composited(
         face_viewer,
@@ -887,7 +888,7 @@ def _render_standard(
         raise GenerationError(f"could not run {VIEWER!r} (half body): {exc}") from exc
     assert viewer.stderr is not None
     # A Popen pipe is a buffered reader (needed for read1).
-    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
+    drain = _PipeDrain(cast(io.BufferedReader, viewer.stderr))
     first_frame: list[Image.Image] = []
     composited = _stream_composited(
         viewer,

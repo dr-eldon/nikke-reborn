@@ -406,7 +406,8 @@ def _stored_hash(out_path: Path) -> str | None:
     try:
         with Image.open(out_path) as image:
             return image.info.get(SOURCE_HASH_KEY)
-    except Exception:
+    except Exception:  # noqa: BLE001 — older/corrupt cards simply
+        # carry no readable tag: treat the file as stale (None)
         return None
 
 

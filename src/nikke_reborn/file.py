@@ -87,7 +87,8 @@ def _stored_hash(out_path: Path) -> str | None:
         try:
             with Image.open(out_path) as image:
                 return image.info.get(SOURCE_HASH_KEY)
-        except Exception:
+        except Exception:  # noqa: BLE001 — older/corrupt cards simply
+            # carry no readable tag: treat the file as stale (None)
             return None
     try:
         result = subprocess.run(
@@ -102,6 +103,7 @@ def _stored_hash(out_path: Path) -> str | None:
                 str(out_path),
             ],
             capture_output=True,
+            check=False,  # the exit code is checked below
             text=True,
             timeout=60,
         )

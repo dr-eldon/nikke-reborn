@@ -166,7 +166,7 @@ def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
     height — unslanted, since the material is the flat view. Sized by
     height, where the pack's width-based sizing is far too big on the
     landscape front. Modifies *front* in place."""
-    left, top, right, bottom = rect
+    left, top, _, bottom = rect
     rh = bottom - top
     with Image.open(BOX_LOGO) as opened:
         logo = opened.convert("RGBA")
@@ -485,6 +485,7 @@ def _process_box_item(
                 str(tmp_path),
             ],
             capture_output=True,
+            check=False,  # the exit code is checked below (with the stderr)
             text=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:

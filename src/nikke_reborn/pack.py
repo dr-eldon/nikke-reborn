@@ -299,6 +299,7 @@ def _process_pack_item(
                 str(tmp_path),
             ],
             capture_output=True,
+            check=False,  # the exit code is checked below (with the stderr)
             text=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:

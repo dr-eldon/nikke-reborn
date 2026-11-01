@@ -339,7 +339,8 @@ def _generate_profiles(
                         f"{_timings_suffix(timings)}",
                         flush=True,
                     )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — one bad card must
+                # not abort the run: collect it and report it at the end
                 failures.append((label, exc))
                 print(
                     f"[{done}/{total}] {label}{tag} FAILED: {exc}",
@@ -462,7 +463,8 @@ def _generate_standards(
                         f"{_timings_suffix(timings)}",
                         flush=True,
                     )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — one bad card must
+                # not abort the run: collect it and report it at the end
                 failures.append((label, exc))
                 print(
                     f"[{done}/{total}] {label}{tag} FAILED: {exc}",
@@ -683,7 +685,8 @@ def _generate_variants(
                         f"{_timings_suffix(timings)}",
                         flush=True,
                     )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — one bad card must
+                # not abort the run: collect it and report it at the end
                 failures.append((label, exc))
                 print(
                     f"[{done}/{total}] {label} FAILED: {exc}",

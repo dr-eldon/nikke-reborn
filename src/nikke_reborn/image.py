@@ -177,7 +177,7 @@ def _tint_wash(size: tuple[int, int], tint_rgb: tuple[int, int, int]) -> Image.I
     bottom opacity — with the alpha ramping from
     :data:`PROFILE_TINT_TOP_OPACITY` to :data:`PROFILE_TINT_BOTTOM_OPACITY`
     along the same ramp."""
-    width, height = size
+    _, height = size
     bottom = _scale_linear_light(tint_rgb, PROFILE_TINT_BOTTOM_FACTOR)
     # A 0..255 ramp: 0 at the top row, 255 from PROFILE_TINT_GRADIENT_END
     # of the way down on — the gradient ends short of the bottom edge, so
@@ -206,7 +206,7 @@ def _tint_at_luma(image: Image.Image, tint_rgb: tuple[int, int, int]) -> Image.I
     zero), keeping their lightness and drifting redder as they darken.
     *image* is a pure grayscale (the profile card's mask), looked up per
     channel; the alpha channel is passed through untouched."""
-    r, g, b, a = image.split()
+    r, _, _, a = image.split()
 
     def lstar(rgb: tuple[int, int, int]) -> float:
         def lin(value: int) -> float:

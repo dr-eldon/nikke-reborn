@@ -51,6 +51,7 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import pairwise
 
 from nikke_reborn import metadata
 from nikke_reborn.config import CARDS_DIR, OUTPUT_DIR, REPO_ROOT
@@ -592,7 +593,7 @@ def compute_statistics(
         probability = _probability_pack_contains(
             expansion, pack, pools, lambda card, t=threshold: card.price > t
         )
-        gaps = [b - a for a, b in zip(indices, indices[1:])]
+        gaps = [b - a for a, b in pairwise(indices)]
         threshold_rows.append(
             {
                 "threshold": threshold,
@@ -620,7 +621,7 @@ def compute_statistics(
 
     histogram = []
     bounds = [0.0] + list(HIST_BUCKETS) + [math.inf]
-    for low, high in zip(bounds[:-1], bounds[1:]):
+    for low, high in pairwise(bounds):
         count = sum(1 for value in values if low <= value < high)
         histogram.append(
             {
@@ -632,7 +633,7 @@ def compute_statistics(
         )
 
     hit_indices = _hit_indices(result.packs, hit_threshold)
-    hit_gaps = [b - a for a, b in zip(hit_indices, hit_indices[1:])]
+    hit_gaps = [b - a for a, b in pairwise(hit_indices)]
     hit_probability = _probability_pack_contains(
         expansion, pack, pools, lambda card: card.price > hit_threshold
     )
