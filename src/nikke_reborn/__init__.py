@@ -116,7 +116,6 @@ import subprocess
 import sys
 import threading
 import time
-import pathlib
 from collections import deque
 from collections.abc import Generator, Iterator
 from concurrent.futures import (
@@ -128,6 +127,42 @@ from concurrent.futures import (
 from pathlib import Path
 from typing import IO, cast
 from nikke_reborn import bundler, metadata
+from nikke_reborn.config import (
+    BOX_CONFIG,
+    BOX_ITEM_NAME,
+    BOX_MATERIAL_NAME,
+    BOX_MESH,
+    BOX_TEMPLATE,
+    BUNDLES_DIR,
+    CARDS_DIR,
+    CARD_REFERENCE_WIDTH,
+    COPYRIGHT_NOMINAL_SIZE,
+    COPYRIGHT_SUPERSAMPLE,
+    COPYRIGHT_TEXT,
+    COPYRIGHT_WEIGHT,
+    DATABASE_DIR,
+    DRAFT_DIR,
+    FONT,
+    FONTS_DIR,
+    IMAGES_DIR,
+    MAX_STAGE_THREADS,
+    OUTPUT_DIR,
+    PACK_CONFIG,
+    PACK_ITEM_NAME,
+    PACK_MATERIAL_NAME,
+    PACK_MESH,
+    PACK_TEMPLATE,
+    PROFILE_RARITIES,
+    PROFILE_STEMS,
+    REPO_ROOT,
+    SHOP_DIR,
+    SOURCE_HASH_KEY,
+    STANDARD_STEMS,
+    UNITY_VIEWER,
+    VIEWER,
+)
+from nikke_reborn.error import GenerationError
+from nikke_reborn.file import _require_executable, _save_atomic, copy
 
 from PIL import (
     Image,
@@ -137,24 +172,8 @@ from PIL import (
     ImageStat,
     ImageOps,
 )
-from PIL.PngImagePlugin import PngInfo
-
 MOD_NAME = "NIKKE REBORN"
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-ASSETS_DIR = REPO_ROOT / "assets"
-CARDS_DIR = REPO_ROOT / "cards"
-IMAGES_DIR = ASSETS_DIR / "images"
-MESHES_DIR = ASSETS_DIR / "meshes"
-FONTS_DIR = REPO_ROOT / "fonts"
-OUTPUT_DIR = REPO_ROOT / "output"
-DRAFT_DIR = REPO_ROOT / "draft"
-BUNDLES_DIR = REPO_ROOT / "bundles"
-DATABASE_DIR = REPO_ROOT / "database"
-SHOP_DIR = IMAGES_DIR / "shop"
-
-VIEWER = "nikke-viewer"
-UNITY_VIEWER = "unity-viewer"
 ENCODER = "ffmpeg"
 PROBER = "ffprobe"
 
@@ -162,11 +181,6 @@ PROBER = "ffprobe"
 #: 13 MiB frame into ~1700 syscalls; 1 MiB reads at the kernel's pipe
 #: quantum (~64 KiB), ~200.
 PIPE_BUFSIZE = 1 << 20
-
-#: Key of the embedded definition hash in the finished cards (a PNG
-#: text chunk, an MP4 tag): a card whose stored hash matches the
-#: current definition is skipped instead of re-rendered.
-SOURCE_HASH_KEY = "nikke-reborn-source"
 
 DEFAULT_FRAMERATE = 60
 
@@ -194,10 +208,6 @@ DEFAULT_FRAMERATE = 60
 # (PROFILE_REEL_BORDER of the side). Everything is composited in memory —
 # no intermediate frame touches the disk; only the finished card is
 # written (atomically).
-#: Profile rarity stems that skip the full-art pipeline entirely: only
-#: their profile cards are rendered. Currently empty — every rarity
-#: (including ``Aim`` and ``Cover``) also renders its full-art card.
-PROFILE_RARITIES = frozenset({})
 # --- the standard presentation -------------------------------------------
 # The ``Standard`` tier is a derived presentation, like the profile cards,
 # rendered through its own pipeline: one card is derived from each of the
@@ -212,15 +222,6 @@ PROFILE_RARITIES = frozenset({})
 # logo sits at the top right (its corner inset by ``padding * 1.5``, in
 # black), the NIKKE logo at the bottom right and the copyright at the bottom
 # left, both in black.
-#: Variant stems that render a ``<variant>Standard`` card: the
-#: ``Classic``, ``Rare``, ``Special`` and ``Exotic`` presentations.
-STANDARD_STEMS = frozenset({"Classic", "Rare", "Special", "Exotic"})
-#: Variant stems that render a ``<variant>Profile`` card: the
-#: ``Classic``, ``Idle``, ``Cover`` and ``Aim`` presentations. The
-#: ``Rare``, ``Special`` and ``Exotic`` presentations moved to the
-#: ``Standard`` tier (they no longer render a profile card), and the
-#: ``Goddess`` and ``Classified`` presentations render no derived card.
-PROFILE_STEMS = frozenset({"Classic", "Idle", "Cover", "Aim"})
 #: The profile card's mask (tinted with the background's dominant tint at
 #: each pixel's own lightness, the white staying white; composited over
 #: the diluted background, under the character), next to its GIMP source.
@@ -321,31 +322,10 @@ RENDER_ATTEMPTS = 3
 #: The logo sits this many times the card ``padding`` away from the corner.
 LOGO_PADDING_FACTOR = 1.5
 
-#: Reference card width (pixels): the nominal sizes below are expressed at
-#: this width and scale proportionally for other viewport widths.
-CARD_REFERENCE_WIDTH = 1640
-
 #: Nominal logo width (pixels) at the reference card width: the logo is
 #: scaled proportionally, preserving its aspect ratio (200 px wide on the
 #: 1640 px cards we have).
 LOGO_NOMINAL_WIDTH = 200
-
-#: Nominal copyright text size (pixels) at the reference card width.
-COPYRIGHT_NOMINAL_SIZE = 20
-#: Oswald weight for the copyright line (variable axis 200-700; a light
-#: weight reads quieter at this small size)
-COPYRIGHT_WEIGHT = 300
-#: The copyright is stamped at this multiple of its size and downscaled:
-#: at the final size FreeType quantizes glyph advances unevenly (the
-#: word spaces come out different widths), and the LANCZOS downscale
-#: re-smooths them
-COPYRIGHT_SUPERSAMPLE = 4
-
-#: Copyright line rendered at the bottom left of the card.
-COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
-
-#: Oswald face for the copyright line (vendored variable font, SIL OFL).
-FONT = FONTS_DIR / "Oswald.ttf"
 
 #: Aire Exterior face for the card name (vendored static font, SIL OFL).
 FONT_NAME = FONTS_DIR / "AireExterior.ttf"
@@ -456,53 +436,10 @@ DRAFT_PRESET = "ultrafast"
 DEFAULT_SCALE = 1.0
 DRAFT_SCALE = 0.5
 
-#: ffmpeg encodes and frame compositing get at most this many threads
-#: each, even when a single card uses all the cores.
-MAX_STAGE_THREADS = 16
-
 LOGO_PATHS = {
     False: IMAGES_DIR / "Logo_White.png",
     True: IMAGES_DIR / "Logo_Black.png",
 }
-
-#: Pack artwork: ``assets/images/`` holds the material template, whose two
-#: pure-blue mask rectangles hold the pack's back (left) and front
-#: (right) — both composed on the fly (see :mod:`nikke_reborn.pack`) —
-#: written to ``<out>/<pack>/CardPack_Material.png``. The item
-#: (``CardPack_Item.png``) is rendered with :data:`UNITY_VIEWER` from
-#: :data:`PACK_MESH` textured with the finished material.
-PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
-PACK_MATERIAL_NAME = "CardPack_Material.png"
-PACK_ITEM_NAME = "CardPack_Item.png"
-PACK_MESH = MESHES_DIR / "CardPackStatic_Mesh.obj"
-
-#: The item's viewer configuration (model rotation and camera zoom/pan
-#: as a JSON file, exported by the viewer's GUI), passed to
-#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
-PACK_CONFIG = MESHES_DIR / "CardPackStatic_Mesh.json"
-
-
-#: The box's material template: its three solid mask rectangles mark the
-#: paste regions — blue for the front (the same composition as the pack's
-#: front), red for the top and green for the side (see
-#: :mod:`nikke_reborn.box`). The finished material is written to
-#: ``<out>/<pack>/CardBox_Material.png``. The item
-#: (``CardBox_Item.png``) is rendered with :data:`UNITY_VIEWER` from
-#: :data:`BOX_MESH` textured with the finished material, the way the
-#: pack's item is.
-BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
-BOX_MATERIAL_NAME = "CardBox_Material.png"
-BOX_ITEM_NAME = "CardBox_Item.png"
-BOX_MESH = MESHES_DIR / "CardBox_Mesh.obj"
-
-#: The box item's viewer configuration (model rotation and camera
-#: zoom/pan, as a JSON file exported by the viewer's GUI), passed to
-#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
-BOX_CONFIG = MESHES_DIR / "CardBox_Mesh.json"
-
-
-class GenerationError(RuntimeError):
-    """A card definition could not be rendered or composed."""
 
 
 def generate() -> None:
@@ -720,11 +657,6 @@ def bundle() -> None:
             output=plugin,
             root=OUTPUT_DIR,
         )
-
-
-def _require_executable(name: str) -> None:
-    if shutil.which(name) is None:
-        raise GenerationError(f"required executable not found in PATH: {name!r}")
 
 
 def _source_hash(json_path: Path) -> str:
@@ -2183,29 +2115,6 @@ def _encode_mp4(
         raise GenerationError(
             f"{ENCODER} failed (exit {proc.returncode}): {stderr.decode(errors='replace').strip()}"
         )
-
-
-def _save_atomic(
-    image: Image.Image, out_path: Path, source_hash: str | None = None
-) -> Path:
-    """Save *image* to a ``.part`` file and atomically move it into place.
-
-    A finished card therefore only ever exists in its complete form.
-    *source_hash* is embedded as the SOURCE_HASH_KEY text chunk so a
-    later run can tell the card is up to date.
-    """
-    tmp_path = out_path.with_name(out_path.name + ".part")
-    pnginfo = None
-    if source_hash is not None:
-        pnginfo = PngInfo()
-        pnginfo.add_text(SOURCE_HASH_KEY, source_hash)
-    try:
-        image.save(tmp_path, format="PNG", pnginfo=pnginfo)
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
-    tmp_path.replace(out_path)
-    return out_path
 
 
 def _render_and_finish(
@@ -4455,23 +4364,3 @@ def _generate_variants(
         f"Done. {what} in {time.monotonic() - start:.1f}s, "
         f"{word} written to {out_base.relative_to(REPO_ROOT)}/{skipped_text}"
     )
-
-
-def copy(source: pathlib.Path, dest: pathlib.Path, overwrite=False):
-    if dest.exists():
-        if not overwrite:
-            return
-
-        if source.is_dir():
-            for entry in source.iterdir():
-                copy(entry, dest / entry.name, overwrite=True)
-
-            return
-
-    if dest.is_relative_to(REPO_ROOT):
-        print(dest.relative_to(REPO_ROOT))
-    else:
-        print(dest)
-
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    source.copy(dest)

@@ -1,0 +1,106 @@
+"""Shared configuration for the card pipeline.
+
+The constants more than one part of the pipeline needs: the repository
+and asset directories, the external executables, the source-hash key,
+the shared variant stems, the reference card width, the copyright line
+and its face, the stage-thread cap, and the pack's and the box's asset
+names. Everything that only one part needs (masks, tints, name
+placement, encode flags) lives with the code that uses it.
+"""
+
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+ASSETS_DIR = REPO_ROOT / "assets"
+CARDS_DIR = REPO_ROOT / "cards"
+IMAGES_DIR = ASSETS_DIR / "images"
+MESHES_DIR = ASSETS_DIR / "meshes"
+FONTS_DIR = REPO_ROOT / "fonts"
+OUTPUT_DIR = REPO_ROOT / "output"
+DRAFT_DIR = REPO_ROOT / "draft"
+BUNDLES_DIR = REPO_ROOT / "bundles"
+DATABASE_DIR = REPO_ROOT / "database"
+SHOP_DIR = IMAGES_DIR / "shop"
+
+VIEWER = "nikke-viewer"
+UNITY_VIEWER = "unity-viewer"
+
+#: Key of the embedded definition hash in the finished cards (a PNG
+#: text chunk, an MP4 tag): a card whose stored hash matches the
+#: current definition is skipped instead of re-rendered.
+SOURCE_HASH_KEY = "nikke-reborn-source"
+
+#: Profile rarity stems that skip the full-art pipeline entirely: only
+#: their profile cards are rendered. Currently empty — every rarity
+#: (including ``Aim`` and ``Cover``) also renders its full-art card.
+PROFILE_RARITIES = frozenset({})
+
+#: Variant stems that render a ``<variant>Standard`` card: the
+#: ``Classic``, ``Rare``, ``Special`` and ``Exotic`` presentations.
+STANDARD_STEMS = frozenset({"Classic", "Rare", "Special", "Exotic"})
+#: Variant stems that render a ``<variant>Profile`` card: the
+#: ``Classic``, ``Idle``, ``Cover`` and ``Aim`` presentations. The
+#: ``Rare``, ``Special`` and ``Exotic`` presentations moved to the
+#: ``Standard`` tier (they no longer render a profile card), and the
+#: ``Goddess`` and ``Classified`` presentations render no derived card.
+PROFILE_STEMS = frozenset({"Classic", "Idle", "Cover", "Aim"})
+
+#: Reference card width (pixels): the nominal sizes below are expressed at
+#: this width and scale proportionally for other viewport widths.
+CARD_REFERENCE_WIDTH = 1640
+
+#: Nominal copyright text size (pixels) at the reference card width.
+COPYRIGHT_NOMINAL_SIZE = 20
+#: Oswald weight for the copyright line (variable axis 200-700; a light
+#: weight reads quieter at this small size)
+COPYRIGHT_WEIGHT = 300
+#: The copyright is stamped at this multiple of its size and downscaled:
+#: at the final size FreeType quantizes glyph advances unevenly (the
+#: word spaces come out different widths), and the LANCZOS downscale
+#: re-smooths them
+COPYRIGHT_SUPERSAMPLE = 4
+
+#: Copyright line rendered at the bottom left of the card.
+COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
+
+#: Oswald face for the copyright line (vendored variable font, SIL OFL).
+FONT = FONTS_DIR / "Oswald.ttf"
+
+#: ffmpeg encodes and frame compositing get at most this many threads
+#: each, even when a single card uses all the cores.
+MAX_STAGE_THREADS = 16
+
+#: Pack artwork: ``assets/images/`` holds the material template, whose two
+#: pure-blue mask rectangles hold the pack's back (left) and front
+#: (right) — both composed on the fly (see :mod:`nikke_reborn.pack`) —
+#: written to ``<out>/<pack>/CardPack_Material.png``. The item
+#: (``CardPack_Item.png``) is rendered with :data:`UNITY_VIEWER` from
+#: :data:`PACK_MESH` textured with the finished material.
+PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
+PACK_MATERIAL_NAME = "CardPack_Material.png"
+PACK_ITEM_NAME = "CardPack_Item.png"
+PACK_MESH = MESHES_DIR / "CardPackStatic_Mesh.obj"
+
+#: The item's viewer configuration (model rotation and camera zoom/pan
+#: as a JSON file, exported by the viewer's GUI), passed to
+#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
+PACK_CONFIG = MESHES_DIR / "CardPackStatic_Mesh.json"
+
+
+#: The box's material template: its three solid mask rectangles mark the
+#: paste regions — blue for the front (the same composition as the pack's
+#: front), red for the top and green for the side (see
+#: :mod:`nikke_reborn.box`). The finished material is written to
+#: ``<out>/<pack>/CardBox_Material.png``. The item
+#: (``CardBox_Item.png``) is rendered with :data:`UNITY_VIEWER` from
+#: :data:`BOX_MESH` textured with the finished material, the way the
+#: pack's item is.
+BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
+BOX_MATERIAL_NAME = "CardBox_Material.png"
+BOX_ITEM_NAME = "CardBox_Item.png"
+BOX_MESH = MESHES_DIR / "CardBox_Mesh.obj"
+
+#: The box item's viewer configuration (model rotation and camera
+#: zoom/pan, as a JSON file exported by the viewer's GUI), passed to
+#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
+BOX_CONFIG = MESHES_DIR / "CardBox_Mesh.json"
