@@ -16,6 +16,7 @@ from PIL import Image
 
 from nikke_reborn.config import CARDS_DIR, DATABASE_DIR, IMAGES_DIR, REPO_ROOT
 from nikke_reborn.error import GenerationError
+from nikke_reborn.file import _set_out_name
 from nikke_reborn.image import PROFILE_MASK_PATH, STANDARD_MASK_PATH
 
 LOGO_PATHS = {
@@ -24,20 +25,36 @@ LOGO_PATHS = {
 }
 
 
-def _source_hash(json_path: Path) -> str:
-    """SHA-256 of the card definition file: the input the finished
-    card embeds under :data:`SOURCE_HASH_KEY`."""
-    return hashlib.sha256(json_path.read_bytes()).hexdigest()
-
-
-def _profile_source_hash(json_path: Path) -> str:
-    """SHA-256 of the profile card's inputs — the definition it renders,
-    the card mask, the characters database (for the character's
-    manufacturer) and the manufacturer's logo (the files its pixels
-    depend on). Embedded under :data:`SOURCE_HASH_KEY` so an unchanged
-    profile card is skipped instead of re-rendered."""
+def _source_hash(json_path: Path, scale: float = 1.0) -> str:
+    """SHA-256 of the card definition file and the output *scale*: the
+    inputs a finished card embeds under :data:`SOURCE_HASH_KEY`. The
+    scale term is only mixed in when it deviates from 1.0 — the
+    full-resolution default — so a scale-1.0 card carries exactly the
+    hash the code embedded before scales existed, and ``--ultra``
+    (native) output stays byte-for-byte the legacy bytes. Callers that
+    hash a definition as a plain input — the expansion front's digest,
+    which composes at native size and so does not depend on the run's
+    scale — leave *scale* at its neutral default."""
     digest = hashlib.sha256()
     digest.update(json_path.read_bytes())
+    if scale != 1.0:
+        digest.update(f"{scale:g}".encode())
+    return digest.hexdigest()
+
+
+def _profile_source_hash(json_path: Path, scale: float) -> str:
+    """SHA-256 of the profile card's inputs — the definition it renders,
+    the output *scale* (mixed in only when it deviates from 1.0, the
+    full-resolution default, so a scale-1.0 card carries exactly the
+    hash the code embedded before scales existed), the card mask, the
+    characters database (for the character's manufacturer) and the
+    manufacturer's logo (the files its pixels depend on). Embedded under
+    :data:`SOURCE_HASH_KEY` so an unchanged profile card is skipped
+    instead of re-rendered."""
+    digest = hashlib.sha256()
+    digest.update(json_path.read_bytes())
+    if scale != 1.0:
+        digest.update(f"{scale:g}".encode())
     digest.update(PROFILE_MASK_PATH.read_bytes())
     digest.update((DATABASE_DIR / "characters.json").read_bytes())
     manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
@@ -48,14 +65,19 @@ def _profile_source_hash(json_path: Path) -> str:
     return digest.hexdigest()
 
 
-def _standard_source_hash(json_path: Path) -> str:
+def _standard_source_hash(json_path: Path, scale: float) -> str:
     """SHA-256 of the standard card's inputs — the definition it renders,
-    the standard card mask, the characters database (for the character's
-    manufacturer) and the manufacturer's logo (the files its pixels
-    depend on). Embedded under :data:`SOURCE_HASH_KEY` so an unchanged
-    standard card is skipped instead of re-rendered."""
+    the output *scale* (mixed in only when it deviates from 1.0, the
+    full-resolution default, so a scale-1.0 card carries exactly the
+    hash the code embedded before scales existed), the standard card
+    mask, the characters database (for the character's manufacturer) and
+    the manufacturer's logo (the files its pixels depend on). Embedded
+    under :data:`SOURCE_HASH_KEY` so an unchanged standard card is
+    skipped instead of re-rendered."""
     digest = hashlib.sha256()
     digest.update(json_path.read_bytes())
+    if scale != 1.0:
+        digest.update(f"{scale:g}".encode())
     digest.update(STANDARD_MASK_PATH.read_bytes())
     digest.update((DATABASE_DIR / "characters.json").read_bytes())
     manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
@@ -190,7 +212,11 @@ def _manufacturer_logo(card_id: str) -> Image.Image | None:
 
 
 def _card_out_path(
-    out_base: Path, json_path: Path, suffix: str, stem: str | None = None
+    out_base: Path,
+    json_path: Path,
+    suffix: str,
+    stem: str | None = None,
+    ultra: bool = False,
 ) -> Path:
     """The flat output path for a card definition: the card's
     directory is folded into the filename, so
@@ -201,12 +227,16 @@ def _card_out_path(
     *stem* overrides the variant in the filename (defaults to the
     definition's own stem) — the profile cards pass their output stem, so a
     profile card writes out as ``<card>_<variant>Profile.<suffix>``.
+    An ``--ultra`` run (*ultra*) writes to the ``<set> (Ultra)`` set
+    folder instead of ``<set>``.
     """
     if stem is None:
         stem = json_path.stem
     card_rel = json_path.parent.relative_to(CARDS_DIR)
     return (
-        out_base / card_rel.parts[0] / f"{'_'.join(card_rel.parts[1:])}_{stem}.{suffix}"
+        out_base
+        / _set_out_name(card_rel.parts[0], ultra)
+        / f"{'_'.join(card_rel.parts[1:])}_{stem}.{suffix}"
     )
 
 

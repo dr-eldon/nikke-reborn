@@ -11,7 +11,13 @@ from __future__ import annotations
 import shutil
 
 from nikke_reborn import bundler, metadata
-from nikke_reborn.config import BUNDLES_DIR, CARDS_DIR, OUTPUT_DIR, SHOP_DIR
+from nikke_reborn.config import (
+    BUNDLES_DIR,
+    CARDS_DIR,
+    OUTPUT_DIR,
+    SHOP_DIR,
+    ULTRA_SUFFIX,
+)
 from nikke_reborn.file import copy
 
 MOD_NAME = "NIKKE REBORN"
@@ -23,6 +29,10 @@ def run() -> None:
 
     for target in sorted(OUTPUT_DIR.iterdir()):
         if not target.is_dir():
+            continue
+        if target.name.endswith(ULTRA_SUFFIX):
+            # The ``<set> (Ultra)`` twins (the ultra run's set folders):
+            # the bundles ship the default-resolution sets.
             continue
 
         bundle = BUNDLES_DIR / f"{MOD_NAME} - {target.name}"

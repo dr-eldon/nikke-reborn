@@ -14,7 +14,7 @@ from nikke_reborn.config import (
     SHOP_DIR,
     STANDARD_STEMS,
 )
-from nikke_reborn.file import copy
+from nikke_reborn.file import _set_out_name, copy
 
 BUNDLE_NAME = "NIKKE_REBORN"
 
@@ -39,33 +39,38 @@ RARITIES = [
 ]
 
 
-def write(out_dir: Path) -> None:
+def write(out_dir: Path, ultra: bool = False) -> None:
     """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
     set's shared assets (foilmask, cardback, box mesh, shop images) to
-    ``<out>/<set>/``."""
+    ``<out>/<set>/``. An ``--ultra`` run (*ultra*) writes them to the
+    ``<set> (Ultra)`` set folder and ``<set> (Ultra).json`` instead, so
+    the ultra set folders are self-contained and parallel to the
+    default ones."""
     for set_dir in CARDS_DIR.iterdir():
         if not set_dir.is_dir():
             continue
 
+        out_set = out_dir / _set_out_name(set_dir.stem, ultra)
+
         if (set_dir / "Foilmask.png").is_file():
-            copy(set_dir / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
+            copy(set_dir / "Foilmask.png", out_set / "Foilmask.png")
         else:
-            copy(IMAGES_DIR / "Foilmask.png", out_dir / set_dir.stem / "Foilmask.png")
+            copy(IMAGES_DIR / "Foilmask.png", out_set / "Foilmask.png")
 
         if (set_dir / "Cardback.png").is_file():
-            copy(set_dir / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
+            copy(set_dir / "Cardback.png", out_set / "Cardback.png")
         else:
-            copy(IMAGES_DIR / "Cardback.png", out_dir / set_dir.stem / "Cardback.png")
+            copy(IMAGES_DIR / "Cardback.png", out_set / "Cardback.png")
 
-        copy(BOX_MESH, out_dir / set_dir.stem / BOX_MESH.name)
+        copy(BOX_MESH, out_set / BOX_MESH.name)
 
         for file in SHOP_DIR.iterdir():
             if not file.is_file():
                 continue
 
-            copy(file, out_dir / set_dir.stem / file.name)
+            copy(file, out_set / file.name)
 
-        with (out_dir / f"{set_dir.stem}.json").open(
+        with (out_dir / f"{_set_out_name(set_dir.stem, ultra)}.json").open(
             "w", newline="\n", encoding="utf-8"
         ) as file:
             json.dump(

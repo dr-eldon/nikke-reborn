@@ -45,10 +45,11 @@ DEFAULT_FRAMERATE = 60
 PROFILE_FACE_BRIGHTNESS = 0.7
 
 #: H.264 quality settings for the MP4 output: visually lossless CRF,
-#: yuv420p for compatibility and fast-start for streaming. The x264 preset
-#: and the resolution scale are chosen per run: ``slow`` at full
-#: resolution by default, ``ultrafast`` at half resolution for drafts
-#: (``--draft``).
+#: yuv420p for compatibility and fast-start for streaming. The x264
+#: preset is chosen per run (``slow`` by default, ``ultrafast`` for
+#: drafts); the frames arrive already at the run's output size (the
+#: definition's viewport at the run's scale — half resolution by
+#: default, native under ``--ultra``), so the encoder never rescales.
 FFMPEG_QUALITY_ARGS = (
     "-crf",
     "16",
@@ -421,10 +422,11 @@ def _encode_mp4(
     out_path: Path,
     threads: int,
     preset: str,
-    scale: float,
     source_hash: str | None = None,
 ) -> None:
-    """Encode an RGBA frame stream into an MP4 using ffmpeg."""
+    """Encode an RGBA frame stream into an MP4 using ffmpeg. The frames
+    are *size* — the run's final size (see the scale note in
+    :mod:`nikke_reborn.config`), so no rescaling filter is applied."""
     width, height = size
     command = [
         ENCODER,
@@ -442,14 +444,6 @@ def _encode_mp4(
         "-i",
         "-",
     ]
-    if scale != 1.0:
-        # Downscale inside ffmpeg (fast, SIMD-optimized swscale) rather
-        # than resizing every frame in Python first.
-        target = (
-            round(width * scale) & ~1,
-            round(height * scale) & ~1,
-        )  # yuv420p needs even dims
-        command += ["-vf", f"scale={target[0]}:{target[1]}"]
     command += [
         "-c:v",
         "libx264",

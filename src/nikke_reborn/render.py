@@ -177,7 +177,7 @@ def _render_and_finish(
     ffmpeg_threads: int,
     composite_workers: int,
     preset: str,
-    scale: float,
+    ultra: bool,
     out_base: Path,
     source_hash: str,
     base: Image.Image | None = None,
@@ -227,13 +227,22 @@ def _render_and_finish(
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
     # files). --full-body, when set, ignores the config's pan/zoom and
-    # renders the full body. stderr is drained in a thread so it never
-    # blocks the viewer.
+    # renders the full body. The viewer renders at the run's final size
+    # (*size* — the definition's viewport at the run's scale, see the
+    # _process_* callers); the save's viewport stays the native reference.
+    # stderr is drained in a thread so it never blocks the viewer.
     render_started = time.perf_counter()
     viewer_args = [VIEWER]
     if full_body:
         viewer_args.append("--full-body")
-    viewer_args += ["--stdout", str(render_path)]
+    viewer_args += [
+        "--width",
+        str(size[0]),
+        "--height",
+        str(size[1]),
+        "--stdout",
+        str(render_path),
+    ]
     try:
         viewer = subprocess.Popen(
             viewer_args,
@@ -270,7 +279,7 @@ def _render_and_finish(
         framerate,
         ffmpeg_threads,
         preset,
-        scale,
+        ultra,
         source_hash,
         first_frame,
         composite_time,
@@ -338,7 +347,7 @@ def _write_final_card(
     framerate: int,
     ffmpeg_threads: int,
     preset: str,
-    scale: float,
+    ultra: bool,
     source_hash: str,
     first_frame: list[Image.Image],
     composite_time: list[float],
@@ -363,13 +372,16 @@ def _write_final_card(
     its own thread — so the numbers are per-stage costs, not a sequential
     partition.
     """
-    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
+    out_path = _card_out_path(
+        out_base, json_path, "mp4" if animated else "png", stem, ultra=ultra
+    )
     encode_time: float | None = None
     try:
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
             png_writer = _FirstFrameWriter(
-                _card_out_path(out_base, json_path, "png", stem), source_hash
+                _card_out_path(out_base, json_path, "png", stem, ultra=ultra),
+                source_hash,
             )
 
             def feed(frames: Iterator[Image.Image]) -> Iterator[Image.Image]:
@@ -389,7 +401,6 @@ def _write_final_card(
                     tmp_path,
                     ffmpeg_threads,
                     preset,
-                    scale,
                     source_hash,
                 )
                 encode_time = time.perf_counter() - encode_started
@@ -437,10 +448,22 @@ def _first_frame(
 ) -> Image.Image:
     """The first frame of *json_path* rendered by the viewer with
     *viewer_flags* — one raw RGBA frame read from the ``--stdout`` stream.
-    The viewer is reaped; for an animation only the opening frame is needed."""
+    The viewer is asked for exactly *size* (the run's final size, which
+    may differ from the save's viewport — the flags are passed here so the
+    stream always matches the read below); it is reaped, and for an
+    animation only the opening frame is needed."""
     width, height = size
     viewer = subprocess.Popen(
-        [VIEWER, *viewer_flags, "--stdout", str(json_path)],
+        [
+            VIEWER,
+            *viewer_flags,
+            "--width",
+            str(width),
+            "--height",
+            str(height),
+            "--stdout",
+            str(json_path),
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         bufsize=PIPE_BUFSIZE,
@@ -464,9 +487,11 @@ def _first_frame(
     return Image.frombytes("RGBA", (width, height), data)
 
 
-def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
+def _face_offset(json_path: Path, size: tuple[int, int], scale: float) -> int:
     """The face framing's ``--offset-x``: :data:`PROFILE_FACE_OFFSET_LEFT` px to
-    the left or :data:`PROFILE_FACE_OFFSET_RIGHT` px to the right, whichever
+    the left or :data:`PROFILE_FACE_OFFSET_RIGHT` px to the right (both
+    native-px — the definition's viewport — scaled by *scale* to the run's
+    final size, since the viewer's ``--offset-x`` is screen px), whichever
     leaves the face's footprint least occluded by the full body, so the face
     sits clear rather than behind it.
 
@@ -496,12 +521,14 @@ def _face_offset(json_path: Path, size: tuple[int, int]) -> int:
 
     if not ImageStat.Stat(alpha).sum[0]:
         return 0  # no body at all; keep the face centered
-    left = occlusion(width // 2 - PROFILE_FACE_OFFSET_LEFT)
-    right = occlusion(width // 2 + PROFILE_FACE_OFFSET_RIGHT)
+    left_offset = round(PROFILE_FACE_OFFSET_LEFT * scale)
+    right_offset = round(PROFILE_FACE_OFFSET_RIGHT * scale)
+    left = occlusion(width // 2 - left_offset)
+    right = occlusion(width // 2 + right_offset)
     # Both footprints empty means the body sits *between* them, so the face
     # still shifts (a tie defaults to the left); never leave it centered on
     # top of the body.
-    return -PROFILE_FACE_OFFSET_LEFT if left < right else PROFILE_FACE_OFFSET_RIGHT
+    return -left_offset if left < right else right_offset
 
 
 def _reel_animations(json_path: Path) -> list[str]:
@@ -544,8 +571,9 @@ def _photo_reel(
     Each still is the time 0 frame of its animation, rendered in the
     viewer's ``--portrait 1`` framing (the face exactly inside the
     viewport bounds) in a square viewport of side
-    ``frame_width * PROFILE_REEL_SIDE`` (``--width``/``--height``,
-    ``--time 0`` and ``--animation``) and flattened onto a white
+    ``frame_width * PROFILE_REEL_SIDE`` (``--time 0`` and
+    ``--animation``; :func:`_first_frame` passes the square size to the
+    viewer) and flattened onto a white
     background (the viewer's frames are transparent where the character
     does not cover): the stills are taken once per card and reused for
     every frame. Each is framed by a border of
@@ -573,10 +601,6 @@ def _photo_reel(
             (side, side),
             "--portrait",
             "1",
-            "--width",
-            str(side),
-            "--height",
-            str(side),
             "--time",
             "0",
             "--animation",
@@ -621,6 +645,7 @@ def _render_profile(
     out_base: Path,
     source_hash: str,
     face_zoom: float,
+    ultra: bool = False,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the profile card (a presentation of *json_path*, written out
     as ``<card>_<variant>Profile.<suffix>``): the ``--face <face_zoom>``
@@ -668,7 +693,7 @@ def _render_profile(
     # The face is shifted to the side the body leaves most room on (measured
     # from the body's first frame), so it is not occluded by the centered
     # body.
-    face_offset = _face_offset(json_path, size)
+    face_offset = _face_offset(json_path, size, scale)
 
     # The photo reel (the face stills down the right edge): the stills are
     # taken once — one frame at time 0 per animation — and reused for
@@ -686,10 +711,23 @@ def _render_profile(
         str(face_zoom),
         "--offset-x",
         str(face_offset),
+        "--width",
+        str(size[0]),
+        "--height",
+        str(size[1]),
         "--stdout",
         str(json_path),
     ]
-    body_args = [VIEWER, "--full-body", "--stdout", str(json_path)]
+    body_args = [
+        VIEWER,
+        "--full-body",
+        "--width",
+        str(size[0]),
+        "--height",
+        str(size[1]),
+        "--stdout",
+        str(json_path),
+    ]
     try:
         face_viewer = subprocess.Popen(
             face_args,
@@ -745,7 +783,7 @@ def _render_profile(
         framerate,
         ffmpeg_threads,
         preset,
-        scale,
+        ultra,
         source_hash,
         first_frame,
         composite_time,
@@ -771,7 +809,7 @@ def _render_standard(
     ffmpeg_threads: int,
     composite_workers: int,
     preset: str,
-    scale: float,
+    ultra: bool,
     out_base: Path,
     source_hash: str,
 ) -> tuple[Path, dict[str, float | None]]:
@@ -841,7 +879,16 @@ def _render_standard(
     # definition's pan/zoom and frames the upper body. stderr is drained in
     # a thread so it never blocks the viewer.
     render_started = time.perf_counter()
-    viewer_args = [VIEWER, "--half-body", "--stdout", str(json_path)]
+    viewer_args = [
+        VIEWER,
+        "--half-body",
+        "--width",
+        str(size[0]),
+        "--height",
+        str(size[1]),
+        "--stdout",
+        str(json_path),
+    ]
     try:
         viewer = subprocess.Popen(
             viewer_args,
@@ -879,7 +926,7 @@ def _render_standard(
         framerate,
         ffmpeg_threads,
         preset,
-        scale,
+        ultra,
         source_hash,
         first_frame,
         composite_time,
@@ -897,6 +944,7 @@ def _process_card(
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
+    ultra: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render, composite and encode a single card definition.
 
@@ -924,7 +972,10 @@ def _process_card(
         raise GenerationError(f"font not found: {FONT}")
     # The full-art cards never carry the card name (the profile and
     # standard cards render the title and subtitle).
-    padding = card["padding"]
+    # The definition's padding is native-px (its viewport); the effective
+    # padding at the run's final size drives the lettering, the logo
+    # placement, the reel insets and the like.
+    padding = round(card["padding"] * scale)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (
         (0, 0, 0, 255) if card.get("invert_copyright", False) else (255, 255, 255, 255)
@@ -937,21 +988,30 @@ def _process_card(
             f"{json_path.name}: missing 'viewport' (needed to size the raw "
             f"frames streamed by {VIEWER} --stdout)"
         )
-    size = (int(viewport[0]), int(viewport[1]))
+    # The run's final size: the definition's viewport at the run's scale
+    # (even dims for the yuv420p encode). The whole pipeline — the
+    # viewer, the compositing and the finished card — runs at this size,
+    # so no frame is ever resampled on the way out.
+    size = (
+        round(int(viewport[0]) * scale) & ~1,
+        round(int(viewport[1]) * scale) & ~1,
+    )
 
     # A definition without a `time` renders an animation (mp4) plus its
     # first frame (png); one with a `time` renders a single frame (png).
     # With --no-video an animation renders its first frame (png) alone:
     # the mp4 is skipped and the viewer reaped right after that frame.
     animated = card.get("time") is None and not no_video
-    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png")
-    source_hash = _source_hash(json_path)
+    out_path = _card_out_path(
+        out_base, json_path, "mp4" if animated else "png", ultra=ultra
+    )
+    source_hash = _source_hash(json_path, scale)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(out_base, json_path, "png")
+            first_frame_path = _card_out_path(out_base, json_path, "png", ultra=ultra)
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
@@ -981,7 +1041,7 @@ def _process_card(
                 ffmpeg_threads,
                 composite_workers,
                 preset,
-                scale,
+                ultra,
                 out_base,
                 source_hash,
             )
@@ -1010,6 +1070,7 @@ def _process_profile_card(
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
+    ultra: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Profile`` profile card for *json_path*
     (derived from its own definition — one of the ``Classic``, ``Idle``,
@@ -1059,7 +1120,10 @@ def _process_profile_card(
     # background; None when the character or its manufacturer is
     # unknown): it sits above the name's bar.
     manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
-    padding = card["padding"]
+    # The definition's padding is native-px (its viewport); the effective
+    # padding at the run's final size drives the lettering, the logo
+    # placement, the reel insets and the like.
+    padding = round(card["padding"] * scale)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
     framerate = card["framerate"] or DEFAULT_FRAMERATE
@@ -1070,7 +1134,14 @@ def _process_profile_card(
             f"{json_path.name}: missing 'viewport' (needed to size the raw "
             f"frames streamed by {VIEWER} --stdout)"
         )
-    size = (int(viewport[0]), int(viewport[1]))
+    # The run's final size: the definition's viewport at the run's scale
+    # (even dims for the yuv420p encode). The whole pipeline — the
+    # viewer, the compositing and the finished card — runs at this size,
+    # so no frame is ever resampled on the way out.
+    size = (
+        round(int(viewport[0]) * scale) & ~1,
+        round(int(viewport[1]) * scale) & ~1,
+    )
 
     # A definition without a `time` renders an animation (mp4) plus its first
     # frame (png); one with a `time` renders a single frame (png). With
@@ -1078,14 +1149,18 @@ def _process_profile_card(
     # is skipped and the viewers reaped right after that frame.
     animated = card.get("time") is None and not no_video
     stem = _profile_stem(json_path)
-    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
-    source_hash = _profile_source_hash(json_path)
+    out_path = _card_out_path(
+        out_base, json_path, "mp4" if animated else "png", stem, ultra=ultra
+    )
+    source_hash = _profile_source_hash(json_path, scale)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(out_base, json_path, "png", stem)
+            first_frame_path = _card_out_path(
+                out_base, json_path, "png", stem, ultra=ultra
+            )
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
@@ -1127,6 +1202,7 @@ def _process_profile_card(
                 out_base,
                 source_hash,
                 PROFILE_FACE_ZOOM,
+                ultra=ultra,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings
@@ -1153,6 +1229,7 @@ def _process_standard_card(
     out_base: Path = OUTPUT_DIR,
     force: bool = False,
     no_video: bool = False,
+    ultra: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render the ``<variant>Standard`` standard card for *json_path*
     (derived from its own definition — the ``Classic``, ``Rare``,
@@ -1201,7 +1278,10 @@ def _process_standard_card(
     # manufacturer is unknown): it sits at the top right, its corner inset by
     # padding * 1.5, drawn in black.
     manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
-    padding = card["padding"]
+    # The definition's padding is native-px (its viewport); the effective
+    # padding at the run's final size drives the lettering, the logo
+    # placement, the reel insets and the like.
+    padding = round(card["padding"] * scale)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
     framerate = card["framerate"] or DEFAULT_FRAMERATE
@@ -1212,7 +1292,14 @@ def _process_standard_card(
             f"{json_path.name}: missing 'viewport' (needed to size the raw "
             f"frames streamed by {VIEWER} --stdout)"
         )
-    size = (int(viewport[0]), int(viewport[1]))
+    # The run's final size: the definition's viewport at the run's scale
+    # (even dims for the yuv420p encode). The whole pipeline — the
+    # viewer, the compositing and the finished card — runs at this size,
+    # so no frame is ever resampled on the way out.
+    size = (
+        round(int(viewport[0]) * scale) & ~1,
+        round(int(viewport[1]) * scale) & ~1,
+    )
 
     # A definition without a `time` renders an animation (mp4) plus its first
     # frame (png); one with a `time` renders a single frame (png). With
@@ -1220,14 +1307,18 @@ def _process_standard_card(
     # is skipped and the viewer reaped right after that frame.
     animated = card.get("time") is None and not no_video
     stem = _standard_stem(json_path)
-    out_path = _card_out_path(out_base, json_path, "mp4" if animated else "png", stem)
-    source_hash = _standard_source_hash(json_path)
+    out_path = _card_out_path(
+        out_base, json_path, "mp4" if animated else "png", stem, ultra=ultra
+    )
+    source_hash = _standard_source_hash(json_path, scale)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(out_base, json_path, "png", stem)
+            first_frame_path = _card_out_path(
+                out_base, json_path, "png", stem, ultra=ultra
+            )
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
@@ -1281,7 +1372,7 @@ def _process_standard_card(
                 ffmpeg_threads,
                 composite_workers,
                 preset,
-                scale,
+                ultra,
                 out_base,
                 source_hash,
             )

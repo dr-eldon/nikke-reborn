@@ -42,6 +42,8 @@ from PIL import Image
 from nikke_reborn.config import (
     CARDS_DIR,
     IMAGES_DIR,
+    ITEM_VIEWER_HEIGHT,
+    ITEM_VIEWER_WIDTH,
     PACK_CONFIG,
     PACK_ITEM_NAME,
     PACK_MATERIAL_NAME,
@@ -57,7 +59,13 @@ from nikke_reborn.expansion import (
     load_background,
     load_expansion,
 )
-from nikke_reborn.file import _material_hash, _save_atomic, _stored_hash, _viewer_hash
+from nikke_reborn.file import (
+    _material_hash,
+    _save_atomic,
+    _set_out_name,
+    _stored_hash,
+    _viewer_hash,
+)
 from nikke_reborn.image import _pack_mask, _pack_mask_rects
 
 # --- the white NIKKE logo -----------------------------------------------------
@@ -178,24 +186,36 @@ def _process_pack_material(
     back: Image.Image,
     back_source: str,
     force: bool = False,
+    scale: float = 1.0,
+    ultra: bool = False,
 ) -> tuple[Path, bool]:
     """Composite a pack's images onto the material template.
 
     The template's pure-blue mask rectangles mark the paste regions: the
     left one holds the pack's back and the right one its front — both
     in-memory images composed on the fly (the front with its white logo,
-    placed by :func:`pack.place_logo`) and never stored. The finished
-    material is written to ``<out>/<pack>/CardPack_Material.png``
-    (atomically, with the SHA-256 of the template and the back's and
-    front's inputs embedded, like a finished card); returns
-    ``(out_path, skipped)``, where *skipped* is True when the output
-    already exists and its stored hash matches the current inputs.
+    placed by :func:`pack.place_logo`) and never stored. The composition
+    happens at native (the template's) size — into the exact mask
+    rectangles — and only the finished material is scaled, in one
+    whole-image pass, to the run's size (``<out>/<pack> (Ultra)/`` for
+    an ``--ultra`` run) and written there (atomically, with the SHA-256
+    of the template, the scale and the back's and front's inputs
+    embedded, like a finished card); returns ``(out_path, skipped)``,
+    where *skipped* is True when the output already exists and its
+    stored hash matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
     source_hash = _material_hash(
-        PACK_TEMPLATE, front_source=front_source, back_source=back_source
+        PACK_TEMPLATE,
+        front_source=front_source,
+        back_source=back_source,
+        scale=scale,
     )
-    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
+    out_path = (
+        out_base
+        / _set_out_name(pack_dir.relative_to(CARDS_DIR).name, ultra)
+        / PACK_MATERIAL_NAME
+    )
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(PACK_TEMPLATE) as opened:
@@ -217,33 +237,51 @@ def _process_pack_material(
             front = front.resize(front_target, Image.Resampling.LANCZOS)
         template.alpha_composite(front, (rects[1][0], rects[1][1]))
         final = template.convert("RGB")
+    if scale != 1.0:
+        # One whole-image pass down to the run's size: the composition
+        # stayed native (into the exact mask rectangles), so nothing is
+        # resampled twice and the paste edges carry no bleed.
+        final = final.resize(
+            (round(final.width * scale), round(final.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     _save_atomic(final, out_path, source_hash)
     return out_path, False
 
 
 def _process_pack_item(
-    pack_dir: Path, out_base: Path, force: bool = False
+    pack_dir: Path,
+    out_base: Path,
+    force: bool = False,
+    scale: float = 1.0,
+    ultra: bool = False,
 ) -> tuple[Path, bool]:
     """Render a pack's item with :data:`UNITY_VIEWER`: the pack's mesh
     (:data:`PACK_MESH`) textured with the pack's finished material
-    (``<out>/<pack>/CardPack_Material.png``), posed by the viewer
+    (``<out>/<pack>/CardPack_Material.png``, or the ``<pack> (Ultra)``
+    set folder for an ``--ultra`` run), posed by the viewer
     configuration (:data:`PACK_CONFIG`): the model rotation and camera
-    zoom/pan from that JSON file, the camera's fixed viewing pose and
-    the viewer's default output size. The material must have been
-    generated first — the item is rendered from its output file.
+    zoom/pan from that JSON file, the camera's fixed viewing pose and an
+    output size of ``round(ITEM_VIEWER_WIDTH * scale)`` by
+    ``round(ITEM_VIEWER_HEIGHT * scale)`` pixels (the viewer's own
+    defaults at the full scale). The material must have been generated
+    first — the item is rendered from its output file.
 
     The viewer writes a plain PNG, which is re-saved with the SHA-256 of
-    the mesh and the material embedded (a PNG text chunk, like a finished
-    card) and moved into place atomically, so a finished item only ever
-    exists in its complete form; returns ``(out_path, skipped)``, where
-    *skipped* is True when the output already exists and its stored hash
-    matches the current inputs.
+    the mesh, the material and the output size embedded (a PNG text
+    chunk, like a finished card) and moved into place atomically, so a
+    finished item only ever exists in its complete form; returns
+    ``(out_path, skipped)``, where *skipped* is True when the output
+    already exists and its stored hash matches the current inputs.
     """
     pack_dir = pack_dir.resolve()
-    material_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
-    source_hash = _viewer_hash(PACK_MESH, material_path, PACK_CONFIG)
-    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
+    width = round(ITEM_VIEWER_WIDTH * scale)
+    height = round(ITEM_VIEWER_HEIGHT * scale)
+    set_name = _set_out_name(pack_dir.relative_to(CARDS_DIR).name, ultra)
+    material_path = out_base / set_name / PACK_MATERIAL_NAME
+    source_hash = _viewer_hash(PACK_MESH, material_path, PACK_CONFIG, width, height)
+    out_path = out_base / set_name / PACK_ITEM_NAME
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -256,6 +294,10 @@ def _process_pack_item(
                 str(material_path),
                 "--config",
                 str(PACK_CONFIG),
+                "--width",
+                str(width),
+                "--height",
+                str(height),
                 "--out",
                 str(tmp_path),
             ],

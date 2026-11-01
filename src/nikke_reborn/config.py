@@ -4,8 +4,9 @@ The constants more than one part of the pipeline needs: the repository
 and asset directories, the external executables, the source-hash key,
 the shared variant stems, the reference card width, the copyright line
 and its face, the stage-thread cap, and the pack's and the box's asset
-names, the encoder preset and output scale (full and draft), and
-ffprobe. Everything that only one part needs (masks, tints, name
+names, the encoder preset and the run-mode output scales (default,
+ultra and draft) with the ultra set-folder suffix and the item's
+viewer size, and ffprobe. Everything that only one part needs (masks, tints, name
 placement, encode flags) lives with the code that uses it.
 """
 
@@ -60,13 +61,28 @@ FONT = FONTS_DIR / "Oswald.ttf"
 #: each, even when a single card uses all the cores.
 MAX_STAGE_THREADS = 16
 
-#: The encoder preset and output scale for a full-quality render and
-#: for a draft (``--draft``) render respectively; a draft renders at
-#: ``DRAFT_SCALE`` of the width with the faster ``DRAFT_PRESET``.
+#: The encoder preset and the output scales for the run modes: the
+#: default renders at ``DEFAULT_SCALE`` of the definition's native
+#: viewport (half resolution), ``--ultra`` at ``ULTRA_SCALE`` (twice
+#: the default — the native resolution, written to the
+#: ``<set> (Ultra)`` set folders), and a draft (``--draft``) at
+#: ``DRAFT_SCALE`` with the faster ``DRAFT_PRESET``.
 DEFAULT_PRESET = "slow"
 DRAFT_PRESET = "ultrafast"
-DEFAULT_SCALE = 1.0
+DEFAULT_SCALE = 0.5
+ULTRA_SCALE = 2.0 * DEFAULT_SCALE
 DRAFT_SCALE = 0.5
+
+#: Suffix appended to each set's output folder name for an ``--ultra``
+#: run (``output/<set>/`` -> ``output/<set> (Ultra)/``).
+ULTRA_SUFFIX = " (Ultra)"
+
+#: The item's (pack's and box's) viewer output size in pixels: the
+#: unity-viewer's defaults, mirrored here so the pipeline computes the
+#: scaled sizes (``round(·scale)``) explicitly instead of relying on
+#: the viewer's implicit ones.
+ITEM_VIEWER_WIDTH = 1024
+ITEM_VIEWER_HEIGHT = 1024
 
 #: Pack artwork: ``assets/images/`` holds the material template, whose two
 #: pure-blue mask rectangles hold the pack's back (left) and front
