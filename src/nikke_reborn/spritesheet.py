@@ -60,9 +60,33 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import nikke_reborn as nr
-from nikke_reborn import expansion, metadata
 from PIL import Image, ImageDraw, ImageFont
+
+from nikke_reborn import expansion, metadata
+from nikke_reborn.config import (
+    CARD_REFERENCE_WIDTH,
+    CARDS_DIR,
+    DRAFT_DIR,
+    FONT,
+    IMAGES_DIR,
+    MAX_STAGE_THREADS,
+    OUTPUT_DIR,
+    PROFILE_RARITIES,
+    PROFILE_STEMS,
+    REPO_ROOT,
+    SOURCE_HASH_KEY,
+    STANDARD_STEMS,
+)
+from nikke_reborn.error import GenerationError
+from nikke_reborn.file import _save_atomic
+from nikke_reborn.lettering import (
+    COPYRIGHT_NOMINAL_SIZE,
+    COPYRIGHT_SUPERSAMPLE,
+    COPYRIGHT_TEXT,
+    COPYRIGHT_WEIGHT,
+    _set_weight,
+    _text_ink_offsets,
+)
 
 # --- the finished sheet's geometry ----------------------------------------
 # The sheet is fitted to its content on both axes: the width is the label
@@ -139,26 +163,26 @@ MISSING_TEXT = "MISSING!"
 MISSING_FONT_SIZES = (28, 24, 20, 18, 16, 14, 12, 10)
 
 
-def spritesheet() -> None:
+def run() -> None:
     """Compose the selected expansion's sprite sheet (the ``spritesheet``
     command)."""
     args = _parse_args()
-    out_dir = nr.DRAFT_DIR if args.draft else nr.OUTPUT_DIR
+    out_dir = DRAFT_DIR if args.draft else OUTPUT_DIR
     try:
         out_path, rows, columns, skipped = _build(args.expansion, out_dir, args.force)
-    except nr.GenerationError as exc:
+    except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
     if skipped:
         print(
-            f"{out_path.relative_to(nr.REPO_ROOT)}: up to date; "
+            f"{out_path.relative_to(REPO_ROOT)}: up to date; "
             f"skipping (use --force to rebuild)"
         )
         return
     with Image.open(out_path) as sheet:
         size = sheet.size
     print(
-        f"Done. Wrote {out_path.relative_to(nr.REPO_ROOT)} "
+        f"Done. Wrote {out_path.relative_to(REPO_ROOT)} "
         f"({size[0]}x{size[1]}, {rows} row(s) x {columns} column(s))"
     )
 
@@ -194,17 +218,17 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
 
     Returns the sheet's path, its grid's row and column counts and whether
     the sheet was skipped (up to date)."""
-    pack_dir = nr.CARDS_DIR / name
+    pack_dir = CARDS_DIR / name
     if not pack_dir.is_dir():
-        known = sorted(p.name for p in nr.CARDS_DIR.iterdir() if p.is_dir())
-        raise nr.GenerationError(
+        known = sorted(p.name for p in CARDS_DIR.iterdir() if p.is_dir())
+        raise GenerationError(
             f"unknown expansion {name!r} (expected a directory under "
             f"cards/; the known sets: {', '.join(known)})"
         )
     rows, columns, cells = _card_grid(pack_dir)
     if not rows:
-        raise nr.GenerationError(
-            f"no card definitions under {pack_dir.relative_to(nr.REPO_ROOT)}/"
+        raise GenerationError(
+            f"no card definitions under {pack_dir.relative_to(REPO_ROOT)}/"
         )
     card_dir = out_dir / pack_dir.name
     paths = {
@@ -216,7 +240,7 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
     missing = {key for key, path in paths.items() if not path.is_file()}
     if missing:
         shown = ", ".join(
-            str(paths[key].relative_to(nr.REPO_ROOT)) for key in sorted(missing)[:10]
+            str(paths[key].relative_to(REPO_ROOT)) for key in sorted(missing)[:10]
         )
         more = f" (+{len(missing) - 10} more)" if len(missing) > 10 else ""
         print(
@@ -273,21 +297,21 @@ def _card_grid(pack_dir: Path) -> tuple[list[str], list[str], set[tuple[str, str
     rows = [prefix for prefix, _ in cards]
     present: set[str] = set()
     for stem in stems:
-        if stem not in nr.PROFILE_RARITIES:
+        if stem not in PROFILE_RARITIES:
             present.add(stem)
-        if stem in nr.PROFILE_STEMS:
+        if stem in PROFILE_STEMS:
             present.add(f"{stem}Profile")
-        if stem in nr.STANDARD_STEMS:
+        if stem in STANDARD_STEMS:
             present.add(f"{stem}Standard")
     columns = [rarity for rarity in metadata.RARITIES if rarity in present]
     cells: set[tuple[str, str]] = set()
     for prefix, variants in cards:
         for stem in variants:
-            if stem not in nr.PROFILE_RARITIES:
+            if stem not in PROFILE_RARITIES:
                 cells.add((prefix, stem))
-            if stem in nr.PROFILE_STEMS:
+            if stem in PROFILE_STEMS:
                 cells.add((prefix, f"{stem}Profile"))
-            if stem in nr.STANDARD_STEMS:
+            if stem in STANDARD_STEMS:
                 cells.add((prefix, f"{stem}Standard"))
     return rows, columns, cells
 
@@ -316,10 +340,10 @@ def _expansion_background(pack_dir: Path) -> tuple[Image.Image, Path]:
     data = expansion.load_expansion(pack_dir)
     rel = data.get("background")
     if not rel:
-        raise nr.GenerationError(f"{pack_dir.name}: missing 'background'")
+        raise GenerationError(f"{pack_dir.name}: missing 'background'")
     path = (pack_dir / rel).resolve()
     if not path.is_file():
-        raise nr.GenerationError(f"{pack_dir.name}: background not found: {rel}")
+        raise GenerationError(f"{pack_dir.name}: background not found: {rel}")
     return Image.open(path).convert("RGBA"), path
 
 
@@ -337,13 +361,13 @@ def _expansion_logo(pack_dir: Path) -> tuple[Image.Image, Path]:
             path = (pack_dir / field["path"]).resolve()
             if path.is_file():
                 return Image.open(path).convert("RGBA"), path
-    fallback = nr.IMAGES_DIR / "logos" / f"{pack_dir.name}.png"
+    fallback = IMAGES_DIR / "logos" / f"{pack_dir.name}.png"
     if fallback.is_file():
         return Image.open(fallback).convert("RGBA"), fallback
-    raise nr.GenerationError(
+    raise GenerationError(
         f"no logo for expansion {pack_dir.name!r}: no usable 'logo' field in "
         f"{pack_dir.name}/{expansion.EXPANSION_NAME} and no "
-        f"{fallback.relative_to(nr.REPO_ROOT)}"
+        f"{fallback.relative_to(REPO_ROOT)}"
     )
 
 
@@ -381,7 +405,7 @@ def _stored_hash(out_path: Path) -> str | None:
         return None
     try:
         with Image.open(out_path) as image:
-            return image.info.get(nr.SOURCE_HASH_KEY)
+            return image.info.get(SOURCE_HASH_KEY)
     except Exception:
         return None
 
@@ -423,11 +447,11 @@ def _column_label_font(labels: list[str], max_w: int) -> ImageFont.FreeTypeFont:
     """The column-label font: the largest of :data:`COLUMN_LABEL_SIZES`
     whose longest label fits *max_w* px (the cell's width)."""
     for size in COLUMN_LABEL_SIZES:
-        font = ImageFont.truetype(str(nr.FONT), size)
-        nr._set_weight(font, COLUMN_LABEL_WEIGHT)
+        font = ImageFont.truetype(str(FONT), size)
+        _set_weight(font, COLUMN_LABEL_WEIGHT)
         if max(font.getlength(label) for label in labels) <= max_w:
             return font
-    raise nr.GenerationError(
+    raise GenerationError(
         f"column labels do not fit the cells at the smallest label font "
         f"({COLUMN_LABEL_SIZES[-1]} px); the longest is {max(labels, key=len)!r}"
     )
@@ -438,11 +462,11 @@ def _missing_font(cell_w: int) -> ImageFont.FreeTypeFont:
     :data:`MISSING_FONT_SIZES` whose text fits the cell's width (*cell_w*,
     with a little side padding); the smallest is used as a last resort."""
     for size in MISSING_FONT_SIZES:
-        font = ImageFont.truetype(str(nr.FONT), size)
-        nr._set_weight(font, COLUMN_LABEL_WEIGHT)
+        font = ImageFont.truetype(str(FONT), size)
+        _set_weight(font, COLUMN_LABEL_WEIGHT)
         if font.getlength(MISSING_TEXT) <= cell_w - 8:
             return font
-    return ImageFont.truetype(str(nr.FONT), MISSING_FONT_SIZES[-1])
+    return ImageFont.truetype(str(FONT), MISSING_FONT_SIZES[-1])
 
 
 def _label_font(labels: list[str], card_w: int) -> tuple[ImageFont.FreeTypeFont, int]:
@@ -452,12 +476,12 @@ def _label_font(labels: list[str], card_w: int) -> tuple[ImageFont.FreeTypeFont,
     padding)."""
     cap = round(LABEL_MAX_FRACTION * card_w) - 2 * LABEL_PAD
     for size in LABEL_FONT_SIZES:
-        font = ImageFont.truetype(str(nr.FONT), size)
-        nr._set_weight(font, LABEL_WEIGHT)
+        font = ImageFont.truetype(str(FONT), size)
+        _set_weight(font, LABEL_WEIGHT)
         longest = max(round(font.getlength(label)) for label in labels)
         if longest <= cap:
             return font, longest + 2 * LABEL_PAD
-    raise nr.GenerationError(
+    raise GenerationError(
         f"row labels do not fit the sheet at the smallest label font "
         f"({LABEL_FONT_SIZES[-1]} px); the longest is {max(labels, key=len)!r}"
     )
@@ -647,8 +671,8 @@ def _compose(
         )
 
     # --- the legend: the ▶ badge and its meaning, top right --------------
-    legend_font = ImageFont.truetype(str(nr.FONT), LEGEND_FONT_SIZE)
-    nr._set_weight(legend_font, LABEL_WEIGHT)
+    legend_font = ImageFont.truetype(str(FONT), LEGEND_FONT_SIZE)
+    _set_weight(legend_font, LABEL_WEIGHT)
     legend_w = round(legend_font.getlength(LEGEND_TEXT))
     legend_x = width - MARGIN - legend_w
     draw.text(
@@ -664,7 +688,7 @@ def _compose(
     # thread: each worker decodes and resizes its row's first frames (the
     # GIL-releasing part), while the shared canvas is only ever stamped by
     # the main thread (Pillow images are not thread-safe).
-    workers = min(len(rows), os.cpu_count() or 1, nr.MAX_STAGE_THREADS)
+    workers = min(len(rows), os.cpu_count() or 1, MAX_STAGE_THREADS)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         rendered = pool.map(
             _row_cards,
@@ -718,16 +742,16 @@ def _compose(
     # (the cards' rendering — supersampled, light-weight Oswald, ink
     # centered in the bottom margin — a bit smaller than the cards').
     font_size = round(
-        nr.COPYRIGHT_NOMINAL_SIZE * width / nr.CARD_REFERENCE_WIDTH * COPYRIGHT_FRACTION
+        COPYRIGHT_NOMINAL_SIZE * width / CARD_REFERENCE_WIDTH * COPYRIGHT_FRACTION
     )
-    ss = nr.COPYRIGHT_SUPERSAMPLE
-    big = ImageFont.truetype(str(nr.FONT), font_size * ss)
-    nr._set_weight(big, nr.COPYRIGHT_WEIGHT)
-    left, top, bottom = nr._text_ink_offsets(nr.COPYRIGHT_TEXT, big)
+    ss = COPYRIGHT_SUPERSAMPLE
+    big = ImageFont.truetype(str(FONT), font_size * ss)
+    _set_weight(big, COPYRIGHT_WEIGHT)
+    left, top, bottom = _text_ink_offsets(COPYRIGHT_TEXT, big)
     region = Image.new(
-        "L", (round(big.getlength(nr.COPYRIGHT_TEXT)) + 1, bottom - top + 1), 0
+        "L", (round(big.getlength(COPYRIGHT_TEXT)) + 1, bottom - top + 1), 0
     )
-    ImageDraw.Draw(region).text((-left, -top), nr.COPYRIGHT_TEXT, font=big, fill=255)
+    ImageDraw.Draw(region).text((-left, -top), COPYRIGHT_TEXT, font=big, fill=255)
     small = region.resize(
         (round(region.width / ss), round(region.height / ss)),
         Image.Resampling.LANCZOS,
@@ -742,4 +766,4 @@ def _compose(
         ),
     )
 
-    nr._save_atomic(canvas, out_path, source_hash)
+    _save_atomic(canvas, out_path, source_hash)

@@ -37,9 +37,11 @@ import hashlib
 import subprocess
 from pathlib import Path
 
-import nikke_reborn as nr
+from PIL import Image
+
 from nikke_reborn.config import (
     CARDS_DIR,
+    IMAGES_DIR,
     PACK_CONFIG,
     PACK_ITEM_NAME,
     PACK_MATERIAL_NAME,
@@ -48,8 +50,6 @@ from nikke_reborn.config import (
     UNITY_VIEWER,
 )
 from nikke_reborn.error import GenerationError
-from nikke_reborn.file import _material_hash, _save_atomic, _stored_hash, _viewer_hash
-from nikke_reborn.image import _pack_mask, _pack_mask_rects
 from nikke_reborn.expansion import (
     compose_front,
     fit_background,
@@ -57,14 +57,15 @@ from nikke_reborn.expansion import (
     load_background,
     load_expansion,
 )
-from PIL import Image
+from nikke_reborn.file import _material_hash, _save_atomic, _stored_hash, _viewer_hash
+from nikke_reborn.image import _pack_mask, _pack_mask_rects
 
 # --- the white NIKKE logo -----------------------------------------------------
 #: The white logo stamped on the pack's front, at the same placement in the
 #: material and the item: its width as a fraction of the front's width
 #: (centered horizontally) and its top inset as a fraction of the front's
 #: height.
-PACK_LOGO = nr.IMAGES_DIR / "Logo_White.png"
+PACK_LOGO = IMAGES_DIR / "Logo_White.png"
 PACK_LOGO_WIDTH = 0.6
 PACK_LOGO_TOP = 0.04
 
@@ -73,12 +74,12 @@ def front_size() -> tuple[int, int]:
     """The pack front's target size: the material template's *right* mask
     rectangle (the left one is the back). Composing at exactly this size means
     the material composition pastes it with no rescale."""
-    with Image.open(nr.PACK_TEMPLATE) as opened:
+    with Image.open(PACK_TEMPLATE) as opened:
         template = opened.convert("RGBA")
-    rects = nr._pack_mask_rects(nr._pack_mask(template))
+    rects = _pack_mask_rects(_pack_mask(template))
     if len(rects) != 2:
-        raise nr.GenerationError(
-            f"{nr.PACK_TEMPLATE.name} carries {len(rects)} pure-blue mask "
+        raise GenerationError(
+            f"{PACK_TEMPLATE.name} carries {len(rects)} pure-blue mask "
             f"rectangle(s), expected 2 (back, front)"
         )
     rect = rects[1]
@@ -89,12 +90,12 @@ def back_size() -> tuple[int, int]:
     """The pack back's target size: the material template's *left* mask
     rectangle (the right one is the front). Composing at exactly this size
     means the material composition pastes it with no rescale."""
-    with Image.open(nr.PACK_TEMPLATE) as opened:
+    with Image.open(PACK_TEMPLATE) as opened:
         template = opened.convert("RGBA")
-    rects = nr._pack_mask_rects(nr._pack_mask(template))
+    rects = _pack_mask_rects(_pack_mask(template))
     if len(rects) != 2:
-        raise nr.GenerationError(
-            f"{nr.PACK_TEMPLATE.name} carries {len(rects)} pure-blue mask "
+        raise GenerationError(
+            f"{PACK_TEMPLATE.name} carries {len(rects)} pure-blue mask "
             f"rectangle(s), expected 2 (back, front)"
         )
     rect = rects[0]
@@ -131,7 +132,7 @@ def front_source_hash(pack_dir: Path) -> str:
     logo and template). It is computed without rendering the front, so the
     finished material and item can be skipped (and the front's render
     avoided) when those inputs are unchanged."""
-    return front_source_digest(pack_dir, PACK_LOGO, nr.PACK_TEMPLATE)
+    return front_source_digest(pack_dir, PACK_LOGO, PACK_TEMPLATE)
 
 
 def back_source_hash(pack_dir: Path) -> str:
@@ -142,10 +143,10 @@ def back_source_hash(pack_dir: Path) -> str:
     expansion = load_expansion(pack_dir)
     background = expansion.get("background")
     if not background:
-        raise nr.GenerationError(f"{pack_dir.name}: missing 'background'")
+        raise GenerationError(f"{pack_dir.name}: missing 'background'")
     digest = hashlib.sha256()
     digest.update((pack_dir / background).resolve().read_bytes())
-    digest.update(nr.PACK_TEMPLATE.read_bytes())
+    digest.update(PACK_TEMPLATE.read_bytes())
     return digest.hexdigest()
 
 

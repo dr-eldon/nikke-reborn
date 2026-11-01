@@ -30,7 +30,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-import nikke_reborn as nr
+from PIL import Image
+
 from nikke_reborn.config import (
     BOX_CONFIG,
     BOX_ITEM_NAME,
@@ -38,11 +39,10 @@ from nikke_reborn.config import (
     BOX_MESH,
     BOX_TEMPLATE,
     CARDS_DIR,
+    IMAGES_DIR,
     UNITY_VIEWER,
 )
 from nikke_reborn.error import GenerationError
-from nikke_reborn.file import _material_hash, _save_atomic, _stored_hash, _viewer_hash
-from nikke_reborn.image import _box_side_mask, _box_top_mask, _pack_mask, _pack_mask_rects
 from nikke_reborn.expansion import (
     _background_glow_color,
     _composite_logo,
@@ -53,7 +53,13 @@ from nikke_reborn.expansion import (
     load_background,
     load_logo,
 )
-from PIL import Image
+from nikke_reborn.file import _material_hash, _save_atomic, _stored_hash, _viewer_hash
+from nikke_reborn.image import (
+    _box_side_mask,
+    _box_top_mask,
+    _pack_mask,
+    _pack_mask_rects,
+)
 
 # --- the white NIKKE logo -----------------------------------------------------
 #: The white logo stamped on the box's front (top-left), side
@@ -61,7 +67,7 @@ from PIL import Image
 #: face's height, its corner inset by that margin (a fraction of the
 #: face's height). Sized by height — the box's front is landscape, where
 #: the pack's width-based sizing is far too big.
-BOX_LOGO = nr.IMAGES_DIR / "Logo_White.png"
+BOX_LOGO = IMAGES_DIR / "Logo_White.png"
 BOX_LOGO_HEIGHT = 0.15
 BOX_LOGO_MARGIN = 0.05
 
@@ -96,12 +102,12 @@ def front_size() -> tuple[int, int]:
     blue, so the pack's pure-blue detection picks out exactly the front).
     Composing at exactly this size means the material composition pastes it
     with no rescale."""
-    with Image.open(nr.BOX_TEMPLATE) as opened:
+    with Image.open(BOX_TEMPLATE) as opened:
         template = opened.convert("RGBA")
-    rects = nr._pack_mask_rects(nr._pack_mask(template))
+    rects = _pack_mask_rects(_pack_mask(template))
     if len(rects) != 1:
-        raise nr.GenerationError(
-            f"{nr.BOX_TEMPLATE.name} carries {len(rects)} pure-blue mask "
+        raise GenerationError(
+            f"{BOX_TEMPLATE.name} carries {len(rects)} pure-blue mask "
             f"rectangle(s), expected 1 (front)"
         )
     rect = rects[0]
@@ -113,12 +119,12 @@ def side_size() -> tuple[int, int]:
     rectangle (the pure-green placeholder, detected the way the front is
     detected in blue). Composing at exactly this size means the material
     composition pastes it with no rescale."""
-    with Image.open(nr.BOX_TEMPLATE) as opened:
+    with Image.open(BOX_TEMPLATE) as opened:
         template = opened.convert("RGBA")
-    rects = nr._pack_mask_rects(nr._box_side_mask(template))
+    rects = _pack_mask_rects(_box_side_mask(template))
     if len(rects) != 1:
-        raise nr.GenerationError(
-            f"{nr.BOX_TEMPLATE.name} carries {len(rects)} pure-green mask "
+        raise GenerationError(
+            f"{BOX_TEMPLATE.name} carries {len(rects)} pure-green mask "
             f"rectangle(s), expected 1 (side)"
         )
     rect = rects[0]
@@ -131,12 +137,12 @@ def top_size() -> tuple[int, int]:
     detected in blue and the side in green). It marks the top's paste
     region, which the bottom face shares. Composing at exactly this size
     means the material composition pastes it with no rescale."""
-    with Image.open(nr.BOX_TEMPLATE) as opened:
+    with Image.open(BOX_TEMPLATE) as opened:
         template = opened.convert("RGBA")
-    rects = nr._pack_mask_rects(nr._box_top_mask(template))
+    rects = _pack_mask_rects(_box_top_mask(template))
     if len(rects) != 1:
-        raise nr.GenerationError(
-            f"{nr.BOX_TEMPLATE.name} carries {len(rects)} pure-red mask "
+        raise GenerationError(
+            f"{BOX_TEMPLATE.name} carries {len(rects)} pure-red mask "
             f"rectangle(s), expected 1 (top)"
         )
     rect = rects[0]
@@ -253,7 +259,7 @@ def front_source_hash(pack_dir: Path) -> str:
     and template). It is computed without rendering the front, so the
     finished material can be skipped (and the front's render avoided) when
     those inputs are unchanged."""
-    return front_source_digest(pack_dir, BOX_LOGO, nr.BOX_TEMPLATE)
+    return front_source_digest(pack_dir, BOX_LOGO, BOX_TEMPLATE)
 
 
 def build_front(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:

@@ -1,10 +1,12 @@
 # Design note: splitting `nikke_reborn/__init__.py` into modules
 
-Status: **in progress** — migration steps 1 (leaves: `config.py`,
-`error.py`, `file.py`), 2 (middle: `image.py`, `lettering.py`,
-`video.py`), and 3 (domain: `card.py`, `render.py`, and the material/item
-merge into `pack.py`/`box.py`/`file.py`/`expansion.py`) done and verified
-(see §7); steps 4–5 remaining.
+Status: **complete** — all five migration steps are done and verified
+(see §7). Step 1 (leaves: `config.py`, `error.py`, `file.py`), 2 (middle:
+`image.py`, `lettering.py`, `video.py`), 3 (domain: `card.py`, `render.py`,
+and the material/item merge into `pack.py`/`box.py`/`file.py`/`expansion.py`),
+4 (orchestration: `generate.py` + new `bundle.py`; `_write_metadata`/
+`_set_cards` moved into `metadata.py`), and 5 (entrypoints renamed to `run`,
+`pyproject.toml` rewired). `__init__.py` is now the package docstring only.
 Scope: pure code movement plus the documented renames in §6.4.
 No behavior changes.
 
@@ -27,7 +29,20 @@ function-local `from nikke_reborn import expansion` became a self-import once it
 moved, so it now reads the module-level `EXPANSION_NAME` directly; and the
 function-local pack/box imports in `_generate_variants` were lifted to the top of
 the function (a `from … import _find_pack_dirs` placed below its first call would
-leave the name unbound).
+leave the name unbound). Steps 4–5 (done together, one commit): `generate()`
+and its three passes + the CLI helpers moved to `generate.py` (renamed `run`,
+§6.4), and `bundle()` to a new `bundle.py` (renamed `run`); the function-local
+`box`/`pack`/`expansion` imports in `_generate_variants` were hoisted to module
+level. `_write_metadata` and `_set_cards` moved into `metadata.py` alongside
+the builders they call; because the moved code calls those builders
+module-qualified (`metadata.card`, …) and `_write_metadata`'s locals
+(`expansion`/`pack`/`box`/`bundle`) share their names with the functions, a
+`metadata` self-import was added to keep the moved code byte-identical (and to
+avoid the local-variable shadowing bare names would introduce) — it carries a
+targeted `# noqa: PLW0406`. The five siblings dropped `import nikke_reborn as
+nr` for explicit imports (§6.3), and `spritesheet()`/`simulate()` were renamed
+to `run` so all four console entrypoints are `run` (`pyproject.toml` rewired
+and reinstalled).
 
 ## 1. Background
 

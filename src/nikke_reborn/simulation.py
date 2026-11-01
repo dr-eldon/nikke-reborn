@@ -52,8 +52,9 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 
-import nikke_reborn as nr
 from nikke_reborn import metadata
+from nikke_reborn.config import CARDS_DIR, OUTPUT_DIR, REPO_ROOT
+from nikke_reborn.error import GenerationError
 
 #: The border types in the game's ``ECardBorderType`` order (the price
 #: formula multiplies by the border base raised to the border's index
@@ -130,7 +131,7 @@ def card_price(expansion: dict, rarity: str, border: str, foil: bool) -> float:
     multiplied by the foil multiplier when the card is foil."""
     strategy = expansion["CardPriceStrategy"]
     if strategy != "RarityDriven":
-        raise nr.GenerationError(
+        raise GenerationError(
             f"unsupported price strategy {strategy!r} "
             f"(only 'RarityDriven' is simulated)"
         )
@@ -149,16 +150,16 @@ def _load_expansion(name: str) -> tuple[dict, dict]:
     """The expansion's metadata and its pack item, built from
     ``cards/<name>`` through the current :mod:`nikke_reborn.metadata`
     tuning (what ``generate`` would write to ``output/<name>.json``)."""
-    set_dir = nr.CARDS_DIR / name
+    set_dir = CARDS_DIR / name
     if not set_dir.is_dir():
         available = ", ".join(
-            sorted(path.name for path in nr.CARDS_DIR.iterdir() if path.is_dir())
+            sorted(path.name for path in CARDS_DIR.iterdir() if path.is_dir())
         )
-        raise nr.GenerationError(f"unknown expansion {name!r} (available: {available})")
-    cards = nr._set_cards(set_dir)
+        raise GenerationError(f"unknown expansion {name!r} (available: {available})")
+    cards = metadata._set_cards(set_dir)
     if not cards:
-        raise nr.GenerationError(
-            f"no card definitions under {set_dir.relative_to(nr.REPO_ROOT)}/"
+        raise GenerationError(
+            f"no card definitions under {set_dir.relative_to(REPO_ROOT)}/"
         )
     return metadata.expansion(name, cards), metadata.pack(name)
 
@@ -200,7 +201,7 @@ def _slot_tables(pack: dict) -> list[dict | None]:
         return [pack["NormalWeights"]] * 7
     if strategy == "AllRandom":
         return [None] * 7
-    raise nr.GenerationError(f"unsupported pack generation strategy {strategy!r}")
+    raise GenerationError(f"unsupported pack generation strategy {strategy!r}")
 
 
 def _god_tables(pack: dict, slot_tables: list[dict | None]) -> list[dict | None]:
@@ -1021,7 +1022,7 @@ def render_report(
 """
 
 
-def simulate() -> None:
+def run() -> None:
     """Simulate pack openings for the selected expansion and write the
     HTML report to ``output/<Expansion>.html``."""
     parser = argparse.ArgumentParser(
@@ -1082,13 +1083,13 @@ def simulate() -> None:
         stats = compute_statistics(expansion, pack, cards, result, args.hit)
         report = render_report(name, expansion, pack, result, stats, args.hit)
 
-        nr.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = nr.OUTPUT_DIR / f"{name}.html"
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = OUTPUT_DIR / f"{name}.html"
         out_path.write_text(report, encoding="utf-8", newline="\n")
 
         print(
             f"simulated {args.packs:,} packs of {name} "
-            f"(seed {seed}) -> {out_path.relative_to(nr.REPO_ROOT)}"
+            f"(seed {seed}) -> {out_path.relative_to(REPO_ROOT)}"
         )
         print(
             f"  expected value per pack: {_money(stats['simulated_ev'])} "
@@ -1109,6 +1110,6 @@ def simulate() -> None:
             f"  hits over {_money(args.hit)}: {stats['hit_count']:,} of "
             f"{stats['n_packs']:,} packs; first at {first}; {gap} between hits"
         )
-    except nr.GenerationError as exc:
+    except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)

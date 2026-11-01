@@ -52,9 +52,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-import nikke_reborn as nr
-from nikke_reborn.config import CARDS_DIR
 from PIL import Image, ImageChops, ImageFilter
+
+from nikke_reborn.card import _load_card, _source_hash
+from nikke_reborn.config import CARDS_DIR, VIEWER
+from nikke_reborn.error import GenerationError
+from nikke_reborn.video import _PipeDrain, _read_exact, _reap_viewer
 
 EXPANSION_NAME = "Expansion.json"
 
@@ -105,11 +108,11 @@ def load_expansion(pack_dir: Path) -> dict:
     and ``logo``) — the metadata the front is composed from."""
     path = pack_dir / EXPANSION_NAME
     if not path.is_file():
-        raise nr.GenerationError(f"no {EXPANSION_NAME} in {pack_dir}")
+        raise GenerationError(f"no {EXPANSION_NAME} in {pack_dir}")
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise nr.GenerationError(f"cannot read {path}: {exc}") from exc
+        raise GenerationError(f"cannot read {path}: {exc}") from exc
 
 
 def front_source_digest(pack_dir: Path, logo: Path, template: Path) -> str:
@@ -128,7 +131,7 @@ def front_source_digest(pack_dir: Path, logo: Path, template: Path) -> str:
     digest = hashlib.sha256()
     digest.update((pack_dir / EXPANSION_NAME).read_bytes())
     for rel in expansion.get("pack", []):
-        digest.update(nr._source_hash((pack_dir / rel).resolve()).encode())
+        digest.update(_source_hash((pack_dir / rel).resolve()).encode())
     background = expansion.get("background")
     if background:
         digest.update((pack_dir / background).resolve().read_bytes())
@@ -147,10 +150,10 @@ def load_background(pack_dir: Path, expansion: dict) -> Image.Image:
     pack directory."""
     bg_rel = expansion.get("background")
     if not bg_rel:
-        raise nr.GenerationError(f"{pack_dir.name}: missing 'background'")
+        raise GenerationError(f"{pack_dir.name}: missing 'background'")
     bg_path = (pack_dir / bg_rel).resolve()
     if not bg_path.is_file():
-        raise nr.GenerationError(f"{pack_dir.name}: background not found: {bg_rel}")
+        raise GenerationError(f"{pack_dir.name}: background not found: {bg_rel}")
     return Image.open(bg_path).convert("RGBA")
 
 
@@ -160,18 +163,18 @@ def load_logo(pack_dir: Path, expansion: dict) -> tuple[Image.Image, str]:
     :data:`LOGO_PLACEMENTS`)."""
     logo = expansion.get("logo")
     if not isinstance(logo, dict):
-        raise nr.GenerationError(
+        raise GenerationError(
             f"{pack_dir.name}: 'logo' must be an object with a 'path' and a 'placement'"
         )
     logo_rel = logo.get("path")
     if not logo_rel:
-        raise nr.GenerationError(f"{pack_dir.name}: missing 'logo.path'")
+        raise GenerationError(f"{pack_dir.name}: missing 'logo.path'")
     logo_path = (pack_dir / logo_rel).resolve()
     if not logo_path.is_file():
-        raise nr.GenerationError(f"{pack_dir.name}: logo not found: {logo_rel}")
+        raise GenerationError(f"{pack_dir.name}: logo not found: {logo_rel}")
     placement = logo.get("placement")
     if placement not in LOGO_PLACEMENTS:
-        raise nr.GenerationError(
+        raise GenerationError(
             f"{pack_dir.name}: unknown logo placement {placement!r}; "
             f"expected one of {', '.join(LOGO_PLACEMENTS)}"
         )
@@ -196,7 +199,7 @@ def fit_background(
     elif align == "center":
         left = (background.width - width) // 2
     else:
-        raise nr.GenerationError(f"unknown background alignment {align!r}")
+        raise GenerationError(f"unknown background alignment {align!r}")
     return background.crop((left, 0, left + width, height)).convert("RGBA")
 
 
@@ -227,7 +230,7 @@ def _fit_cover(
     elif h_align == "right":
         left = background.width - width
     else:
-        raise nr.GenerationError(f"unknown horizontal alignment {h_align!r}")
+        raise GenerationError(f"unknown horizontal alignment {h_align!r}")
     if v_align == "top":
         top = 0
     elif v_align == "center":
@@ -235,7 +238,7 @@ def _fit_cover(
     elif v_align == "bottom":
         top = background.height - height
     else:
-        raise nr.GenerationError(f"unknown vertical alignment {v_align!r}")
+        raise GenerationError(f"unknown vertical alignment {v_align!r}")
     return background.crop((left, top, left + width, top + height)).convert("RGBA")
 
 
@@ -286,14 +289,14 @@ def compose_front(
     elif fit == "cover-bottom":
         canvas = _fit_cover(background, size)
     else:
-        raise nr.GenerationError(f"unknown background fit {fit!r}")
+        raise GenerationError(f"unknown background fit {fit!r}")
     # Sample the background's color now — before the NIKKES are composited — so
     # the logo's glow is tinted by the scene, not by the characters on top of it.
     glow_color = _background_glow_color(_image_average(canvas))
 
     pack_rel = expansion.get("pack")
     if not pack_rel:
-        raise nr.GenerationError(f"{pack_dir.name}: missing 'pack'")
+        raise GenerationError(f"{pack_dir.name}: missing 'pack'")
     bodies = [
         _content_box(_render_first_frame((pack_dir / rel).resolve()))
         for rel in pack_rel
@@ -351,37 +354,37 @@ def _render_first_frame(json_path: Path) -> Image.Image:
     block; only the first is kept and the stream is abandoned (the viewer is
     killed), so an animated NIKKE costs no more than a static one.
     """
-    card = nr._load_card(json_path)
+    card = _load_card(json_path)
     viewport = card.get("viewport")
     if not viewport:
-        raise nr.GenerationError(
+        raise GenerationError(
             f"{json_path.name}: missing 'viewport' (needed to size the raw "
-            f"frames streamed by {nr.VIEWER} --stdout)"
+            f"frames streamed by {VIEWER} --stdout)"
         )
     width, height = int(viewport[0]), int(viewport[1])
     frame_bytes = width * height * 4
 
     viewer = subprocess.Popen(
-        [nr.VIEWER, "--stdout", str(json_path)],
+        [VIEWER, "--stdout", str(json_path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     assert viewer.stdout is not None
     assert viewer.stderr is not None
     # A Popen pipe is a buffered reader (needed for read1).
-    drain = nr._PipeDrain(cast("io.BufferedReader", viewer.stderr))
+    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
     try:
-        data = nr._read_exact(viewer.stdout, frame_bytes)
+        data = _read_exact(viewer.stdout, frame_bytes)
         if len(data) != frame_bytes:
-            raise nr.GenerationError(
-                f"{nr.VIEWER} produced no frame for {json_path.name} "
+            raise GenerationError(
+                f"{VIEWER} produced no frame for {json_path.name} "
                 f"(got {len(data)} of {frame_bytes} bytes)"
             )
         frame = Image.frombytes("RGBA", (width, height), data)
     finally:
         # Abandon the stream early (we only want the first frame): the viewer
         # may be blocked writing the rest to a full pipe and is killed.
-        nr._reap_viewer(viewer, drain, clean_exit_expected=False)
+        _reap_viewer(viewer, drain, clean_exit_expected=False)
     return frame
 
 
@@ -390,7 +393,7 @@ def _content_box(image: Image.Image, threshold: int = ALPHA_TRIM) -> Image.Image
     alpha = image.getchannel("A").point(lambda v: 255 if v > threshold else 0)
     box = alpha.getbbox()
     if box is None:
-        raise nr.GenerationError("rendered frame is fully transparent")
+        raise GenerationError("rendered frame is fully transparent")
     return image.crop(box)
 
 
@@ -524,7 +527,7 @@ def _composite_logo(
     elif placement == "center":
         cy = height // 2
     else:
-        raise nr.GenerationError(
+        raise GenerationError(
             f"unknown logo placement {placement!r}; "
             f"expected one of {', '.join(LOGO_PLACEMENTS)}"
         )
