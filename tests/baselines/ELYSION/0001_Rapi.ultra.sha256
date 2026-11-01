@@ -1,0 +1,34 @@
+# nikke-reborn test baseline
+# card:   ELYSION/0001_Rapi
+# preset: ultra
+# files:  27
+# recorded by: test --new-baseline (generate --force --jobs 1)
+# verify from the repo root: sha256sum -c tests/baselines/ELYSION/0001_Rapi.ultra.sha256
+
+34df030f57f898156f26b371409761b938e648dd22fb879404f33270ffa8e075  output/ELYSION (Ultra)/0001_Rapi_Aim.mp4
+e6c77f13eb0dce07dc08bd09af3fa7b2ce5164ac6229979df8bc9de19843ea46  output/ELYSION (Ultra)/0001_Rapi_Aim.png
+de8c4d701c34abb36986e8e16ed1ad7ed0a28ff717e349206d3a8a4f53b2e455  output/ELYSION (Ultra)/0001_Rapi_AimProfile.mp4
+cef6f42a04cadacbf66a31fcbba17a5008eade93ebd3422c3e7cf5b9652337fe  output/ELYSION (Ultra)/0001_Rapi_AimProfile.png
+b12aa02f995972369af12a2fc7bf570ff4453c00f58c252ffef7481b8e3d00b7  output/ELYSION (Ultra)/0001_Rapi_Classic.png
+6fbfa7b4c3b78e11e76d942bd8b162820c42ec4f6d3420874d1e91a219959484  output/ELYSION (Ultra)/0001_Rapi_ClassicProfile.png
+78105c523c3ea8bc08c4b2fa567d50e9df30a98b27b00f022d5fd309af9cb585  output/ELYSION (Ultra)/0001_Rapi_ClassicStandard.png
+91c4d48dada343d0669327b0fc743371706be705d1a332396943d440e3790de8  output/ELYSION (Ultra)/0001_Rapi_Cover.mp4
+e475f8e9bda9f3c82cd95de4a23337bccd9266d21bdfb33373cdbb22045ace94  output/ELYSION (Ultra)/0001_Rapi_Cover.png
+6296f30aac1e35cefd006c8bdb4718cbb0b2966d29aeafd8a5d9780df8006e65  output/ELYSION (Ultra)/0001_Rapi_CoverProfile.mp4
+163e419e4fee0d41614a179e2ae260c25f7f184dd32454b971fdf8d44aa5cb0f  output/ELYSION (Ultra)/0001_Rapi_CoverProfile.png
+21df5b591f4790c08b282eabce62d84129746eede2d70ff0e17cfad6d2219183  output/ELYSION (Ultra)/0001_Rapi_Exotic.mp4
+48404794413d15c73a93daa319a7d29dda9b78650d95d352471e6df500660840  output/ELYSION (Ultra)/0001_Rapi_Exotic.png
+210e8eed7ff4f3b9f96fb214c8c2cd3ad62c2cbc17f694c9a5d8de0b64f8165e  output/ELYSION (Ultra)/0001_Rapi_ExoticStandard.mp4
+03f64772db772105de7b5c6a8e06f1f4a9dd591ab7cdf782da36ef1b4821e5aa  output/ELYSION (Ultra)/0001_Rapi_ExoticStandard.png
+1cf4215bf64709bf27cd52855f260caade263233303fc2e3f1524a072a54f581  output/ELYSION (Ultra)/0001_Rapi_Goddess.mp4
+926f4d38ecaf8aaf4b6c799c65ed9fbdf52dc869e41f7069b877f59abbf65450  output/ELYSION (Ultra)/0001_Rapi_Goddess.png
+16085419eb8c09e6348aa74ed89b444ff9fac82e134427166f63c9709390c018  output/ELYSION (Ultra)/0001_Rapi_Idle.mp4
+980f4130fed87c395e504877432f3334cf59c870f4ab13552793855ae9dff3f8  output/ELYSION (Ultra)/0001_Rapi_Idle.png
+a8d93a80082004a47eed968ef61072e13de511f93867affc12e5a2f359973503  output/ELYSION (Ultra)/0001_Rapi_IdleProfile.mp4
+a60c825d710d628ee296221bd9de8909d5ba2b41029fdeea44065d0b3a916874  output/ELYSION (Ultra)/0001_Rapi_IdleProfile.png
+6f015f52843b8fa49f6c7433dd12fd123a102aa904123e88d38743ece662829a  output/ELYSION (Ultra)/0001_Rapi_Special.png
+6c62095f3b6ff28faab8c81e9985a4f3ed87e047d7e0ff7bb9937cecbaadbd5b  output/ELYSION (Ultra)/0001_Rapi_SpecialStandard.png
+fe59f2c1ff76b97773661c10a616bab27484db8dbac691ae41e3d3bdad82213b  output/ELYSION (Ultra)/CardBox_Item.png
+f74790a3139383b5311615348147a9c76922ebe4d7ed229af3f09b1ed0dc43d4  output/ELYSION (Ultra)/CardBox_Material.png
+c8235dec7dcc8f41cc7c046e0fd112b6bdc1dcb3b0a67b78452d8c2b2a75a827  output/ELYSION (Ultra)/CardPack_Item.png
+40e5b6298e667a579f67b47dbfcdc5a521e0d429c1a29a1420b03bec5d2cfcdb  output/ELYSION (Ultra)/CardPack_Material.png

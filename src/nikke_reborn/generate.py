@@ -65,9 +65,14 @@ from nikke_reborn.render import (
 from nikke_reborn.video import ENCODER
 
 
-def run() -> None:
-    """Render and composite the selected (or all) card definitions."""
-    args = _parse_args()
+def run(argv: list[str] | None = None) -> None:
+    """Render and composite the selected (or all) card definitions.
+
+    *argv* overrides the command line (the process's by default) — the
+    test command drives a forced, single-worker run through this entry
+    point.
+    """
+    args = _parse_args(argv)
     draft = args.draft
     ultra = args.ultra
     force = args.force
@@ -152,7 +157,7 @@ def _run_notes(preset: Preset, no_video: bool) -> str:
     return f", {', '.join(notes)}{suffix}"
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Render and composite Nikke trading cards from cards/"
     )
@@ -227,7 +232,7 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help=("skip the full-art pass: render no full-art cards and no pack images"),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
     return args
