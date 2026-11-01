@@ -30,6 +30,7 @@ import sys
 import UnityPy
 from PIL import Image
 from UnityPy.enums import TextureFormat
+from UnityPy.export import Texture2DConverter
 from UnityPy.files.BundleFile import BundleFile
 from UnityPy.files.ObjectReader import ObjectReader
 from UnityPy.files.SerializedFile import SerializedFile
@@ -80,6 +81,22 @@ def read_raw_texture(png: pathlib.Path):
             return texture_format, width, height, payload[12:]
         offset += 12 + length
     return None
+
+
+def compress_texture(image: Image.Image) -> tuple[int, bytes]:
+    """Compress an RGBA image to GPU texture bytes the way Unity's importer does.
+
+    BC7 (like all block formats) needs both dimensions to be multiples of 4. Unity
+    falls back to uncompressed RGBA32 otherwise -- as the source assets confirm -- so
+    match that: forcing BC7 would pad the block grid and store a texture the game's
+    runtime never sees Unity produce (and lose quality, since RGBA32 is lossless).
+    The encoding is delegated to UnityPy's Texture2DConverter, so the bytes are
+    identical to what ``Texture2D.set_image`` would write for the same image.
+    """
+    width, height = image.size
+    fmt = TEXTURE_FORMAT if (width % 4 == 0 and height % 4 == 0) else TextureFormat.RGBA32
+    data, _ = Texture2DConverter.image_to_texture2d(image, fmt)
+    return int(fmt), data
 
 
 # Unity's mesh vertex layout for an imported model: position + normal + tangent + uv0,
@@ -310,23 +327,10 @@ class Bundle:
         return PPtr(m_FileID=0, m_PathID=obj.path_id if obj else 0, assetsfile=self._sf)
 
     def add_texture(self, name: str, image: Image.Image) -> ObjectReader:
-        obj = self._clone(self._protos.texture)
-        data = obj.read()
-        data.m_Name = name
-        # BC7 (like all block formats) needs both dimensions to be multiples of 4. Unity
-        # falls back to uncompressed RGBA32 otherwise -- as the source assets confirm -- so
-        # match that: forcing BC7 would pad the block grid and store a texture the game's
-        # runtime never sees Unity produce (and lose quality, since RGBA32 is lossless).
+        """Add a texture from a PIL image: compress it (`compress_texture`) and embed."""
+        texture_format, data = compress_texture(image)
         width, height = image.size
-        block_compressible = width % 4 == 0 and height % 4 == 0
-        fmt = TEXTURE_FORMAT if block_compressible else TextureFormat.RGBA32
-        # set_image re-encodes and fixes m_Width/Height/CompleteImageSize/format.
-        data.set_image(image, target_format=fmt)
-        data.m_MipCount = 1
-        data.m_IsReadable = False
-        data.m_TextureSettings.m_FilterMode = 1  # Bilinear
-        data.save()
-        return obj
+        return self.add_raw_texture(name, texture_format, width, height, data)
 
     def add_raw_texture(
         self, name: str, texture_format: int, width: int, height: int, data_bytes: bytes
@@ -553,30 +557,35 @@ def progress(items: list, label: str):
         print()
 
 
-def parallel(items: list, worker, label: str, workers: int | None = None) -> None:
-    """Run `worker(item)` over `items` across a thread pool, reporting progress as it goes.
+def parallel_map(items: list, worker, label: str, workers: int | None = None) -> list:
+    """Run `worker(item)` over `items` across a process pool, returning the results
+    in input order and reporting progress as items complete.
 
-    Progress is printed the same way as `progress`, just keyed off completion order rather
-    than iteration order. The work must be thread-safe; the first worker exception is
-    re-raised. Defaults to one thread per CPU -- the payload here (texture decode, PNG
-    encode, image compositing) is C code that drops the GIL, so it scales with cores.
+    A process pool, not threads: the payload here (the BC7 encode) holds the GIL while
+    it searches for each block's best mode, so threads would serialize it. `worker` and
+    each item must be picklable (a module-level function, plain data). Progress is
+    printed the same way as `progress`, just keyed off completion order rather than
+    iteration order. The first worker exception is re-raised. Defaults to one worker
+    per CPU; the pool spawns lazily, so more workers than items costs nothing.
     """
     total = len(items)
 
     if not total:
-        return
+        return []
 
     workers = workers or (os.cpu_count() or 4)
     live = sys.stdout.isatty()
     last_percent = -1
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(worker, item) for item in items]
+    results: list = [None] * total
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(worker, item): index for index, item in enumerate(items)}
 
         for done, future in enumerate(
             concurrent.futures.as_completed(futures), start=1
         ):
-            future.result()
+            results[futures[future]] = future.result()
 
             percent = done * 100 // total
 
@@ -589,9 +598,33 @@ def parallel(items: list, worker, label: str, workers: int | None = None) -> Non
     if live:
         print()
 
+    return results
+
+
+def _texture_payload(asset: pathlib.Path) -> tuple[int, int, int, bytes]:
+    """The (format, width, height, bytes) `asset` embeds into the bundle.
+
+    Already-encoded textures pass through the `nkTx` chunk verbatim; every other PNG is
+    decoded and compressed the way Unity's importer does (see `compress_texture`).
+    Runs in a worker process: it touches only `asset` and fresh per-call state, and is
+    picklable (module-level, plain arguments and result).
+    """
+    raw = read_raw_texture(asset)
+    if raw is not None:
+        return raw
+
+    image = Image.open(asset).convert("RGBA")
+    texture_format, data = compress_texture(image)
+    width, height = image.size
+    return texture_format, width, height, data
+
 
 def build(
-    assets_dir: pathlib.Path, name: str, output: pathlib.Path, root: pathlib.Path
+    assets_dir: pathlib.Path,
+    name: str,
+    output: pathlib.Path,
+    root: pathlib.Path,
+    jobs: int | None = None,
 ) -> None:
     """Build one AssetBundle named `name` from the PNGs under `assets_dir`.
 
@@ -599,26 +632,23 @@ def build(
     every other PNG becomes Texture2D + Sprite. Container paths are `assets/` + the path
     relative to `root` (the Assets-equivalent), lowercased -- exactly what Unity emitted
     when `root` was copied into the project's Assets/ -- so the game resolves assets the same.
+
+    `jobs` is the process-pool size for the texture compression (one per CPU by default).
     """
     bundle = Bundle(name)
     assets = sorted(p for p in assets_dir.rglob("*") if p.is_file())
     textures = [p for p in assets if p.suffix == ".png"]
     meshes = [p for p in assets if p.suffix == ".obj"]
 
-    for asset in progress(textures, name):
+    # The slow part is the texture data itself (the BC7 encode, which holds the GIL), so
+    # gather it across a process pool. Object construction stays serial, in asset order,
+    # so path IDs and container order -- and thus the bundle's bytes -- stay deterministic.
+    payloads = parallel_map(textures, _texture_payload, name, jobs)
+
+    for asset, (texture_format, width, height, data) in zip(textures, payloads):
         container = "assets/" + asset.relative_to(root).as_posix().lower()
 
-        raw = read_raw_texture(asset)
-        if raw is not None:
-            texture_format, width, height, data_bytes = raw
-            texture = bundle.add_raw_texture(
-                asset.stem, texture_format, width, height, data_bytes
-            )
-            size = (width, height)
-        else:
-            image = Image.open(asset).convert("RGBA")
-            texture = bundle.add_texture(asset.stem, image)
-            size = image.size
+        texture = bundle.add_raw_texture(asset.stem, texture_format, width, height, data)
         bundle.register(container, texture, [texture])
 
         if asset.stem.endswith(MATERIAL_SUFFIX):
@@ -626,7 +656,7 @@ def build(
             mat_path = container.removesuffix(".png") + ".mat"
             bundle.register(mat_path, material, [material, texture, bundle.shader])
         else:
-            sprite = bundle.add_sprite(asset.stem, texture, size)
+            sprite = bundle.add_sprite(asset.stem, texture, (width, height))
             bundle.register(container, sprite, [sprite, texture])
 
     # A figurine .obj imports as a model whose MeshRenderer uses a placeholder defaultMat;
