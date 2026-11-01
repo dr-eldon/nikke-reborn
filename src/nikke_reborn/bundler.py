@@ -623,19 +623,23 @@ def build(
     assets_dir: pathlib.Path,
     name: str,
     output: pathlib.Path,
-    root: pathlib.Path,
+    set_name: str | None = None,
     jobs: int | None = None,
 ) -> None:
     """Build one AssetBundle named `name` from the PNGs under `assets_dir`.
 
     Mirrors Unity's Builder.Run: `*_Material` PNGs become Texture2D + Standard Material,
-    every other PNG becomes Texture2D + Sprite. Container paths are `assets/` + the path
-    relative to `root` (the Assets-equivalent), lowercased -- exactly what Unity emitted
-    when `root` was copied into the project's Assets/ -- so the game resolves assets the same.
+    every other PNG becomes Texture2D + Sprite. Container paths are `assets/<set_name>/`
+    + the path relative to `assets_dir`, lowercased -- exactly what Unity emitted when
+    the set's folder was copied into the project's Assets/ -- so the game resolves assets
+    the same. `set_name` defaults to `assets_dir.name` (the set folder the assets live
+    in); pass it when the on-disk folder differs from the set's identity (the ultra run's
+    `<set> (Ultra)` twin keeps the base set's names and container paths).
 
     `jobs` is the process-pool size for the texture compression (one per CPU by default).
     """
     bundle = Bundle(name)
+    set_name = set_name or assets_dir.name
     assets = sorted(p for p in assets_dir.rglob("*") if p.is_file())
     textures = [p for p in assets if p.suffix == ".png"]
     meshes = [p for p in assets if p.suffix == ".obj"]
@@ -646,7 +650,9 @@ def build(
     payloads = parallel_map(textures, _texture_payload, name, jobs)
 
     for asset, (texture_format, width, height, data) in zip(textures, payloads):
-        container = "assets/" + asset.relative_to(root).as_posix().lower()
+        container = (
+            f"assets/{set_name}/{asset.relative_to(assets_dir).as_posix()}".lower()
+        )
 
         texture = bundle.add_raw_texture(asset.stem, texture_format, width, height, data)
         bundle.register(container, texture, [texture])
@@ -662,7 +668,9 @@ def build(
     # A figurine .obj imports as a model whose MeshRenderer uses a placeholder defaultMat;
     # its real material is a separate asset above, applied by the loader from the JSON.
     for asset in progress(meshes, f"{name} meshes"):
-        container = "assets/" + asset.relative_to(root).as_posix().lower()
+        container = (
+            f"assets/{set_name}/{asset.relative_to(assets_dir).as_posix()}".lower()
+        )
         root_object, graph = bundle.add_mesh(asset.stem, asset)
         preload = graph + [bundle.shader]
         # Unity's model importer makes the GameObject, its placeholder material, and its mesh
