@@ -34,9 +34,22 @@ background and the material template) are hashed the same way (see
 from __future__ import annotations
 
 import hashlib
+import subprocess
 from pathlib import Path
 
 import nikke_reborn as nr
+from nikke_reborn.config import (
+    CARDS_DIR,
+    PACK_CONFIG,
+    PACK_ITEM_NAME,
+    PACK_MATERIAL_NAME,
+    PACK_MESH,
+    PACK_TEMPLATE,
+    UNITY_VIEWER,
+)
+from nikke_reborn.error import GenerationError
+from nikke_reborn.file import _material_hash, _save_atomic, _stored_hash, _viewer_hash
+from nikke_reborn.image import _pack_mask, _pack_mask_rects
 from nikke_reborn.expansion import (
     compose_front,
     fit_background,
@@ -154,3 +167,111 @@ def build_back(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.
     center-crops the same background). The result is returned in memory; it is
     the material's left rectangle and is never written to disk."""
     return fit_background(load_background(pack_dir, expansion), size, align="left")
+
+
+def _process_pack_material(
+    pack_dir: Path,
+    out_base: Path,
+    front: Image.Image,
+    front_source: str,
+    back: Image.Image,
+    back_source: str,
+    force: bool = False,
+) -> tuple[Path, bool]:
+    """Composite a pack's images onto the material template.
+
+    The template's pure-blue mask rectangles mark the paste regions: the
+    left one holds the pack's back and the right one its front — both
+    in-memory images composed on the fly (the front with its white logo,
+    placed by :func:`pack.place_logo`) and never stored. The finished
+    material is written to ``<out>/<pack>/CardPack_Material.png``
+    (atomically, with the SHA-256 of the template and the back's and
+    front's inputs embedded, like a finished card); returns
+    ``(out_path, skipped)``, where *skipped* is True when the output
+    already exists and its stored hash matches the current inputs.
+    """
+    pack_dir = pack_dir.resolve()
+    source_hash = _material_hash(
+        PACK_TEMPLATE, front_source=front_source, back_source=back_source
+    )
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    with Image.open(PACK_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+        rects = _pack_mask_rects(_pack_mask(template))
+        if len(rects) != 2:
+            raise GenerationError(
+                f"pack material template {PACK_TEMPLATE.name} carries "
+                f"{len(rects)} pure-blue mask rectangle(s), expected 2 (back, front)"
+            )
+        # The back and front are the in-memory images (composed on the fly),
+        # each already sized to its rectangle.
+        back_target = (rects[0][2] - rects[0][0], rects[0][3] - rects[0][1])
+        if back.size != back_target:
+            back = back.resize(back_target, Image.Resampling.LANCZOS)
+        template.alpha_composite(back, (rects[0][0], rects[0][1]))
+        front_target = (rects[1][2] - rects[1][0], rects[1][3] - rects[1][1])
+        if front.size != front_target:
+            front = front.resize(front_target, Image.Resampling.LANCZOS)
+        template.alpha_composite(front, (rects[1][0], rects[1][1]))
+        final = template.convert("RGB")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _save_atomic(final, out_path, source_hash)
+    return out_path, False
+
+
+def _process_pack_item(
+    pack_dir: Path, out_base: Path, force: bool = False
+) -> tuple[Path, bool]:
+    """Render a pack's item with :data:`UNITY_VIEWER`: the pack's mesh
+    (:data:`PACK_MESH`) textured with the pack's finished material
+    (``<out>/<pack>/CardPack_Material.png``), posed by the viewer
+    configuration (:data:`PACK_CONFIG`): the model rotation and camera
+    zoom/pan from that JSON file, the camera's fixed viewing pose and
+    the viewer's default output size. The material must have been
+    generated first — the item is rendered from its output file.
+
+    The viewer writes a plain PNG, which is re-saved with the SHA-256 of
+    the mesh and the material embedded (a PNG text chunk, like a finished
+    card) and moved into place atomically, so a finished item only ever
+    exists in its complete form; returns ``(out_path, skipped)``, where
+    *skipped* is True when the output already exists and its stored hash
+    matches the current inputs.
+    """
+    pack_dir = pack_dir.resolve()
+    material_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_MATERIAL_NAME
+    source_hash = _viewer_hash(PACK_MESH, material_path, PACK_CONFIG)
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / PACK_ITEM_NAME
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = out_path.with_name(out_path.name + ".render")
+    try:
+        result = subprocess.run(
+            [
+                UNITY_VIEWER,
+                str(PACK_MESH),
+                str(material_path),
+                "--config",
+                str(PACK_CONFIG),
+                "--out",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(f"could not run {UNITY_VIEWER}: {exc}") from exc
+    if result.returncode != 0 or not tmp_path.is_file():
+        detail = result.stderr.strip()
+        detail = f" ({detail[-500:]})" if detail else ""
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(
+            f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}"
+        )
+    with Image.open(tmp_path) as rendered:
+        _save_atomic(rendered, out_path, source_hash)
+    tmp_path.unlink(missing_ok=True)
+    return out_path, False

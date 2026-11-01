@@ -31,7 +31,6 @@ from nikke_reborn.image import _composite_frame, _monochrome
 from nikke_reborn.lettering import _apply_name, _NameLayers
 
 ENCODER = "ffmpeg"
-PROBER = "ffprobe"
 
 #: Wide pipe buffer for the frame streams: the default 8 KiB buffer turns a
 #: 13 MiB frame into ~1700 syscalls; 1 MiB reads at the kernel's pipe

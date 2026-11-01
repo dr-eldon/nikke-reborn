@@ -1,8 +1,10 @@
 # Design note: splitting `nikke_reborn/__init__.py` into modules
 
 Status: **in progress** — migration steps 1 (leaves: `config.py`,
-`error.py`, `file.py`) and 2 (middle: `image.py`, `lettering.py`, `video.py`)
-done and verified (see §7); steps 3–5 remaining.
+`error.py`, `file.py`), 2 (middle: `image.py`, `lettering.py`,
+`video.py`), and 3 (domain: `card.py`, `render.py`, and the material/item
+merge into `pack.py`/`box.py`/`file.py`/`expansion.py`) done and verified
+(see §7); steps 4–5 remaining.
 Scope: pure code movement plus the documented renames in §6.4.
 No behavior changes.
 
@@ -16,6 +18,16 @@ material hash helpers renamed (§4–§8); the copyright stamping
 `_text_ink_offsets`, and `MANUFACTURER_LOGO_WIDTH` were placed in `lettering.py`
 rather than `image.py`/`config.py` — they are stamp/typography concerns, and
 co-locating them with the name stack keeps the import graph acyclic (§5).
+Step 3 placed `_find_pack_dirs` in `expansion.py` (Appendix A) and, because the
+encoder preset/scale selection and the ffmpeg-prober path are shared by at least
+two modules, placed those too in `config.py` (§6.1) rather than the
+`generate.py`/`video.py` homes Appendix A listed — the former would have put a
+`render.py → generate.py → render.py` cycle back in. `_find_pack_dirs`'s
+function-local `from nikke_reborn import expansion` became a self-import once it
+moved, so it now reads the module-level `EXPANSION_NAME` directly; and the
+function-local pack/box imports in `_generate_variants` were lifted to the top of
+the function (a `from … import _find_pack_dirs` placed below its first call would
+leave the name unbound).
 
 ## 1. Background
 

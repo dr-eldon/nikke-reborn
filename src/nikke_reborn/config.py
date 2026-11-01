@@ -4,7 +4,8 @@ The constants more than one part of the pipeline needs: the repository
 and asset directories, the external executables, the source-hash key,
 the shared variant stems, the reference card width, the copyright line
 and its face, the stage-thread cap, and the pack's and the box's asset
-names. Everything that only one part needs (masks, tints, name
+names, the encoder preset and output scale (full and draft), and
+ffprobe. Everything that only one part needs (masks, tints, name
 placement, encode flags) lives with the code that uses it.
 """
 
@@ -24,6 +25,9 @@ SHOP_DIR = IMAGES_DIR / "shop"
 
 VIEWER = "nikke-viewer"
 UNITY_VIEWER = "unity-viewer"
+#: The ffprobe executable: reading the hash tag out of a finished
+#: MP4 card (see :func:`file._stored_hash`).
+PROBER = "ffprobe"
 
 #: Key of the embedded definition hash in the finished cards (a PNG
 #: text chunk, an MP4 tag): a card whose stored hash matches the
@@ -55,6 +59,14 @@ FONT = FONTS_DIR / "Oswald.ttf"
 #: ffmpeg encodes and frame compositing get at most this many threads
 #: each, even when a single card uses all the cores.
 MAX_STAGE_THREADS = 16
+
+#: The encoder preset and output scale for a full-quality render and
+#: for a draft (``--draft``) render respectively; a draft renders at
+#: ``DRAFT_SCALE`` of the width with the faster ``DRAFT_PRESET``.
+DEFAULT_PRESET = "slow"
+DRAFT_PRESET = "ultrafast"
+DEFAULT_SCALE = 1.0
+DRAFT_SCALE = 0.5
 
 #: Pack artwork: ``assets/images/`` holds the material template, whose two
 #: pure-blue mask rectangles hold the pack's back (left) and front

@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import cast
 
 import nikke_reborn as nr
+from nikke_reborn.config import CARDS_DIR
 from PIL import Image, ImageChops, ImageFilter
 
 EXPANSION_NAME = "Expansion.json"
@@ -544,3 +545,14 @@ def _composite_logo(
         trail.putalpha(logo.getchannel("A"))
         canvas.alpha_composite(trail, (x + trail_offset, y + trail_offset))
     canvas.alpha_composite(logo, (x, y))
+
+
+def _find_pack_dirs() -> list[Path]:
+    """``cards/`` subdirectories carrying an ``Expansion.json`` (the pack's
+    inputs). The front and back are composed from the expansion on the fly
+    (see :mod:`nikke_reborn.pack`), so neither is stored."""
+    return sorted(
+        pack_dir
+        for pack_dir in CARDS_DIR.iterdir()
+        if pack_dir.is_dir() and (pack_dir / EXPANSION_NAME).is_file()
+    )

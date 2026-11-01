@@ -27,9 +27,22 @@ expansion's logo center-center and the white NIKKE logo top-right.
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import nikke_reborn as nr
+from nikke_reborn.config import (
+    BOX_CONFIG,
+    BOX_ITEM_NAME,
+    BOX_MATERIAL_NAME,
+    BOX_MESH,
+    BOX_TEMPLATE,
+    CARDS_DIR,
+    UNITY_VIEWER,
+)
+from nikke_reborn.error import GenerationError
+from nikke_reborn.file import _material_hash, _save_atomic, _stored_hash, _viewer_hash
+from nikke_reborn.image import _box_side_mask, _box_top_mask, _pack_mask, _pack_mask_rects
 from nikke_reborn.expansion import (
     _background_glow_color,
     _composite_logo,
@@ -310,3 +323,138 @@ def build_top(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.I
     )
     place_top_logo(top)
     return top
+
+
+def _process_box_material(
+    pack_dir: Path,
+    out_base: Path,
+    front: Image.Image,
+    front_source: str,
+    side: Image.Image,
+    top: Image.Image,
+    force: bool = False,
+) -> tuple[Path, bool]:
+    """Composite the box's front, side and top onto the box material
+    template.
+
+    The template's blue mask rectangle marks the front's paste region and
+    its green mask rectangle the side's — the front is composed on the
+    fly, with its white logo placed by :func:`box.place_logo`, and the
+    side is the background's center slice with the expansion's logo
+    center-center and the white logo bottom-center; the top (shared with
+    the bottom) is the background center-cropped with the expansion's
+    logo center-center and the white logo top-right. The finished
+    material is
+    written to
+    ``<out>/<pack>/CardBox_Material.png`` (atomically, with the SHA-256 of
+    the template and the front's inputs embedded, like a finished card —
+    the side's and top's inputs are subsets of the front's); returns
+    ``(out_path, skipped)``, where *skipped* is True when the output
+    already exists and its stored hash matches the current inputs.
+    """
+    pack_dir = pack_dir.resolve()
+    source_hash = _material_hash(BOX_TEMPLATE, front_source=front_source)
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    with Image.open(BOX_TEMPLATE) as opened:
+        template = opened.convert("RGBA")
+        rects = _pack_mask_rects(_pack_mask(template))
+        if len(rects) != 1:
+            raise GenerationError(
+                f"box material template {BOX_TEMPLATE.name} carries "
+                f"{len(rects)} pure-blue mask rectangle(s), expected 1 (front)"
+            )
+        side_rects = _pack_mask_rects(_box_side_mask(template))
+        if len(side_rects) != 1:
+            raise GenerationError(
+                f"box material template {BOX_TEMPLATE.name} carries "
+                f"{len(side_rects)} pure-green mask rectangle(s), expected 1 (side)"
+            )
+        # Detected on the untouched template, like the blue and green ones:
+        # the composed content may itself carry pure-red pixels.
+        top_rects = _pack_mask_rects(_box_top_mask(template))
+        if len(top_rects) != 1:
+            raise GenerationError(
+                f"box material template {BOX_TEMPLATE.name} carries "
+                f"{len(top_rects)} pure-red mask rectangle(s), expected 1 (top)"
+            )
+        # The front and side are the in-memory images (composed on the
+        # fly), each already sized to its rectangle.
+        front_target = (rects[0][2] - rects[0][0], rects[0][3] - rects[0][1])
+        if front.size != front_target:
+            front = front.resize(front_target, Image.Resampling.LANCZOS)
+        template.alpha_composite(front, (rects[0][0], rects[0][1]))
+        side_rect = side_rects[0]
+        side_target = (
+            side_rect[2] - side_rect[0],
+            side_rect[3] - side_rect[1],
+        )
+        if side.size != side_target:
+            side = side.resize(side_target, Image.Resampling.LANCZOS)
+        template.alpha_composite(side, (side_rect[0], side_rect[1]))
+        top_rect = top_rects[0]
+        top_target = (top_rect[2] - top_rect[0], top_rect[3] - top_rect[1])
+        if top.size != top_target:
+            top = top.resize(top_target, Image.Resampling.LANCZOS)
+        template.alpha_composite(top, (top_rect[0], top_rect[1]))
+        final = template.convert("RGB")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _save_atomic(final, out_path, source_hash)
+    return out_path, False
+
+
+def _process_box_item(
+    pack_dir: Path, out_base: Path, force: bool = False
+) -> tuple[Path, bool]:
+    """Render the box's item with :data:`UNITY_VIEWER`: the box's mesh
+    (:data:`BOX_MESH`) textured with the box's finished material
+    (``<out>/<pack>/CardBox_Material.png``), posed by the box's viewer
+    configuration (:data:`BOX_CONFIG`): the model rotation and camera
+    zoom/pan from that JSON file, the camera's fixed viewing pose and
+    the viewer's default output size. The material must have been
+    generated first — the item is rendered from its output file.
+
+    The viewer writes a plain PNG, which is re-saved with the SHA-256 of
+    the mesh and the material embedded (a PNG text chunk, like a finished
+    card) and moved into place atomically, so a finished item only ever
+    exists in its complete form; returns ``(out_path, skipped)``, where
+    *skipped* is True when the output already exists and its stored hash
+    matches the current inputs.
+    """
+    pack_dir = pack_dir.resolve()
+    material_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_MATERIAL_NAME
+    source_hash = _viewer_hash(BOX_MESH, material_path, BOX_CONFIG)
+    out_path = out_base / pack_dir.relative_to(CARDS_DIR) / BOX_ITEM_NAME
+    if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
+        return out_path, True
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = out_path.with_name(out_path.name + ".render")
+    try:
+        result = subprocess.run(
+            [
+                UNITY_VIEWER,
+                str(BOX_MESH),
+                str(material_path),
+                "--config",
+                str(BOX_CONFIG),
+                "--out",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(f"could not run {UNITY_VIEWER}: {exc}") from exc
+    if result.returncode != 0 or not tmp_path.is_file():
+        detail = result.stderr.strip()
+        detail = f" ({detail[-500:]})" if detail else ""
+        tmp_path.unlink(missing_ok=True)
+        raise GenerationError(
+            f"{UNITY_VIEWER} failed (exit {result.returncode}){detail}"
+        )
+    with Image.open(tmp_path) as rendered:
+        _save_atomic(rendered, out_path, source_hash)
+    tmp_path.unlink(missing_ok=True)
+    return out_path, False
