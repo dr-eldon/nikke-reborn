@@ -1,0 +1,507 @@
+"""Stream the viewer's frames and encode the MP4.
+
+``nikke-viewer --stdout`` streams its frames as raw RGBA pixels (no
+intermediate files): each frame is a contiguous ``width * height * 4`` byte
+block on the viewer's stdout. The streaming side reads those blocks, one
+per frame, in order (or in lockstep, for the profile card's two streams),
+and reaps the viewer once the stream ends or is abandoned: the viewer's
+stderr is drained in the background so it can never block on a full pipe.
+The encoding side feeds the composited frames to ffmpeg through a pipe —
+visually lossless CRF, yuv420p for compatibility and fast-start for
+streaming — and embeds the source hash as a container tag.
+"""
+
+from __future__ import annotations
+
+import io
+import subprocess
+import threading
+import time
+from collections import deque
+from collections.abc import Generator, Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
+from typing import IO
+
+from PIL import Image
+
+from nikke_reborn.config import SOURCE_HASH_KEY, VIEWER
+from nikke_reborn.error import GenerationError
+from nikke_reborn.image import _composite_frame, _monochrome
+from nikke_reborn.lettering import _apply_name, _NameLayers
+
+ENCODER = "ffmpeg"
+PROBER = "ffprobe"
+
+#: Wide pipe buffer for the frame streams: the default 8 KiB buffer turns a
+#: 13 MiB frame into ~1700 syscalls; 1 MiB reads at the kernel's pipe
+#: quantum (~64 KiB), ~200.
+PIPE_BUFSIZE = 1 << 20
+
+DEFAULT_FRAMERATE = 60
+
+#: Brightness scale applied to the monochrome face (its value channel): 1.0
+#: keeps the face's own brightness; below 1.0 darkens it so it sits quieter
+#: against the tinted background.
+PROFILE_FACE_BRIGHTNESS = 0.7
+
+#: H.264 quality settings for the MP4 output: visually lossless CRF,
+#: yuv420p for compatibility and fast-start for streaming. The x264 preset
+#: and the resolution scale are chosen per run: ``slow`` at full
+#: resolution by default, ``ultrafast`` at half resolution for drafts
+#: (``--draft``).
+FFMPEG_QUALITY_ARGS = (
+    "-crf",
+    "16",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+)
+
+
+def _read_exact(stream: IO[bytes], n: int) -> bytes:
+    """Read exactly *n* bytes from *stream*; fewer only at end-of-stream.
+
+    A buffered reader's ``read`` may return a partial chunk, so this loops until
+    *n* bytes are gathered or the stream is exhausted. A raw frame is written
+    whole by the viewer, so a full read is one call in practice — the loop
+    just makes the frame boundary robust to partial reads.
+    """
+    chunks: list[bytes] = []
+    remaining = n
+    while remaining > 0:
+        chunk = stream.read(remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    if len(chunks) == 1:
+        return chunks[0]  # a buffered read gathers the whole frame at once;
+    return b"".join(chunks)  # joining would just copy it for no reason
+
+
+class _PipeDrain:
+    """Drain a pipe into a bounded in-memory buffer from a daemon thread.
+
+    Keeps the writer from blocking on a full pipe (the viewer's stderr) while
+    its stdout is streamed; only the tail is kept, for error reporting.
+    """
+
+    def __init__(self, stream: "io.BufferedReader", cap: int = 1 << 20) -> None:
+        self._stream = stream
+        self._cap = cap
+        self._buf = bytearray()
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        try:
+            while True:
+                chunk = self._stream.read1(65536)
+                if not chunk:
+                    break
+                with self._lock:
+                    self._buf.extend(chunk)
+                    if len(self._buf) > self._cap:
+                        del self._buf[: len(self._buf) - self._cap]
+        except (OSError, ValueError):
+            pass
+
+    def text(self) -> str:
+        with self._lock:
+            return bytes(self._buf).decode(errors="replace").strip()
+
+    def join(self, timeout: float | None = None) -> None:
+        self._thread.join(timeout)
+
+
+def _reap_viewer(
+    viewer: subprocess.Popen,
+    drain: _PipeDrain,
+    *,
+    clean_exit_expected: bool,
+) -> None:
+    """Wait for *viewer* to exit, draining its stderr, and raise on failure.
+
+    When the frame stream was fully read (``clean_exit_expected``) the viewer
+    exits right after its last frame: a grace period is given before killing a
+    hung process, and a non-zero exit is a :class:`GenerationError`. When the
+    stream was abandoned early (the reader or the consumer errored), the viewer
+    may be blocked writing to a full pipe and is killed; its exit code is not
+    consulted (the caller already has the real exception).
+    """
+    if clean_exit_expected:
+        try:
+            viewer.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            viewer.kill()
+            viewer.wait()
+    else:
+        if viewer.poll() is None:
+            viewer.kill()
+        viewer.wait()
+    drain.join(timeout=5)
+    if clean_exit_expected and viewer.returncode != 0:
+        detail = drain.text()
+        detail = f" ({detail[-500:]})" if detail else ""
+        raise GenerationError(f"{VIEWER} failed (exit {viewer.returncode}){detail}")
+
+
+def _stream_composited(
+    viewer: subprocess.Popen,
+    drain: _PipeDrain,
+    json_path: Path,
+    size: tuple[int, int],
+    base: Image.Image,
+    overlay: Image.Image,
+    overlay_pos: tuple[int, int],
+    composite_workers: int,
+    first_frame: list[Image.Image],
+    composite_time: list[float],
+    stream_end: list[float],
+    parts: _NameLayers | None = None,
+) -> Generator[Image.Image]:
+    """Composite the viewer's raw RGBA stdout frames and yield them in order.
+
+    ``--stdout`` writes each frame as a contiguous ``width * height * 4`` byte
+    block of raw RGBA, in presentation order. Frames are decoded and
+    composited over *base*,
+    then the *overlay* (the pre-stamped logo and copyright line) is stamped
+    on top — and the name stack (if any, *parts*) is applied, as the profile
+    cards do — in a sliding window of *composite_workers* threads — Pillow
+    releases the GIL in its raster ops, so the reader stays ahead of the
+    encode and the cores stay busy — and yielded in
+    presentation order. At most ~2x the worker
+    count of frames are in memory at once. The first composited frame (as an
+    image) is appended to *first_frame*. When the stream ends (or the
+    consumer stops), the viewer is reaped and a non-zero exit surfaced. The
+    wall seconds of composite work (summed across the worker threads)
+    accumulate in *composite_time*, and the moment the stream reaches
+    end-of-file is recorded in *stream_end*.
+    """
+    width, height = size
+    frame_bytes = width * height * 4
+    assert viewer.stdout is not None
+    stdout = viewer.stdout
+    # A fully opaque base lets the per-frame blend take the GIL-releasing
+    # Image.composite path (see _composite_frame); the base's alpha band is
+    # restored onto the result so the downstream stamps (logo, copyright)
+    # composite against the same alpha as the alpha_composite path.
+    # Computed once per card (None when the base is not fully opaque).
+    base_alpha = base.getchannel("A")
+    if base_alpha.getextrema() != (255, 255):
+        base_alpha = None
+
+    def composite(data: bytes) -> Image.Image:
+        started = time.perf_counter()
+        frame = Image.frombytes("RGBA", (width, height), data)
+        art = _composite_frame(frame, base, base_alpha)
+        art.alpha_composite(overlay, overlay_pos)
+        result = _apply_name(art, parts) if parts is not None else art
+        with time_lock:
+            composite_time[0] += time.perf_counter() - started
+        return result
+
+    time_lock = threading.Lock()
+    workers = max(1, composite_workers)
+    eof = False
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            pending: deque[Future[Image.Image]] = deque()
+            yielded = 0
+
+            def submit_next() -> None:
+                nonlocal eof
+                data = _read_exact(stdout, frame_bytes)
+                if not data:
+                    eof = True  # end of stream
+                    stream_end[0] = time.perf_counter()
+                    return
+                if len(data) != frame_bytes:
+                    raise GenerationError(
+                        f"{VIEWER} stream for {json_path.name} truncated: "
+                        f"{len(data)} of {frame_bytes} bytes"
+                    )
+                pending.append(pool.submit(composite, data))
+
+            # Prime the window.
+            for _ in range(workers):
+                submit_next()
+
+            while pending:
+                future = pending.popleft()
+                try:
+                    frame = future.result()
+                except Exception:
+                    for pending_future in pending:
+                        pending_future.cancel()
+                    raise
+                if yielded == 0:
+                    # Keep the first composited frame: for animations it is
+                    # written alongside the mp4, for a static card it is the
+                    # card itself.
+                    first_frame.append(frame)
+                yielded += 1
+                # Keep the window full (read ahead) before handing off.
+                submit_next()
+                yield frame
+
+        if yielded == 0:
+            raise GenerationError(f"{VIEWER} produced no frames for {json_path.name}")
+    finally:
+        _reap_viewer(viewer, drain, clean_exit_expected=eof)
+
+
+def _stream_dual_composited(
+    face_viewer: subprocess.Popen,
+    face_drain: _PipeDrain,
+    body_viewer: subprocess.Popen,
+    body_drain: _PipeDrain,
+    json_path: Path,
+    size: tuple[int, int],
+    background: Image.Image,
+    tint: Image.Image,
+    mask: Image.Image,
+    overlay: Image.Image,
+    overlay_pos: tuple[int, int],
+    parts: _NameLayers | None,
+    reel: list[tuple[Image.Image, tuple[int, int]]],
+    composite_workers: int,
+    first_frame: list[Image.Image],
+    composite_time: list[float],
+    stream_end: list[float],
+) -> Generator[Image.Image]:
+    """Composite the two synchronized viewer streams and yield the frames in
+    presentation order — the profile
+    card, where the ``--face`` framing
+    animates (as a monochrome of the tint's hue) over the background, under
+    the tint wash, and the ``--full-body`` framing animates over the mask.
+
+    Both streams come from the same definition at the same framerate, so frame
+    *i* of the face stream pairs with frame *i* of the body stream and they
+    are read in lockstep. Per frame the face — collapsed to a monochrome of
+    the background's dominant tint (:func:`_monochrome`) — is composited over
+    *background*, the dominant *tint* wash is laid over both, then the
+    *mask* and the body frame, then the *reel* (the photo reel's face stills,
+    if any), then the *overlay* and the name stack (if any), in a sliding window
+    of *composite_workers* threads — as in :func:`_stream_composited` — and
+    yielded in order. The first composited
+    frame (as an image) is appended to *first_frame*. When both streams reach
+    end-of-file (or
+    the consumer stops) the two viewers are reaped and a non-zero exit
+    surfaced; *composite_time* and *stream_end* accumulate the composite wall
+    seconds and the moment the streams reach EOF.
+    """
+    width, height = size
+    frame_bytes = width * height * 4
+    assert face_viewer.stdout is not None
+    assert body_viewer.stdout is not None
+    face_stdout = face_viewer.stdout
+    body_stdout = body_viewer.stdout
+    # The tint layer's top row is the background's dominant tint (the
+    # gradient darkens toward the bottom); reuse it to key the face's
+    # monochrome recolor (the vivid full-color face is collapsed to
+    # single-hue shades of the tint so it blends into the card's palette).
+    tint_pixel = tint.getpixel((0, 0))
+    assert isinstance(tint_pixel, tuple)
+    tint_rgb = (tint_pixel[0], tint_pixel[1], tint_pixel[2])
+    # The background is a fully opaque card, so the per-frame blends take
+    # the GIL-releasing Image.composite path (see _composite_frame): its
+    # RGB is bit-identical to the alpha_composite chain, but its alpha
+    # band is not, so the background's alpha is restored onto the result
+    # before the stamps (logo, copyright, name) — the finished card is
+    # byte-identical to the alpha_composite chain. The constant layers'
+    # alpha channels are the blend masks, computed once.
+    background_alpha = background.getchannel("A")
+    base_opaque = background_alpha.getextrema() == (255, 255)
+    tint_alpha = tint.getchannel("A")
+    mask_alpha = mask.getchannel("A")
+
+    def composite(face_data: bytes, body_data: bytes) -> Image.Image:
+        started = time.perf_counter()
+        face = Image.frombytes("RGBA", (width, height), face_data)
+        face = _monochrome(face, tint_rgb, PROFILE_FACE_BRIGHTNESS)
+        body = Image.frombytes("RGBA", (width, height), body_data)
+        # The face over the raw background, then the single dominant-tint
+        # wash over both, then the mask and the body frame.
+        if base_opaque:
+            art = Image.composite(face, background, face.getchannel("A"))
+            art = Image.composite(tint, art, tint_alpha)
+            art = Image.composite(mask, art, mask_alpha)
+            art = Image.composite(body, art, body.getchannel("A"))
+            art.putalpha(background_alpha)
+        else:
+            art = background.copy()
+            art.alpha_composite(face)
+            art.alpha_composite(tint)
+            art.alpha_composite(mask)
+            art.alpha_composite(body)
+
+        for still, position in reel:
+            art.alpha_composite(still, position)
+
+        art.alpha_composite(overlay, overlay_pos)
+        result = _apply_name(art, parts) if parts is not None else art
+        with time_lock:
+            composite_time[0] += time.perf_counter() - started
+        return result
+
+    time_lock = threading.Lock()
+    workers = max(1, composite_workers)
+    face_eof = False
+    body_eof = False
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            pending: deque[Future[Image.Image]] = deque()
+            yielded = 0
+
+            def submit_next() -> None:
+                nonlocal face_eof, body_eof
+                if face_eof or body_eof:
+                    return
+                face_data = _read_exact(face_stdout, frame_bytes)
+                if not face_data:
+                    face_eof = True  # end of the face stream
+                    stream_end[0] = time.perf_counter()
+                    return
+                if len(face_data) != frame_bytes:
+                    raise GenerationError(
+                        f"{VIEWER} face stream for {json_path.name} truncated: "
+                        f"{len(face_data)} of {frame_bytes} bytes"
+                    )
+                body_data = _read_exact(body_stdout, frame_bytes)
+                if not body_data:
+                    body_eof = True  # end of the body stream
+                    stream_end[0] = time.perf_counter()
+                    return
+                if len(body_data) != frame_bytes:
+                    raise GenerationError(
+                        f"{VIEWER} body stream for {json_path.name} truncated: "
+                        f"{len(body_data)} of {frame_bytes} bytes"
+                    )
+                pending.append(pool.submit(composite, face_data, body_data))
+
+            # Prime the window.
+            for _ in range(workers):
+                submit_next()
+
+            while pending:
+                future = pending.popleft()
+                try:
+                    frame = future.result()
+                except Exception:
+                    for pending_future in pending:
+                        pending_future.cancel()
+                    raise
+                if yielded == 0:
+                    # Keep the first composited frame: for animations it is
+                    # written alongside the mp4, for a static card it is the
+                    # card itself.
+                    first_frame.append(frame)
+                yielded += 1
+                # Keep the window full (read ahead) before handing off.
+                submit_next()
+                yield frame
+
+        if yielded == 0:
+            raise GenerationError(f"{VIEWER} produced no frames for {json_path.name}")
+    finally:
+        # A stream is "clean" only if it was read to end-of-file; one that was
+        # abandoned early (the consumer stopped or an error aborted the window)
+        # may be blocked writing to a full pipe and is killed instead.
+        _reap_viewer(face_viewer, face_drain, clean_exit_expected=face_eof)
+        _reap_viewer(body_viewer, body_drain, clean_exit_expected=body_eof)
+
+
+def _encode_mp4(
+    frames: Iterator[Image.Image],
+    size: tuple[int, int],
+    framerate: int,
+    out_path: Path,
+    threads: int,
+    preset: str,
+    scale: float,
+    source_hash: str | None = None,
+) -> None:
+    """Encode an RGBA frame stream into an MP4 using ffmpeg."""
+    width, height = size
+    command = [
+        ENCODER,
+        "-y",
+        "-loglevel",
+        "error",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgba",
+        "-s",
+        f"{width}x{height}",
+        "-framerate",
+        str(framerate),
+        "-i",
+        "-",
+    ]
+    if scale != 1.0:
+        # Downscale inside ffmpeg (fast, SIMD-optimized swscale) rather
+        # than resizing every frame in Python first.
+        target = (
+            round(width * scale) & ~1,
+            round(height * scale) & ~1,
+        )  # yuv420p needs even dims
+        command += ["-vf", f"scale={target[0]}:{target[1]}"]
+    command += [
+        "-c:v",
+        "libx264",
+        "-preset",
+        preset,
+        *FFMPEG_QUALITY_ARGS,
+        "-threads",
+        str(max(1, threads)),
+    ]
+    if source_hash is not None:
+        # Arbitrary metadata keys need use_metadata_tags to land in the
+        # container (read back via ffprobe's format tags)
+        command += [
+            "-movflags",
+            "use_metadata_tags",
+            "-metadata",
+            f"{SOURCE_HASH_KEY}={source_hash}",
+        ]
+    command += [
+        "-f",
+        "mp4",  # explicit format: the output name may carry a suffix (e.g. .part)
+        str(out_path),
+    ]
+    try:
+        proc = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=PIPE_BUFSIZE,
+        )
+    except OSError as exc:
+        raise GenerationError(f"could not run {ENCODER!r}: {exc}") from exc
+
+    try:
+        assert proc.stdin is not None
+        for frame in frames:
+            proc.stdin.write(frame.tobytes())
+    except Exception as exc:  # includes a bad frame surfacing mid-stream
+        proc.kill()
+        proc.wait()
+        detail = (
+            proc.stderr.read().decode(errors="replace").strip() if proc.stderr else ""
+        )
+        detail = f" ({detail[-500:]})" if detail else ""
+        raise GenerationError(f"frame stream failed: {exc}{detail}") from exc
+    finally:
+        if proc.stdin:
+            proc.stdin.close()
+
+    stderr = proc.communicate()[1]
+    if proc.returncode != 0:
+        raise GenerationError(
+            f"{ENCODER} failed (exit {proc.returncode}): {stderr.decode(errors='replace').strip()}"
+        )

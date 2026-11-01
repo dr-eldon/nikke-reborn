@@ -1,7 +1,8 @@
 # Design note: splitting `nikke_reborn/__init__.py` into modules
 
-Status: **in progress** — migration step 1 (leaves: `config.py`,
-`error.py`, `file.py`) done and verified (see §7); steps 2–5 remaining.
+Status: **in progress** — migration steps 1 (leaves: `config.py`,
+`error.py`, `file.py`) and 2 (middle: `image.py`, `lettering.py`, `video.py`)
+done and verified (see §7); steps 3–5 remaining.
 Scope: pure code movement plus the documented renames in §6.4.
 No behavior changes.
 
@@ -10,7 +11,11 @@ Iterations so far: module names are singular (§3, §4); `pipeline.py` →
 `bundler.py` untouched; `util.py` → `file.py`; `material.py` merged into
 `pack.py`/`box.py`/`file.py`/`expansion.py`; `frame.py` + `presentation.py`
 → `render.py`; all four console entrypoints normalized to `run`; the
-material hash helpers renamed (§4–§8).
+material hash helpers renamed (§4–§8); the copyright stamping
+(`_with_copyright`, `_logo_copyright_overlay`), its `COPYRIGHT_*` constants,
+`_text_ink_offsets`, and `MANUFACTURER_LOGO_WIDTH` were placed in `lettering.py`
+rather than `image.py`/`config.py` — they are stamp/typography concerns, and
+co-locating them with the name stack keeps the import graph acyclic (§5).
 
 ## 1. Background
 
@@ -101,12 +106,12 @@ Non-goals:
 | Module | Gets | ~lines |
 |---|---|---|
 | `__init__.py` | The big docstring (it *is* the package doc) and nothing else | ~110 |
-| `config.py` | Only the **shared** constants (used by ≥2 modules) — see Appendix A | ~180 |
+| `config.py` | Only the **shared** constants (used by ≥2 modules) — see Appendix A | 92 |
 | `error.py` | `GenerationError` | ~5 |
 | `file.py` | `copy()`, `_save_atomic`, `_require_executable`, output-hash freshness: `_stored_hash` (from `card.py`), `_material_hash` (was `_pack_hash`), `_material_output_up_to_date` (was `_pack_output_up_to_date`), `_viewer_hash`, `_viewer_output_up_to_date` | ~230 |
-| `image.py` | PIL primitives: `_fit_background`, `_dominant_color`, `_monochrome_luts`, `_monochrome`, `_scale_linear_light`, `_tint_wash`, `_tint_at_luma`, `_fade_to_dominant`, `_scale_logo`, `_with_logo`, `_with_copyright`, `_logo_copyright_overlay`, `_profile_layers`, `_standard_layers`, `_set_luma`, template-mask helpers (`_pack_mask`, `_pack_mask_rects`, `_box_side_mask`, `_box_top_mask`) + colocated constants (`PROFILE_MASK_PATH`, `STANDARD_MASK_PATH`, `PROFILE_TINT_*`, logo sizing factors) | ~430 |
-| `text.py` | `_set_weight`, `_text_ink_offsets`, `_name_font_size`, `_subtitle_font_size`, `_sample_context`, `_rect_tint`, `_tint_layer`, `_NameLayers`, `_name_layers`, `_apply_name` + `NAME_*`, `SUBTITLE_*`, `CONTEXT_*`, `FONT_NAME`, `FONT_RECT_ARROW` | ~510 |
-| `video.py` | `_PipeDrain`, `_read_exact`, `_reap_viewer`, `_stream_composited`, `_stream_dual_composited`, `_encode_mp4` + `PIPE_BUFSIZE`, `DEFAULT_FRAMERATE`, `FFMPEG_QUALITY_ARGS`, `ENCODER`, `PROBER` | ~390 |
+| `image.py` | PIL primitives: `_fit_background`, `_dominant_color`, `_monochrome_luts`, `_monochrome`, `_scale_linear_light`, `_tint_wash`, `_tint_at_luma`, `_fade_to_dominant`, `_scale_logo`, `_with_logo`, `_profile_layers`, `_standard_layers`, `_set_luma`, template-mask helpers (`_pack_mask`, `_pack_mask_rects`, `_box_side_mask`, `_box_top_mask`) + colocated constants (`PROFILE_MASK_PATH`, `STANDARD_MASK_PATH`, `PROFILE_TINT_*`, `LOGO_PADDING_FACTOR`, `LOGO_NOMINAL_WIDTH`) | 438 |
+| `lettering.py` | `_set_weight`, `_text_ink_offsets`, `_name_font_size`, `_subtitle_font_size`, `_sample_context`, `_rect_tint`, `_tint_layer`, `_NameLayers`, `_name_layers`, `_apply_name`, `_with_copyright`, `_logo_copyright_overlay` + `NAME_*`, `SUBTITLE_*`, `CONTEXT_*`, `FONT_NAME`, `FONT_RECT_ARROW`, `COPYRIGHT_*`, `MANUFACTURER_LOGO_WIDTH` | 608 |
+| `video.py` | `_PipeDrain`, `_read_exact`, `_reap_viewer`, `_stream_composited`, `_stream_dual_composited`, `_encode_mp4` + `PIPE_BUFSIZE`, `DEFAULT_FRAMERATE`, `FFMPEG_QUALITY_ARGS`, `ENCODER`, `PROBER` | 507 |
 | `card.py` | Card-configuration domain: `_find_card_configs`, `_expand_card_paths`, `_selected_configs`, `_load_card`, `_background_path`, `_character_manufacturer`, `_manufacturer_logo`, `_profile_stem`, `_standard_stem`, `_card_out_path`, source hashes (`_source_hash`, `_profile_source_hash`, `_standard_source_hash`) + `LOGO_PATHS` | ~290 |
 | `render.py` | One card → its output files and the two presentations: `_composite_frame`, `_render_and_finish`, `_FirstFrameWriter`, `_write_final_card`, `_first_frame`, `_face_offset`, `_reel_animations`, `_photo_reel`, `_render_profile`, `_render_standard`, `_process_card`, `_process_profile_card`, `_process_standard_card` + `RENDER_ATTEMPTS`, `PROFILE_FACE_*`, `PROFILE_REEL_*` | ~1,250 |
 | `generate.py` | Orchestration: `run()` entrypoint, `_parse_args`, `_default_jobs`, `_stage_threads`, `_run_notes`, `_timings_suffix`, `_generate_profiles`, `_generate_standards`, `_generate_variants` + `DEFAULT_PRESET`, `DRAFT_PRESET`, `DEFAULT_SCALE`, `DRAFT_SCALE` | ~750 |
@@ -130,20 +135,32 @@ generate.py  ----->  render.py, card.py, box.py, pack.py,
                      expansion.py, metadata.py, file.py,
                      config.py, error.py
 bundle.py         -->  bundler.py, metadata.py, file.py, config.py
-render.py       -->  card.py, video.py, image.py, text.py,
+render.py       -->  card.py, video.py, image.py, lettering.py,
                       file.py, error.py
 card.py          -->  config.py, error.py
 box.py, pack.py (existing) --> image.py, file.py, config.py, error.py
 expansion.py (existing) --> card.py, video.py, config.py, error.py
-image.py, text.py, video.py, file.py --> config.py, error.py
+image.py          -->  config.py
+lettering.py      -->  image.py, config.py
+video.py          -->  image.py, lettering.py, config.py, error.py
+file.py           -->  config.py, error.py
 config.py, error.py, bundler.py (leaves; no intra-package imports)
 ```
 
 Notes:
 
-- `_set_luma` is used by both `image.py` (`_tint_wash`) and `text.py`
-  (context sampling). It lives in `image.py` (color math); `text.py`
+- `_set_luma` is used only by `lettering.py` (`_rect_tint`, the name/subtitle
+  bar fill). It lives in `image.py` (it is pure color math); `lettering.py`
   imports it.
+- `lettering.py` therefore depends on `image.py`: `_rect_tint` uses its
+  `_set_luma` (the bar-fill color math) and `_logo_copyright_overlay` uses
+  its `_scale_logo`/`_with_logo` (the per-frame logo + copyright overlay).
+  That direction is why the copyright stamp (`_with_copyright`,
+  `_logo_copyright_overlay`), `_text_ink_offsets`, `MANUFACTURER_LOGO_WIDTH`
+  and the `COPYRIGHT_*` constants live in `lettering.py`: `_logo_copyright_overlay`
+  calls `_with_copyright`, so the two must sit in the same module, and
+  keeping the whole stamping concern in the upper (`lettering`) module avoids an
+  `image` ↔ `lettering` cycle.
 - Once the layering exists, the function-local
   `from nikke_reborn import expansion` / `box, pack` imports inside
   `_find_card_configs`, `_expand_card_paths`, `_find_pack_dirs`, and
@@ -202,7 +219,7 @@ until step 5 removes them.
 
 1. **Leaves.** Create `config.py`, `error.py`, `file.py`; move their
    contents (Appendix A). `__init__.py` re-imports the moved names.
-2. **Middle.** Extract `image.py`, `text.py`, `video.py` (functions +
+2. **Middle.** Extract `image.py`, `lettering.py`, `video.py` (functions +
    colocated constants + docstring slices). Same temporary re-imports.
 3. **Domain.** Extract `card.py` and `render.py` (frame output + the two
    presentations); merge the material/item processing:
@@ -273,7 +290,6 @@ Current `__init__.py` line → new home.
 | 169 | `SOURCE_HASH_KEY` |
 | 200, 217, 223 | `PROFILE_RARITIES`, `STANDARD_STEMS`, `PROFILE_STEMS` |
 | 326 | `CARD_REFERENCE_WIDTH` |
-| 334–345 | `COPYRIGHT_NOMINAL_SIZE`, `COPYRIGHT_WEIGHT`, `COPYRIGHT_SUPERSAMPLE`, `COPYRIGHT_TEXT` |
 | 348 | `FONT` |
 | 461 | `MAX_STAGE_THREADS` |
 | 474–482 | `PACK_TEMPLATE`, `PACK_MATERIAL_NAME`, `PACK_ITEM_NAME`, `PACK_MESH`, `PACK_CONFIG` |
@@ -304,7 +320,7 @@ Current `__init__.py` line → new home.
 |---|---|
 | 227, 230 | `PROFILE_MASK_PATH`, `STANDARD_MASK_PATH` |
 | 235–251 | `PROFILE_TINT_TOP_OPACITY`, `PROFILE_TINT_BOTTOM_OPACITY`, `PROFILE_TINT_BOTTOM_FACTOR`, `PROFILE_TINT_GRADIENT_END` |
-| 322, 331, 428 | `LOGO_PADDING_FACTOR`, `LOGO_NOMINAL_WIDTH`, `MANUFACTURER_LOGO_WIDTH` |
+| 322, 331 | `LOGO_PADDING_FACTOR`, `LOGO_NOMINAL_WIDTH` |
 | 1290 | `_fit_background` |
 | 1304 | `_dominant_color` |
 | 1320 | `_monochrome_luts` |
@@ -317,20 +333,20 @@ Current `__init__.py` line → new home.
 | 1530 | `_fade_to_dominant` |
 | 1547 | `_scale_logo` |
 | 1561 | `_with_logo` |
-| 1632 | `_set_luma` (shared with `text.py`, which imports it) |
-| 2004 | `_with_copyright` |
-| 2042 | `_logo_copyright_overlay` |
+| 1632 | `_set_luma` (used only by `lettering.py`, which imports it) |
 | 3383 | `_pack_mask` |
 | 3391 | `_box_side_mask` |
 | 3400 | `_box_top_mask` |
 | 3409 | `_pack_mask_rects` |
 
-### → `text.py`
+### → `lettering.py`
 
 | Lines | Names |
 |---|---|
+| 334–345 | `COPYRIGHT_NOMINAL_SIZE`, `COPYRIGHT_WEIGHT`, `COPYRIGHT_SUPERSAMPLE`, `COPYRIGHT_TEXT` |
 | 351, 354 | `FONT_NAME`, `FONT_RECT_ARROW` |
 | 360–438 | `NAME_*`, `SUBTITLE_*`, `CONTEXT_*` (18 names) |
+| 428 | `MANUFACTURER_LOGO_WIDTH` |
 | 1572 | `_set_weight` |
 | 1582 | `_text_ink_offsets` |
 | 1604 | `_name_font_size` |
@@ -341,6 +357,8 @@ Current `__init__.py` line → new home.
 | 1715 | `_NameLayers` |
 | 1740 | `_name_layers` |
 | 1994 | `_apply_name` |
+| 2004 | `_with_copyright` |
+| 2042 | `_logo_copyright_overlay` |
 
 ### → `video.py`
 
@@ -468,7 +486,7 @@ What `import nikke_reborn as nr` + `nr.X` becomes:
 | `pack.py` | `nr.GenerationError` → `error`; `nr.PACK_TEMPLATE`, `nr.IMAGES_DIR` → `config`; `nr._pack_mask`, `nr._pack_mask_rects` → `image` |
 | `expansion.py` | `nr.GenerationError` → `error`; `nr.VIEWER` → `config`; `nr._load_card`, `nr._source_hash` → `card`; `nr._PipeDrain`, `nr._read_exact`, `nr._reap_viewer` → `video` |
 | `simulation.py` | `nr.GenerationError` → `error`; `nr.CARDS_DIR`, `nr.OUTPUT_DIR`, `nr.REPO_ROOT` → `config`; `nr._set_cards` → `metadata` |
-| `spritesheet.py` | `nr.GenerationError` → `error`; `nr._save_atomic` → `file`; `nr._set_weight`, `nr._text_ink_offsets` → `text`; `nr.CARD_REFERENCE_WIDTH`, `nr.CARDS_DIR`, `nr.COPYRIGHT_*`, `nr.DRAFT_DIR`, `nr.FONT`, `nr.IMAGES_DIR`, `nr.MAX_STAGE_THREADS`, `nr.OUTPUT_DIR`, `nr.PROFILE_RARITIES`, `nr.PROFILE_STEMS`, `nr.REPO_ROOT`, `nr.SOURCE_HASH_KEY`, `nr.STANDARD_STEMS` → `config` |
+| `spritesheet.py` | `nr.GenerationError` → `error`; `nr._save_atomic` → `file`; `nr._set_weight`, `nr._text_ink_offsets`, `nr.COPYRIGHT_*` → `lettering`; `nr.CARD_REFERENCE_WIDTH`, `nr.CARDS_DIR`, `nr.DRAFT_DIR`, `nr.FONT`, `nr.IMAGES_DIR`, `nr.MAX_STAGE_THREADS`, `nr.OUTPUT_DIR`, `nr.PROFILE_RARITIES`, `nr.PROFILE_STEMS`, `nr.REPO_ROOT`, `nr.SOURCE_HASH_KEY`, `nr.STANDARD_STEMS` → `config` |
 
 In addition, `spritesheet()` and `simulate()` are renamed to `run()`
 (§6.4). And `pyproject.toml` becomes:

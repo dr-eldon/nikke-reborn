@@ -49,20 +49,6 @@ PROFILE_STEMS = frozenset({"Classic", "Idle", "Cover", "Aim"})
 #: this width and scale proportionally for other viewport widths.
 CARD_REFERENCE_WIDTH = 1640
 
-#: Nominal copyright text size (pixels) at the reference card width.
-COPYRIGHT_NOMINAL_SIZE = 20
-#: Oswald weight for the copyright line (variable axis 200-700; a light
-#: weight reads quieter at this small size)
-COPYRIGHT_WEIGHT = 300
-#: The copyright is stamped at this multiple of its size and downscaled:
-#: at the final size FreeType quantizes glyph advances unevenly (the
-#: word spaces come out different widths), and the LANCZOS downscale
-#: re-smooths them
-COPYRIGHT_SUPERSAMPLE = 4
-
-#: Copyright line rendered at the bottom left of the card.
-COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
-
 #: Oswald face for the copyright line (vendored variable font, SIL OFL).
 FONT = FONTS_DIR / "Oswald.ttf"
 
