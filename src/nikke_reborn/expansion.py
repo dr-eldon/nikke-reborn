@@ -25,14 +25,21 @@ own pieces: the material template's sizing, their white NIKKE logo
 placement and their background fit). The two must therefore stay in sync
 with nothing here: the shared code is written once.
 
-* the ``pack`` field lists the characters to feature (viewer ids). The
-  *first* one is the hero: it is centered in the front. The rest are
+* the ``pack`` field lists the characters to feature: each entry is a table
+  with the character's viewer ``id`` and optional per-character overrides —
+  a horizontal nudge ``x`` (in the material's native pixels, applied to the
+  character's position before compositing, before the downscale, so it
+  scales with the material), an ``animation`` (which of the character's
+  animations to show; the viewer's default when absent) and a ``time`` (the
+  second of that animation to still on; 0, the first frame, when absent).
+  The *first* entry is the hero: it is centered in the front. The rest are
   placed behind it, to the left and right, at a lower scale, to read as a
   group in perspective/distance.
 * Only ``nikke-viewer``'s output is used (the raw character render, not
   the finished card — no background fit, logo, name or copyright). Each
-  featured character's first frame is read off the viewer's ``--stdout``
-  (``--time 0``, the default framing).
+  featured character's still frame is read off the viewer's ``--stdout``
+  (that character's ``time`` on its ``animation``, the ``--half-body``
+  framing).
 * the expansion's logo (its ``path``, relative to the expansion's
   folder) is composited on top at its ``placement`` with a glow: the halo
   is screen-blended for a light bloom, a solid trail in a darkened glow
@@ -219,6 +226,23 @@ class CardEntry:
 
 
 @dataclass(frozen=True)
+class Featured:
+    """A featured character on the expansion's front: its viewer id, an
+    optional horizontal nudge (*x*, in the material's native pixels — the
+    material's own resolution, so it scales with the material) applied to the
+    character's position before it is composited onto the front (negative
+    *x* nudges it left), and per-character render overrides for its frame:
+    *animation* (which of the character's animations to show; the viewer's
+    default when absent) and *time* (the second of that animation to still
+    on; 0, the first frame, when absent)."""
+
+    id: str
+    x: int | float = 0
+    animation: str | None = None
+    time: int | float = 0
+
+
+@dataclass(frozen=True)
 class Expansion:
     """A loaded ``cards/<expansion>.toml``: its pack's featured
     characters, its cards (in file order), its backgrounds' paths (the
@@ -227,7 +251,7 @@ class Expansion:
 
     path: Path
     name: str
-    pack: tuple[str, ...]
+    pack: tuple[Featured, ...]
     cards: tuple[CardEntry, ...]
     backgrounds: dict[str, str]
     logo_path: str
@@ -336,10 +360,36 @@ def load_expansion(path: Path) -> Expansion:
 
     pack = data.get("pack")
     if not isinstance(pack, list) or not pack or not all(
-        isinstance(char_id, str) for char_id in pack
+        isinstance(entry, dict) and isinstance(entry.get("id"), str)
+        for entry in pack
     ):
         raise GenerationError(
-            f"{path.name}: 'pack' must be a non-empty list of character ids"
+            f"{path.name}: 'pack' must be a non-empty list of tables, "
+            "each with an 'id'"
+        )
+    featured: list[Featured] = []
+    for entry in pack:
+        char_id = entry["id"]
+        x = entry.get("x", 0)
+        if isinstance(x, bool) or not isinstance(x, (int, float)):
+            raise GenerationError(
+                f"{path.name}: 'pack' entry for {char_id!r} carries a "
+                f"non-numeric 'x' nudge: {x!r}"
+            )
+        animation = entry.get("animation")
+        if animation is not None and not isinstance(animation, str):
+            raise GenerationError(
+                f"{path.name}: 'pack' entry for {char_id!r} carries a "
+                f"non-string 'animation': {animation!r}"
+            )
+        time = entry.get("time", 0)
+        if isinstance(time, bool) or not isinstance(time, (int, float)):
+            raise GenerationError(
+                f"{path.name}: 'pack' entry for {char_id!r} carries a "
+                f"non-numeric 'time': {time!r}"
+            )
+        featured.append(
+            Featured(id=char_id, x=x, animation=animation, time=time)
         )
 
     cards_data = data.get("cards")
@@ -390,7 +440,7 @@ def load_expansion(path: Path) -> Expansion:
     return Expansion(
         path=path,
         name=path.stem,
-        pack=tuple(pack),
+        pack=tuple(featured),
         cards=tuple(
             _card_entry(path.name, number, char_id)
             for number, char_id in enumerate(ids, 1)
@@ -645,7 +695,8 @@ def front_source_digest(
 ) -> str:
     """A hash of an expansion front's *inputs* — everything the composed
     front depends on: the expansion's file, the featured characters it
-    lists (their ids), its ``background.base``, its ``logo``, the white
+    lists (their ids, ``x`` nudges and per-character ``animation``/
+    ``time`` overrides), its ``background.base``, its ``logo``, the white
     NIKKE logo placed on the front (*logo*), and the material template
     that sizes it (*template*). It is computed without rendering the front,
     so the finished material can be skipped (and the front's render
@@ -655,8 +706,11 @@ def front_source_digest(
     :func:`nikke_reborn.box.front_source_hash`)."""
     digest = hashlib.sha256()
     hash_term(digest, expansion.path.read_bytes())
-    for char_id in expansion.pack:
-        hash_term(digest, char_id.encode())
+    for featured in expansion.pack:
+        hash_term(digest, featured.id.encode())
+        hash_term(digest, f"x:{featured.x}".encode())
+        hash_term(digest, f"animation:{featured.animation}".encode())
+        hash_term(digest, f"time:{featured.time}".encode())
     hash_term(digest, _background_path(expansion, "base").read_bytes())
     hash_term(digest, _logo_path(expansion).read_bytes())
     hash_term(digest, logo.read_bytes())
@@ -749,9 +803,10 @@ def compose_front(
     back_offset_x: float | None = None,
 ) -> Image.Image:
     """Compose an expansion's front: its background (fitted per *fit*), the
-    featured NIKKES drawn over it (backs first, the hero on top), and the
-    expansion's logo (its ``logo.path`` image) with its glow on top, at its
-    ``logo.placement``. The caller's white NIKKE logo is placed last
+    featured NIKKES drawn over it (backs first, the hero on top, each with
+    its optional horizontal ``x`` nudge — the material's own pixels), and
+    the expansion's logo (its ``logo.path`` image) with its glow on top, at
+    its ``logo.placement``. The caller's white NIKKE logo is placed last
     (*place_logo*, on the front's own bounds). The result is returned in
     memory and never written to disk: the caller pastes it into its
     material's front rectangle.
@@ -788,13 +843,15 @@ def compose_front(
     # the logo's glow is tinted by the scene, not by the characters on top of it.
     glow_color = _background_glow_color(_image_average(canvas))
 
-    char_ids = expansion.pack
-    if not char_ids:
+    featured = expansion.pack
+    if not featured:
         raise GenerationError(f"{expansion.name}: 'pack' carries no characters")
-    bodies = [_content_box(_render_featured_frame(char_id)) for char_id in char_ids]
+    bodies = [_content_box(_render_featured_frame(entry)) for entry in featured]
 
     # Backs first (behind the hero), left/right alternating, stepping further
     # out and shrinking per tier so any number of featured NIKKES lays out.
+    # Each character's optional ``x`` nudge (the material's own pixels) is
+    # added to its horizontal center.
     back_scale = back_height if back_height is not None else BACK_HEIGHT
     offset_scale = back_offset_x if back_offset_x is not None else BACK_OFFSET_X
     for index, body in enumerate(bodies[1:], start=1):
@@ -805,7 +862,7 @@ def compose_front(
         _paste_body(
             canvas,
             body,
-            center_x=width / 2 + side * offset,
+            center_x=width / 2 + side * offset + featured[index].x,
             feet_y=BACK_FEET_Y * height,
             height=round(back_scale * height * scale),
         )
@@ -814,7 +871,7 @@ def compose_front(
     _paste_body(
         canvas,
         bodies[0],
-        center_x=width / 2,
+        center_x=width / 2 + featured[0].x,
         feet_y=HERO_FEET_Y * height,
         height=round(hero_scale * height),
     )
@@ -837,17 +894,31 @@ def compose_front(
     return canvas
 
 
-def _render_featured_frame(char_id: str) -> Image.Image:
-    """Render the featured character's first frame via
-    ``nikke-viewer --stdout`` (raw RGBA): its ``--time 0`` still (the
-    default framing, the viewer's default viewport — the card's viewport),
-    read straight off the stream. The viewer exits once its single frame
-    is written."""
+def _render_featured_frame(featured: Featured) -> Image.Image:
+    """Render the featured character's still frame via
+    ``nikke-viewer --stdout`` (raw RGBA): the ``--time <time>`` still of its
+    *animation* (the viewer's default animation when none is given), framed
+    with ``--half-body`` (the upper body), at the viewer's default viewport
+    (the card's viewport), read straight off the stream. The viewer exits
+    once its single frame is written."""
     width, height = CARD_VIEWPORT
     frame_bytes = width * height * 4
 
+    animation_args = (
+        ["--animation", featured.animation]
+        if featured.animation is not None
+        else []
+    )
     viewer = subprocess.Popen(
-        [VIEWER, "--time", "0", "--stdout", char_id],
+        [
+            VIEWER,
+            *animation_args,
+            "--time",
+            str(featured.time),
+            "--half-body",
+            "--stdout",
+            featured.id,
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -860,7 +931,7 @@ def _render_featured_frame(char_id: str) -> Image.Image:
         _reap_viewer(viewer, drain, clean_exit_expected=True)
     if len(data) != frame_bytes:
         raise GenerationError(
-            f"{VIEWER} produced no frame for {char_id!r} "
+            f"{VIEWER} produced no frame for {featured.id!r} "
             f"(got {len(data)} of {frame_bytes} bytes)"
         )
     return Image.frombytes("RGBA", (width, height), data)

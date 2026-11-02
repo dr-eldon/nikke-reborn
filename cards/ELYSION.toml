@@ -1,4 +1,9 @@
-pack = ["c010", "c011", "c013"]
+pack = [
+    { id = "c010", animation = "action", time = 1.247 },
+    { id = "c011" },
+    { id = "c013" },
+]
+
 cards = [
     { id = "c010" },
     { id = "c022" },

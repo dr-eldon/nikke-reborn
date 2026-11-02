@@ -22,9 +22,10 @@ item skip when the inputs are unchanged.
   (centered horizontally) and its top inset as a fraction of the front's
   height.
 
-The front's inputs — the expansion's file, the featured characters it
-lists, its background, its logo, the white NIKKE logo, and the material
-template that sizes it — are hashed (see :func:`front_source_hash`) into the
+The front's inputs — the expansion's file, the featured characters it lists
+(their ids, ``x`` nudges and ``animation``/``time`` overrides), its
+background, its logo, the white NIKKE logo, and the material template that
+sizes it — are hashed (see :func:`front_source_hash`) into the
 finished material and item, so when those inputs are unchanged the front's
 render is skipped entirely rather than re-rendered. The back's inputs (the
 background and the material template) are hashed the same way (see
@@ -134,11 +135,12 @@ def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
 
 def front_source_hash(exp: expansion.Expansion) -> str:
     """A hash of the front's *inputs* — everything the composed front depends
-    on: the expansion's file, the featured characters it lists, its
-    background, its logo, the white NIKKE logo, and the material template
-    that sizes it (the shared digest from
-    :func:`nikke_reborn.expansion.front_source_digest`, with the pack's logo
-    and template). It is computed without rendering the front, so the
+    on: the expansion's file, the featured characters it lists (their ids,
+    ``x`` nudges and ``animation``/``time`` overrides), its background, its
+    logo, the white NIKKE logo, and the material template that sizes it (the
+    shared digest from :func:`nikke_reborn.expansion.front_source_digest`,
+    with the pack's logo and template). It is computed without rendering the
+    front, so the
     finished material and item can be skipped (and the front's render
     avoided) when those inputs are unchanged."""
     return front_source_digest(exp, PACK_LOGO, PACK_TEMPLATE)

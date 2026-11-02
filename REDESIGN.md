@@ -24,7 +24,15 @@ viewer flags; backgrounds come from the expansion's `background` table.
 ## 2. Data model (`cards/<expansion>.toml`)
 
 ```toml
-pack = ["c010", "c011", "c013"]          # featured characters (first = hero)
+# featured characters (first = hero); each has an id and optional
+# per-character overrides: a horizontal nudge x (the material's native
+# pixels, applied before the downscale), an animation (which of the
+# character's animations to show) and a time (the second to still on; 0)
+pack = [
+    { id = "c010", animation = "action", time = 1.247 },
+    { id = "c011" },
+    { id = "c013" },
+]
 cards = [ { id = "c010" }, … ]           # the full roster, in set order
 
 [logo]
@@ -37,8 +45,15 @@ special = "../assets/images/backgrounds/sky-sunset.png"
 battle = "../assets/images/backgrounds/smoke-pink.png"
 ```
 
-- `pack`: character ids. The first is the hero (centered on the front); the
-  rest flank it (unchanged composition rules).
+- `pack`: the featured characters. Each entry is a table with the
+  character's `id` and optional per-character overrides: an `x` (a
+  horizontal nudge in the material's native pixels, applied to the
+  character's position before compositing, before the downscale, so it
+  scales with the material), an `animation` (which of the character's
+  animations to show; the viewer's default when absent) and a `time` (the
+  second of that animation to still on; 0, the first frame, when absent).
+  The first entry is the hero (centered on the front); the rest flank it
+  (unchanged composition rules).
 - `cards`: one table per character, in set order. `id` is the character id;
   suffixed ids (c010_02) are skins, treated as their own character. The list
   order drives the card numbering (section 4).
@@ -258,8 +273,9 @@ animated outputs also require the fresh first-frame sidecar.
 
 Pack/box (section 5.6) digests:
 
-- front digest: the TOML's bytes + the featured ids + the `base` background
-  bytes + the expansion logo's bytes + the white NIKKE logo's bytes + the
+- front digest: the TOML's bytes + the featured entries (their ids, `x`
+  nudges and `animation`/`time` overrides) + the `base` background bytes +
+  the expansion logo's bytes + the white NIKKE logo's bytes + the
   template's bytes (the featured renders' pixels are not hashed, same trust
   model as the legacy definition hashes).
 - back digest: `base` background bytes + template (as today).
@@ -273,10 +289,13 @@ Mechanically "mostly unaffected":
   pack directory; the set name is the TOML stem.
 - `load_background`/`load_logo` read the `background` table (`base`) and the
   `logo` table; paths resolve against `cards/`.
-- The featured NIKKEs render via the new viewer: `nikke-viewer --time 0
-  --width 1640 --height 2048 --stdout <id>` — one raw RGBA frame per
-  featured id (default framing), then the existing content-box trim and
-  front composition (backs first, hero on top, glow logo at `placement`).
+- The featured NIKKEs render via the new viewer: `nikke-viewer
+  [--animation <a>] --time <t> --half-body --stdout <id>` — one raw RGBA
+  frame per featured id (that character's `time`, default 0, on its
+  `animation`, the viewer's default — the half-body framing, the viewer's
+  default 1640×2048 viewport), then the existing content-box trim and front
+  composition (backs first, hero on top, each with its `x` nudge, glow logo
+  at `placement`).
 - Everything else (mask rectangles, item rendering via `unity-viewer`,
   atomic saves) is unchanged.
 
