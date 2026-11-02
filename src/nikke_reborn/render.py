@@ -887,14 +887,15 @@ def _process_full_art(
     no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
     """Render, composite and encode one presentation of the full-art tier
-    (the ``Classic``, ``Special``, ``Exotic`` and ``Goddess`` presentations,
-    no mask): the presentation's background (fitted to the frame,
-    autocontrasted and dark-faded toward its dominant color — the solid
-    black for the goddess presentation) carries the white NIKKE logo and
-    the copyright line (white); the card name is not drawn on the full-art
-    cards. The framing is the presentation's (the ``--half-body`` flag for
-    the classic, special and exotic; the viewer's default framing for the
-    goddess's ``sc`` variant).
+    (the ``Classic``, ``Idle``, ``Cover``, ``Aim``, ``Special``, ``Exotic``
+    and ``Goddess`` presentations, no mask): the presentation's background
+    (fitted to the frame, autocontrasted and dark-faded toward its dominant
+    color — the solid black for the goddess presentation) carries the white
+    NIKKE logo and the copyright line (white); the card name is not drawn on
+    the full-art cards. The framing is the presentation's (the
+    ``--half-body`` flag for the classic, idle, special and exotic; the
+    viewer's default framing for the cover, aim and the goddess's ``sc``
+    variant).
 
     With *no_video* (``--no-video``) an animated presentation renders its
     first frame alone — its MP4 is skipped and the viewer reaped right

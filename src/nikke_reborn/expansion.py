@@ -11,8 +11,9 @@ same fixed set of presentations (see :func:`presentations_for`): the
 standard tier (the classic, special and exotic presentations, on the
 standard's mask), the profile tier (the classic, idle, cover and aim
 presentations, on the profile's mask) and the full-art tier (the classic,
-special and exotic presentations, no mask, plus the goddess presentation —
-skipped when the character carries no ``sc`` variant).
+idle, cover, aim, special and exotic presentations, no mask, plus the
+goddess presentation — skipped when the character carries no ``sc``
+variant).
 
 The pack's front and the box's front are the same composition — the
 expansion's background, the featured NIKKES drawn over it (backs first,
@@ -123,9 +124,9 @@ LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo.placement`
 #: The keys every expansion's ``background`` table must carry (the relative
 #: paths, against the expansion's folder): the ``base`` background (the
 #: standard's classic and exotic, the profile's classic and idle, and the
-#: full-art's classic), the ``special`` background (the special
+#: full-art's classic and idle), the ``special`` background (the special
 #: presentations) and the ``battle`` background (the cover and aim
-#: profiles).
+#: profiles and full-art).
 BACKGROUND_KEYS = ("base", "special", "battle")
 
 # --- the presentations --------------------------------------------------------
@@ -181,6 +182,9 @@ PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
     ("CoverProfile", "profile", "cover", None, None, False, "battle", "profile", True),
     ("AimProfile", "profile", "aim", None, None, False, "battle", "profile", True),
     ("Classic", "full", None, None, 0.0, True, "base", None, False),
+    ("Idle", "full", None, "idle", None, True, "base", None, False),
+    ("Cover", "full", "cover", None, None, False, "battle", None, False),
+    ("Aim", "full", "aim", None, None, False, "battle", None, False),
     ("Special", "full", None, REEL, 0.0, True, "special", None, False),
     ("Exotic", "full", None, "action", None, True, "base", None, False),
     ("Goddess", "full", "sc", None, None, False, "black", None, False),

@@ -73,7 +73,8 @@ def cards(exp: expansion_mod.Expansion) -> list[dict]:
     expansion, expanded into the presentations the pipeline renders (the
     fixed per-character set — the standard's, the profile's and the
     full-art's presentations, the goddess presentation dropped for the
-    characters without the ``sc`` variant — see
+    characters without the ``sc`` variant and the two special presentations
+    dropped for the characters without a reel animation — see
     :func:`nikke_reborn.expansion.presentations_for`), each carrying the
     character's rarity (the base character's when the id is suffixed).
     Shared by :func:`write` (which writes each set's bundle to the output

@@ -39,13 +39,14 @@ animation:
   locked-together streams (the face's stream at the viewer's ``--face``
   framing plus the body's at the default framing), on the ``base`` and
   ``battle`` backgrounds;
-* the full-art tier — the ``Classic``, ``Special`` and ``Exotic``
-  presentations (the classic pose, the special animation and the ``action``
-  loop; the ``base`` and ``special`` backgrounds) and the ``Goddess``
-  presentation (the ``sc`` variant, a solid black background): the classic,
-  special and exotic are half-body frames and the goddess is full-body, no
-  mask, the background fitted to the card's own aspect and faded the same
-  way.
+* the full-art tier — the ``Classic``, ``Idle``, ``Cover``, ``Aim``,
+  ``Special`` and ``Exotic`` presentations (the classic pose, the
+  ``idle`` loop, the ``cover`` and ``aim`` variants, the special animation
+  and the ``action`` loop) and the ``Goddess`` presentation (the ``sc``
+  variant): the classic, idle, special and exotic are half-body frames and
+  the cover, aim and goddess are full-body, no mask, each on its own
+  background (the ``base``, ``battle`` or ``special`` — a solid black for
+  the goddess) fitted to the card's own aspect and faded the same way.
 
 The profile's presentations are rendered in two locked-together streams —
 the face's stream (the viewer's ``--face`` framing, shifted aside from the
@@ -135,10 +136,10 @@ worker processes (see ``--jobs``); within an animated card, the frames are
 composited in parallel threads, and the cores are split between that stage
 and the ffmpeg encode so the parallel work stays within the core count.
 
-The half-body presentations (the standard's and the full-art's
-presentations) are framed with the viewer's ``--half-body`` flag (the
-upper body, head to waist); the profile's and the ``Goddess``
-presentations keep the character's full body.
+The half-body presentations (the standard's, and the full-art's classic,
+idle, special and exotic) are framed with the viewer's ``--half-body`` flag
+(the upper body, head to waist); the profile's, and the full-art's cover,
+aim and goddess presentations, keep the character's full body.
 
 By default every expansion under ``cards/`` is generated; one or more
 expansion paths (a ``cards/<set>.toml``, ``<set>.toml`` or ``<set>``) may

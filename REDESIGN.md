@@ -47,15 +47,18 @@ battle = "../assets/images/backgrounds/smoke-pink.png"
 - `background.base`: the expansion's scene; used by every presentation
   unless stated otherwise, and by the pack/box front and back.
 - `background.special`: the Standard/Full-art Special presentations.
-- `background.battle`: the Profile Cover/Aim presentations.
+- `background.battle`: the Profile and Full-art Cover/Aim presentations.
 
 ## 3. Unit of work: (expansion, character, presentation)
 
 A card is a triple. For every entry in `cards`, the pipeline generates the
-presentations of section 3.1 — 11 of them when the character has an `sc`
-variant (17 files: 11 PNGs + 6 MP4s), 10 when it doesn't (15 files): the
-Goddess presentation is skipped, not rendered (the viewer has no `sc`
-variant to frame). Each MP4 keeps its first-frame PNG sidecar, as today.
+presentations of section 3.1 — 14 when the character has an `sc` variant and
+a reel animation (23 files: 14 PNGs + 9 MP4s), 13 when it has a reel but no
+`sc` (21 files), and 11 when it has neither (19 files): the Goddess
+presentation is skipped when the character has no `sc` variant (the viewer
+has no `sc` variant to frame), and the two Special presentations are skipped
+when the character has no reel animation. Each MP4 keeps its first-frame PNG
+sidecar, as today.
 
 ### 3.1 Presentation matrix
 
@@ -73,6 +76,9 @@ Viewer flags for `nikke-viewer <id>` (flags precede the id; `--width/--height`
 | Cover profile | `_CoverProfile` | face + body | `--variant cover` | default | loop | `battle` | profile |
 | Aim profile | `_AimProfile` | face + body | `--variant aim` | default | loop | `battle` | profile |
 | Classic full art | `_Classic` | `--half-body` | fb | default | `0` | `base` | none |
+| Idle full art | `_Idle` | `--half-body` | fb | `idle` | loop | `base` | none |
+| Cover full art | `_Cover` | (default fit) | `--variant cover` | default | loop | `battle` | none |
+| Aim full art | `_Aim` | (default fit) | `--variant aim` | default | loop | `battle` | none |
 | Special full art | `_Special` | `--half-body` | fb | reel pick | `0` | `special` | none |
 | Exotic full art | `_Exotic` | `--half-body` | fb | `action` | loop | `base` | none |
 | Goddess full art | `_Goddess` | (default fit) | `--variant sc` | default | loop | solid black | none *(only when the character has an `sc` variant)* |
@@ -94,8 +100,15 @@ Viewer flags for `nikke-viewer <id>` (flags precede the id; `--width/--height`
   `nikke-viewer --list-variants <id>`; when `sc` is absent the presentation
   is skipped entirely (no output, no metadata entry — section 5.7). In
   ELYSION six of the 21 characters lack `sc` (Delta, Soldier EG/FA/OW, and
-  the two skins), so the set yields 15 × 17 + 6 × 15 = 345 card files. All
-  21 have `aim` and `cover`, so no other presentation is conditional.
+  the two skins).
+- **The Special presentations are conditional on the reel**: their
+  animation is the reel's pick (section 3.2). A character with none of the
+  `PROFILE_REEL_ANIMATIONS` has no reel, so its two Special presentations
+  are skipped the same way. In ELYSION c300, c301 and c306 have no reel
+  animation.
+- All 21 have `aim` and `cover` and the `idle`/`action` animations, so no
+  other presentation is conditional. The set yields 15 × 23 + 3 × 21 +
+  3 × 19 = 465 card files.
 - `--no-video` behavior is unchanged: animated presentations render their
   first frame alone.
 
@@ -108,7 +121,8 @@ Viewer flags for `nikke-viewer <id>` (flags precede the id; `--width/--height`
   (`think`, `smile`, `shy`, `no`, `delight`, `surprise`, `special_02`,
   `special`, `angry`) that appears in `nikke-viewer --list-animations <id>`
   (the fb variant's list). Error when none match. (For c010: `think`.)
-- **explicit**: `action` (Exotic), `idle` (Idle profile).
+- **explicit**: `action` (the Exotic and ExoticStandard), `idle` (the Idle
+  profile and the Idle full-art).
 - The photo reel itself is unchanged: the first 3 available reel animations,
   one `--portrait 1 --time 0 --animation <a>` still each, from the **fb**
   list for every profile presentation (including Cover/Aim).
@@ -174,9 +188,10 @@ nikke-viewer [<framing>] [--variant V] [--animation A] [--time T]
              --width W --height H --stdout <id>
 ```
 
-- Framing: `--half-body` (standard/full-art fb tiers) or
-  `--face 2 --offset-x N` (profile face stream); the profile body stream and
-  Goddess use no framing flag (the default full-body fit).
+- Framing: `--half-body` (the standard's, and the full-art's classic, idle,
+  special and exotic) or `--face 2 --offset-x N` (the profile's face stream);
+  the profile's body stream and the full-art's cover, aim and Goddess use no
+  framing flag (the default full-body fit).
 - Lister calls become id-based: `--list-animations <id>` (the photo reel,
   the Special pick) and `--list-variants <id>` (the Goddess condition,
   section 3.1).
@@ -310,9 +325,10 @@ unchanged.
 ## 6. Tests and baselines
 
 - Baselines move to per-character files plus one expansion file:
-  - `tests/baselines/<set>/<stem>.<preset>.sha256` — the character's files
-    (17, or 15 without the Goddess pair; same format and naming as today's
-    `<card>` files).
+  - `tests/baselines/<set>/<stem>.<preset>.sha256` — the character's
+    presentation files (23 when it has the `sc` variant and a reel, 21
+    without the `sc`, 19 without the `sc` and the reel; same format and
+    naming as today's `<card>` files).
   - `tests/baselines/<set>/expansion.<preset>.sha256` — the 4 pack/box
     files (today they are duplicated into every card's baseline; the
     expansion baseline replaces that duplication).
