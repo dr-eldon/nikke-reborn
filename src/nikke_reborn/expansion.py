@@ -30,16 +30,17 @@ with nothing here: the shared code is written once.
   a horizontal nudge ``x`` (in the material's native pixels, applied to the
   character's position before compositing, before the downscale, so it
   scales with the material), an ``animation`` (which of the character's
-  animations to show; the viewer's default when absent) and a ``time`` (the
-  second of that animation to still on; 0, the first frame, when absent).
-  The *first* entry is the hero: it is centered in the front. The rest are
-  placed behind it, to the left and right, at a lower scale, to read as a
-  group in perspective/distance.
+  animations to show; the viewer's default when absent), a ``time`` (the
+  second of that animation to still on; 0, the first frame, when absent) and
+  a ``zoom`` (a multiplier on the framing; the viewer's default 1.0 when
+  absent). The *first* entry is the hero: it is centered in the front. The
+  rest are placed behind it, to the left and right, at a lower scale, to
+  read as a group in perspective/distance.
 * Only ``nikke-viewer``'s output is used (the raw character render, not
   the finished card — no background fit, logo, name or copyright). Each
   featured character's still frame is read off the viewer's ``--stdout``
-  (that character's ``time`` on its ``animation``, the ``--half-body``
-  framing).
+  (that character's ``time`` on its ``animation``, zoomed by its ``zoom``,
+  the ``--half-body`` framing).
 * the expansion's logo (its ``path``, relative to the expansion's
   folder) is composited on top at its ``placement`` with a glow: the halo
   is screen-blended for a light bloom, a solid trail in a darkened glow
@@ -233,13 +234,15 @@ class Featured:
     character's position before it is composited onto the front (negative
     *x* nudges it left), and per-character render overrides for its frame:
     *animation* (which of the character's animations to show; the viewer's
-    default when absent) and *time* (the second of that animation to still
-    on; 0, the first frame, when absent)."""
+    default when absent), *time* (the second of that animation to still on;
+    0, the first frame, when absent) and *zoom* (a multiplier on the
+    framing; the viewer's default 1.0 when absent)."""
 
     id: str
     x: int | float = 0
     animation: str | None = None
     time: int | float = 0
+    zoom: int | float | None = None
 
 
 @dataclass(frozen=True)
@@ -388,8 +391,18 @@ def load_expansion(path: Path) -> Expansion:
                 f"{path.name}: 'pack' entry for {char_id!r} carries a "
                 f"non-numeric 'time': {time!r}"
             )
+        zoom = entry.get("zoom")
+        if zoom is not None and (
+            isinstance(zoom, bool) or not isinstance(zoom, (int, float))
+        ):
+            raise GenerationError(
+                f"{path.name}: 'pack' entry for {char_id!r} carries a "
+                f"non-numeric 'zoom': {zoom!r}"
+            )
         featured.append(
-            Featured(id=char_id, x=x, animation=animation, time=time)
+            Featured(
+                id=char_id, x=x, animation=animation, time=time, zoom=zoom
+            )
         )
 
     cards_data = data.get("cards")
@@ -696,8 +709,8 @@ def front_source_digest(
     """A hash of an expansion front's *inputs* — everything the composed
     front depends on: the expansion's file, the featured characters it
     lists (their ids, ``x`` nudges and per-character ``animation``/
-    ``time`` overrides), its ``background.base``, its ``logo``, the white
-    NIKKE logo placed on the front (*logo*), and the material template
+    ``time``/``zoom`` overrides), its ``background.base``, its ``logo``, the
+    white NIKKE logo placed on the front (*logo*), and the material template
     that sizes it (*template*). It is computed without rendering the front,
     so the finished material can be skipped (and the front's render
     avoided) when those inputs are unchanged. The pack's and the box's
@@ -711,6 +724,7 @@ def front_source_digest(
         hash_term(digest, f"x:{featured.x}".encode())
         hash_term(digest, f"animation:{featured.animation}".encode())
         hash_term(digest, f"time:{featured.time}".encode())
+        hash_term(digest, f"zoom:{featured.zoom}".encode())
     hash_term(digest, _background_path(expansion, "base").read_bytes())
     hash_term(digest, _logo_path(expansion).read_bytes())
     hash_term(digest, logo.read_bytes())
@@ -897,8 +911,9 @@ def compose_front(
 def _render_featured_frame(featured: Featured) -> Image.Image:
     """Render the featured character's still frame via
     ``nikke-viewer --stdout`` (raw RGBA): the ``--time <time>`` still of its
-    *animation* (the viewer's default animation when none is given), framed
-    with ``--half-body`` (the upper body), at the viewer's default viewport
+    *animation* (the viewer's default animation when none is given), zoomed
+    by *zoom* (the viewer's default 1.0 when absent), framed with
+    ``--half-body`` (the upper body), at the viewer's default viewport
     (the card's viewport), read straight off the stream. The viewer exits
     once its single frame is written."""
     width, height = CARD_VIEWPORT
@@ -909,12 +924,16 @@ def _render_featured_frame(featured: Featured) -> Image.Image:
         if featured.animation is not None
         else []
     )
+    zoom_args = (
+        ["--zoom", str(featured.zoom)] if featured.zoom is not None else []
+    )
     viewer = subprocess.Popen(
         [
             VIEWER,
             *animation_args,
             "--time",
             str(featured.time),
+            *zoom_args,
             "--half-body",
             "--stdout",
             featured.id,

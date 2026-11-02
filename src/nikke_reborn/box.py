@@ -255,9 +255,9 @@ def place_center_expansion_logo(
 def front_source_hash(exp: expansion.Expansion) -> str:
     """A hash of the box front's inputs: the expansion's file, the featured
     characters it lists (their ids, ``x`` nudges and
-    ``animation``/``time`` overrides), the background and the expansion's
-    logo, the white NIKKE logo placed on the front, and the box material
-    template that sizes it (the shared digest from
+    ``animation``/``time``/``zoom`` overrides), the background and the
+    expansion's logo, the white NIKKE logo placed on the front, and the box
+    material template that sizes it (the shared digest from
     :func:`nikke_reborn.expansion.front_source_digest`, with the box's logo
     and template). It is computed without rendering the front, so the
     finished material can be skipped (and the front's render avoided) when
