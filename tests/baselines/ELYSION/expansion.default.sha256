@@ -5,7 +5,7 @@
 # recorded by: test --new-baseline (generate --force --jobs 1)
 # verify from the repo root: sha256sum -c tests/baselines/ELYSION/expansion.default.sha256
 
-f44b2a3ea5e6e556787edfb44a48beae78621fb836cd5e9511b482835e11d2a6  output/ELYSION/CardBox_Item.png
-898574ca45643c013d5376e4a5de9da47dfe8ab28a49bdee18220c8378dab924  output/ELYSION/CardBox_Material.png
-1f61af90b2a1b2a257a4fa55634b6967c2a26ec1877032413b8d3aa8b0a4e06c  output/ELYSION/CardPack_Item.png
-dc49f781a5f4ac03c3f3940c84a3014ab3acddf23b1fca83cb6a16e8a0ca6b54  output/ELYSION/CardPack_Material.png
+4ab0cfc0f4aa3810d05d3ee8b31051ef6a14ddf1846582ec864809118c03b12d  output/ELYSION/CardBox_Item.png
+ce5f874ba53bd7ca4e52d4b7f83b8aa2b49691632c6357374bca43f5d775cbcf  output/ELYSION/CardBox_Material.png
+3509b14ae8ed0493b2ea6307be4635dc036ae53239ce2379cc52a2bf22466963  output/ELYSION/CardPack_Item.png
+e8c65e25bb387f1ee26f361b40444c1566cfd8bb0ad05d8b27bfcb9db2219b15  output/ELYSION/CardPack_Material.png

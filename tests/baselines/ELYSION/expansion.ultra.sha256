@@ -1,0 +1,11 @@
+# nikke-reborn test baseline
+# card:   ELYSION/expansion
+# preset: ultra
+# files:  4
+# recorded by: test --new-baseline (generate --force --jobs 1)
+# verify from the repo root: sha256sum -c tests/baselines/ELYSION/expansion.ultra.sha256
+
+b2ce078c97c025f0616cae604edeea6e8b543b8a52ab485759ca9bf1f87423cc  output/ELYSION (Ultra)/CardBox_Item.png
+2f9c73405e09af4c79a14cf37a23d051dbdfb6bb519376bfafd1a6a317c69605  output/ELYSION (Ultra)/CardBox_Material.png
+b7010c4842b708a4432dfaf477e3cecd041e0faba4f7fd4399703a230e93db9f  output/ELYSION (Ultra)/CardPack_Item.png
+f87f93b242a089de1b8d99239f5c353637cd021d201f68e168e931aa7dd469ca  output/ELYSION (Ultra)/CardPack_Material.png
