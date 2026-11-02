@@ -56,8 +56,9 @@ from nikke_reborn.video import (
 
 # --- the profile presentation -------------------------------------------
 # The profile cards render the character in two: the face framing (the
-# viewer's ``--face`` at :data:`PROFILE_FACE_ZOOM`, shifted aside from the
-# body so it is not occluded) animates over the background (a monochrome of
+# viewer's ``--face``, its ``--zoom`` at :data:`PROFILE_FACE_ZOOM`, shifted
+# aside from the body so it is not occluded) animates over the background (a
+# monochrome of
 # its own dominant tint), under the dominant tint wash, as a monochrome of
 # the same hue, and the body (the viewer's default framing) animates over
 # the card mask (tinted at each pixel's own lightness, the white staying
@@ -67,7 +68,7 @@ from nikke_reborn.video import (
 # bottom right. The card also carries a photo reel down its right edge: the
 # first PROFILE_REEL_COUNT of PROFILE_REEL_ANIMATIONS the character has (per
 # the viewer's ``--list-animations``, the ``fb`` variant's) become face
-# stills — one at time 0 per animation (the viewer's ``--portrait 1``
+# stills — one at time 0 per animation (the viewer's ``--portrait``
 # framing in a square viewport), taken once per card and reused for every
 # frame — fewer squares, or none, when fewer animations match. Each still
 # sits on a white background and is framed by a border of the background's
@@ -103,7 +104,7 @@ PROFILE_FACE_OFFSET_RIGHT = 420
 #: PROFILE_REEL_ANIMATIONS the character has (per the viewer's
 #: ``--list-animations``); fewer stills — or none at all — when fewer of
 #: the list match. Each still is the time 0 frame of its animation (the
-#: viewer's ``--portrait 1`` framing in a square viewport of side
+#: viewer's ``--portrait`` framing in a square viewport of side
 #: ``frame_width * PROFILE_REEL_SIDE``, see :func:`_photo_reel`), taken
 #: once per card and reused for every frame, framed by a border of
 #: ``side * PROFILE_REEL_BORDER`` filled with the background's dominant
@@ -537,7 +538,7 @@ def _photo_reel(
     (still, position) pairs for the compositor.
 
     Each still is the time 0 frame of its animation, rendered in the
-    viewer's ``--portrait 1`` framing (the face exactly inside the
+    viewer's ``--portrait`` framing (the face exactly inside the
     viewport bounds) in a square viewport of side
     ``frame_width * PROFILE_REEL_SIDE`` (``--time 0`` and
     ``--animation``; :func:`_first_frame` passes the square size to the
@@ -568,7 +569,6 @@ def _photo_reel(
             (side, side),
             presentation.card.id,
             "--portrait",
-            "1",
             "--time",
             "0",
             "--animation",
@@ -613,7 +613,7 @@ def _render_profile(
     face_zoom: float,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the profile card (a presentation, written out as
-    ``<card>_<presentation>.<suffix>``): the ``--face <face_zoom>``
+    ``<card>_<presentation>.<suffix>``): the ``--face --zoom <face_zoom>``
     framing animates (as a monochrome of the tint's hue, shifted aside from
     the body) over the background, under the tint wash, and the body (the
     viewer's default framing, the presentation's variant and animation)
@@ -674,6 +674,7 @@ def _render_profile(
         size,
         presentation.card.id,
         "--face",
+        "--zoom",
         str(face_zoom),
         "--offset-x",
         str(face_offset),

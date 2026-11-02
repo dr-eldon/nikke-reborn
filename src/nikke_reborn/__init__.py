@@ -57,7 +57,7 @@ body) and the body's stream (the viewer's default framing) — and every
 profile card carries a photo reel down its right edge: the first
 `PROFILE_REEL_COUNT` (three) of the character's animations in the order of
 `PROFILE_REEL_ANIMATIONS`, each rendered as a face still (the viewer's
-`--portrait 1` framing at `--time 0`, on a white background, framed by a
+`--portrait` framing at `--time 0`, on a white background, framed by a
 border of the card's dominant tint).
 
 The expansion's pack and box get their artwork images, built from the
