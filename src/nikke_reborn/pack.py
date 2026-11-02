@@ -1,13 +1,13 @@
 """Compose a pack's ``CardPack_Front`` and ``CardPack_Back`` on the fly from
-its ``Expansion.json``.
+its expansion's TOML.
 
-The front and back are built procedurally from the expansion's metadata —
-neither is stored: :func:`nikke_reborn._generate_variants` composes them in memory and
-hands them to the material composition. The shared front composition
+The front and back are built procedurally from the expansion's data —
+neither is stored: :func:`nikke_reborn._generate_variants` composes them in
+memory and hands them to the material composition. The shared front composition
 (background, the featured NIKKES, the expansion's logo with its glow) lives in
 :mod:`nikke_reborn.expansion`; this module adds the pack's own pieces: the
 sizes read from the material template's mask rectangles, the pack's white
-NIKE logo placement, and the source hashes that let the finished material and
+NIKKE logo placement, and the source hashes that let the finished material and
 item skip when the inputs are unchanged.
 
 * the front is the shared composition at the material template's *right* mask
@@ -22,8 +22,8 @@ item skip when the inputs are unchanged.
   (centered horizontally) and its top inset as a fraction of the front's
   height.
 
-The front's inputs — its ``Expansion.json``, the featured NIKKE definitions
-it lists, its background, its logo, the white NIKKE logo, and the material
+The front's inputs — the expansion's file, the featured characters it
+lists, its background, its logo, the white NIKKE logo, and the material
 template that sizes it — are hashed (see :func:`front_source_hash`) into the
 finished material and item, so when those inputs are unchanged the front's
 render is skipped entirely rather than re-rendered. The back's inputs (the
@@ -33,14 +33,13 @@ background and the material template) are hashed the same way (see
 
 from __future__ import annotations
 
-import hashlib
 import subprocess
 from pathlib import Path
 
 from PIL import Image
 
+from nikke_reborn import expansion
 from nikke_reborn.config import (
-    CARDS_DIR,
     IMAGES_DIR,
     ITEM_VIEWER_HEIGHT,
     ITEM_VIEWER_WIDTH,
@@ -53,11 +52,13 @@ from nikke_reborn.config import (
 )
 from nikke_reborn.error import GenerationError
 from nikke_reborn.expansion import (
+    back_source_hash as expansion_back_source_hash,
+)
+from nikke_reborn.expansion import (
     compose_front,
     fit_background,
     front_source_digest,
     load_background,
-    load_expansion,
 )
 from nikke_reborn.file import (
     _material_hash,
@@ -131,55 +132,46 @@ def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
     )
 
 
-def front_source_hash(pack_dir: Path) -> str:
+def front_source_hash(exp: expansion.Expansion) -> str:
     """A hash of the front's *inputs* — everything the composed front depends
-    on: the expansion's ``Expansion.json``, the featured NIKKE definitions it
-    lists, its background and (when a placement is set) its logo, the white
-    NIKKE logo, and the material template that sizes it (the shared digest
-    from :func:`nikke_reborn.expansion.front_source_digest`, with the pack's
-    logo and template). It is computed without rendering the front, so the
+    on: the expansion's file, the featured characters it lists, its
+    background, its logo, the white NIKKE logo, and the material template
+    that sizes it (the shared digest from
+    :func:`nikke_reborn.expansion.front_source_digest`, with the pack's logo
+    and template). It is computed without rendering the front, so the
     finished material and item can be skipped (and the front's render
     avoided) when those inputs are unchanged."""
-    return front_source_digest(pack_dir, PACK_LOGO, PACK_TEMPLATE)
+    return front_source_digest(exp, PACK_LOGO, PACK_TEMPLATE)
 
 
-def back_source_hash(pack_dir: Path) -> str:
+def back_source_hash(exp: expansion.Expansion) -> str:
     """A hash of the back's *inputs* — everything the composed back depends on:
-    its ``background`` and the material template that sizes it. It is computed
-    without composing the back, so the finished material can be skipped (and
-    the back's composition avoided) when those inputs are unchanged."""
-    expansion = load_expansion(pack_dir)
-    background = expansion.get("background")
-    if not background:
-        raise GenerationError(f"{pack_dir.name}: missing 'background'")
-    digest = hashlib.sha256()
-    digest.update((pack_dir / background).resolve().read_bytes())
-    digest.update(PACK_TEMPLATE.read_bytes())
-    return digest.hexdigest()
+    the expansion's ``background.base`` and the material template that sizes
+    it. It is computed without composing the back, so the finished material
+    can be skipped (and the back's composition avoided) when those inputs are
+    unchanged."""
+    return expansion_back_source_hash(exp, PACK_TEMPLATE)
 
 
-def build_front(
-    pack_dir: Path,
-    expansion: dict,
-    size: tuple[int, int],
-) -> Image.Image:
+def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The pack front: the shared front composition
     (:func:`nikke_reborn.expansion.compose_front`) with the pack's background
     fit and the pack's white NIKKE logo. The result is returned in memory; it
     is the material's right rectangle and is never written to disk."""
-    return compose_front(pack_dir, expansion, size, fit="crop", place_logo=place_logo)
+    return compose_front(exp, size, fit="crop", place_logo=place_logo)
 
 
-def build_back(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
-    """Compose the pack back from the expansion's ``background``: resized to
-    the back's height and left-cropped to its exact width (the front
-    center-crops the same background). The result is returned in memory; it is
-    the material's left rectangle and is never written to disk."""
-    return fit_background(load_background(pack_dir, expansion), size, align="left")
+def build_back(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
+    """Compose the pack back from the expansion's ``background.base``:
+    resized to the back's height and left-cropped to its exact width (the
+    front center-crops the same background). The result is returned in
+    memory; it is the material's left rectangle and is never written to
+    disk."""
+    return fit_background(load_background(exp), size, align="left")
 
 
 def _process_pack_material(
-    pack_dir: Path,
+    exp: expansion.Expansion,
     front: Image.Image,
     front_source: str,
     back: Image.Image,
@@ -203,14 +195,13 @@ def _process_pack_material(
     True when the output already exists and its stored hash matches the
     current inputs.
     """
-    pack_dir = pack_dir.resolve()
     source_hash = _material_hash(
         PACK_TEMPLATE,
         front_source=front_source,
         back_source=back_source,
         preset=preset,
     )
-    out_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name) / PACK_MATERIAL_NAME
+    out_path = preset.set_path(exp.name) / PACK_MATERIAL_NAME
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(PACK_TEMPLATE) as opened:
@@ -249,7 +240,7 @@ def _process_pack_material(
 
 
 def _process_pack_item(
-    pack_dir: Path,
+    exp: expansion.Expansion,
     force: bool = False,
     preset: Preset = Preset.DEFAULT,
 ) -> tuple[Path, bool]:
@@ -272,10 +263,9 @@ def _process_pack_item(
     ``(out_path, skipped)``, where *skipped* is True when the output
     already exists and its stored hash matches the current inputs.
     """
-    pack_dir = pack_dir.resolve()
     width = round(ITEM_VIEWER_WIDTH * preset.scale)
     height = round(ITEM_VIEWER_HEIGHT * preset.scale)
-    set_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name)
+    set_path = preset.set_path(exp.name)
     material_path = set_path / PACK_MATERIAL_NAME
     source_hash = _viewer_hash(PACK_MESH, material_path, PACK_CONFIG, preset)
     out_path = set_path / PACK_ITEM_NAME

@@ -1,16 +1,18 @@
 """The test command: the byte-for-byte regression check for a card.
 
-Generates every variant of the selected card(s) — each definition's
-full-art card (with the animated cards' first-frame PNGs), the profile
-and standard derived cards, and the set's pack and box materials and
-items — with a forced, single-worker :func:`generate.run`, and compares
-the finished files' SHA-256 against the card's recorded baseline under
-``tests/baselines/<set>/``. The run always forces the re-render (the
+Generates every presentation of the selected character(s) — each
+character's full-art, profile and standard cards (with the animated
+cards' first-frame PNGs) — plus the expansion's pack and box materials
+and items, with a forced, single-worker :func:`generate.run`, and
+compares the finished files' SHA-256 against the recorded baselines
+under ``tests/baselines/<set>/`` (one per character —
+``<card>.<preset>.sha256`` — and one for the expansion's pack and box —
+``expansion.<preset>.sha256``). The run always forces the re-render (the
 check is against what the current code produces, not against files that
 happen to be up to date) and uses one worker: the byte protocol — the
 same code, inputs and worker count must produce the same bytes (the
 x264 threading must match for the MP4s to be byte-comparable).
-``--new-baseline`` records (overwrites) the baseline from the run's
+``--new-baseline`` records (overwrites) the baselines from the run's
 outputs instead of comparing.
 """
 
@@ -21,56 +23,68 @@ import hashlib
 import sys
 from pathlib import Path
 
-from nikke_reborn import generate
-from nikke_reborn.card import (
-    _card_out_path,
-    _load_card,
-    _profile_stem,
-    _standard_stem,
-)
+from nikke_reborn import card, expansion, generate
 from nikke_reborn.config import (
     BOX_ITEM_NAME,
     BOX_MATERIAL_NAME,
-    CARDS_DIR,
     PACK_ITEM_NAME,
     PACK_MATERIAL_NAME,
-    PROFILE_RARITIES,
-    PROFILE_STEMS,
     REPO_ROOT,
-    STANDARD_STEMS,
 )
 from nikke_reborn.error import GenerationError
-from nikke_reborn.expansion import EXPANSION_NAME
 from nikke_reborn.preset import Preset
 
 #: The recorded baselines: ``tests/baselines/<set>/<card>.<preset>.sha256``
-#: (one file per card and preset, ``sha256sum``-compatible).
+#: (one file per card and preset) and
+#: ``tests/baselines/<set>/expansion.<preset>.sha256`` (the expansion's
+#: pack and box images), ``sha256sum``-compatible.
 BASELINES_DIR = REPO_ROOT / "tests" / "baselines"
 
 
 def run() -> None:
-    """Generate every variant of the selected card(s) and check the
-    finished files against the recorded baselines (or record new
+    """Generate every presentation of the selected character(s) and check
+    the finished files against the recorded baselines (or record new
     baselines with ``--new-baseline``)."""
     args = _parse_args()
     preset = Preset.ULTRA if args.ultra else Preset.DEFAULT
     try:
-        cards = [_resolve_card_dir(raw) for raw in args.paths]
+        expansion_path = expansion.resolve_expansion_path(args.paths[0])
+        exp = expansion.load_expansion(expansion_path)
+        ids = args.paths[1:]
+        entries = [
+            entry for entry in exp.cards if not ids or entry.id in ids
+        ]
+        if ids:
+            known = {entry.id for entry in exp.cards}
+            unknown = [char_id for char_id in ids if char_id not in known]
+            if unknown:
+                raise GenerationError(
+                    f"{exp.name}: unknown character id(s) "
+                    f"{', '.join(unknown)} (the roster: "
+                    f"{', '.join(sorted(known))})"
+                )
         if not args.new_baseline:
             # Fail before the (GPU-heavy) forced run.
-            for card_dir in cards:
+            for entry in entries:
                 _require_baseline(
-                    f"{card_dir.parent.name}/{card_dir.name}",
-                    _baseline_path(card_dir, preset),
+                    f"{exp.name}/{entry.stem}",
+                    _baseline_path(exp.name, entry.stem, preset),
                 )
-        for card_dir in cards:
-            label = f"{card_dir.parent.name}/{card_dir.name}"
-            _generate(card_dir, preset)
+            _require_baseline(
+                f"{exp.name}/expansion",
+                _baseline_path(exp.name, "expansion", preset),
+            )
+        _generate(expansion_path, ids, preset)
+        for entry in entries:
+            info = expansion.resolve_character(entry)
             actual = {
                 path.relative_to(REPO_ROOT).as_posix(): _sha256(path)
-                for path in _expected_outputs(card_dir, preset)
+                for path in _expected_outputs(
+                    exp, entry, expansion.presentations_for(exp, entry, info), preset
+                )
             }
-            baseline = _baseline_path(card_dir, preset)
+            baseline = _baseline_path(exp.name, entry.stem, preset)
+            label = f"{exp.name}/{entry.stem}"
             if args.new_baseline:
                 _write_baseline(baseline, label, preset, actual)
                 print(
@@ -79,6 +93,28 @@ def run() -> None:
                 )
             else:
                 _compare(label, baseline, actual)
+        # The expansion's pack and box images (one pair per expansion).
+        set_path = preset.set_path(exp.name)
+        expansion_actual = {
+            path.relative_to(REPO_ROOT).as_posix(): _sha256(path)
+            for path in (
+                set_path / PACK_MATERIAL_NAME,
+                set_path / PACK_ITEM_NAME,
+                set_path / BOX_MATERIAL_NAME,
+                set_path / BOX_ITEM_NAME,
+            )
+        }
+        expansion_baseline = _baseline_path(exp.name, "expansion", preset)
+        label = f"{exp.name}/expansion"
+        if args.new_baseline:
+            _write_baseline(expansion_baseline, label, preset, expansion_actual)
+            print(
+                "Recorded "
+                f"{len(expansion_actual)} file(s) to "
+                f"{expansion_baseline.relative_to(REPO_ROOT)}."
+            )
+        else:
+            _compare(label, expansion_baseline, expansion_actual)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -87,21 +123,23 @@ def run() -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "byte-for-byte regression check: generate every variant of a "
-            "card (its full-art, profile and standard cards plus the "
-            "set's pack images) with a forced, single-worker run and "
-            "compare the finished files' SHA-256 against the recorded "
-            f"baseline ({BASELINES_DIR.relative_to(REPO_ROOT)}/<set>/)"
+            "byte-for-byte regression check: generate every presentation "
+            "of a character (its full-art, profile and standard cards "
+            "plus the expansion's pack and box images) with a forced, "
+            "single-worker run and compare the finished files' SHA-256 "
+            "against the recorded baselines "
+            f"({BASELINES_DIR.relative_to(REPO_ROOT)}/<set>/)"
         )
     )
     parser.add_argument(
         "paths",
-        type=Path,
+        type=str,
         nargs="+",
-        metavar="CARD_PATH",
+        metavar="ARG",
         help=(
-            "card directorie(s), each relative to the repo root or to "
-            "cards/ (e.g. cards/ELYSION/0001_Rapi)"
+            "the expansion (its name or path — cards/<set>.toml, "
+            "<set>.toml or <set>) and, optionally, the characters' "
+            "viewer ids (default: every character of the expansion)"
         ),
     )
     parser.add_argument(
@@ -117,32 +155,27 @@ def _parse_args() -> argparse.Namespace:
         "--new-baseline",
         action="store_true",
         help=(
-            "record (overwrite) the baseline from this run's outputs "
-            "instead of comparing against the recorded one"
+            "record (overwrite) the baselines from this run's outputs "
+            "instead of comparing against the recorded ones"
         ),
     )
     return parser.parse_args()
 
 
-def _resolve_card_dir(raw: Path) -> Path:
-    """Resolve *raw* to a card directory (``cards/<set>/<card>``),
-    relative to the repo root or to ``cards/``."""
-    root = (REPO_ROOT / raw).resolve() if not raw.is_absolute() else raw
-    if not root.is_dir():
-        root = (CARDS_DIR / raw).resolve()
-    if not root.is_dir() or root.parent.parent != CARDS_DIR:
-        raise GenerationError(
-            "test takes a card directory (e.g. cards/ELYSION/0001_Rapi): "
-            f"{raw}"
-        )
-    return root
-
-
-def _generate(card_dir: Path, preset: Preset) -> None:
+def _generate(
+    expansion_path: Path, ids: list[str], preset: Preset
+) -> None:
     """The forced, single-worker generate run behind the check (see the
     module docstring): the byte protocol — the same code, inputs and
     worker count produce the same bytes."""
-    argv = ["--jobs", "1", "--force", str(card_dir.relative_to(REPO_ROOT))]
+    argv = [
+        "--jobs",
+        "1",
+        "--force",
+        expansion_path.relative_to(REPO_ROOT).as_posix(),
+    ]
+    if ids:
+        argv += ["--ids", *ids]
     if preset is Preset.ULTRA:
         argv.append("--ultra")
     try:
@@ -153,56 +186,37 @@ def _generate(card_dir: Path, preset: Preset) -> None:
             sys.exit(exc.code)
 
 
-def _expected_outputs(card_dir: Path, preset: Preset) -> list[Path]:
-    """The finished files a forced generate of *card_dir* at *preset*
-    writes: every definition's full-art card (plus the animated cards'
-    first-frame PNGs), the profile and standard derived cards, and —
-    when the set carries an ``Expansion.json`` — the set's pack and box
-    materials and items. Mirrors the pipeline's own selection (see
+def _expected_outputs(
+    exp: expansion.Expansion,
+    entry: expansion.CardEntry,
+    presentations: list[expansion.Presentation],
+    preset: Preset,
+) -> list[Path]:
+    """The finished files a forced generate of *entry* at *preset*
+    writes: every presentation's card (plus the animated presentations'
+    first-frame PNGs). Mirrors the pipeline's own selection (see
     :func:`generate.run`)."""
-    set_name = card_dir.parent.name
     outs: list[Path] = []
-    for definition in sorted(card_dir.glob("*.json")):
-        if definition.name == EXPANSION_NAME:
-            continue
-        card = _load_card(definition)
-        animated = card.get("time") is None
+    for presentation in presentations:
+        animated = presentation.animated
         suffix = "mp4" if animated else "png"
-        # The full-art card (the profile-rarity stems, if ever any,
-        # render their profile card alone).
-        if definition.stem not in PROFILE_RARITIES:
-            outs.append(_card_out_path(definition, suffix, preset=preset))
-            if animated:
-                # The animation's first frame is kept alongside it.
-                outs.append(_card_out_path(definition, "png", preset=preset))
-        if definition.stem in STANDARD_STEMS:
-            stem = _standard_stem(definition)
-            outs.append(_card_out_path(definition, suffix, stem, preset))
-            if animated:
-                outs.append(_card_out_path(definition, "png", stem, preset))
-        if definition.stem in PROFILE_STEMS or definition.stem in PROFILE_RARITIES:
-            stem = _profile_stem(definition)
-            outs.append(_card_out_path(definition, suffix, stem, preset))
-            if animated:
-                outs.append(_card_out_path(definition, "png", stem, preset))
-    if (card_dir.parent / EXPANSION_NAME).is_file():
-        # The set's pack and box images (one pair per set).
-        set_path = preset.set_path(set_name)
-        for name in (
-            PACK_MATERIAL_NAME,
-            PACK_ITEM_NAME,
-            BOX_MATERIAL_NAME,
-            BOX_ITEM_NAME,
-        ):
-            outs.append(set_path / name)
+        outs.append(
+            card.output_path(exp.name, entry.stem, presentation.name, suffix, preset)
+        )
+        if animated:
+            # The animation's first frame is kept alongside it.
+            outs.append(
+                card.output_path(exp.name, entry.stem, presentation.name, "png", preset)
+            )
     return outs
 
 
-def _baseline_path(card_dir: Path, preset: Preset) -> Path:
-    """The card's recorded baseline:
-    ``tests/baselines/<set>/<card>.<preset>.sha256``."""
+def _baseline_path(set_name: str, card_name: str, preset: Preset) -> Path:
+    """The recorded baseline: ``tests/baselines/<set>/<name>.<preset>.sha256``
+    (the character's, or the expansion's pack and box with *card_name*
+    ``expansion``)."""
     return (
-        BASELINES_DIR / card_dir.parent.name / f"{card_dir.name}.{preset.value}.sha256"
+        BASELINES_DIR / set_name / f"{card_name}.{preset.value}.sha256"
     )
 
 
@@ -214,8 +228,8 @@ def _sha256(path: Path) -> str:
 def _write_baseline(
     baseline: Path, label: str, preset: Preset, actual: dict[str, str]
 ) -> None:
-    """Write (overwriting) the card's recorded baseline from *actual*
-    (repo-relative path -> SHA-256), in ``sha256sum``-compatible format
+    """Write (overwriting) the recorded baseline from *actual* (repo-
+    relative path -> SHA-256), in ``sha256sum``-compatible format
     (``sha256sum -c`` from the repo root verifies it)."""
     baseline.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -246,7 +260,7 @@ def _read_baseline(baseline: Path) -> dict[str, str]:
 
 
 def _require_baseline(label: str, baseline: Path) -> None:
-    """Fail when the card has no recorded baseline yet."""
+    """Fail when there is no recorded baseline yet."""
     if baseline.is_file():
         return
     print(

@@ -1,255 +1,202 @@
-"""The card-configuration domain.
-
-Discovering and loading card definitions from ``cards.json`` and the
-database (and the derived profile/standard variants), the source hashes
-that record what a finished card was rendered from, the logo paths, and
-the output paths and stems of the rendered cards.
-"""
+"""The card's identity and its work: the per-presentation source hash
+(embedded in a finished card so it is skipped when nothing changed), the
+card's output path (``<card's stem>_<presentation>`` under the output
+preset's set folder), the character's manufacturer's logo (its name from
+the game's data, the base character's when the id is suffixed), and the
+run's selection (the expansions' presentations, filtered by the
+characters the caller named)."""
 
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 from PIL import Image
 
-from nikke_reborn.config import CARDS_DIR, DATABASE_DIR, IMAGES_DIR, REPO_ROOT
+from nikke_reborn import expansion
+from nikke_reborn.config import (
+    CARD_VIEWPORT,
+    DATABASE_DIR,
+    FONT,
+    IMAGES_DIR,
+)
 from nikke_reborn.error import GenerationError
+from nikke_reborn.file import hash_term
 from nikke_reborn.image import PROFILE_MASK_PATH, STANDARD_MASK_PATH
+from nikke_reborn.lettering import FONT_NAME, FONT_RECT_ARROW
 from nikke_reborn.preset import Preset
 
+#: The NIKKE logo's two faces: the white one (the full-art cards) and the
+#: black one (the standard's and profile's cards).
 LOGO_PATHS = {
     False: IMAGES_DIR / "Logo_White.png",
     True: IMAGES_DIR / "Logo_Black.png",
 }
 
-
-def _source_hash(json_path: Path, preset: Preset) -> str:
-    """SHA-256 of the card definition file and the output preset's
-    scale: the inputs a finished card embeds under
-    :data:`SOURCE_HASH_KEY`. The scale term is only mixed in when it
-    deviates from 1.0 — the full-resolution default — so a scale-1.0
-    card carries exactly the hash the code embedded before scales
-    existed, and the ultra (native) output stays byte-for-byte the
-    legacy bytes."""
-    digest = hashlib.sha256()
-    digest.update(json_path.read_bytes())
-    scale = preset.scale
-    if scale != 1.0:
-        digest.update(f"{scale:g}".encode())
-    return digest.hexdigest()
+#: The card's padding, scaled to the run's final size: the lettering's,
+#: the logo's and the reel's offsets are expressed at this padding.
+PADDING = 50
 
 
-def _profile_source_hash(json_path: Path, preset: Preset) -> str:
-    """SHA-256 of the profile card's inputs — the definition it renders,
-    the output preset's scale (mixed in only when it deviates from 1.0,
-    the full-resolution default, so a scale-1.0 card carries exactly
-    the hash the code embedded before scales existed), the card mask,
-    the characters database (for the character's manufacturer) and the
-    manufacturer's logo (the files its pixels depend on). Embedded under
-    :data:`SOURCE_HASH_KEY` so an unchanged profile card is skipped
-    instead of re-rendered."""
-    digest = hashlib.sha256()
-    digest.update(json_path.read_bytes())
-    scale = preset.scale
-    if scale != 1.0:
-        digest.update(f"{scale:g}".encode())
-    digest.update(PROFILE_MASK_PATH.read_bytes())
-    digest.update((DATABASE_DIR / "characters.json").read_bytes())
-    manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
-    if manufacturer is not None:
-        logo = IMAGES_DIR / "logos" / f"{manufacturer}.png"
-        if logo.is_file():
-            digest.update(logo.read_bytes())
-    return digest.hexdigest()
+def padding(preset: Preset) -> int:
+    """The run's padding (the card's 50px native padding at the run's
+    scale), rounded to the px."""
+    return round(PADDING * preset.scale)
 
 
-def _standard_source_hash(json_path: Path, preset: Preset) -> str:
-    """SHA-256 of the standard card's inputs — the definition it renders,
-    the output preset's scale (mixed in only when it deviates from 1.0,
-    the full-resolution default, so a scale-1.0 card carries exactly
-    the hash the code embedded before scales existed), the standard
-    card mask, the characters database (for the character's
-    manufacturer) and the manufacturer's logo (the files its pixels
-    depend on). Embedded under :data:`SOURCE_HASH_KEY` so an unchanged
-    standard card is skipped instead of re-rendered."""
-    digest = hashlib.sha256()
-    digest.update(json_path.read_bytes())
-    scale = preset.scale
-    if scale != 1.0:
-        digest.update(f"{scale:g}".encode())
-    digest.update(STANDARD_MASK_PATH.read_bytes())
-    digest.update((DATABASE_DIR / "characters.json").read_bytes())
-    manufacturer = _character_manufacturer(str(_load_card(json_path).get("id", "")))
-    if manufacturer is not None:
-        logo = IMAGES_DIR / "logos" / f"{manufacturer}.png"
-        if logo.is_file():
-            digest.update(logo.read_bytes())
-    return digest.hexdigest()
-
-
-def _find_card_configs(paths: list[Path] | None = None) -> list[Path]:
-    """Return the card definition files to generate.
-
-    With no explicit *paths*, every ``*.json`` under :data:`CARDS_DIR`
-    (sorted for deterministic output), excluding the pack's
-    ``Expansion.json`` (the pack's metadata, not a card). Explicit paths are
-    resolved against the repo root, must be files that live under
-    :data:`CARDS_DIR`, are de-duplicated and returned in the given order.
-    """
-    if not paths:
-        from nikke_reborn import expansion
-
-        return sorted(
-            path
-            for path in CARDS_DIR.rglob("*.json")
-            if path.name != expansion.EXPANSION_NAME
-        )
-    configs: list[Path] = []
-    seen: set[Path] = set()
-    for raw in paths:
-        json_path = (REPO_ROOT / raw).resolve() if not raw.is_absolute() else raw
-        if not json_path.is_file():
-            raise GenerationError(f"card definition not found: {raw}")
-        if CARDS_DIR not in json_path.parents:
-            raise GenerationError(
-                f"card definition must be under {CARDS_DIR.relative_to(REPO_ROOT)}/: {raw}"
-            )
-        if json_path not in seen:
-            seen.add(json_path)
-            configs.append(json_path)
-    return configs
-
-
-def _expand_card_paths(paths: list[Path]) -> list[Path]:
-    """Expand *paths* (each a set, a card, or a definition file, relative to
-    the repo root or to ``cards/``) to the card definitions they contain:
-    every ``*.json`` under each path (the pack's ``Expansion.json``
-    excluded), validated and de-duplicated by :func:`_find_card_configs`."""
-    from nikke_reborn import expansion
-
-    files: list[Path] = []
-    for raw in paths:
-        root = (REPO_ROOT / raw).resolve()
-        if not root.exists():
-            root = (CARDS_DIR / raw).resolve()
-        if not root.exists():
-            raise GenerationError(f"no such card path: {raw}")
-        if root != CARDS_DIR and CARDS_DIR not in root.parents:
-            raise GenerationError(
-                f"card path must be under {CARDS_DIR.relative_to(REPO_ROOT)}/: {raw}"
-            )
-        if root.is_file():
-            if not root.name.endswith(".json") or root.name == expansion.EXPANSION_NAME:
-                raise GenerationError(f"not a card definition: {raw}")
-            files.append(root)
-        else:
-            files.extend(
-                sorted(
-                    path
-                    for path in root.rglob("*.json")
-                    if path.name != expansion.EXPANSION_NAME
-                )
-            )
-    if not files:
-        raise GenerationError("no card definitions selected")
-    return _find_card_configs(files)
-
-
-def _selected_configs(paths: list[Path]) -> list[Path] | None:
-    """The card definitions to generate: None when nothing is selected
-    (everything, as before), else the card definitions the selected
-    *paths* expand to, in the given order."""
-    if not paths:
-        return None
-    return _expand_card_paths(paths)
-
-
-def _load_card(json_path: Path) -> dict:
-    try:
-        import json
-
-        return json.loads(json_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise GenerationError(
-            f"cannot read card definition {json_path.name}: {exc}"
-        ) from exc
-
-
-def _background_path(card: dict, json_path: Path) -> Path:
-    if "background" not in card:
-        raise GenerationError(f"{json_path.name}: missing 'background'")
-    background = (json_path.parent / card["background"]).resolve()
-    if not background.is_file():
-        raise GenerationError(f"{json_path.name}: background not found: {background}")
-    return background
-
-
-def _character_manufacturer(card_id: str) -> str | None:
-    """The character's ``manufacturer`` from ``database/characters.json``
-    (looked up by *card_id*; a skin variant's suffixed id, c010_02, falls
-    back to the base character, as the rarity does). None when the
-    character is unknown or carries no manufacturer."""
-    characters = json.load((DATABASE_DIR / "characters.json").open())
-    characters = {character["id"]: character for character in characters}
-    character = characters.get(card_id) or characters.get(card_id.split("_", 1)[0])
-    manufacturer = character.get("manufacturer") if character else None
-    return manufacturer or None
-
-
-def _manufacturer_logo(card_id: str) -> Image.Image | None:
-    """The character's manufacturer logo:
-    ``assets/images/logos/<manufacturer>.png`` (white on transparency,
-    tinted to the bar's fill when placed) — None
-    when the character has no manufacturer or its logo file is missing."""
-    manufacturer = _character_manufacturer(card_id)
-    if manufacturer is None:
-        return None
-    logo_path = IMAGES_DIR / "logos" / f"{manufacturer}.png"
-    if not logo_path.is_file():
-        return None
-    return Image.open(logo_path).convert("RGBA")
-
-
-def _card_out_path(
-    json_path: Path,
-    suffix: str,
-    stem: str | None = None,
-    preset: Preset = Preset.DEFAULT,
-) -> Path:
-    """The flat output path for a card definition: the card's
-    directory is folded into the filename, so
-    ``cards/<set>/<card>/<variant>.json`` renders to
-    ``<base>/<set>/<card>_<variant>.<suffix>`` under the preset's
-    output root (deeper nesting, if ever used, is folded the same
-    way, one dash per directory).
-
-    *stem* overrides the variant in the filename (defaults to the
-    definition's own stem) — the profile cards pass their output stem, so a
-    profile card writes out as ``<card>_<variant>Profile.<suffix>``.
-    The set folder is the output preset's
-    (:meth:`Preset.set_path`): ``<set>``, the ``<set> (Ultra)`` twin
-    under ultra, or ``draft/<set>`` for a draft.
-    """
-    if stem is None:
-        stem = json_path.stem
-    card_rel = json_path.parent.relative_to(CARDS_DIR)
+def run_size(preset: Preset) -> tuple[int, int]:
+    """The run's final size: the viewer's default viewport
+    (:data:`nikke_reborn.CARD_VIEWPORT`) at the run's scale, each
+    dimension rounded and forced even (the video's encoder requires even
+    dimensions)."""
     return (
-        preset.set_path(card_rel.parts[0])
-        / f"{'_'.join(card_rel.parts[1:])}_{stem}.{suffix}"
+        round(CARD_VIEWPORT[0] * preset.scale) & ~1,
+        round(CARD_VIEWPORT[1] * preset.scale) & ~1,
     )
 
 
-def _profile_stem(json_path: Path) -> str:
-    """The output stem of the profile card rendered from *json_path*: the
-    variant's stem with the ``Profile`` suffix (an ``Aim.json`` writes out
-    as ``<card>_AimProfile.<suffix>``)."""
-    return f"{json_path.stem}Profile"
+def output_path(
+    set_name: str,
+    card_stem: str,
+    presentation: str,
+    suffix: str,
+    preset: Preset,
+) -> Path:
+    """A card's finished output path: ``<card's stem>_<presentation>.<suffix>``
+    under the output preset's set folder (``output/<set>/`` at default,
+    ``output/<set> (Ultra)/`` at ultra)."""
+    return preset.set_path(set_name) / f"{card_stem}_{presentation}.{suffix}"
 
 
-def _standard_stem(json_path: Path) -> str:
-    """The output stem of the standard card rendered from *json_path*: the
-    variant's stem with the ``Standard`` suffix (a ``Rare.json`` writes out
-    as ``<card>_RareStandard.<suffix>``)."""
-    return f"{json_path.stem}Standard"
+def _manufacturer_logo_path(card_id: str) -> Path | None:
+    """The manufacturer's logo's path for the character, or None when the
+    character's manufacturer carries no logo file (the logo is then
+    skipped): the character's own manufacturer's, the base character's
+    when the id is suffixed."""
+    characters = expansion._characters_db()
+    record = characters.get(card_id) or characters.get(card_id.split("_", 1)[0])
+    if record is None:
+        return None
+    manufacturer = record.get("manufacturer")
+    if not manufacturer:
+        return None
+    path = DATABASE_DIR / "images" / "manufacturers" / f"{manufacturer}.png"
+    return path if path.is_file() else None
+
+
+def _manufacturer_logo(card_id: str) -> Image.Image | None:
+    """The character's manufacturer's logo (RGBA), opened for the
+    composite (the nameplate's logo), or None (see
+    :func:`_manufacturer_logo_path`)."""
+    path = _manufacturer_logo_path(card_id)
+    if path is None:
+        return None
+    return Image.open(path).convert("RGBA")
+
+
+def presentation_source_hash(presentation: expansion.Presentation, preset: Preset) -> str:
+    """The SHA-256 of a presentation's inputs — everything the finished
+    card depends on: the expansion's file, the card's stem, the
+    presentation's name and its viewer terms (the variant, the animation,
+    the time and the framing, in canonical form), the background's bytes
+    (the solid black's marker for the goddess presentation), the mask's
+    bytes, the NIKKE logo's face, the manufacturer's logo (when the
+    character has one), the game's data (``characters.json`` and
+    ``models.json`` — the name, the rarity and the manufacturer come
+    from them) and the fonts the lettering stamps — plus the run's scale
+    (mixed in only when it deviates from 1.0, the full-resolution
+    default, so an ultra card's hash is the canonical one)."""
+    digest = hashlib.sha256()
+    card = presentation.card
+    hash_term(digest, presentation.expansion.path.read_bytes())
+    hash_term(digest, card.stem.encode())
+    hash_term(digest, presentation.name.encode())
+    flags = "|".join(
+        (
+            presentation.variant or "default",
+            presentation.animation or "default",
+            f"time {presentation.time}" if presentation.time is not None else "loop",
+            "half-body" if presentation.half_body else "default-framing",
+        )
+    )
+    hash_term(digest, flags.encode())
+    if presentation.background == "black":
+        hash_term(digest, b"solid-black")
+    else:
+        hash_term(
+            digest,
+            expansion._background_path(presentation.expansion, presentation.background).read_bytes(),
+        )
+    if presentation.mask == "standard":
+        hash_term(digest, STANDARD_MASK_PATH.read_bytes())
+    elif presentation.mask == "profile":
+        hash_term(digest, PROFILE_MASK_PATH.read_bytes())
+    # The logo's face: the white logo on the full-art cards, the black one
+    # on the standard's and profile's.
+    hash_term(digest, LOGO_PATHS[presentation.tier != "full"].read_bytes())
+    logo_path = _manufacturer_logo_path(card.id)
+    if logo_path is not None:
+        hash_term(digest, logo_path.read_bytes())
+    for db_name in ("characters.json", "models.json"):
+        hash_term(digest, (DATABASE_DIR / db_name).read_bytes())
+    for font_path in (FONT, FONT_NAME, FONT_RECT_ARROW):
+        hash_term(digest, font_path.read_bytes())
+    scale = preset.scale
+    if scale != 1.0:
+        hash_term(digest, f"{scale:g}".encode())
+    return digest.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# The run's selection: the expansions (resolved from the caller's paths,
+# every expansion when none are given) and their presentations (the
+# characters' fixed sets, filtered by the ids the caller named).
+# ---------------------------------------------------------------------------
+
+
+def select_expansions(paths: list[str] | None) -> list[expansion.Expansion]:
+    """The expansions a run renders: the caller's (resolved against the
+    repo's or the ``cards/`` root, de-duplicated in order) or every
+    expansion under ``cards/`` when none are given."""
+    if not paths:
+        return expansion.find_expansions()
+    selected: list[expansion.Expansion] = []
+    seen: set[Path] = set()
+    for raw in paths:
+        path = expansion.resolve_expansion_path(raw)
+        if path in seen:
+            continue
+        seen.add(path)
+        selected.append(expansion.load_expansion(path))
+    return selected
+
+
+def build_selection(
+    expansions: list[expansion.Expansion], ids: list[str] | None = None
+) -> list[expansion.Presentation]:
+    """The run's work: every selected expansion's cards' presentations (the
+    fixed per-character set, the ``Goddess`` presentation dropped when the
+    character carries no ``sc`` variant and the two ``Special``
+    presentations dropped when the character has no reel animation),
+    filtered to the characters the caller named when *ids* is given (an id
+    that is not in an expansion's roster errors, naming the known ids).
+    Every selected character is resolved against the viewer (its variants,
+    its reel's animation) before the run starts, so a character that cannot
+    render a presentation fails before anything is rendered."""
+    if ids:
+        known: dict[str, set[str]] = {e.name: {c.id for c in e.cards} for e in expansions}
+        for expansion_name, roster in known.items():
+            unknown = [char_id for char_id in ids if char_id not in roster]
+            if unknown:
+                raise GenerationError(
+                    f"{expansion_name}: unknown character id(s) "
+                    f"{', '.join(unknown)} (the roster: {', '.join(sorted(roster))})"
+                )
+    presentations: list[expansion.Presentation] = []
+    for exp in expansions:
+        for entry in exp.cards:
+            if ids and entry.id not in ids:
+                continue
+            info = expansion.resolve_character(entry)
+            presentations.extend(expansion.presentations_for(exp, entry, info))
+    return presentations

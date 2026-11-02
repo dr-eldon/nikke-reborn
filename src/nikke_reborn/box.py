@@ -1,5 +1,5 @@
 """Compose a box's ``CardBox_Material`` front on the fly from its
-``Expansion.json``.
+expansion's TOML.
 
 The box's front is the shared front composition (see
 :mod:`nikke_reborn.expansion`) at the box material template's size, with the
@@ -32,13 +32,13 @@ from pathlib import Path
 
 from PIL import Image
 
+from nikke_reborn import expansion
 from nikke_reborn.config import (
     BOX_CONFIG,
     BOX_ITEM_NAME,
     BOX_MATERIAL_NAME,
     BOX_MESH,
     BOX_TEMPLATE,
-    CARDS_DIR,
     IMAGES_DIR,
     ITEM_VIEWER_HEIGHT,
     ITEM_VIEWER_WIDTH,
@@ -218,8 +218,7 @@ def place_top_logo(top: Image.Image) -> None:
 
 def place_center_expansion_logo(
     face: Image.Image,
-    pack_dir: Path,
-    expansion: dict,
+    exp: expansion.Expansion,
     width_fraction: float | None = None,
 ) -> None:
     """Composite the expansion's logo (its ``logo.path`` image) onto a face
@@ -228,13 +227,10 @@ def place_center_expansion_logo(
     height is :data:`BOX_EXPANSION_LOGO_HEIGHT` the face's height (the
     side), or, when *width_fraction* is given (the top), its width is that
     fraction of the face's width (its height proportional) — centered on
-    the face both horizontally and vertically. Only when the expansion
-    names a ``logo``; the placement is always ``"center"``. The
-    glow is sampled from the face before the logos are composited, so it
-    is tinted by the scene. Modifies *face* in place."""
-    if expansion.get("logo") is None:
-        return
-    mark, _ = load_logo(pack_dir, expansion)
+    the face both horizontally and vertically. The placement is always
+    ``"center"``. The glow is sampled from the face before the logos are
+    composited, so it is tinted by the scene. Modifies *face* in place."""
+    mark, _ = load_logo(exp)
     glow_color = _background_glow_color(_image_average(face))
     if width_fraction is None:
         _composite_logo(
@@ -256,21 +252,19 @@ def place_center_expansion_logo(
         )
 
 
-def front_source_hash(pack_dir: Path) -> str:
-    """A hash of the box front's inputs: the expansion's
-    ``Expansion.json``, the featured NIKKE definitions it lists, the
-    background and (when a logo is set) the expansion's logo, the white
-    NIKKE logo
-    placed on the front, and the box material template that sizes it (the
-    shared digest from
+def front_source_hash(exp: expansion.Expansion) -> str:
+    """A hash of the box front's inputs: the expansion's file, the featured
+    characters it lists, the background and the expansion's logo, the white
+    NIKKE logo placed on the front, and the box material template that sizes
+    it (the shared digest from
     :func:`nikke_reborn.expansion.front_source_digest`, with the box's logo
     and template). It is computed without rendering the front, so the
     finished material can be skipped (and the front's render avoided) when
     those inputs are unchanged."""
-    return front_source_digest(pack_dir, BOX_LOGO, BOX_TEMPLATE)
+    return front_source_digest(exp, BOX_LOGO, BOX_TEMPLATE)
 
 
-def build_front(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
+def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The box front: the shared front composition
     (:func:`nikke_reborn.expansion.compose_front`) with the box's background
     fit, the box's white NIKKE logo, the box's expansion-logo sizing
@@ -284,8 +278,7 @@ def build_front(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image
     memory; it is the box material's blue rectangle and is never written to
     disk."""
     return compose_front(
-        pack_dir,
-        expansion,
+        exp,
         size,
         fit="cover-bottom",
         place_logo=place_logo,
@@ -296,7 +289,7 @@ def build_front(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image
     )
 
 
-def build_side(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
+def build_side(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The box side: the expansion's background fitted to cover the side
     (like the front — scaled to cover, bottom-aligned, center-cropped),
     with the expansion's logo center-center (see
@@ -307,14 +300,14 @@ def build_side(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.
     expansion's logo when a logo is set, the white logo and the
     template) are a subset of the front's, so the front's source hash (see
     :func:`front_source_hash`) covers it."""
-    background = load_background(pack_dir, expansion)
+    background = load_background(exp)
     side = _fit_cover(background, size)
-    place_center_expansion_logo(side, pack_dir, expansion)
+    place_center_expansion_logo(side, exp)
     place_side_logo(side)
     return side
 
 
-def build_top(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.Image:
+def build_top(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The box top: the expansion's background fitted to cover the top —
     like the front's and side's cover fit, but centered vertically as well
     as horizontally (see :func:`nikke_reborn.expansion._fit_cover`) — with
@@ -328,11 +321,10 @@ def build_top(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.I
     expansion's logo when a logo is set, the white logo and the
     template) are a subset of the front's, so the front's source hash (see
     :func:`front_source_hash`) covers it."""
-    top = _fit_cover(load_background(pack_dir, expansion), size, v_align="center")
+    top = _fit_cover(load_background(exp), size, v_align="center")
     place_center_expansion_logo(
         top,
-        pack_dir,
-        expansion,
+        exp,
         width_fraction=BOX_TOP_EXPANSION_LOGO_WIDTH,
     )
     place_top_logo(top)
@@ -340,7 +332,7 @@ def build_top(pack_dir: Path, expansion: dict, size: tuple[int, int]) -> Image.I
 
 
 def _process_box_material(
-    pack_dir: Path,
+    exp: expansion.Expansion,
     front: Image.Image,
     front_source: str,
     side: Image.Image,
@@ -369,11 +361,10 @@ def _process_box_material(
     ``(out_path, skipped)``, where *skipped* is True when the output
     already exists and its stored hash matches the current inputs.
     """
-    pack_dir = pack_dir.resolve()
     source_hash = _material_hash(
         BOX_TEMPLATE, front_source=front_source, preset=preset
     )
-    out_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name) / BOX_MATERIAL_NAME
+    out_path = preset.set_path(exp.name) / BOX_MATERIAL_NAME
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True
     with Image.open(BOX_TEMPLATE) as opened:
@@ -435,7 +426,7 @@ def _process_box_material(
 
 
 def _process_box_item(
-    pack_dir: Path,
+    exp: expansion.Expansion,
     force: bool = False,
     preset: Preset = Preset.DEFAULT,
 ) -> tuple[Path, bool]:
@@ -458,10 +449,9 @@ def _process_box_item(
     ``(out_path, skipped)``, where *skipped* is True when the output
     already exists and its stored hash matches the current inputs.
     """
-    pack_dir = pack_dir.resolve()
     width = round(ITEM_VIEWER_WIDTH * preset.scale)
     height = round(ITEM_VIEWER_HEIGHT * preset.scale)
-    set_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name)
+    set_path = preset.set_path(exp.name)
     material_path = set_path / BOX_MATERIAL_NAME
     source_hash = _viewer_hash(BOX_MESH, material_path, BOX_CONFIG, preset)
     out_path = set_path / BOX_ITEM_NAME

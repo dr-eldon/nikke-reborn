@@ -10,7 +10,7 @@ default), the expected value per pack (simulated and theoretical), the
 median pack value, the pack value distribution, the per-slot expected
 value and the top cards of the set.
 
-The expansion's bundle is rebuilt from ``cards/<expansion>``,
+The expansion's bundle is rebuilt from ``cards/<expansion>.toml``,
 ``database/characters.json`` and the current :mod:`nikke_reborn.metadata`
 tuning (the same inputs ``generate`` writes to ``output/<expansion>.json``),
 so the report always reflects the current ``SlotWeights`` and price
@@ -52,8 +52,9 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import pairwise
+from pathlib import Path
 
-from nikke_reborn import metadata
+from nikke_reborn import expansion, metadata
 from nikke_reborn.config import CARDS_DIR, OUTPUT_DIR, REPO_ROOT
 from nikke_reborn.error import GenerationError
 
@@ -147,22 +148,27 @@ def card_price(expansion: dict, rarity: str, border: str, foil: bool) -> float:
     return price
 
 
-def _load_expansion(name: str) -> tuple[dict, dict]:
+def _load_expansion(expansion_path: Path) -> tuple[dict, dict, str]:
     """The expansion's metadata and its pack item, built from
-    ``cards/<name>`` through the current :mod:`nikke_reborn.metadata`
-    tuning (what ``generate`` would write to ``output/<name>.json``)."""
-    set_dir = CARDS_DIR / name
-    if not set_dir.is_dir():
+    ``cards/<set>.toml`` through the current :mod:`nikke_reborn.metadata`
+    tuning (what ``generate`` would write to ``output/<set>.json``), and
+    the set's name."""
+    if not expansion_path.is_file():
         available = ", ".join(
-            sorted(path.name for path in CARDS_DIR.iterdir() if path.is_dir())
+            sorted(path.stem for path in CARDS_DIR.glob("*.toml"))
         )
-        raise GenerationError(f"unknown expansion {name!r} (available: {available})")
-    cards = metadata.cards(set_dir)
-    if not cards:
         raise GenerationError(
-            f"no card definitions under {set_dir.relative_to(REPO_ROOT)}/"
+            f"unknown expansion {expansion_path.name!r} (available: {available})"
         )
-    return metadata.expansion(name, cards), metadata.pack(name)
+    exp = expansion.load_expansion(expansion_path)
+    cards = metadata.cards(exp)
+    if not cards:
+        raise GenerationError(f"no cards under {expansion_path.relative_to(REPO_ROOT)}/")
+    return (
+        metadata.expansion(exp.name, cards),
+        metadata.pack(exp.name),
+        exp.name,
+    )
 
 
 def _pool(expansion: dict) -> list[Card]:
@@ -1030,7 +1036,10 @@ def run() -> None:
     )
     parser.add_argument(
         "expansion",
-        help="the expansion to simulate (a directory under cards/)",
+        help=(
+            "the expansion to simulate (its name or path — cards/<set>.toml, "
+            "<set>.toml or <set>)"
+        ),
     )
     parser.add_argument(
         "--packs",
@@ -1063,17 +1072,17 @@ def run() -> None:
     if args.hit <= 0:
         parser.error("--hit must be positive")
 
-    name = args.expansion.removeprefix("cards/")
     seed = (
         args.seed if args.seed is not None else random.SystemRandom().randrange(1 << 31)
     )
 
     try:
-        expansion, pack = _load_expansion(name)
-        cards = _pool(expansion)
-        result = run_simulation(expansion, pack, cards, args.packs, seed, args.hit)
-        stats = compute_statistics(expansion, pack, cards, result, args.hit)
-        report = render_report(name, expansion, pack, result, stats, args.hit)
+        expansion_path = expansion.resolve_expansion_path(args.expansion)
+        expansion_data, pack, name = _load_expansion(expansion_path)
+        cards = _pool(expansion_data)
+        result = run_simulation(expansion_data, pack, cards, args.packs, seed, args.hit)
+        stats = compute_statistics(expansion_data, pack, cards, result, args.hit)
+        report = render_report(name, expansion_data, pack, result, stats, args.hit)
 
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         out_path = OUTPUT_DIR / f"{name}.html"

@@ -152,7 +152,7 @@ def _reap_viewer(
 def _stream_composited(
     viewer: subprocess.Popen,
     drain: _PipeDrain,
-    json_path: Path,
+    label: str,
     size: tuple[int, int],
     base: Image.Image,
     overlay: Image.Image,
@@ -221,7 +221,7 @@ def _stream_composited(
                     return
                 if len(data) != frame_bytes:
                     raise GenerationError(
-                        f"{VIEWER} stream for {json_path.name} truncated: "
+                        f"{VIEWER} stream for {label} truncated: "
                         f"{len(data)} of {frame_bytes} bytes"
                     )
                 pending.append(pool.submit(composite, data))
@@ -249,7 +249,7 @@ def _stream_composited(
                 yield frame
 
         if yielded == 0:
-            raise GenerationError(f"{VIEWER} produced no frames for {json_path.name}")
+            raise GenerationError(f"{VIEWER} produced no frames for {label}")
     finally:
         _reap_viewer(viewer, drain, clean_exit_expected=eof)
 
@@ -259,7 +259,7 @@ def _stream_dual_composited(
     face_drain: _PipeDrain,
     body_viewer: subprocess.Popen,
     body_drain: _PipeDrain,
-    json_path: Path,
+    label: str,
     size: tuple[int, int],
     background: Image.Image,
     tint: Image.Image,
@@ -368,7 +368,7 @@ def _stream_dual_composited(
                     return
                 if len(face_data) != frame_bytes:
                     raise GenerationError(
-                        f"{VIEWER} face stream for {json_path.name} truncated: "
+                        f"{VIEWER} face stream for {label} truncated: "
                         f"{len(face_data)} of {frame_bytes} bytes"
                     )
                 body_data = _read_exact(body_stdout, frame_bytes)
@@ -378,7 +378,7 @@ def _stream_dual_composited(
                     return
                 if len(body_data) != frame_bytes:
                     raise GenerationError(
-                        f"{VIEWER} body stream for {json_path.name} truncated: "
+                        f"{VIEWER} body stream for {label} truncated: "
                         f"{len(body_data)} of {frame_bytes} bytes"
                     )
                 pending.append(pool.submit(composite, face_data, body_data))
@@ -406,7 +406,7 @@ def _stream_dual_composited(
                 yield frame
 
         if yielded == 0:
-            raise GenerationError(f"{VIEWER} produced no frames for {json_path.name}")
+            raise GenerationError(f"{VIEWER} produced no frames for {label}")
     finally:
         # A stream is "clean" only if it was read to end-of-file; one that was
         # abandoned early (the consumer stopped or an error aborted the window)

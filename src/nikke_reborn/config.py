@@ -1,14 +1,14 @@
 """Shared configuration for the card pipeline.
 
 The constants more than one part of the pipeline needs: the repository
-and asset directories, the external executables, the source-hash key,
-the shared variant stems, the reference card width, the copyright line
-and its face, the stage-thread cap, and the pack's and the box's asset
-names, the item's viewer size, and ffprobe. The run's output preset
-(its scale, its output root, its encoding settings and the ultra
-set-folder suffix) lives in :mod:`nikke_reborn.preset`. Everything that
-only one part needs (masks, tints, name placement, encode flags) lives
-with the code that uses it.
+and asset directories, the external executables (the viewer, the unity
+viewer and ffprobe), the source-hash key, the card's viewport, padding and
+reference width, the copyright line's face, the stage-thread cap, and the
+pack's and the box's asset names, the item's viewer size and their viewer
+configurations. The run's output preset (its scale, its output root, its
+encoding settings and the ultra set-folder suffix) lives in
+:mod:`nikke_reborn.preset`. Everything that only one part needs (masks,
+tints, name placement, encode flags) lives with the code that uses it.
 """
 
 from pathlib import Path
@@ -36,27 +36,14 @@ PROBER = "ffprobe"
 #: current definition is skipped instead of re-rendered.
 SOURCE_HASH_KEY = "nikke-reborn-source"
 
-#: Profile rarity stems that skip the full-art pipeline entirely: only
-#: their profile cards are rendered. Currently empty — every rarity
-#: (including ``Aim`` and ``Cover``) also renders its full-art card.
-PROFILE_RARITIES = frozenset({})
+#: The viewer's default viewport (the card's native size) in pixels:
+#: the run's final size is this viewport at the run's scale.
+CARD_VIEWPORT = (1640, 2048)
 
-#: Variant stems that render a ``<variant>Standard`` card: the
-#: ``Classic``, ``Rare``, ``Special`` and ``Exotic`` presentations.
-STANDARD_STEMS = frozenset({"Classic", "Rare", "Special", "Exotic"})
-#: Variant stems that render a ``<variant>Profile`` card: the
-#: ``Classic``, ``Idle``, ``Cover`` and ``Aim`` presentations. The
-#: ``Rare``, ``Special`` and ``Exotic`` presentations moved to the
-#: ``Standard`` tier (they no longer render a profile card), and the
-#: ``Goddess`` and ``Classified`` presentations render no derived card.
-PROFILE_STEMS = frozenset({"Classic", "Idle", "Cover", "Aim"})
-
-#: The value of the definition's ``variant`` field whose full-art card the
-#: viewer frames with the ``--half-body`` flag (the upper body, head to
-#: waist, ignoring the definition's pan/zoom) instead of the definition's
-#: own pan/zoom: the ``fb`` variant. The derived presentations (the
-#: profile and the standard cards) frame the body themselves.
-HALF_BODY_VARIANT = "fb"
+#: The card's padding (native-viewport px): the lettering, the logo
+#: placement, the reel insets and the like are expressed at this
+#: padding (every legacy definition used 50).
+CARD_PADDING = 50
 
 #: Reference card width (pixels): the nominal sizes below are expressed at
 #: this width and scale proportionally for other viewport widths.

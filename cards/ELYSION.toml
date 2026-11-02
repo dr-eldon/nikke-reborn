@@ -1,0 +1,33 @@
+pack = ["c010", "c011", "c013"]
+cards = [
+    { id = "c010" },
+    { id = "c022" },
+    { id = "c030" },
+    { id = "c032" },
+    { id = "c070" },
+    { id = "c071" },
+    { id = "c072" },
+    { id = "c090" },
+    { id = "c091" },
+    { id = "c092" },
+    { id = "c170" },
+    { id = "c180" },
+    { id = "c181" },
+    { id = "c011" },
+    { id = "c013" },
+    { id = "c020" },
+    { id = "c300" },
+    { id = "c301" },
+    { id = "c306" },
+    { id = "c010_02" },
+    { id = "c072_01" },
+]
+
+[logo]
+path = "../assets/images/logos/ELYSION.png"
+placement = "bottom"
+
+[background]
+base = "../assets/images/backgrounds/sky-night.png"
+special = "../assets/images/backgrounds/sky-sunset.png"
+battle = "../assets/images/backgrounds/smoke-pink.png"

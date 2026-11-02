@@ -2,29 +2,33 @@
 cards, fitted to the grid — every row is 160 px tall, and the sheet's
 width (the label column + the grid + the margins) and height (the header +
 the grid + the margin) grow with the content — over the expansion's
-background (its ``Expansion.json`` ``background``, resized to cover the
-sheet without deformation, bottom edges aligned, and dimmed toward black
-so the grid reads against it).
+background (its ``background.base``, resized to cover the sheet without
+deformation, bottom edges aligned, and dimmed toward black so the grid
+reads against it).
 
 The sheet composites the finished first frames
-(``output/<set>/<card>_<variant>.png``) into a grid:
+(``output/<set>/<stem>_<presentation>.png``) into a grid:
 
-* the expansion's logo at the top, centered — from the set's
-  ``Expansion.json`` ``logo.path`` (resolved against the pack directory)
-  when the file exists, else ``assets/images/logos/<set>.png`` — rendered
+* the expansion's logo at the top, centered — from the expansion's
+  ``logo.path`` (resolved against the expansion's folder) when the file
+  exists, else ``assets/images/logos/<set>.png`` — rendered
   the way the pack's and box's fronts render it: a screen-blended halo
   tinted by the sheet's own background, a solid trail behind the mark,
   the sharp mark on top;
-* one row per card prefix (``<number>_<card>`` — the card's directory, the
-  rarity stripped), rendered in a label column on the left as
+* one row per character (its card's stem, ``<number>_<name>`` — the
+  card's prefix), rendered in a label column on the left as
   ``#<number> <character>[: <skin>]`` — the number zero-padded so the
   labels' numbers align, its words' CamelCase split by whitespace (``#01
   Rapi`` … ``#21 Diesel: Black Sunday``);
-* one column per rarity/variant: every rarity the set carries, in the order
-  of ``metadata.RARITIES`` (the game's own rarity order — the ``Standard``
-  and ``Profile`` presentations first, then the base rarities from the
-  commonest to the rarest), each column labeled above the grid with its
-  rarity (whitespace between its capital letters —
+* one column per presentation: every presentation the roster carries
+  (the fixed per-character set — the standard's, the profile's and the
+  full-art's presentations — in the order of
+  ``expansion.PRESENTATION_SPECS``; the goddess presentation's column only
+  appears when the roster carries a character with the ``sc`` variant, and
+  the two special presentations' columns only when the roster carries a
+  character with a reel animation),
+  each column labeled above the grid with its presentation (whitespace
+  between its capital letters —
   ``ClassicProfile`` reads as ``Classic Profile``). A cell the character
   does not have (a rarity it does not carry) stays empty.
 * the animated cards (an ``.mp4`` next to their first frame) are marked
@@ -53,7 +57,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import itertools
-import json
 import os
 import re
 import sys
@@ -62,20 +65,17 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from nikke_reborn import expansion, metadata
+from nikke_reborn import expansion
 from nikke_reborn.config import (
     CARD_REFERENCE_WIDTH,
-    CARDS_DIR,
+    CARD_VIEWPORT,
     DRAFT_DIR,
     FONT,
     IMAGES_DIR,
     MAX_STAGE_THREADS,
     OUTPUT_DIR,
-    PROFILE_RARITIES,
-    PROFILE_STEMS,
     REPO_ROOT,
     SOURCE_HASH_KEY,
-    STANDARD_STEMS,
 )
 from nikke_reborn.error import GenerationError
 from nikke_reborn.file import _save_atomic
@@ -192,13 +192,16 @@ def _parse_args() -> argparse.Namespace:
         description=(
             "Compose an expansion's sprite sheet (a grid of its rendered "
             "first frames, fitted to its content — 160 px rows: the "
-            "expansion's logo on top, one row per card prefix, one column "
-            "per rarity/variant)"
+            "expansion's logo on top, one row per character, one column "
+            "per presentation)"
         )
     )
     parser.add_argument(
         "expansion",
-        help="expansion name (a directory under cards/, e.g. ELYSION)",
+        help=(
+            "the expansion's name or path (cards/<set>.toml, <set>.toml "
+            "or <set>, e.g. ELYSION)"
+        ),
     )
     parser.add_argument(
         "--draft",
@@ -218,19 +221,13 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
 
     Returns the sheet's path, its grid's row and column counts and whether
     the sheet was skipped (up to date)."""
-    pack_dir = CARDS_DIR / name
-    if not pack_dir.is_dir():
-        known = sorted(p.name for p in CARDS_DIR.iterdir() if p.is_dir())
-        raise GenerationError(
-            f"unknown expansion {name!r} (expected a directory under "
-            f"cards/; the known sets: {', '.join(known)})"
-        )
-    rows, columns, cells = _card_grid(pack_dir)
+    exp = expansion.load_expansion(expansion.resolve_expansion_path(name))
+    rows, columns, cells = _card_grid(exp)
     if not rows:
         raise GenerationError(
-            f"no card definitions under {pack_dir.relative_to(REPO_ROOT)}/"
+            f"{exp.name}: the expansion's roster is empty"
         )
-    card_dir = out_dir / pack_dir.name
+    card_dir = out_dir / exp.name
     paths = {
         (prefix, column): card_dir / f"{prefix}_{column}.png"
         for prefix, column in sorted(cells)
@@ -245,18 +242,18 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
         more = f" (+{len(missing) - 10} more)" if len(missing) > 10 else ""
         print(
             f"warning: {len(missing)} rendered card(s) missing for "
-            f"{pack_dir.name} (run 'generate' first); rendering them as a "
+            f"{exp.name} (run 'generate' first); rendering them as a "
             f"'{MISSING_TEXT}' placeholder: {shown}{more}",
             file=sys.stderr,
         )
-    out_path = out_dir / f"{pack_dir.name}.png"
-    background, background_path = _expansion_background(pack_dir)
-    logo, logo_path = _expansion_logo(pack_dir)
-    source_hash = _source_hash(pack_dir, logo_path, background_path, paths)
+    out_path = out_dir / f"{exp.name}.png"
+    background, background_path = _expansion_background(exp)
+    logo, logo_path = _expansion_logo(exp)
+    source_hash = _source_hash(exp, logo_path, background_path, paths)
     if not force and _stored_hash(out_path) == source_hash:
         return out_path, len(rows), len(columns), True
     _compose(
-        rows,
+        exp.cards,
         columns,
         cells,
         paths,
@@ -265,114 +262,83 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
         out_path,
         source_hash,
         missing,
-        _card_aspect(pack_dir),
+        _card_aspect(),
     )
     return out_path, len(rows), len(columns), False
 
 
-def _card_grid(pack_dir: Path) -> tuple[list[str], list[str], set[tuple[str, str]]]:
-    """The sheet's grid: its rows (the card prefixes, sorted), its columns
-    (every rarity/variant the set carries, in the order of
-    :data:`nikke_reborn.metadata.RARITIES` — the game's own rarity order,
-    the ``Standard`` and ``Profile`` presentations rendered alongside the
-    full-art cards) and its cells (the prefix/column pairs the set actually
-    has).
+def _card_grid(
+    exp: expansion.Expansion,
+) -> tuple[list[str], list[str], set[tuple[str, str]]]:
+    """The sheet's grid: its rows (the card's stems, in the roster's order),
+    its columns (every presentation the roster carries, in the order of
+    :data:`nikke_reborn.expansion.PRESENTATION_SPECS` — the standard's, the
+    profile's and the full-art's presentations — the goddess presentation's
+    column only when the roster carries a character with the ``sc`` variant,
+    the two special presentations' columns only when the roster carries a
+    character with a reel animation) and its cells (the stem/presentation
+    pairs the roster actually has).
 
-    The ``Profile`` and ``Standard`` cells mirror the pipeline's eligibility
-    (:data:`nikke_reborn.PROFILE_STEMS` and
-    :data:`nikke_reborn.STANDARD_STEMS`), so a sheet composed after
-    ``generate`` never asks for a card the pipeline does not render."""
-    cards: list[tuple[str, list[str]]] = []
-    stems: set[str] = set()
-    for card_dir in sorted(pack_dir.iterdir()):
-        if not card_dir.is_dir():
-            continue
-        variants = sorted(
-            variant.stem
-            for variant in card_dir.iterdir()
-            if variant.is_file() and variant.suffix == ".json"
-        )
-        cards.append((card_dir.name, variants))
-        stems.update(variants)
-    rows = [prefix for prefix, _ in cards]
+    The cells mirror the pipeline's eligibility exactly (each character's
+    presentations come from
+    :func:`nikke_reborn.expansion.presentations_for`, the same source the
+    run's selection uses), so a sheet composed after ``generate`` never
+    asks for a card the pipeline does not render."""
+    rows: list[str] = []
     present: set[str] = set()
-    for stem in stems:
-        if stem not in PROFILE_RARITIES:
-            present.add(stem)
-        if stem in PROFILE_STEMS:
-            present.add(f"{stem}Profile")
-        if stem in STANDARD_STEMS:
-            present.add(f"{stem}Standard")
-    columns = [rarity for rarity in metadata.RARITIES if rarity in present]
     cells: set[tuple[str, str]] = set()
-    for prefix, variants in cards:
-        for stem in variants:
-            if stem not in PROFILE_RARITIES:
-                cells.add((prefix, stem))
-            if stem in PROFILE_STEMS:
-                cells.add((prefix, f"{stem}Profile"))
-            if stem in STANDARD_STEMS:
-                cells.add((prefix, f"{stem}Standard"))
+    for entry in exp.cards:
+        rows.append(entry.stem)
+        info = expansion.resolve_character(entry)
+        for presentation in expansion.presentations_for(exp, entry, info):
+            present.add(presentation.name)
+            cells.add((entry.stem, presentation.name))
+    columns = [name for name, *_ in expansion.PRESENTATION_SPECS if name in present]
     return rows, columns, cells
 
 
-def _card_aspect(pack_dir: Path) -> float:
-    """The cards' width/height ratio, read from a definition's viewport (every
-    card in a set shares the pipeline's viewport). The grid's cell width is
-    derived from this ratio; a first frame might be missing, so the ratio is
-    not read from the rendered PNGs."""
-    for card_dir in sorted(pack_dir.iterdir()):
-        if not card_dir.is_dir():
-            continue
-        for variant in sorted(card_dir.iterdir()):
-            if not variant.is_file() or variant.suffix != ".json":
-                continue
-            viewport = json.loads(variant.read_text(encoding="utf-8")).get("viewport")
-            if viewport:
-                return viewport[0] / viewport[1]
-    return 4 / 5
+def _card_aspect() -> float:
+    """The cards' width/height ratio: the pipeline's card viewport (every
+    half-body card in a set shares it — the goddess presentation renders
+    the card's full body on the square viewport, and its cells read at the
+    same ratio). The grid's cell width is derived from this ratio; a first
+    frame might be missing, so the ratio is not read from the rendered
+    PNGs."""
+    return CARD_VIEWPORT[0] / CARD_VIEWPORT[1]
 
 
-def _expansion_background(pack_dir: Path) -> tuple[Image.Image, Path]:
+def _expansion_background(
+    exp: expansion.Expansion,
+) -> tuple[Image.Image, Path]:
     """The expansion's background (RGBA) and its file: its
-    ``Expansion.json`` ``background``, resolved against the pack
-    directory."""
-    data = expansion.load_expansion(pack_dir)
-    rel = data.get("background")
-    if not rel:
-        raise GenerationError(f"{pack_dir.name}: missing 'background'")
-    path = (pack_dir / rel).resolve()
+    ``background.base``, resolved against the expansion's folder."""
+    path = (exp.path.parent / exp.backgrounds["base"]).resolve()
     if not path.is_file():
-        raise GenerationError(f"{pack_dir.name}: background not found: {rel}")
-    return Image.open(path).convert("RGBA"), path
+        raise GenerationError(
+            f"{exp.name}: background not found: {exp.backgrounds['base']}"
+        )
+    return expansion.load_background(exp), path
 
 
-def _expansion_logo(pack_dir: Path) -> tuple[Image.Image, Path]:
-    """The expansion's logo (RGBA) and its file: its ``Expansion.json``
-    ``logo.path`` (resolved against the pack directory) when the file
-    exists, else ``assets/images/logos/<set>.png``."""
-    expansion_json = pack_dir / expansion.EXPANSION_NAME
-    if expansion_json.is_file():
-        try:
-            field = json.loads(expansion_json.read_text(encoding="utf-8")).get("logo")
-        except ValueError:
-            field = None
-        if isinstance(field, dict) and field.get("path"):
-            path = (pack_dir / field["path"]).resolve()
-            if path.is_file():
-                return Image.open(path).convert("RGBA"), path
-    fallback = IMAGES_DIR / "logos" / f"{pack_dir.name}.png"
+def _expansion_logo(exp: expansion.Expansion) -> tuple[Image.Image, Path]:
+    """The expansion's logo (RGBA) and its file: its ``logo.path``
+    (resolved against the expansion's folder) when the file exists, else
+    ``assets/images/logos/<set>.png``."""
+    path = (exp.path.parent / exp.logo_path).resolve()
+    if path.is_file():
+        return Image.open(path).convert("RGBA"), path
+    fallback = IMAGES_DIR / "logos" / f"{exp.name}.png"
     if fallback.is_file():
         return Image.open(fallback).convert("RGBA"), fallback
     raise GenerationError(
-        f"no logo for expansion {pack_dir.name!r}: no usable 'logo' field in "
-        f"{pack_dir.name}/{expansion.EXPANSION_NAME} and no "
+        f"no logo for expansion {exp.name!r}: {exp.logo_path!r} (against "
+        f"the expansion's folder) is not a file and neither is "
         f"{fallback.relative_to(REPO_ROOT)}"
     )
 
 
 def _source_hash(
-    pack_dir: Path,
+    exp: expansion.Expansion,
     logo_path: Path,
     background_path: Path,
     paths: dict[tuple[str, str], Path],
@@ -380,11 +346,11 @@ def _source_hash(
     """SHA-256 of the sheet's inputs: the expansion's name, its logo, its
     background, every first frame it composites (a missing card hashes a
     sentinel, so the sheet re-composes when it appears) and each cell's
-    animated state (an ``.mp4`` next to the first frame; it drives the 📹
+    animated state (an ``.mp4`` next to the first frame; it drives the ▶
     markers) — embedded under :data:`nikke_reborn.SOURCE_HASH_KEY` so an
     unchanged sheet is skipped instead of re-composed."""
     digest = hashlib.sha256()
-    digest.update(pack_dir.name.encode())
+    digest.update(exp.name.encode())
     digest.update(logo_path.read_bytes())
     digest.update(background_path.read_bytes())
     for key in sorted(paths):
@@ -424,24 +390,23 @@ def _column_label(column: str) -> str:
     return _split_camel(column)
 
 
-def _row_label(prefix: str, width: int) -> str:
-    """The row's label: the prefix with its number as ``#<number>``
-    (zero-padded to *width* digits, so the labels' numbers align) and its
-    words' CamelCase split by whitespace — the character, and its skin
-    after a colon when it has one (``0021_Diesel_BlackSunday`` reads as
+def _row_label(entry: expansion.CardEntry, width: int) -> str:
+    """The row's label: the card's number as ``#<number>`` (zero-padded to
+    *width* digits, so the labels' numbers align) and its words' CamelCase
+    split by whitespace — the character's name, and its subtitle after a
+    colon when it has one (``0021_Diesel_BlackSunday`` reads as
     ``#21 Diesel: Black Sunday``; with *width* 2, ``#01 Rapi``)."""
-    number, character, *skin = prefix.split("_")
-    label = f"#{int(number):0{width}d} {_split_camel(character)}"
-    if skin:
-        label += ": " + " ".join(_split_camel(word) for word in skin)
+    label = f"#{entry.number:0{width}d} {_split_camel(entry.title)}"
+    if entry.subtitle:
+        label += ": " + _split_camel(entry.subtitle)
     return label
 
 
-def _row_labels(rows: list[str]) -> list[str]:
-    """The row labels for *rows* (:func:`_row_label`, the numbers padded
+def _row_labels(entries: list[expansion.CardEntry]) -> list[str]:
+    """The row labels for *entries* (:func:`_row_label`, the numbers padded
     to the longest number's digit count, so the column aligns)."""
-    width = max(len(str(int(prefix.split("_")[0]))) for prefix in rows)
-    return [_row_label(prefix, width) for prefix in rows]
+    width = max(len(str(entry.number)) for entry in entries)
+    return [_row_label(entry, width) for entry in entries]
 
 
 def _column_label_font(labels: list[str], max_w: int) -> ImageFont.FreeTypeFont:
@@ -516,7 +481,7 @@ def _row_cards(
 
 
 def _compose(
-    rows: list[str],
+    entries: list[expansion.CardEntry],
     columns: list[str],
     cells: set[tuple[str, str]],
     paths: dict[tuple[str, str], Path],
@@ -542,7 +507,9 @@ def _compose(
     write it to *out_path* (atomically, the *source_hash* embedded). The rows'
     first frames are decoded and resized in parallel threads (up to
     :data:`nikke_reborn.MAX_STAGE_THREADS` of them, one row per worker);
-    the finished canvas is assembled on the main thread."""
+    the finished canvas is assembled on the main thread. *entries* is the
+    expansion's roster (the rows, in the roster's order)."""
+    rows = [entry.stem for entry in entries]
     row_count = len(rows)
     col_count = len(columns)
     gutter_total = (col_count - 1) * CELL_GAP
@@ -555,7 +522,7 @@ def _compose(
     cell_h = ROW_HEIGHT
     grid_h = row_count * cell_h + (row_count - 1) * CELL_GAP
     card_w = col_count * cell_w + gutter_total
-    labels = _row_labels(rows)
+    labels = _row_labels(entries)
     font, label_w = _label_font(labels, card_w)
     width = label_w + LABEL_GAP + card_w + 2 * MARGIN
 

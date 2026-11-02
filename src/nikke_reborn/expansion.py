@@ -1,44 +1,56 @@
-"""Shared composition of an expansion's front, from its ``Expansion.json``.
+"""The expansion's source of truth and the shared front composition.
+
+One TOML per expansion (``cards/<expansion>.toml``) is the single input
+for its NIKKES (``cards`` — the viewer ids, in order; the card's stem is
+its 1-based position plus the compact name from the game's data), its
+pack/box materials (``pack`` — the featured characters, ``background`` —
+the base/special/battle backgrounds, ``logo``) and its card names (the
+title from ``characters.json``, the subtitle from ``models.json`` — the
+model's name minus the character's name). Every character renders the
+same fixed set of presentations (see :func:`presentations_for`): the
+standard tier (the classic, special and exotic presentations, on the
+standard's mask), the profile tier (the classic, idle, cover and aim
+presentations, on the profile's mask) and the full-art tier (the classic,
+special and exotic presentations, no mask, plus the goddess presentation —
+skipped when the character carries no ``sc`` variant).
 
 The pack's front and the box's front are the same composition — the
-expansion's background, the featured NIKKES drawn over it (backs first, the
-hero on top), and — when the expansion names a ``logo`` — the expansion's
-logo (its ``logo.path`` image, relative to the pack directory) with its
-glow on top, at its ``logo.placement`` — so the composition lives here,
-shared by
+expansion's background, the featured NIKKES drawn over it (backs first,
+the hero on top), and the expansion's logo (its ``logo.path`` image,
+relative to the expansion's folder) with its glow on top, at its
+``logo.placement`` — so the composition lives here, shared by
 :mod:`nikke_reborn.pack` and :mod:`nikke_reborn.box` (which add only their
-own pieces: the material template's sizing, their white NIKKE logo placement
-and their background fit). The two must therefore stay in sync with nothing
-here: the shared code is written once.
+own pieces: the material template's sizing, their white NIKKE logo
+placement and their background fit). The two must therefore stay in sync
+with nothing here: the shared code is written once.
 
-* the ``pack`` field lists the NIKKES to feature (card-definition paths
-  relative to the pack directory). The *first* one is the hero: it is
-  centered in the front. The rest are placed behind it, to the left and
-  right, at a lower scale, to read as a group in perspective/distance.
-* Only ``nikke-viewer``'s output is used (the raw character render, not the
-  finished card — no background fit, logo, name or copyright). When a
-  featured NIKKE is animated, only its first frame is kept and the rest
-  discarded.
-* when the ``logo`` field is set, the expansion's logo (its ``path``,
-  relative to the pack directory) is composited on top at its ``placement``
-  with a glow:
-  the halo is screen-blended for a light bloom, a solid trail in a
-  darkened glow tint — the mark's own silhouette, offset slightly
-  down-right — sits behind it, and the sharp mark is drawn over both. The
-  glow's tint is derived from the front's background color (its hue and
-  saturation, brightened), so the bloom matches the scene rather than a
-  fixed white.
+* the ``pack`` field lists the characters to feature (viewer ids). The
+  *first* one is the hero: it is centered in the front. The rest are
+  placed behind it, to the left and right, at a lower scale, to read as a
+  group in perspective/distance.
+* Only ``nikke-viewer``'s output is used (the raw character render, not
+  the finished card — no background fit, logo, name or copyright). Each
+  featured character's first frame is read off the viewer's ``--stdout``
+  (``--time 0``, the default framing).
+* the expansion's logo (its ``path``, relative to the expansion's
+  folder) is composited on top at its ``placement`` with a glow: the halo
+  is screen-blended for a light bloom, a solid trail in a darkened glow
+  tint — the mark's own silhouette, offset slightly down-right — sits
+  behind it, and the sharp mark is drawn over both. The glow's tint is
+  derived from the front's background color (its hue and saturation,
+  brightened), so the bloom matches the scene rather than a fixed white.
 * the background's fit is the caller's to choose (:func:`compose_front`'s
-  *fit*): the pack's front resizes the background to the front's height and
-  center-crops it to the front's exact width; the box's front scales it down
-  just enough to cover the whole front and bottom-aligns it, so its bottom
-  touches the front's bottom edge and any excess is cropped off the top.
+  *fit*): the pack's front resizes the background to the front's height
+  and center-crops it to the front's exact width; the box's front scales
+  it down just enough to cover the whole front and bottom-aligns it, so
+  its bottom touches the front's bottom edge and any excess is cropped
+  off the top.
 
-The front's inputs — its ``Expansion.json``, the featured NIKKE definitions
-it lists, its background, its logo, the white NIKKE logo, and the material
-template that sizes it — are hashed (see :func:`front_source_digest`) into
-the finished material, so when those inputs are unchanged the front's render
-is skipped entirely rather than re-rendered.
+The front's inputs — the expansion's file, the featured characters it
+lists, its background, its logo, the white NIKKE logo, and the material
+template that sizes it — are hashed (see :func:`front_source_digest`)
+into the finished material, so when those inputs are unchanged the
+front's render is skipped entirely rather than re-rendered.
 """
 
 from __future__ import annotations
@@ -48,19 +60,24 @@ import hashlib
 import io
 import json
 import subprocess
+import tomllib
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from PIL import Image, ImageChops, ImageFilter
 
-from nikke_reborn.card import _load_card, _source_hash
-from nikke_reborn.config import CARDS_DIR, VIEWER
+from nikke_reborn.config import (
+    CARD_VIEWPORT,
+    CARDS_DIR,
+    DATABASE_DIR,
+    REPO_ROOT,
+    VIEWER,
+)
 from nikke_reborn.error import GenerationError
-from nikke_reborn.preset import Preset
+from nikke_reborn.file import hash_term
 from nikke_reborn.video import _PipeDrain, _read_exact, _reap_viewer
-
-EXPANSION_NAME = "Expansion.json"
 
 # --- front composition tuning (fractions of the front) ----------------------
 # Every NIKKE's feet sit on the front's bottom edge (feet baseline = 1.0), so
@@ -79,9 +96,9 @@ ALPHA_TRIM = 24  # alpha threshold (0-255) for the content bounding box
 
 # --- expansion logo tuning --------------------------------------------------
 # The expansion's logo (the ``logo.path`` of the expansion's ``logo`` field,
-# relative to the pack directory) is composited over the front with a glow,
-# at its ``placement``. Every value is relative to the front, so it is the
-# same for every expansion: the mark is scaled to :data:`LOGO_WIDTH` the
+# relative to the expansion's folder) is composited over the front with a
+# glow, at its ``placement``. Every value is relative to the front, so it is
+# the same for every expansion: the mark is scaled to :data:`LOGO_WIDTH` the
 # front's width, inset :data:`LOGO_MARGIN` from the edge (top/bottom
 # placements), and haloed with a glow tinted by the front's own background
 # color — its hue and saturation, brightened to :data:`LOGO_GLOW_VALUE` — so
@@ -103,86 +120,556 @@ LOGO_TRAIL_DARKEN = 0.7  # how much the trail's tint is darkened relative to
 # the glow's tint (1.0 would be the full glow tint)
 LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo.placement` field
 
+#: The keys every expansion's ``background`` table must carry (the relative
+#: paths, against the expansion's folder): the ``base`` background (the
+#: standard's classic and exotic, the profile's classic and idle, and the
+#: full-art's classic), the ``special`` background (the special
+#: presentations) and the ``battle`` background (the cover and aim
+#: profiles).
+BACKGROUND_KEYS = ("base", "special", "battle")
 
-def load_expansion(pack_dir: Path) -> dict:
-    """The pack's ``Expansion.json`` (its ``pack`` characters, ``background``
-    and ``logo``) — the metadata the front is composed from."""
-    path = pack_dir / EXPANSION_NAME
-    if not path.is_file():
-        raise GenerationError(f"no {EXPANSION_NAME} in {pack_dir}")
+# --- the presentations --------------------------------------------------------
+#: The fixed per-character set, in the order the passes run (the standard
+#: tier, the profile tier, the full-art tier). Each row: the presentation's
+#: name (the output's suffix, e.g. ``ClassicStandard``), its tier
+#: (``standard`` | ``profile`` | ``full``), the viewer's ``--variant``
+#: (None — the viewer's default ``fb``), the ``--animation`` (None — the
+#: viewer's default; REEL — the reel's pick, resolved at selection time),
+#: the ``--time`` (0 — a still, None — the loop), the ``--half-body``
+#: framing (the standard's and the full-art's single stream), the
+#: background's key (or ``black`` — the solid black the goddess
+#: presentation composites on), the composite's mask (``standard`` |
+#: ``profile`` | None) and the two-stream profile flag (the face's stream
+#: plus the body's).
+REEL = "reel"
+
+#: The photo reel's candidate animations (the first
+#: :data:`PROFILE_REEL_COUNT` the character has, in this order, become the
+#: reel's stills) and the ``Special`` presentations' animation (the first
+#: the character has).
+PROFILE_REEL_ANIMATIONS = (
+    "think",
+    "smile",
+    "shy",
+    "no",
+    "delight",
+    "surprise",
+    "special_02",
+    "special",
+    "angry",
+)
+PROFILE_REEL_COUNT = 3
+
+_PresentationSpec = tuple[
+    str,  # the presentation's name (the output's suffix)
+    str,  # the tier (standard | profile | full)
+    str | None,  # the viewer's --variant
+    str | None,  # the viewer's --animation (None = default; REEL = the pick)
+    float | None,  # the viewer's --time (0 = a still, None = the loop)
+    bool,  # the --half-body framing
+    str,  # the background's key (base | special | battle | black)
+    str | None,  # the composite's mask (standard | profile | None)
+    bool,  # the two-stream profile (face + body)
+]
+
+PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
+    ("ClassicStandard", "standard", None, None, 0.0, True, "base", "standard", False),
+    ("SpecialStandard", "standard", None, REEL, 0.0, True, "special", "standard", False),
+    ("ExoticStandard", "standard", None, "action", None, True, "base", "standard", False),
+    ("ClassicProfile", "profile", None, None, 0.0, False, "base", "profile", True),
+    ("IdleProfile", "profile", None, "idle", None, False, "base", "profile", True),
+    ("CoverProfile", "profile", "cover", None, None, False, "battle", "profile", True),
+    ("AimProfile", "profile", "aim", None, None, False, "battle", "profile", True),
+    ("Classic", "full", None, None, 0.0, True, "base", None, False),
+    ("Special", "full", None, REEL, 0.0, True, "special", None, False),
+    ("Exotic", "full", None, "action", None, True, "base", None, False),
+    ("Goddess", "full", "sc", None, None, False, "black", None, False),
+)
+
+#: The tiers a run's passes render (the ``--no-<tier>`` flags).
+TIERS = ("standard", "profile", "full")
+
+
+@dataclass(frozen=True)
+class CardEntry:
+    """One character of an expansion: its viewer id, its 1-based position
+    in the expansion's ``cards`` (the card's number), the card's stem
+    (``<number>_<name>[_<subtitle>]``, the compact — whitespace-free —
+    name), the name it renders (the title, and the subtitle when the
+    character is a skin), and the rarity and manufacturer the game's data
+    carry (the base character's when the id is suffixed)."""
+
+    id: str
+    number: int
+    stem: str
+    title: str
+    subtitle: str
+    rarity: str
+    manufacturer: str | None
+
+    @property
+    def name(self) -> str:
+        """The character's display name (the bundle's ``Name``): the title
+        alone, or the title and the subtitle (``Rapi: White Promise``)."""
+        return f"{self.title}: {self.subtitle}" if self.subtitle else self.title
+
+
+@dataclass(frozen=True)
+class Expansion:
+    """A loaded ``cards/<expansion>.toml``: its pack's featured
+    characters, its cards (in file order), its backgrounds' paths (the
+    ``background`` table's keys, relative to the expansion's folder) and
+    its logo's path and placement."""
+
+    path: Path
+    name: str
+    pack: tuple[str, ...]
+    cards: tuple[CardEntry, ...]
+    backgrounds: dict[str, str]
+    logo_path: str
+    logo_placement: str
+
+
+@dataclass(frozen=True)
+class Presentation:
+    """One presentation of one card (a row of the run's work): what the
+    viewer renders (the variant, the animation, the time), how the frame
+    composites (the background's key, the mask, the framing — the
+    half-body flag or the two-stream profile) and where its output goes
+    (the presentation's name, the output's suffix)."""
+
+    expansion: Expansion
+    card: CardEntry
+    name: str
+    tier: str
+    variant: str | None
+    animation: str | None
+    time: float | None
+    half_body: bool
+    background: str
+    mask: str | None
+    face: bool
+
+    @property
+    def animated(self) -> bool:
+        """True when the render loops (an MP4, with its first-frame PNG):
+        ``time`` is None; a ``time`` of 0 is a still (a PNG)."""
+        return self.time is None
+
+    @property
+    def label(self) -> str:
+        """The presentation's name in the run's messages (and errors):
+        ``<card's stem> (<presentation>)``."""
+        return f"{self.card.stem} ({self.name})"
+
+
+@dataclass(frozen=True)
+class CharacterInfo:
+    """What the viewer reports for one character: the variants it renders
+    (the ``sc`` variant decides the goddess presentation) and the
+    profile-reel's animation (the first of
+    :data:`PROFILE_REEL_ANIMATIONS` it has — the ``Special``
+    presentations' animation; a character with none has no
+    ``Special`` presentations, mirroring the ``sc``/goddess skip)."""
+
+    variants: frozenset[str]
+    reel: str | None
+
+
+# --- the game's data ----------------------------------------------------------
+# The characters' names, rarities and manufacturers (characters.json) and
+# the models' names (models.json): read once per process (each worker
+# reloads them).
+_CHARACTERS: dict[str, Any] | None = None
+_MODELS: dict[str, str] | None = None
+
+
+def _characters_db() -> dict[str, Any]:
+    global _CHARACTERS
+    if _CHARACTERS is None:
+        with (DATABASE_DIR / "characters.json").open(encoding="utf-8") as handle:
+            _CHARACTERS = {
+                character["id"]: character
+                for character in json.load(handle)
+                if isinstance(character, dict) and "id" in character
+            }
+    return _CHARACTERS
+
+
+def _models_db() -> dict[str, str]:
+    global _MODELS
+    if _MODELS is None:
+        with (DATABASE_DIR / "models.json").open(encoding="utf-8") as handle:
+            _MODELS = {
+                model["id"]: str(model["name"])
+                for model in json.load(handle)
+                if isinstance(model, dict) and "id" in model and "name" in model
+            }
+    return _MODELS
+
+
+# --- the expansion's file ------------------------------------------------------
+
+
+def load_expansion(path: Path) -> Expansion:
+    """Parse and validate one expansion's TOML (its ``pack``, its
+    ``cards``, its ``background`` table and its ``logo``), deriving each
+    card's stem from its position and the game's data (see
+    :func:`_card_entry`). Every referenced file (the backgrounds', the
+    logo's) must exist; the character ids must be in the game's data (the
+    base character when the id is suffixed), and the models must be named
+    after their character (the subtitle is the model's name minus the
+    character's)."""
+    path = path.resolve()
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise GenerationError(f"cannot read {path}: {exc}") from exc
+        try:
+            shown = path.relative_to(REPO_ROOT)
+        except ValueError:
+            shown = path
+        raise GenerationError(f"cannot read {shown}: {exc}") from exc
+
+    pack = data.get("pack")
+    if not isinstance(pack, list) or not pack or not all(
+        isinstance(char_id, str) for char_id in pack
+    ):
+        raise GenerationError(
+            f"{path.name}: 'pack' must be a non-empty list of character ids"
+        )
+
+    cards_data = data.get("cards")
+    if (
+        not isinstance(cards_data, list)
+        or not cards_data
+        or not all(
+            isinstance(entry, dict) and isinstance(entry.get("id"), str)
+            for entry in cards_data
+        )
+    ):
+        raise GenerationError(
+            f"{path.name}: 'cards' must be a non-empty list of tables, "
+            "each with an 'id'"
+        )
+    ids = [entry["id"] for entry in cards_data]
+    if len(set(ids)) != len(ids):
+        raise GenerationError(f"{path.name}: duplicate character ids in 'cards'")
+
+    backgrounds = data.get("background")
+    if not isinstance(backgrounds, dict) or any(
+        not isinstance(backgrounds.get(key), str) for key in BACKGROUND_KEYS
+    ):
+        raise GenerationError(
+            f"{path.name}: 'background' must be a table with a path for "
+            f"every key: {', '.join(BACKGROUND_KEYS)}"
+        )
+    for key in BACKGROUND_KEYS:
+        if not (path.parent / backgrounds[key]).resolve().is_file():
+            raise GenerationError(
+                f"{path.name}: background.{key} not found: {backgrounds[key]}"
+            )
+
+    logo = data.get("logo")
+    if not isinstance(logo, dict) or not isinstance(logo.get("path"), str):
+        raise GenerationError(
+            f"{path.name}: 'logo' must be a table with a 'path' and a "
+            "'placement'"
+        )
+    if logo.get("placement") not in LOGO_PLACEMENTS:
+        raise GenerationError(
+            f"{path.name}: unknown logo placement {logo.get('placement')!r}; "
+            f"expected one of {', '.join(LOGO_PLACEMENTS)}"
+        )
+    if not (path.parent / logo["path"]).resolve().is_file():
+        raise GenerationError(f"{path.name}: logo not found: {logo['path']}")
+
+    return Expansion(
+        path=path,
+        name=path.stem,
+        pack=tuple(pack),
+        cards=tuple(
+            _card_entry(path.name, number, char_id)
+            for number, char_id in enumerate(ids, 1)
+        ),
+        backgrounds=dict(backgrounds),
+        logo_path=logo["path"],
+        logo_placement=logo["placement"],
+    )
 
 
-def front_source_digest(pack_dir: Path, logo: Path, template: Path) -> str:
+def _card_entry(file_name: str, number: int, char_id: str) -> CardEntry:
+    """The card's identity derived from *char_id*'s position and the
+    game's data: the title (the character's name — the base character's
+    when the id is suffixed), the subtitle (the model's name minus the
+    character's, empty when the model is the character itself), the stem
+    (the 1-based number plus the compact name) and the rarity/manufacturer
+    (the character's own, the base's when the id is suffixed)."""
+    characters = _characters_db()
+    base_id = char_id.split("_", 1)[0]
+    record = characters.get(char_id) or characters.get(base_id)
+    if record is None:
+        raise GenerationError(
+            f"{file_name}: no character {char_id!r} (or base {base_id!r}) in "
+            "characters.json; cannot derive its name"
+        )
+    title = str(record["name"])
+    model_name = _models_db().get(char_id)
+    if model_name is None:
+        raise GenerationError(
+            f"{file_name}: no model {char_id!r} in models.json; cannot "
+            "derive its subtitle"
+        )
+    if model_name == title:
+        subtitle = ""
+    elif model_name.startswith(title + " "):
+        subtitle = model_name[len(title) + 1 :]
+    else:
+        raise GenerationError(
+            f"{file_name}: {char_id!r}'s model name {model_name!r} does not "
+            f"start with the character's name {title!r}; cannot derive its "
+            "subtitle"
+        )
+    name_part = "".join(title.split())
+    if subtitle:
+        name_part += f"_{''.join(subtitle.split())}"
+    return CardEntry(
+        id=char_id,
+        number=number,
+        stem=f"{number:04d}_{name_part}",
+        title=title,
+        subtitle=subtitle,
+        rarity=str(record.get("rarity") or "R"),
+        manufacturer=record.get("manufacturer"),
+    )
+
+
+def find_expansions() -> list[Expansion]:
+    """Every expansion under ``cards/`` (its ``<set>.toml``), sorted by
+    name and loaded (validated) in one pass."""
+    return [load_expansion(path) for path in sorted(CARDS_DIR.glob("*.toml"))]
+
+
+def resolve_expansion_path(raw: str | Path) -> Path:
+    """The expansion's TOML the caller named (``ELYSION``,
+    ``cards/ELYSION.toml`` or ``ELYSION.toml``), or a
+    :class:`GenerationError` naming the known expansions."""
+    raw = str(raw)
+    if "/" in raw or raw.endswith(".toml"):
+        candidates = (REPO_ROOT / raw, CARDS_DIR / raw)
+    else:
+        candidates = (CARDS_DIR / f"{raw}.toml",)
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate.parent == CARDS_DIR and candidate.suffix == ".toml":
+            if candidate.is_file():
+                return candidate
+            break
+    known = ", ".join(sorted(path.stem for path in CARDS_DIR.glob("*.toml")))
+    raise GenerationError(
+        f"no expansion {raw!r} under {CARDS_DIR.relative_to(REPO_ROOT)}/ "
+        f"(the known expansions: {known})"
+    )
+
+
+# --- the viewer's introspection ------------------------------------------------
+# The character's variants (the goddess presentation's ``sc``) and its
+# animations (the reel's pick and stills), asked of the viewer.
+
+
+def _run_viewer_list(flag: str, char_id: str) -> list[str]:
+    """The ids the viewer lists for *char_id* (``--list-variants`` or
+    ``--list-animations``, the default ``fb`` variant), one per line."""
+    result = subprocess.run(
+        [VIEWER, flag, char_id], capture_output=True, check=False, text=True
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip()
+        detail = f": {detail[-500:]}" if detail else ""
+        raise GenerationError(
+            f"{VIEWER} {flag} for {char_id!r} failed (exit "
+            f"{result.returncode}){detail}"
+        )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _list_variants(char_id: str) -> list[str]:
+    """The character's variants (``fb``, ``aim``, ``cover``, ``sc`` …)."""
+    return _run_viewer_list("--list-variants", char_id)
+
+
+def _list_animations(char_id: str) -> list[str]:
+    """The character's animations (the default ``fb`` variant)."""
+    return _run_viewer_list("--list-animations", char_id)
+
+
+#: The viewer's per-character lists, cached per process: a single character's
+#: variants and animations are asked of the viewer at most once (the selection
+#: and the metadata both resolve the same roster).
+_CHAR_LISTS: dict[str, tuple[frozenset[str], frozenset[str]]] = {}
+
+
+def _character_lists(char_id: str) -> tuple[frozenset[str], frozenset[str]]:
+    """The character's variants and animations (the viewer's
+    ``--list-variants`` and ``--list-animations`` for the default ``fb``
+    variant), as sets, cached per process."""
+    cached = _CHAR_LISTS.get(char_id)
+    if cached is None:
+        cached = (
+            frozenset(_list_variants(char_id)),
+            frozenset(_list_animations(char_id)),
+        )
+        _CHAR_LISTS[char_id] = cached
+    return cached
+
+
+def resolve_character(entry: CardEntry) -> CharacterInfo:
+    """The character's renderability, asked of the viewer (once per
+    process, see :func:`_character_lists`): its variants (the ``sc`` variant
+    decides the goddess presentation) and the profile-reel's animation — the
+    first of :data:`PROFILE_REEL_ANIMATIONS` the character has, which the
+    ``Special`` presentations run. A character with no reel animation has no
+    reel, so its ``Special`` presentations are dropped (see
+    :func:`presentations_for`), mirroring the ``sc``/goddess skip."""
+    variants, available = _character_lists(entry.id)
+    reel = next(
+        (animation for animation in PROFILE_REEL_ANIMATIONS if animation in available),
+        None,
+    )
+    return CharacterInfo(variants=variants, reel=reel)
+
+
+def reel_animations(char_id: str) -> list[str]:
+    """The profile's photo-reel's animations (the render's photo reel): the
+    first :data:`PROFILE_REEL_COUNT` of :data:`PROFILE_REEL_ANIMATIONS` (in
+    the list's order) the character has, per the viewer's
+    ``--list-animations`` (cached per process, see
+    :func:`_character_lists`) — fewer (or none) when fewer of the list
+    match."""
+    _variants, available = _character_lists(char_id)
+    return [
+        animation
+        for animation in PROFILE_REEL_ANIMATIONS
+        if animation in available
+    ][:PROFILE_REEL_COUNT]
+
+
+def presentations_for(
+    expansion: Expansion, entry: CardEntry, info: CharacterInfo
+) -> list[Presentation]:
+    """The character's presentations (the fixed set of
+    :data:`PRESENTATION_SPECS`, the ``Goddess`` presentation dropped when
+    the character carries no ``sc`` variant and the two ``Special``
+    presentations dropped when the character has no reel animation), the
+    ``Special`` presentations' animation resolved to the reel's pick."""
+    presentations = []
+    for spec in PRESENTATION_SPECS:
+        name, tier, variant, animation, time, half_body, background, mask, face = spec
+        if name == "Goddess" and "sc" not in info.variants:
+            continue
+        if animation == REEL:
+            if info.reel is None:
+                continue  # no reel: the Special presentation is skipped
+            animation = info.reel
+        presentations.append(
+            Presentation(
+                expansion=expansion,
+                card=entry,
+                name=name,
+                tier=tier,
+                variant=variant,
+                animation=animation,
+                time=time,
+                half_body=half_body,
+                background=background,
+                mask=mask,
+                face=face,
+            )
+        )
+    return presentations
+
+
+# --- the expansion's materials -------------------------------------------------
+
+
+def load_background(expansion: Expansion, key: str = "base") -> Image.Image:
+    """The expansion's background (RGBA) for one of the ``background``
+    table's keys (default ``base``), resolved against the expansion's
+    folder."""
+    if key not in expansion.backgrounds:
+        raise GenerationError(
+            f"{expansion.name}: unknown background key {key!r} (the table's "
+            f"keys: {', '.join(sorted(expansion.backgrounds))})"
+        )
+    background_path = (expansion.path.parent / expansion.backgrounds[key]).resolve()
+    if not background_path.is_file():
+        raise GenerationError(
+            f"{expansion.name}: background not found: {expansion.backgrounds[key]}"
+        )
+    return Image.open(background_path).convert("RGBA")
+
+
+def load_logo(expansion: Expansion) -> tuple[Image.Image, str]:
+    """The expansion's logo (RGBA) and its placement: its ``logo.path``
+    (resolved against the expansion's folder) and its ``logo.placement``
+    (one of :data:`LOGO_PLACEMENTS`)."""
+    logo_path = (expansion.path.parent / expansion.logo_path).resolve()
+    if not logo_path.is_file():
+        raise GenerationError(
+            f"{expansion.name}: logo not found: {expansion.logo_path}"
+        )
+    return Image.open(logo_path).convert("RGBA"), expansion.logo_placement
+
+
+def _background_path(expansion: Expansion, key: str) -> Path:
+    path = (expansion.path.parent / expansion.backgrounds[key]).resolve()
+    if not path.is_file():
+        raise GenerationError(
+            f"{expansion.name}: background not found: {expansion.backgrounds[key]}"
+        )
+    return path
+
+
+def _logo_path(expansion: Expansion) -> Path:
+    path = (expansion.path.parent / expansion.logo_path).resolve()
+    if not path.is_file():
+        raise GenerationError(f"{expansion.name}: logo not found: {expansion.logo_path}")
+    return path
+
+
+def front_source_digest(
+    expansion: Expansion, logo: Path, template: Path
+) -> str:
     """A hash of an expansion front's *inputs* — everything the composed
-    front depends on: the expansion's ``Expansion.json``, the featured NIKKE
-    definitions it lists, its background and (when a logo is set) the
-    expansion's logo, the white NIKKE logo placed on the front (*logo*), and
-    the material
-    template that sizes it (*template*). It is computed without rendering the
-    front, so the finished material can be skipped (and the front's render
-    avoided) when those inputs are unchanged. The pack's and the box's front
-    source hashes are this digest with their own *logo* and *template* (see
-    :func:`nikke_reborn.pack.front_source_hash` /
+    front depends on: the expansion's file, the featured characters it
+    lists (their ids), its ``background.base``, its ``logo``, the white
+    NIKKE logo placed on the front (*logo*), and the material template
+    that sizes it (*template*). It is computed without rendering the front,
+    so the finished material can be skipped (and the front's render
+    avoided) when those inputs are unchanged. The pack's and the box's
+    front source hashes are this digest with their own *logo* and
+    *template* (see :func:`nikke_reborn.pack.front_source_hash` /
     :func:`nikke_reborn.box.front_source_hash`)."""
-    expansion = load_expansion(pack_dir)
     digest = hashlib.sha256()
-    digest.update((pack_dir / EXPANSION_NAME).read_bytes())
-    for rel in expansion.get("pack", []):
-        # The front composes at native size and so does not depend on the
-        # run's scale: hash the featured definitions at the legacy
-        # (scale-1.0) preset, keeping the digest scale-independent.
-        digest.update(_source_hash((pack_dir / rel).resolve(), Preset.ULTRA).encode())
-    background = expansion.get("background")
-    if background:
-        digest.update((pack_dir / background).resolve().read_bytes())
-    logo_field = expansion.get("logo")
-    if isinstance(logo_field, dict) and logo_field.get("path"):
-        logo_path = (pack_dir / logo_field["path"]).resolve()
-        if logo_path.is_file():
-            digest.update(logo_path.read_bytes())
-    digest.update(logo.read_bytes())
-    digest.update(template.read_bytes())
+    hash_term(digest, expansion.path.read_bytes())
+    for char_id in expansion.pack:
+        hash_term(digest, char_id.encode())
+    hash_term(digest, _background_path(expansion, "base").read_bytes())
+    hash_term(digest, _logo_path(expansion).read_bytes())
+    hash_term(digest, logo.read_bytes())
+    hash_term(digest, template.read_bytes())
     return digest.hexdigest()
 
 
-def load_background(pack_dir: Path, expansion: dict) -> Image.Image:
-    """The expansion's ``background`` image (RGBA), resolved relative to the
-    pack directory."""
-    bg_rel = expansion.get("background")
-    if not bg_rel:
-        raise GenerationError(f"{pack_dir.name}: missing 'background'")
-    bg_path = (pack_dir / bg_rel).resolve()
-    if not bg_path.is_file():
-        raise GenerationError(f"{pack_dir.name}: background not found: {bg_rel}")
-    return Image.open(bg_path).convert("RGBA")
-
-
-def load_logo(pack_dir: Path, expansion: dict) -> tuple[Image.Image, str]:
-    """The expansion's ``logo``: its ``logo.path`` image (RGBA, resolved
-    relative to the pack directory) and its ``logo.placement`` (one of
-    :data:`LOGO_PLACEMENTS`)."""
-    logo = expansion.get("logo")
-    if not isinstance(logo, dict):
-        raise GenerationError(
-            f"{pack_dir.name}: 'logo' must be an object with a 'path' and a 'placement'"
-        )
-    logo_rel = logo.get("path")
-    if not logo_rel:
-        raise GenerationError(f"{pack_dir.name}: missing 'logo.path'")
-    logo_path = (pack_dir / logo_rel).resolve()
-    if not logo_path.is_file():
-        raise GenerationError(f"{pack_dir.name}: logo not found: {logo_rel}")
-    placement = logo.get("placement")
-    if placement not in LOGO_PLACEMENTS:
-        raise GenerationError(
-            f"{pack_dir.name}: unknown logo placement {placement!r}; "
-            f"expected one of {', '.join(LOGO_PLACEMENTS)}"
-        )
-    return Image.open(logo_path).convert("RGBA"), placement
+def back_source_hash(expansion: Expansion, template: Path) -> str:
+    """A hash of the back's *inputs* — everything the composed back depends
+    on: the expansion's ``background.base`` and the material template that
+    sizes it (the back is the background's left crop). It is computed
+    without composing the back, so the finished material can be skipped
+    (and the back's composition avoided) when those inputs are unchanged."""
+    digest = hashlib.sha256()
+    hash_term(digest, _background_path(expansion, "base").read_bytes())
+    hash_term(digest, template.read_bytes())
+    return digest.hexdigest()
 
 
 def fit_background(
@@ -247,8 +734,7 @@ def _fit_cover(
 
 
 def compose_front(
-    pack_dir: Path,
-    expansion: dict,
+    expansion: Expansion,
     size: tuple[int, int],
     *,
     fit: str,
@@ -259,18 +745,18 @@ def compose_front(
     back_offset_x: float | None = None,
 ) -> Image.Image:
     """Compose an expansion's front: its background (fitted per *fit*), the
-    featured NIKKES drawn over it (backs first, the hero on top), and — when
-    the expansion names a ``logo`` — the expansion's logo (its ``logo.path``
-    image) with its glow on top, at its ``logo.placement``. The
-    caller's white NIKKE logo is placed last (*place_logo*, on the front's
-    own bounds). The result is returned in memory and never written to disk:
-    the caller pastes it into its material's front rectangle.
+    featured NIKKES drawn over it (backs first, the hero on top), and the
+    expansion's logo (its ``logo.path`` image) with its glow on top, at its
+    ``logo.placement``. The caller's white NIKKE logo is placed last
+    (*place_logo*, on the front's own bounds). The result is returned in
+    memory and never written to disk: the caller pastes it into its
+    material's front rectangle.
 
-    *fit* selects the background's fit: ``"crop"`` (the pack's front) resizes
-    the background to the front's height and center-crops it to the front's
-    width; ``"cover-bottom"`` (the box's front) scales it down just enough to
-    cover the whole front and bottom-aligns it, so its bottom touches the
-    front's bottom edge and any excess is cropped off the top.
+    *fit* selects the background's fit: ``"crop"`` (the pack's front)
+    resizes the background to the front's height and center-crops it to the
+    front's width; ``"cover-bottom"`` (the box's front) scales it down just
+    enough to cover the whole front and bottom-aligns it, so its bottom
+    touches the front's bottom edge and any excess is cropped off the top.
 
     *expansion_logo_height*, when given (the box's front), sizes the
     expansion's logo by height — that fraction of the front's height, its
@@ -287,7 +773,7 @@ def compose_front(
     the group closer to the hero)."""
     width, height = size
 
-    background = load_background(pack_dir, expansion)
+    background = load_background(expansion, "base")
     if fit == "crop":
         canvas = fit_background(background, size)
     elif fit == "cover-bottom":
@@ -298,13 +784,10 @@ def compose_front(
     # the logo's glow is tinted by the scene, not by the characters on top of it.
     glow_color = _background_glow_color(_image_average(canvas))
 
-    pack_rel = expansion.get("pack")
-    if not pack_rel:
-        raise GenerationError(f"{pack_dir.name}: missing 'pack'")
-    bodies = [
-        _content_box(_render_first_frame((pack_dir / rel).resolve()))
-        for rel in pack_rel
-    ]
+    char_ids = expansion.pack
+    if not char_ids:
+        raise GenerationError(f"{expansion.name}: 'pack' carries no characters")
+    bodies = [_content_box(_render_featured_frame(char_id)) for char_id in char_ids]
 
     # Backs first (behind the hero), left/right alternating, stepping further
     # out and shrinking per tier so any number of featured NIKKES lays out.
@@ -332,64 +815,51 @@ def compose_front(
         height=round(hero_scale * height),
     )
 
-    # The expansion's logo (only when the expansion names one): the mark's
-    # image and its placement come from the expansion's ``logo`` field —
-    # nothing here is specific to any one expansion.
-    if expansion.get("logo") is not None:
-        mark, placement = load_logo(pack_dir, expansion)
-        _composite_logo(
-            canvas,
-            mark,
-            size,
-            placement,
-            glow_color,
-            mark_height=expansion_logo_height,
-        )
+    # The expansion's logo (its mark and its placement come from the
+    # expansion's ``logo`` field — nothing here is specific to any one
+    # expansion).
+    mark, placement = load_logo(expansion)
+    _composite_logo(
+        canvas,
+        mark,
+        size,
+        placement,
+        glow_color,
+        mark_height=expansion_logo_height,
+    )
 
     # The caller's white NIKKE logo on top: on the front's own bounds.
     place_logo(canvas, (0, 0, width, height))
     return canvas
 
 
-def _render_first_frame(json_path: Path) -> Image.Image:
-    """Render the card's first frame via ``nikke-viewer --stdout`` (raw RGBA).
-
-    The viewer streams every frame as a contiguous ``viewport``-sized RGBA
-    block; only the first is kept and the stream is abandoned (the viewer is
-    killed), so an animated NIKKE costs no more than a static one.
-    """
-    card = _load_card(json_path)
-    viewport = card.get("viewport")
-    if not viewport:
-        raise GenerationError(
-            f"{json_path.name}: missing 'viewport' (needed to size the raw "
-            f"frames streamed by {VIEWER} --stdout)"
-        )
-    width, height = int(viewport[0]), int(viewport[1])
+def _render_featured_frame(char_id: str) -> Image.Image:
+    """Render the featured character's first frame via
+    ``nikke-viewer --stdout`` (raw RGBA): its ``--time 0`` still (the
+    default framing, the viewer's default viewport — the card's viewport),
+    read straight off the stream. The viewer exits once its single frame
+    is written."""
+    width, height = CARD_VIEWPORT
     frame_bytes = width * height * 4
 
     viewer = subprocess.Popen(
-        [VIEWER, "--stdout", str(json_path)],
+        [VIEWER, "--time", "0", "--stdout", char_id],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     assert viewer.stdout is not None
     assert viewer.stderr is not None
-    # A Popen pipe is a buffered reader (needed for read1).
-    drain = _PipeDrain(cast("io.BufferedReader", viewer.stderr))
+    drain = _PipeDrain(cast(io.BufferedReader, viewer.stderr))
     try:
         data = _read_exact(viewer.stdout, frame_bytes)
-        if len(data) != frame_bytes:
-            raise GenerationError(
-                f"{VIEWER} produced no frame for {json_path.name} "
-                f"(got {len(data)} of {frame_bytes} bytes)"
-            )
-        frame = Image.frombytes("RGBA", (width, height), data)
     finally:
-        # Abandon the stream early (we only want the first frame): the viewer
-        # may be blocked writing the rest to a full pipe and is killed.
-        _reap_viewer(viewer, drain, clean_exit_expected=False)
-    return frame
+        _reap_viewer(viewer, drain, clean_exit_expected=True)
+    if len(data) != frame_bytes:
+        raise GenerationError(
+            f"{VIEWER} produced no frame for {char_id!r} "
+            f"(got {len(data)} of {frame_bytes} bytes)"
+        )
+    return Image.frombytes("RGBA", (width, height), data)
 
 
 def _content_box(image: Image.Image, threshold: int = ALPHA_TRIM) -> Image.Image:
@@ -552,14 +1022,3 @@ def _composite_logo(
         trail.putalpha(logo.getchannel("A"))
         canvas.alpha_composite(trail, (x + trail_offset, y + trail_offset))
     canvas.alpha_composite(logo, (x, y))
-
-
-def _find_pack_dirs() -> list[Path]:
-    """``cards/`` subdirectories carrying an ``Expansion.json`` (the pack's
-    inputs). The front and back are composed from the expansion on the fly
-    (see :mod:`nikke_reborn.pack`), so neither is stored."""
-    return sorted(
-        pack_dir
-        for pack_dir in CARDS_DIR.iterdir()
-        if pack_dir.is_dir() and (pack_dir / EXPANSION_NAME).is_file()
-    )

@@ -1,18 +1,11 @@
 import json
 import math
-import sys
-from pathlib import Path
 
-from nikke_reborn.card import _profile_stem, _standard_stem
+from nikke_reborn import expansion as expansion_mod
 from nikke_reborn.config import (
     BOX_MESH,
-    CARDS_DIR,
-    DATABASE_DIR,
     IMAGES_DIR,
-    PROFILE_RARITIES,
-    PROFILE_STEMS,
     SHOP_DIR,
-    STANDARD_STEMS,
 )
 from nikke_reborn.file import copy
 from nikke_reborn.preset import Preset
@@ -41,29 +34,18 @@ RARITIES = [
 
 
 def write(preset: Preset = Preset.DEFAULT) -> None:
-    """Write each set's metadata bundle (``<out>/<set>.json``) and copy the
-    set's shared assets (foilmask, cardback, box mesh, shop images) to
-    ``<out>/<set>/``. An ultra run writes them to the ``<set> (Ultra)``
-    set folder and ``<set> (Ultra).json`` instead, so the ultra set
-    folders are self-contained and parallel to the default ones; a draft
-    run writes them to ``draft/`` instead of ``output/`` (the preset's
-    output root, :meth:`Preset.set_path`)."""
-    for set_dir in CARDS_DIR.iterdir():
-        if not set_dir.is_dir():
-            continue
+    """Write each expansion's metadata bundle (``<out>/<set>.json``) and
+    copy the set's shared assets (foilmask, cardback, box mesh, shop
+    images) to ``<out>/<set>/``. An ultra run writes them to the
+    ``<set> (Ultra)`` set folder and ``<set> (Ultra).json`` instead, so
+    the ultra set folders are self-contained and parallel to the default
+    ones; a draft run writes them to ``draft/`` instead of ``output/``
+    (the preset's output root, :meth:`Preset.set_path`)."""
+    for exp in expansion_mod.find_expansions():
+        out_set = preset.set_path(exp.name)
 
-        out_set = preset.set_path(set_dir.stem)
-
-        if (set_dir / "Foilmask.png").is_file():
-            copy(set_dir / "Foilmask.png", out_set / "Foilmask.png")
-        else:
-            copy(IMAGES_DIR / "Foilmask.png", out_set / "Foilmask.png")
-
-        if (set_dir / "Cardback.png").is_file():
-            copy(set_dir / "Cardback.png", out_set / "Cardback.png")
-        else:
-            copy(IMAGES_DIR / "Cardback.png", out_set / "Cardback.png")
-
+        copy(IMAGES_DIR / "Foilmask.png", out_set / "Foilmask.png")
+        copy(IMAGES_DIR / "Cardback.png", out_set / "Cardback.png")
         copy(BOX_MESH, out_set / BOX_MESH.name)
 
         for file in SHOP_DIR.iterdir():
@@ -72,101 +54,43 @@ def write(preset: Preset = Preset.DEFAULT) -> None:
 
             copy(file, out_set / file.name)
 
-        with (out_set.with_name(f"{set_dir.stem}.json")).open(
+        with (out_set.with_name(f"{exp.name}.json")).open(
             "w", newline="\n", encoding="utf-8"
         ) as file:
             json.dump(
                 bundle(
-                    set_dir.stem,
-                    items=[pack(set_dir.stem), box(set_dir.stem)],
-                    expansions=[expansion(set_dir.stem, cards(set_dir))],
+                    exp.name,
+                    items=[pack(exp.name), box(exp.name)],
+                    expansions=[expansion(exp.name, cards(exp))],
                 ),
                 file,
                 indent=2,
             )
 
 
-def cards(set_dir: Path) -> list[dict]:
-    """The card entries of *set_dir*'s metadata bundle: every variant
-    definition under the set, expanded into the derived presentations the
-    way the finished cards are written out (the ``Standard`` cards of
-    :data:`STANDARD_STEMS`, the ``Profile`` cards of :data:`PROFILE_STEMS`
-    and the full-art card of every variant outside :data:`PROFILE_RARITIES`),
-    each carrying the character's rarity from ``database/characters.json``
-    (a skin variant's suffixed id, c010_02, inherits the base character's
-    rarity; an unknown id defaults to ``R`` with a warning). Shared by
-    :func:`write` (which writes each set's bundle to the output directory)
-    and :mod:`nikke_reborn.simulation` (which simulates pack openings
-    against the current tuning)."""
-    characters = json.load((DATABASE_DIR / "characters.json").open())
-    characters = {character["id"]: character for character in characters}
-
+def cards(exp: expansion_mod.Expansion) -> list[dict]:
+    """The card entries of *exp*'s metadata bundle: every character of the
+    expansion, expanded into the presentations the pipeline renders (the
+    fixed per-character set — the standard's, the profile's and the
+    full-art's presentations, the goddess presentation dropped for the
+    characters without the ``sc`` variant — see
+    :func:`nikke_reborn.expansion.presentations_for`), each carrying the
+    character's rarity (the base character's when the id is suffixed).
+    Shared by :func:`write` (which writes each set's bundle to the output
+    directory) and :mod:`nikke_reborn.simulation` (which simulates pack
+    openings against the current tuning)."""
     cards = []
-    missing_ids: set[str] = set()
-
-    for card in sorted(set_dir.iterdir()):
-        if not card.is_dir():
-            continue
-
-        for variant in sorted(card.iterdir()):
-            if not variant.name.endswith(".json"):
-                continue
-
-            config = json.load(variant.open())
-
-            id = config["id"]
-            title = config["title"]
-            subtitle = config["subtitle"]
-
-            name = f"{title}: {subtitle}" if subtitle else title
-
-            # Skin variants carry a suffixed id (c010_02); strip the
-            # suffix so they inherit the base character's rarity.
-            character = characters.get(id) or characters.get(id.split("_", 1)[0])
-            if character is None:
-                missing_ids.add(id)
-                rarity = "R"
-            else:
-                rarity = character["rarity"]
-
-            if variant.stem in STANDARD_STEMS:
-                standard_stem = _standard_stem(variant)
-
-                new_card = _card(
-                    name,
-                    standard_stem,
-                    rarity,
-                    f"{card.stem}_{standard_stem}",
+    for entry in exp.cards:
+        info = expansion_mod.resolve_character(entry)
+        for presentation in expansion_mod.presentations_for(exp, entry, info):
+            cards.append(
+                _card(
+                    entry.name,
+                    presentation.name,
+                    entry.rarity,
+                    f"{entry.stem}_{presentation.name}",
                 )
-                cards.append(new_card)
-
-            if variant.stem in PROFILE_STEMS:
-                profile_stem = _profile_stem(variant)
-
-                new_card = _card(
-                    name,
-                    profile_stem,
-                    rarity,
-                    f"{card.stem}_{profile_stem}",
-                )
-                cards.append(new_card)
-
-            if variant.stem not in PROFILE_RARITIES:
-                new_card = _card(
-                    name,
-                    variant.stem,
-                    rarity,
-                    f"{card.stem}_{variant.stem}",
-                )
-                cards.append(new_card)
-
-    for missing in sorted(missing_ids):
-        print(
-            f"warning: no character {missing!r} in characters.json; "
-            f"its cards default to rarity 'R'",
-            file=sys.stderr,
-        )
-
+            )
     return cards
 
 

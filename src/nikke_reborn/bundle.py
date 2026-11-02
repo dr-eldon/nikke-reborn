@@ -12,6 +12,7 @@ alongside the default one, with the same structure and the set's own
 
 from __future__ import annotations
 
+import argparse
 import shutil
 
 from nikke_reborn import bundler, metadata
@@ -23,6 +24,20 @@ MOD_NAME = "NIKKE REBORN"
 
 
 def run() -> None:
+    """Compose the game bundle from the rendered output."""
+    # No options (the bundle always covers every set under output/); the
+    # parser is here so --help works and a stray flag fails loudly instead
+    # of silently triggering a full bundle build.
+    argparse.ArgumentParser(
+        prog="bundle",
+        description=(
+            "Compose the game bundle from the rendered output: every set "
+            "folder under output/ (the default and the '<set> (Ultra)' "
+            "twins) is copied in and turned into a Unity asset bundle under "
+            "bundles/"
+        ),
+    ).parse_args()
+
     shutil.rmtree(BUNDLES_DIR, ignore_errors=True)
     BUNDLES_DIR.mkdir()
 
@@ -57,7 +72,7 @@ def run() -> None:
         plugin = prefab / set_name
         animator = plugins / "EPLCardAnimator" / "animated"
 
-        if (CARDS_DIR / set_name).is_dir():
+        if (CARDS_DIR / f"{set_name}.toml").is_file():
             videos = [
                 file
                 for file in (OUTPUT_DIR / target.name).iterdir()

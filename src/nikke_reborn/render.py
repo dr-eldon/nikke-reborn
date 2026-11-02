@@ -1,10 +1,12 @@
-"""One card's frame output and its two derived presentations.
+"""One card's frame output and its presentations' renders.
 
-The shared pipeline that turns a loaded card into a stream of frames
+The shared pipeline that turns a presentation into a stream of frames
 (:func:`_render_and_finish`) and the frame-output primitives it builds on
 (:func:`_write_final_card`, :func:`_first_frame`, the face and photo-reel
-compositing), and the two presentations the card pipeline derives from the
-full-art pipeline — the Profile and the Standard.
+compositing), plus the standard's and profile's presentations' renders
+(:func:`_render_standard`, :func:`_render_profile`) and the three tiers'
+per-presentation workers (:func:`_process_full_art`,
+:func:`_process_standard_card`, :func:`_process_profile_card`).
 """
 
 from __future__ import annotations
@@ -19,19 +21,9 @@ from typing import cast
 
 from PIL import Image, ImageOps, ImageStat
 
-from nikke_reborn.card import (
-    LOGO_PATHS,
-    _background_path,
-    _card_out_path,
-    _load_card,
-    _manufacturer_logo,
-    _profile_source_hash,
-    _profile_stem,
-    _source_hash,
-    _standard_source_hash,
-    _standard_stem,
-)
-from nikke_reborn.config import FONT, HALF_BODY_VARIANT, VIEWER
+from nikke_reborn import card, expansion
+from nikke_reborn.card import LOGO_PATHS, _manufacturer_logo
+from nikke_reborn.config import FONT, VIEWER
 from nikke_reborn.error import GenerationError
 from nikke_reborn.file import _save_atomic, _stored_hash
 from nikke_reborn.image import (
@@ -63,53 +55,44 @@ from nikke_reborn.video import (
 )
 
 # --- the profile presentation -------------------------------------------
-# The profile cards render a rarity through the shared profile pipeline:
-# one card is derived from every definition (except the ``Goddess`` and
-# ``Classified`` presentations); all are written out with the
-# variant's stem plus the ``Profile`` suffix. The background is a
-# monochrome of its own dominant tint, the face framing (the viewer's
-# ``--face`` at :data:`PROFILE_FACE_ZOOM`) animates over it, under the
-# dominant tint wash, as a monochrome of the same hue, shifted aside from
-# the body so it is not occluded, and the full body (the viewer's
-# ``--full-body`` flag, ignoring the definition's pan/zoom) animates over
+# The profile cards render the character in two: the face framing (the
+# viewer's ``--face`` at :data:`PROFILE_FACE_ZOOM`, shifted aside from the
+# body so it is not occluded) animates over the background (a monochrome of
+# its own dominant tint), under the dominant tint wash, as a monochrome of
+# the same hue, and the body (the viewer's default framing) animates over
 # the card mask (tinted at each pixel's own lightness, the white staying
-# white) — the two framings are streamed in lockstep from the same
-# definition. The name and subtitle overlays are applied as usual, like the
-# other rarities, and the logo sits at the top right instead of the bottom
-# right. The card also carries a photo reel down its right edge: the first
-# PROFILE_REEL_COUNT of PROFILE_REEL_ANIMATIONS the character has (per the
-# viewer's ``--list-animations``) become face stills — one at time 0 per
-# animation (the viewer's ``--portrait 1`` framing in a square viewport),
-# taken once per card and reused for every frame — fewer squares, or none,
-# when fewer animations match. Each still sits on a white background and
-# is framed by a border of the background's dominant tint
-# (PROFILE_REEL_BORDER of the side). Everything is composited in memory —
-# no intermediate frame touches the disk; only the finished card is
-# written (atomically).
+# white) — the two framings are streamed in lockstep for the character
+# (the same variant and animation). The name and subtitle overlays are
+# applied as usual, and the logo sits at the top right instead of the
+# bottom right. The card also carries a photo reel down its right edge: the
+# first PROFILE_REEL_COUNT of PROFILE_REEL_ANIMATIONS the character has (per
+# the viewer's ``--list-animations``, the ``fb`` variant's) become face
+# stills — one at time 0 per animation (the viewer's ``--portrait 1``
+# framing in a square viewport), taken once per card and reused for every
+# frame — fewer squares, or none, when fewer animations match. Each still
+# sits on a white background and is framed by a border of the background's
+# dominant tint (PROFILE_REEL_BORDER of the side). Everything is composited
+# in memory — no intermediate frame touches the disk; only the finished
+# card is written (atomically).
 # --- the standard presentation -------------------------------------------
-# The ``Standard`` tier is a derived presentation, like the profile cards,
-# rendered through its own pipeline: one card is derived from each of the
-# ``Classic``, ``Rare``, ``Special`` and ``Exotic`` definitions and written
-# out with the variant's stem plus the ``Standard`` suffix. The card keeps
-# the definition's ``background`` (in color, no monochrome, but faded a bit
-# toward its dominant color, :data:`STANDARD_BG_FADE`), the standard card
-# mask (:data:`STANDARD_MASK_PATH`) is composited over it, and the
-# character's upper body (the viewer's ``--half-body`` flag, ignoring the
-# definition's pan/zoom) animates over the mask. The name and subtitle
-# overlays are applied as usual, like the profile cards; the manufacturer's
-# logo sits at the top right (its corner inset by ``padding * 1.5``, in
-# black), the NIKKE logo at the bottom right and the copyright at the bottom
-# left, both in black.
+# The ``Standard`` tier renders through its own pipeline: the presentation's
+# background (in color, no monochrome, but faded a bit toward its dominant
+# color) carries the standard card mask (``STANDARD_MASK_PATH``) and the
+# character's upper body (the viewer's ``--half-body`` flag) animates over
+# it. The name and subtitle overlays are applied as usual; the
+# manufacturer's logo sits at the top right (its corner inset by
+# ``padding * 1.5``, in black), the NIKKE logo at the bottom right and the
+# copyright at the bottom left, both in black.
 #: The ``--face`` zoom that renders the face framing composited over the
-#: profile card's background, under its tint wash (ahead of the full body).
+#: profile card's background, under its tint wash (ahead of the body).
 PROFILE_FACE_ZOOM = 2
 #: The face framing's vertical centre, as a fraction of the frame height
 #: (0.1). :func:`_face_offset` treats the face as a square of side
-#: ``height * PROFILE_FACE_CENTER_Y * PROFILE_FACE_ZOOM`` centred at that height
+#: ``height * PROFILE_FACE_CENTER_Y * :data:`PROFILE_FACE_ZOOM`` centred at that height
 #: when deciding which side leaves its footprint least occluded by the body.
 PROFILE_FACE_CENTER_Y = 0.1
 #: Horizontal shifts (px) that move the face framing aside from the centered
-#: full body so it is not occluded by the body: the face is rendered
+#: body so it is not occluded by the body: the face is rendered
 #: :data:`PROFILE_FACE_OFFSET_LEFT` px to the left or
 #: :data:`PROFILE_FACE_OFFSET_RIGHT` px to the right (whichever leaves its
 #: footprint least occluded by the body, see :func:`_face_offset`).
@@ -128,8 +111,6 @@ PROFILE_FACE_OFFSET_RIGHT = 420
 #: ``padding * PROFILE_REEL_MARGIN``, the first square's top edge at
 #: ``frame_height * PROFILE_REEL_TOP`` and the card's padding of gap
 #: between the squares.
-PROFILE_REEL_COUNT = 3
-#: The photo-reel square's side, as a fraction of the frame width
 PROFILE_REEL_SIDE = 1 / 7
 #: The first photo-reel square's top edge, as a fraction of the frame
 PROFILE_REEL_TOP = 3 / 7
@@ -144,20 +125,6 @@ PROFILE_REEL_BORDER = 0.005
 #: The photo-reel border's opacity (0.5): the tint frame is
 #: semi-transparent, so the card art behind it shows through.
 PROFILE_REEL_BORDER_ALPHA = 0.8
-#: The photo reel's candidate animations, in order: the first
-#: PROFILE_REEL_COUNT of these the character has become the reel's stills
-#: (fewer, or none, when fewer match).
-PROFILE_REEL_ANIMATIONS = (
-    "think",
-    "smile",
-    "shy",
-    "no",
-    "delight",
-    "surprise",
-    "special_02",
-    "special",
-    "angry",
-)
 
 #: ``nikke-viewer`` writes its frames from multiple threads and can
 #: occasionally leave a truncated file behind while still exiting with
@@ -166,11 +133,46 @@ PROFILE_REEL_ANIMATIONS = (
 RENDER_ATTEMPTS = 3
 
 
+def _presentation_flags(presentation: expansion.Presentation) -> list[str]:
+    """The presentation's viewer flags (the character's ``--variant`` —
+    ``aim``, ``cover`` or ``sc``; the ``--animation`` — the render's
+    animation; the ``--time`` — 0 stills the render): the viewer's
+    defaults when the presentation names none of them (the ``fb`` variant
+    is the viewer's default variant)."""
+    flags: list[str] = []
+    if presentation.variant is not None:
+        flags += ["--variant", presentation.variant]
+    if presentation.animation is not None:
+        flags += ["--animation", presentation.animation]
+    if presentation.time is not None:
+        flags += ["--time", str(presentation.time)]
+    return flags
+
+
+def _viewer_args(
+    size: tuple[int, int], char_id: str, *flags: str
+) -> list[str]:
+    """The viewer's command for one stream: the *flags* (the framing and
+    the presentation's terms), the run's size (the ``--width``/
+    ``--height``) and the character's id — the viewer's ``--stdout`` emits
+    raw RGBA frames at that size."""
+    return [
+        VIEWER,
+        *flags,
+        "--width",
+        str(size[0]),
+        "--height",
+        str(size[1]),
+        "--stdout",
+        char_id,
+    ]
+
+
 def _render_and_finish(
-    json_path: Path,
+    presentation: expansion.Presentation,
     size: tuple[int, int],
     animated: bool,
-    background: Image.Image,
+    base: Image.Image,
     logo: Image.Image,
     margin: int,
     padding: int,
@@ -180,46 +182,27 @@ def _render_and_finish(
     composite_workers: int,
     preset: Preset,
     source_hash: str,
-    base: Image.Image | None = None,
-    render_path: Path | None = None,
-    stem: str | None = None,
-    full_body: bool = False,
     half_body: bool = False,
 ) -> tuple[Path, dict[str, float | None]]:
-    """Render *json_path* via the viewer's ``--stdout`` raw stream and write
-    the final PNG, or the MP4 alongside its first frame as a PNG.
+    """Render the presentation via the viewer's ``--stdout`` raw stream and
+    write the final PNG, or the MP4 alongside its first frame as a PNG.
 
-    *base* overrides the composited-over background (defaults to
-    ``_fit_background(background, size)``); *render_path* is the config the
-    viewer reads (defaults to *json_path* itself); *stem* overrides the
-    variant in the output filename (defaults to the definition's stem);
-    *full_body* passes the viewer's ``--full-body`` flag, which ignores the
-    config's pan/zoom to render the full body (the profile cards);
-    *half_body* passes the viewer's ``--half-body`` flag, which ignores the
-    config's pan/zoom to frame the upper body (head to waist) — the
-    ``fb`` variant's full-art cards. The two are mutually exclusive
-    framings; *full_body* wins if both are ever set.
-
-    Nothing intermediate touches the disk: the viewer's raw RGBA frames are
-    piped straight into the in-memory compositing and (for animations) the
-    ffmpeg encode. Only the finished card is written (atomically). A failure
-    at any stage surfaces as a :class:`GenerationError` so the caller can
-    re-render the card from scratch.
+    The single framing is the presentation's (the ``--half-body`` flag
+    when *half_body* — the upper body, head to waist — or the viewer's
+    default framing, the character's variant and animation). Nothing
+    intermediate touches the disk: the viewer's raw RGBA frames are piped
+    straight into the in-memory compositing and (for animations) the
+    ffmpeg encode. Only the finished card is written (atomically). A
+    failure at any stage surfaces as a :class:`GenerationError` so the
+    caller can re-render the card from scratch.
 
     Returns the finished card's path and the stage timings in seconds (see
     :func:`_write_final_card`, which performs the write and the reap). A raw
     frame is far larger than the pipe buffer, so the viewer blocks on
     write until the reader drains: under load ``render`` therefore
     reflects the slowest downstream stage (usually the encode) as much as
-    the viewer itself; for the viewer's own cost, run it with its stdout
-    redirected to /dev/null.
+    the viewer itself.
     """
-    if base is None:
-        base = _fit_background(background, size)
-    if render_path is None:
-        render_path = json_path
-    if stem is None:
-        stem = json_path.stem
     # The logo and copyright line sit on top of the art, not under it:
     # pre-stamp them onto a transparent layer and let _stream_composited
     # apply it to each frame after the art is composited over the
@@ -231,26 +214,18 @@ def _render_and_finish(
     stream_end: list[float] = [0.0]
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
-    # files). --full-body, when set, ignores the config's pan/zoom and
-    # renders the full body; --half-body (mutually exclusive with it)
-    # frames the upper body instead. The viewer renders at the run's final
-    # size (*size* — the definition's viewport at the run's scale, see the
-    # _process_* callers); the save's viewport stays the native reference.
-    # stderr is drained in a thread so it never blocks the viewer.
+    # files). --half-body, when set, frames the upper body (head to waist)
+    # instead of the viewer's default framing. The viewer renders at the
+    # run's final size (*size*); the save's viewport stays the native
+    # reference. stderr is drained in a thread so it never blocks the
+    # viewer.
     render_started = time.perf_counter()
-    viewer_args = [VIEWER]
-    if full_body:
-        viewer_args.append("--full-body")
-    elif half_body:
-        viewer_args.append("--half-body")
-    viewer_args += [
-        "--width",
-        str(size[0]),
-        "--height",
-        str(size[1]),
-        "--stdout",
-        str(render_path),
-    ]
+    viewer_args = _viewer_args(
+        size,
+        presentation.card.id,
+        *([ "--half-body"] if half_body else []),
+        *_presentation_flags(presentation),
+    )
     try:
         viewer = subprocess.Popen(
             viewer_args,
@@ -267,7 +242,7 @@ def _render_and_finish(
     composited = _stream_composited(
         viewer,
         drain,
-        json_path,
+        presentation.label,
         size,
         base,
         overlay,
@@ -279,8 +254,7 @@ def _render_and_finish(
     )
     return _write_final_card(
         composited,
-        json_path,
-        stem,
+        presentation,
         animated,
         size,
         framerate,
@@ -345,8 +319,7 @@ class _FirstFrameWriter:
 
 def _write_final_card(
     composited: Generator[Image.Image],
-    json_path: Path,
-    stem: str,
+    presentation: expansion.Presentation,
     animated: bool,
     size: tuple[int, int],
     framerate: int,
@@ -369,20 +342,31 @@ def _write_final_card(
     reaped) and the stage timings (in seconds) are returned: ``render``
     (spawn until the frame stream is fully delivered), ``composite`` (the
     per-frame Pillow work — decode, blend, stamps — summed across the worker
-    threads) and ``encode`` (the ffmpeg wall time
-    for animations, the PNG write for static cards). The stages overlap —
-    the encode consumes frames while the viewer still renders, the
-    compositing runs in its own threads, and the first-frame sidecar runs in
-    its own thread — so the numbers are per-stage costs, not a sequential
-    partition.
+    threads) and ``encode`` (the ffmpeg wall time for animations, the PNG
+    write for static cards). The stages overlap — the encode consumes frames
+    while the viewer still renders, the compositing runs in its own threads,
+    and the first-frame sidecar runs in its own thread — so the numbers are
+    per-stage costs, not a sequential partition.
     """
-    out_path = _card_out_path(json_path, "mp4" if animated else "png", stem, preset)
+    out_path = card.output_path(
+        presentation.expansion.name,
+        presentation.card.stem,
+        presentation.name,
+        "mp4" if animated else "png",
+        preset,
+    )
     encode_time: float | None = None
     try:
         if animated:
             tmp_path = out_path.with_name(out_path.name + ".part")
             png_writer = _FirstFrameWriter(
-                _card_out_path(json_path, "png", stem, preset),
+                card.output_path(
+                    presentation.expansion.name,
+                    presentation.card.stem,
+                    presentation.name,
+                    "png",
+                    preset,
+                ),
                 source_hash,
             )
 
@@ -408,7 +392,7 @@ def _write_final_card(
                 encode_time = time.perf_counter() - encode_started
                 if not first_frame:
                     raise GenerationError(
-                        f"{VIEWER} produced no frames for {json_path.name}"
+                        f"{VIEWER} produced no frames for {presentation.label}"
                     )
             except Exception:
                 tmp_path.unlink(missing_ok=True)
@@ -425,10 +409,12 @@ def _write_final_card(
             next(composited, None)
             if not first_frame:
                 raise GenerationError(
-                    f"{VIEWER} produced no frame for {json_path.name}"
+                    f"{VIEWER} produced no frame for {presentation.label}"
                 )
             encode_started = time.perf_counter()
-            _save_atomic(first_frame[0].convert("RGB"), out_path, source_hash)
+            _save_atomic(
+                first_frame[0].convert("RGB"), out_path, source_hash
+            )
             encode_time = time.perf_counter() - encode_started
     finally:
         # Stop consuming and make sure the viewer stream is reaped (the
@@ -446,9 +432,9 @@ def _write_final_card(
 
 
 def _first_frame(
-    json_path: Path, size: tuple[int, int], *viewer_flags: str
+    size: tuple[int, int], char_id: str, *viewer_flags: str
 ) -> Image.Image:
-    """The first frame of *json_path* rendered by the viewer with
+    """The first frame of the character's render by the viewer with
     *viewer_flags* — one raw RGBA frame read from the ``--stdout`` stream.
     The viewer is asked for exactly *size* (the run's final size, which
     may differ from the save's viewport — the flags are passed here so the
@@ -456,16 +442,7 @@ def _first_frame(
     animation only the opening frame is needed."""
     width, height = size
     viewer = subprocess.Popen(
-        [
-            VIEWER,
-            *viewer_flags,
-            "--width",
-            str(width),
-            "--height",
-            str(height),
-            "--stdout",
-            str(json_path),
-        ],
+        _viewer_args(size, char_id, *viewer_flags),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         bufsize=PIPE_BUFSIZE,
@@ -483,31 +460,37 @@ def _first_frame(
     frame_bytes = width * height * 4
     if len(data) != frame_bytes:
         raise GenerationError(
-            f"{VIEWER} stream for {json_path.name} truncated: "
+            f"{VIEWER} stream for {char_id!r} truncated: "
             f"{len(data)} of {frame_bytes} bytes"
         )
     return Image.frombytes("RGBA", (width, height), data)
 
 
-def _face_offset(json_path: Path, size: tuple[int, int], preset: Preset) -> int:
+def _face_offset(
+    presentation: expansion.Presentation, size: tuple[int, int], preset: Preset
+) -> int:
     """The face framing's ``--offset-x``: :data:`PROFILE_FACE_OFFSET_LEFT` px to
     the left or :data:`PROFILE_FACE_OFFSET_RIGHT` px to the right (both
-    native-px — the definition's viewport — scaled by the output preset's
+    native-px — the card's viewport — scaled by the output preset's
     scale to the run's final size, since the viewer's ``--offset-x`` is
     screen px), whichever
-    leaves the face's footprint least occluded by the full body, so the face
+    leaves the face's footprint least occluded by the body, so the face
     sits clear rather than behind it.
 
     The face's centre always sits at :data:`PROFILE_FACE_CENTER_Y` of the frame
     height, so the face is treated as a square of side
-    ``height * PROFILE_FACE_CENTER_Y * :data:`PROFILE_FACE_ZOOM```. Each candidate
+    ``height * PROFILE_FACE_CENTER_Y * :data:`PROFILE_FACE_ZOOM``. Each candidate
     footprint — the left at the card centre minus the left offset, the right at
     the card centre plus the right offset — is measured against the body's
     opaque pixels and the face is sent to the emptier one (fewer body pixels
-    behind it). A bodyless frame leaves the face centered (0).
+    behind it). A bodyless frame leaves the face centered (0). The body is
+    measured in the presentation's own framing (its default framing — the
+    body stream's — with the presentation's variant and animation).
     """
     width, height = size
-    body = _first_frame(json_path, size, "--full-body")
+    body = _first_frame(
+        size, presentation.card.id, *_presentation_flags(presentation)
+    )
     # The face's footprint: a square centred at the face's fixed vertical
     # centre, one for each candidate horizontal position (left / right).
     alpha = body.getchannel("A").point(lambda v: 255 if v > 32 else 0)
@@ -534,35 +517,17 @@ def _face_offset(json_path: Path, size: tuple[int, int], preset: Preset) -> int:
     return -left_offset if left < right else right_offset
 
 
-def _reel_animations(json_path: Path) -> list[str]:
-    """The photo reel's animations: the first PROFILE_REEL_COUNT of
-    PROFILE_REEL_ANIMATIONS (in the list's order) the character has, per
-    the viewer's ``--list-animations`` for *json_path* — fewer (or none)
-    when fewer of the list match."""
-    result = subprocess.run(
-        [VIEWER, "--list-animations", str(json_path)],
-        capture_output=True,
-        check=False,  # the exit code is checked below (with the stderr tail)
-    )
-    if result.returncode != 0:
-        detail = result.stderr.decode(errors="replace").strip()
-        detail = f": {detail[-500:]}" if detail else ""
-        raise GenerationError(
-            f"{VIEWER} --list-animations for {json_path.name} "
-            f"failed (exit {result.returncode}){detail}"
-        )
-    available = {
-        line.strip()
-        for line in result.stdout.decode(errors="replace").splitlines()
-        if line.strip()
-    }
-    return [
-        animation for animation in PROFILE_REEL_ANIMATIONS if animation in available
-    ][:PROFILE_REEL_COUNT]
+def _reel_animations(char_id: str) -> list[str]:
+    """The photo reel's animations (see
+    :func:`nikke_reborn.expansion.reel_animations`): the first
+    PROFILE_REEL_COUNT of PROFILE_REEL_ANIMATIONS the character has, asked
+    of the viewer once per process (the render's profile passes reuse the
+    selection's lists)."""
+    return expansion.reel_animations(char_id)
 
 
 def _photo_reel(
-    json_path: Path,
+    presentation: expansion.Presentation,
     size: tuple[int, int],
     padding: int,
     tint_rgb: tuple[int, int, int],
@@ -588,7 +553,7 @@ def _photo_reel(
     between them. Empty (no reel) when the character has none of
     PROFILE_REEL_ANIMATIONS.
     """
-    animations = _reel_animations(json_path)
+    animations = _reel_animations(presentation.card.id)
     if not animations:
         return []
     side = round(size[0] * PROFILE_REEL_SIDE)
@@ -600,8 +565,8 @@ def _photo_reel(
     reel: list[tuple[Image.Image, tuple[int, int]]] = []
     for index, animation in enumerate(animations):
         still = _first_frame(
-            json_path,
             (side, side),
+            presentation.card.id,
             "--portrait",
             "1",
             "--time",
@@ -626,7 +591,7 @@ def _photo_reel(
 
 
 def _render_profile(
-    json_path: Path,
+    presentation: expansion.Presentation,
     size: tuple[int, int],
     animated: bool,
     background: Image.Image,
@@ -647,17 +612,17 @@ def _render_profile(
     source_hash: str,
     face_zoom: float,
 ) -> tuple[Path, dict[str, float | None]]:
-    """Render the profile card (a presentation of *json_path*, written out
-    as ``<card>_<variant>Profile.<suffix>``): the ``--face <face_zoom>``
+    """Render the profile card (a presentation, written out as
+    ``<card>_<presentation>.<suffix>``): the ``--face <face_zoom>``
     framing animates (as a monochrome of the tint's hue, shifted aside from
-    the body) over the background, under the tint wash, and the
-    ``--full-body`` framing animates over the mask, both streamed from the
-    same definition so the two stay in lockstep. The name and subtitle
-    overlays are applied as usual, like the other rarities (with the
-    character's manufacturer's logo above the name's bar, *manufacturer_logo*);
-    the logo sits at the top right. The card's photo reel (the face stills
-    down the right edge, :func:`_photo_reel`) is composited onto every
-    frame as well.
+    the body) over the background, under the tint wash, and the body (the
+    viewer's default framing, the presentation's variant and animation)
+    animates over the mask, both streamed for the character so the two stay
+    in lockstep. The name and subtitle overlays are applied as usual (with
+    the character's manufacturer's logo above the name's bar,
+    *manufacturer_logo*); the logo sits at the top right. The card's photo
+    reel (the face stills down the right edge, :func:`_photo_reel`) is
+    composited onto every frame as well.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the disk —
     the two raw RGBA streams are piped straight into the in-memory
@@ -666,7 +631,6 @@ def _render_profile(
     finished card's path and the stage timings (see
     :func:`_write_final_card`).
     """
-    stem = _profile_stem(json_path)
     # The logo and copyright line sit on top of the art: pre-stamp them onto
     # a transparent layer and let the compositor apply it to each frame.
     # The profile card's logo sits at the top right instead of the bottom
@@ -693,41 +657,33 @@ def _render_profile(
     # The face is shifted to the side the body leaves most room on (measured
     # from the body's first frame), so it is not occluded by the centered
     # body.
-    face_offset = _face_offset(json_path, size, preset)
+    face_offset = _face_offset(presentation, size, preset)
 
     # The photo reel (the face stills down the right edge): the stills are
     # taken once — one frame at time 0 per animation — and reused for
     # every frame of the card.
-    reel = _photo_reel(json_path, size, padding, tint_rgb)
+    reel = _photo_reel(presentation, size, padding, tint_rgb)
 
     # Spawn the two viewers streaming raw RGBA frames to stdout (no
     # intermediate files): the face framing (over the background, under the
-    # tint wash, shifted aside from the body) and the full body (over the
-    # mask). stderr is drained in a thread so it never blocks a viewer.
+    # tint wash, shifted aside from the body) and the body (the viewer's
+    # default framing). stderr is drained in a thread so it never blocks a
+    # viewer.
     render_started = time.perf_counter()
-    face_args = [
-        VIEWER,
+    face_args = _viewer_args(
+        size,
+        presentation.card.id,
         "--face",
         str(face_zoom),
         "--offset-x",
         str(face_offset),
-        "--width",
-        str(size[0]),
-        "--height",
-        str(size[1]),
-        "--stdout",
-        str(json_path),
-    ]
-    body_args = [
-        VIEWER,
-        "--full-body",
-        "--width",
-        str(size[0]),
-        "--height",
-        str(size[1]),
-        "--stdout",
-        str(json_path),
-    ]
+        *_presentation_flags(presentation),
+    )
+    body_args = _viewer_args(
+        size,
+        presentation.card.id,
+        *_presentation_flags(presentation),
+    )
     try:
         face_viewer = subprocess.Popen(
             face_args,
@@ -759,7 +715,7 @@ def _render_profile(
         face_drain,
         body_viewer,
         body_drain,
-        json_path,
+        presentation.label,
         size,
         background,
         tint,
@@ -775,8 +731,7 @@ def _render_profile(
     )
     return _write_final_card(
         composited,
-        json_path,
-        stem,
+        presentation,
         animated,
         size,
         framerate,
@@ -791,7 +746,7 @@ def _render_profile(
 
 
 def _render_standard(
-    json_path: Path,
+    presentation: expansion.Presentation,
     size: tuple[int, int],
     animated: bool,
     base: Image.Image,
@@ -809,18 +764,18 @@ def _render_standard(
     preset: Preset,
     source_hash: str,
 ) -> tuple[Path, dict[str, float | None]]:
-    """Render the standard card (a presentation of *json_path*, written out
-    as ``<card>_<variant>Standard.<suffix>``): the definition's
+    """Render the standard card (a presentation, written out as
+    ``<card>_<presentation>.<suffix>``): the presentation's
     *background* (faded toward its dominant color, no monochrome) carries
     the standard card mask
     (:data:`STANDARD_MASK_PATH`, already composited into *base*), and the
-    character's upper body (the viewer's ``--half-body`` flag, ignoring the
-    definition's pan/zoom) animates over it. The name and subtitle overlays
-    are applied as usual, like the profile cards; the manufacturer's logo
-    (*manufacturer_logo*) sits at the top right, its corner inset by
-    ``padding * 1.5`` and drawn in black (the white face would hide the white
-    version); the NIKKE logo sits at the bottom right and the copyright at
-    the bottom left, both in black.
+    character's upper body (the viewer's ``--half-body`` flag, the
+    presentation's animation) animates over it. The name and subtitle
+    overlays are applied as usual, like the profile cards; the
+    manufacturer's logo (*manufacturer_logo*) sits at the top right, its
+    corner inset by ``padding * 1.5`` and drawn in black (the white face
+    would hide the white version); the NIKKE logo sits at the bottom right
+    and the copyright at the bottom left, both in black.
 
     Like :func:`_render_and_finish` and :func:`_render_profile`, nothing
     intermediate touches the disk — the raw RGBA stream is piped straight
@@ -829,7 +784,6 @@ def _render_standard(
     ``<card>_<stem>.<suffix>``). Returns the finished card's path and the
     stage timings (see :func:`_write_final_card`).
     """
-    stem = _standard_stem(json_path)
     # The logo, the copyright line and the manufacturer's logo sit on top of
     # the art: pre-stamp them onto a transparent layer and let the
     # compositor apply them to each frame. The NIKKE logo sits at the bottom
@@ -871,20 +825,16 @@ def _render_standard(
     stream_end: list[float] = [0.0]
 
     # Spawn the viewer streaming raw RGBA frames to stdout (no intermediate
-    # files): the half body over the mask. --half-body ignores the
-    # definition's pan/zoom and frames the upper body. stderr is drained in
-    # a thread so it never blocks the viewer.
+    # files): the half body over the mask. --half-body frames the upper body
+    # (head to waist). stderr is drained in a thread so it never blocks the
+    # viewer.
     render_started = time.perf_counter()
-    viewer_args = [
-        VIEWER,
+    viewer_args = _viewer_args(
+        size,
+        presentation.card.id,
         "--half-body",
-        "--width",
-        str(size[0]),
-        "--height",
-        str(size[1]),
-        "--stdout",
-        str(json_path),
-    ]
+        *_presentation_flags(presentation),
+    )
     try:
         viewer = subprocess.Popen(
             viewer_args,
@@ -901,7 +851,7 @@ def _render_standard(
     composited = _stream_composited(
         viewer,
         drain,
-        json_path,
+        presentation.label,
         size,
         base,
         overlay,
@@ -914,8 +864,7 @@ def _render_standard(
     )
     return _write_final_card(
         composited,
-        json_path,
-        stem,
+        presentation,
         animated,
         size,
         framerate,
@@ -929,37 +878,40 @@ def _render_standard(
     )
 
 
-def _process_card(
-    json_path: Path,
+def _process_full_art(
+    presentation: expansion.Presentation,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
     preset: Preset = Preset.DEFAULT,
     force: bool = False,
     no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
-    """Render, composite and encode a single card definition.
+    """Render, composite and encode one presentation of the full-art tier
+    (the ``Classic``, ``Special``, ``Exotic`` and ``Goddess`` presentations,
+    no mask): the presentation's background (fitted to the frame,
+    autocontrasted and dark-faded toward its dominant color — the solid
+    black for the goddess presentation) carries the white NIKKE logo and
+    the copyright line (white); the card name is not drawn on the full-art
+    cards. The framing is the presentation's (the ``--half-body`` flag for
+    the classic, special and exotic; the viewer's default framing for the
+    goddess's ``sc`` variant).
 
-    With *no_video* (``--no-video``) an animated definition renders its
+    With *no_video* (``--no-video``) an animated presentation renders its
     first frame alone — its MP4 is skipped and the viewer reaped right
     after that frame — so the output, and the up-to-date check, cover the
     first-frame PNG.
 
-    The ``fb`` variant is framed by the viewer's ``--half-body`` flag (the
-    upper body, head to waist, ignoring the definition's pan/zoom); the
-    other variants keep the definition's pan/zoom.
-
     Returns ``(out_path, skipped, timings)``; *skipped* is True when the
-    output already exists and the definition hash it embeds matches the
+    output already exists and the presentation hash it embeds matches the
     current one (nothing was re-rendered), in which case *timings* is None;
     otherwise it is the stage-timing dict from :func:`_render_and_finish`
     plus ``total``, the card's overall wall-clock seconds.
     """
     total_started = time.perf_counter()
-    json_path = json_path.resolve()
-    card = _load_card(json_path)
-    background = Image.open(_background_path(card, json_path)).convert("RGBA")
+    exp = presentation.expansion
+    entry = presentation.card
 
-    logo_path = LOGO_PATHS[bool(card.get("invert_logo", False))]
+    logo_path = LOGO_PATHS[False]
     if not logo_path.is_file():
         raise GenerationError(f"logo not found: {logo_path}")
     logo = Image.open(logo_path).convert("RGBA")
@@ -967,59 +919,67 @@ def _process_card(
         raise GenerationError(f"font not found: {FONT}")
     # The full-art cards never carry the card name (the profile and
     # standard cards render the title and subtitle).
-    # The definition's padding is native-px (its viewport); the effective
+    # The card's padding is native-px (its viewport); the effective
     # padding at the run's final size drives the lettering, the logo
     # placement, the reel insets and the like.
-    padding = round(card["padding"] * preset.scale)
+    padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
-    copyright_color = (
-        (0, 0, 0, 255) if card.get("invert_copyright", False) else (255, 255, 255, 255)
-    )
-    framerate = card["framerate"] or DEFAULT_FRAMERATE
+    copyright_color = (255, 255, 255, 255)
+    framerate = DEFAULT_FRAMERATE
 
-    viewport = card.get("viewport")
-    if not viewport:
-        raise GenerationError(
-            f"{json_path.name}: missing 'viewport' (needed to size the raw "
-            f"frames streamed by {VIEWER} --stdout)"
-        )
-    # The run's final size: the definition's viewport at the run's scale
-    # (even dims for the yuv420p encode). The whole pipeline — the
-    # viewer, the compositing and the finished card — runs at this size,
-    # so no frame is ever resampled on the way out.
-    size = (
-        round(int(viewport[0]) * preset.scale) & ~1,
-        round(int(viewport[1]) * preset.scale) & ~1,
-    )
+    # The run's final size: the card's viewport at the run's scale (even
+    # dims for the yuv420p encode). The whole pipeline — the viewer, the
+    # compositing and the finished card — runs at this size, so no frame is
+    # ever resampled on the way out.
+    size = card.run_size(preset)
 
-    # A definition without a `time` renders an animation (mp4) plus its
+    # A presentation without a `time` renders an animation (mp4) plus its
     # first frame (png); one with a `time` renders a single frame (png).
     # With --no-video an animation renders its first frame (png) alone:
     # the mp4 is skipped and the viewer reaped right after that frame.
-    animated = card.get("time") is None and not no_video
-    # The ``fb`` variant's full-art card is framed by the viewer's
-    # ``--half-body`` flag (the upper body, head to waist, ignoring the
-    # definition's pan/zoom); the other variants keep the definition's
-    # pan/zoom. The derived presentations (the profile and the standard
-    # cards) frame the body themselves and do not use this.
-    half_body = card.get("variant") == HALF_BODY_VARIANT
-    out_path = _card_out_path(json_path, "mp4" if animated else "png", preset=preset)
-    source_hash = _source_hash(json_path, preset)
+    animated = presentation.animated and not no_video
+    out_path = card.output_path(
+        exp.name, entry.stem, presentation.name, "mp4" if animated else "png", preset
+    )
+    source_hash = card.presentation_source_hash(presentation, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(json_path, "png", preset=preset)
+            first_frame_path = card.output_path(
+                exp.name, entry.stem, presentation.name, "png", preset
+            )
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
             )
         if up_to_date:
-            # The definition is unchanged since the card was written: skip
+            # The presentation is unchanged since the card was written: skip
             # the render
             return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # The full-art base: the presentation's background fitted to the frame,
+    # autocontrasted and dark-faded toward its dominant color (the
+    # standard's treatment minus the mask) — or the solid black for the
+    # goddess presentation (which composites on no background).
+    if presentation.background == "black":
+        base = Image.new("RGBA", size, (0, 0, 0, 255))
+    else:
+        background = expansion.load_background(exp, presentation.background)
+        background = _fit_background(background, size)
+        background = ImageOps.autocontrast(
+            background.convert("RGB"),
+            cutoff=(20, 0),
+            preserve_tone=True,
+        ).convert("RGBA")
+        brightness = ImageStat.Stat(background).mean[0]
+        background = _fade_to_dominant(
+            background,
+            factor=min(4.0 * max(brightness - 80, 0) / 255, 1.0),
+        )
+        base = background
 
     # The GPU is shared with other tenants, so failures here can be
     # transient (render error, truncated frame stream, encode error); the
@@ -1028,10 +988,10 @@ def _process_card(
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
             finished, timings = _render_and_finish(
-                json_path,
+                presentation,
                 size,
                 animated,
-                background,
+                base,
                 logo,
                 margin,
                 padding,
@@ -1041,18 +1001,18 @@ def _process_card(
                 composite_workers,
                 preset,
                 source_hash,
-                half_body=half_body,
+                half_body=presentation.half_body,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings
         except Exception as exc:
             if attempt >= RENDER_ATTEMPTS:
                 raise GenerationError(
-                    f"render of {json_path.name} still failing after "
+                    f"render of {presentation.label} still failing after "
                     f"{RENDER_ATTEMPTS} attempts: {exc}"
                 ) from exc
             print(
-                f"    ! {json_path.name}: {exc}; re-rendering "
+                f"    ! {presentation.label}: {exc}; re-rendering "
                 f"(attempt {attempt}/{RENDER_ATTEMPTS})",
                 flush=True,
             )
@@ -1060,23 +1020,20 @@ def _process_card(
 
 
 def _process_profile_card(
-    json_path: Path,
+    presentation: expansion.Presentation,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
     preset: Preset = Preset.DEFAULT,
     force: bool = False,
     no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
-    """Render the ``<variant>Profile`` profile card for *json_path*
-    (derived from its own definition — one of the ``Classic``, ``Idle``,
-    ``Cover`` and ``Aim`` presentations, see :data:`PROFILE_STEMS`; the
-    ``Rare``, ``Special`` and ``Exotic`` presentations render a standard
-    card instead, and the ``Goddess`` and ``Classified`` presentations
-    render no derived card): the ``--face`` framing animates (as a
-    monochrome of the tint's hue) over the background, under its dominant
-    tint wash, and the ``--full-body`` framing animates over the card mask
-    (both streamed in lockstep from the same definition). The name and
-    subtitle overlays are applied as usual, like the other rarities; the
+    """Render the profile card for the presentation (one of the ``Classic``,
+    ``Idle``, ``Cover`` and ``Aim`` presentations, on the profile's mask):
+    the ``--face`` framing animates (as a monochrome of the tint's hue) over
+    the background, under its dominant tint wash, and the body (the viewer's
+    default framing, the presentation's variant and animation) animates over
+    the card mask (both streamed in lockstep for the character). The name
+    and subtitle overlays are applied as usual, like the other rarities; the
     logo sits at the top right. The card's photo reel (the face stills down
     the right edge, :func:`_photo_reel`) is composited onto every frame.
 
@@ -1088,13 +1045,12 @@ def _process_profile_card(
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
     (only the finished card is written). Returns ``(out_path, skipped,
-    timings)`` like :func:`_process_card` (written out as
-    ``<card>_<stem>.<suffix>``).
+    timings)`` like :func:`_process_full_art` (written out as
+    ``<card>_<presentation>.<suffix>``).
     """
     total_started = time.perf_counter()
-    json_path = json_path.resolve()
-    card = _load_card(json_path)
-    background = Image.open(_background_path(card, json_path)).convert("RGBA")
+    exp = presentation.expansion
+    entry = presentation.card
 
     # The profile presentation always carries the black logo and black
     # copyright — the profile card's white mask would wash out the white
@@ -1107,61 +1063,51 @@ def _process_profile_card(
         raise GenerationError(f"font not found: {FONT}")
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
-    # The profile presentation carries the card name, as the other rarities
-    # do (a nameless definition renders without the name stack).
-    name = str(card.get("title", ""))
-    subtitle = str(card.get("subtitle", ""))
+    # The profile presentation carries the card name, as the other
+    # presentations do.
+    name = entry.title
+    subtitle = entry.subtitle
     # The character's manufacturer's logo (tinted to the title's
     # background; None when the character or its manufacturer is
     # unknown): it sits above the name's bar.
-    manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
-    # The definition's padding is native-px (its viewport); the effective
+    manufacturer_logo = _manufacturer_logo(entry.id)
+    # The card's padding is native-px (its viewport); the effective
     # padding at the run's final size drives the lettering, the logo
     # placement, the reel insets and the like.
-    padding = round(card["padding"] * preset.scale)
+    padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
-    framerate = card["framerate"] or DEFAULT_FRAMERATE
+    framerate = DEFAULT_FRAMERATE
 
-    viewport = card.get("viewport")
-    if not viewport:
-        raise GenerationError(
-            f"{json_path.name}: missing 'viewport' (needed to size the raw "
-            f"frames streamed by {VIEWER} --stdout)"
-        )
-    # The run's final size: the definition's viewport at the run's scale
-    # (even dims for the yuv420p encode). The whole pipeline — the
-    # viewer, the compositing and the finished card — runs at this size,
-    # so no frame is ever resampled on the way out.
-    size = (
-        round(int(viewport[0]) * preset.scale) & ~1,
-        round(int(viewport[1]) * preset.scale) & ~1,
-    )
+    # The run's final size: the card's viewport at the run's scale (even
+    # dims for the yuv420p encode). The whole pipeline — the viewer, the
+    # compositing and the finished card — runs at this size, so no frame is
+    # ever resampled on the way out.
+    size = card.run_size(preset)
 
-    # A definition without a `time` renders an animation (mp4) plus its first
-    # frame (png); one with a `time` renders a single frame (png). With
-    # --no-video an animation renders its first frame (png) alone: the mp4
-    # is skipped and the viewers reaped right after that frame.
-    animated = card.get("time") is None and not no_video
-    stem = _profile_stem(json_path)
-    out_path = _card_out_path(
-        json_path, "mp4" if animated else "png", stem, preset
+    # A presentation without a `time` renders an animation (mp4) plus its
+    # first frame (png); one with a `time` renders a single frame (png).
+    # With --no-video an animation renders its first frame (png) alone:
+    # the mp4 is skipped and the viewer reaped right after that frame.
+    animated = presentation.animated and not no_video
+    out_path = card.output_path(
+        exp.name, entry.stem, presentation.name, "mp4" if animated else "png", preset
     )
-    source_hash = _profile_source_hash(json_path, preset)
+    source_hash = card.presentation_source_hash(presentation, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(
-                json_path, "png", stem, preset
+            first_frame_path = card.output_path(
+                exp.name, entry.stem, presentation.name, "png", preset
             )
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
             )
         if up_to_date:
-            # The definition and the mask are unchanged since the card was
+            # The presentation and the mask are unchanged since the card was
             # written: skip the render.
             return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1171,11 +1117,12 @@ def _process_profile_card(
     # re-renders from scratch, up to RENDER_ATTEMPTS times; the two viewer
     # framings stream directly, so nothing intermediate is written to disk in
     # between).
+    background = expansion.load_background(exp, presentation.background)
     base, tint, mask, tint_rgb = _profile_layers(background, size)
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
             finished, timings = _render_profile(
-                json_path,
+                presentation,
                 size,
                 animated,
                 base,
@@ -1201,11 +1148,11 @@ def _process_profile_card(
         except Exception as exc:
             if attempt >= RENDER_ATTEMPTS:
                 raise GenerationError(
-                    f"render of {json_path.name} ({stem}) still failing after "
+                    f"render of {presentation.label} still failing after "
                     f"{RENDER_ATTEMPTS} attempts: {exc}"
                 ) from exc
             print(
-                f"    ! {json_path.name} ({stem}): {exc}; re-rendering "
+                f"    ! {presentation.label}: {exc}; re-rendering "
                 f"(attempt {attempt}/{RENDER_ATTEMPTS})",
                 flush=True,
             )
@@ -1213,23 +1160,24 @@ def _process_profile_card(
 
 
 def _process_standard_card(
-    json_path: Path,
+    presentation: expansion.Presentation,
     ffmpeg_threads: int = 1,
     composite_workers: int = 4,
     preset: Preset = Preset.DEFAULT,
     force: bool = False,
     no_video: bool = False,
 ) -> tuple[Path, bool, dict[str, float | None] | None]:
-    """Render the ``<variant>Standard`` standard card for *json_path*
-    (derived from its own definition — the ``Classic``, ``Rare``,
-    ``Special`` and ``Exotic`` presentations): the definition's
-    ``background`` (faded toward its dominant color, no monochrome) carries
-    the standard card mask
+    """Render the standard card for the presentation (one of the
+    ``Classic``, ``Special`` and ``Exotic`` presentations, on the
+    standard's mask): the presentation's ``background`` (faded toward its
+    dominant color, no monochrome) carries the standard card mask
     (:data:`STANDARD_MASK_PATH`), and the ``--half-body`` framing animates
-    over it. The name and subtitle overlays are applied as usual, like the
-    profile cards; the manufacturer's logo sits at the top right, its corner
-    inset by ``padding * 1.5`` and drawn in black (the white face would hide
-    the white version); the NIKKE logo sits at the bottom right and the
+    over it (the presentation's animation — the reel's pick for the special,
+    ``action`` for the exotic, the viewer's default for the classic). The
+    name and subtitle overlays are applied as usual, like the profile cards;
+    the manufacturer's logo sits at the top right, its corner inset by
+    ``padding * 1.5`` and drawn in black (the white face would hide the
+    white version); the NIKKE logo sits at the bottom right and the
     copyright at the bottom left, both in black.
 
     With *no_video* (``--no-video``) an animated standard card renders its
@@ -1240,17 +1188,16 @@ def _process_standard_card(
     Everything is composited in memory — the viewer's raw frames stream
     straight into the pipeline and nothing intermediate touches the disk
     (only the finished card is written). Returns ``(out_path, skipped,
-    timings)`` like :func:`_process_card` (written out as
-    ``<card>_<stem>.<suffix>``).
+    timings)`` like :func:`_process_full_art` (written out as
+    ``<card>_<presentation>.<suffix>``).
     """
     total_started = time.perf_counter()
-    json_path = json_path.resolve()
-    card = _load_card(json_path)
-    background = Image.open(_background_path(card, json_path)).convert("RGBA")
+    exp = presentation.expansion
+    entry = presentation.card
 
     # The standard presentation always carries the black logo and black
     # copyright — the standard card's white face would wash out the white
-    # versions — while the name stays white, as the other rarities.
+    # versions — while the name stays white, as the profile cards.
     logo_path = LOGO_PATHS[True]
     if not logo_path.is_file():
         raise GenerationError(f"logo not found: {logo_path}")
@@ -1260,60 +1207,50 @@ def _process_standard_card(
     if not FONT_NAME.is_file():
         raise GenerationError(f"font not found: {FONT_NAME}")
     # The standard presentation carries the card name, as the profile cards
-    # do (a nameless definition renders without the name stack).
-    name = str(card.get("title", ""))
-    subtitle = str(card.get("subtitle", ""))
+    # do.
+    name = entry.title
+    subtitle = entry.subtitle
     # The character's manufacturer's logo (None when the character or its
-    # manufacturer is unknown): it sits at the top right, its corner inset by
-    # padding * 1.5, drawn in black.
-    manufacturer_logo = _manufacturer_logo(str(card.get("id", "")))
-    # The definition's padding is native-px (its viewport); the effective
+    # manufacturer is unknown): it sits at the top right, its corner inset
+    # by padding * 1.5, drawn in black.
+    manufacturer_logo = _manufacturer_logo(entry.id)
+    # The card's padding is native-px (its viewport); the effective
     # padding at the run's final size drives the lettering, the logo
     # placement, the reel insets and the like.
-    padding = round(card["padding"] * preset.scale)
+    padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
     copyright_color = (0, 0, 0, 255)
-    framerate = card["framerate"] or DEFAULT_FRAMERATE
+    framerate = DEFAULT_FRAMERATE
 
-    viewport = card.get("viewport")
-    if not viewport:
-        raise GenerationError(
-            f"{json_path.name}: missing 'viewport' (needed to size the raw "
-            f"frames streamed by {VIEWER} --stdout)"
-        )
-    # The run's final size: the definition's viewport at the run's scale
-    # (even dims for the yuv420p encode). The whole pipeline — the
-    # viewer, the compositing and the finished card — runs at this size,
-    # so no frame is ever resampled on the way out.
-    size = (
-        round(int(viewport[0]) * preset.scale) & ~1,
-        round(int(viewport[1]) * preset.scale) & ~1,
-    )
+    # The run's final size: the card's viewport at the run's scale (even
+    # dims for the yuv420p encode). The whole pipeline — the viewer, the
+    # compositing and the finished card — runs at this size, so no frame is
+    # ever resampled on the way out.
+    size = card.run_size(preset)
 
-    # A definition without a `time` renders an animation (mp4) plus its first
-    # frame (png); one with a `time` renders a single frame (png). With
-    # --no-video an animation renders its first frame (png) alone: the mp4
-    # is skipped and the viewer reaped right after that frame.
-    animated = card.get("time") is None and not no_video
-    stem = _standard_stem(json_path)
-    out_path = _card_out_path(
-        json_path, "mp4" if animated else "png", stem, preset
+    # A presentation without a `time` renders an animation (mp4) plus its
+    # first frame (png); one with a `time` renders a single frame (png).
+    # With --no-video an animation renders its first frame (png) alone:
+    # the mp4 is skipped and the viewer reaped right after that frame.
+    animated = presentation.animated and not no_video
+    out_path = card.output_path(
+        exp.name, entry.stem, presentation.name, "mp4" if animated else "png", preset
     )
-    source_hash = _standard_source_hash(json_path, preset)
+    source_hash = card.presentation_source_hash(presentation, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
-            first_frame_path = _card_out_path(
-                json_path, "png", stem, preset
+            first_frame_path = card.output_path(
+                exp.name, entry.stem, presentation.name, "png", preset
             )
             up_to_date = (
                 first_frame_path.is_file()
                 and _stored_hash(first_frame_path) == source_hash
             )
         if up_to_date:
-            # The definition and the mask are unchanged since the card was
+            # The presentation and the mask are unchanged since the card was
             # written: skip the render.
             return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1325,6 +1262,7 @@ def _process_standard_card(
     # intermediate is written to disk in between). The subtitle rectangle's
     # tint is sampled from the unmasked fitted background, so the mask's
     # white does not wash the scene's color out.
+    background = expansion.load_background(exp, presentation.background)
     background = _fit_background(background, size)
     sub_rect_color = _rect_tint(background)
 
@@ -1345,7 +1283,7 @@ def _process_standard_card(
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
             finished, timings = _render_standard(
-                json_path,
+                presentation,
                 size,
                 animated,
                 base,
@@ -1368,11 +1306,11 @@ def _process_standard_card(
         except Exception as exc:
             if attempt >= RENDER_ATTEMPTS:
                 raise GenerationError(
-                    f"render of {json_path.name} ({stem}) still failing after "
+                    f"render of {presentation.label} still failing after "
                     f"{RENDER_ATTEMPTS} attempts: {exc}"
                 ) from exc
             print(
-                f"    ! {json_path.name} ({stem}): {exc}; re-rendering "
+                f"    ! {presentation.label}: {exc}; re-rendering "
                 f"(attempt {attempt}/{RENDER_ATTEMPTS})",
                 flush=True,
             )

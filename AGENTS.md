@@ -1,34 +1,37 @@
 # AGENTS.md
 
-Pipeline that renders NIKKE trading cards: `cards/<set>/<card>/<Variant>.json`
-definitions → GPU viewer + Pillow + ffmpeg → finished cards under
-`output/<set>/` (half resolution by default), `draft/` (drafts), and
-BepInEx bundles under `bundles/`.
+Pipeline that renders NIKKE trading cards: one `cards/<set>.toml` per
+expansion (its characters, backgrounds and logo) → GPU viewer + Pillow +
+ffmpeg → finished cards under `output/<set>/` (half resolution by default),
+`draft/` (drafts), and BepInEx bundles under `bundles/`.
 
 ## Commands (run via `uv`)
 
 - `generate [paths] [--draft | --ultra] [--force] [--no-video] [--jobs N]`
-  — render and composite cards
-- `test cards/<set>/<card> [--ultra] [--new-baseline]` — byte-for-byte
-  regression check: a forced single-worker re-render compared by SHA-256
-  against `tests/baselines/`
+  — render and composite cards (paths: an expansion's name or
+  `cards/<set>.toml`; `--ids` restricts a run to the named characters)
+- `test <set> [ids…] [--ultra] [--new-baseline]` — byte-for-byte
+  regression check: a forced single-worker re-render of the character(s)'
+  presentations (and the expansion's pack/box) compared by SHA-256 against
+  `tests/baselines/<set>/`
 - `bundle`, `simulate <set>`, `spritesheet <set>`
 
 ## Conventions
 
 - `uvx ruff check src/` must be clean.
 - Only commit or push when explicitly asked.
-- For quick iteration, `generate` a single card with the default
-  settings; avoid `--ultra` (`generate` and `test`) until the very end —
-  it renders at native resolution and is much slower.
+- For quick iteration, `generate` a single character (`--ids`) with the
+  default settings; avoid `--ultra` (`generate` and `test`) until the very
+  end — it renders at native resolution and is much slower.
 
-## Don't break (verify with `uv run test cards/ELYSION/0001_Rapi [--ultra]`)
+## Don't break (verify with `uv run test ELYSION c010 [--ultra]`)
 
-- The byte protocol: `--ultra` output is byte-for-byte the legacy bytes;
-  the `nikke-reborn-source` hashes embedded in outputs fold in scale/size
-  terms only when they deviate from the legacy defaults (1.0 / 1024²).
-  Changing what goes into a hash requires re-recording the baselines
-  (`test --new-baseline`).
+- The byte protocol: a forced single-worker re-render is byte-for-byte
+  identical to the recorded baselines (`test`); the `nikke-reborn-source`
+  hash embedded in each output folds in the run's scale only when it
+  deviates from 1.0 (the native/ultra resolution), so an ultra card's hash
+  is the canonical one. Changing what goes into a hash requires
+  re-recording the baselines (`test --new-baseline`).
 - The GPU is shared: use `--jobs 1` for byte-protocol work, and retry
   transient `nikke-viewer` failures (truncated stream, crash).
 

@@ -21,7 +21,6 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 from nikke_reborn.config import (
-    CARDS_DIR,
     ITEM_VIEWER_HEIGHT,
     ITEM_VIEWER_WIDTH,
     PROBER,
@@ -35,6 +34,15 @@ from nikke_reborn.preset import Preset
 def _require_executable(name: str) -> None:
     if shutil.which(name) is None:
         raise GenerationError(f"required executable not found in PATH: {name!r}")
+
+
+def hash_term(digest: hashlib._Hash, data: bytes) -> None:
+    """Fold one term into a SHA-256 *digest*: an 8-byte big-endian
+    length prefix followed by the term's bytes, so the terms never run
+    into each other (no boundary ambiguity across the concatenated
+    inputs of a source hash)."""
+    digest.update(len(data).to_bytes(8, "big"))
+    digest.update(data)
 
 
 def _save_atomic(
@@ -155,7 +163,7 @@ def _material_hash(
 def _material_output_up_to_date(
     template: Path,
     out_name: str,
-    pack_dir: Path,
+    set_name: str,
     front_source: str = "",
     back_source: str = "",
     force: bool = False,
@@ -170,8 +178,7 @@ def _material_output_up_to_date(
     (:meth:`Preset.set_path`)."""
     if force:
         return False
-    pack_dir = pack_dir.resolve()
-    out_path = preset.set_path(pack_dir.relative_to(CARDS_DIR).name) / out_name
+    out_path = preset.set_path(set_name) / out_name
     source_hash = _material_hash(
         template,
         front_source=front_source,
