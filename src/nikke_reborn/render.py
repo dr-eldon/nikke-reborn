@@ -889,13 +889,13 @@ def _process_full_art(
     """Render, composite and encode one presentation of the full-art tier
     (the ``Classic``, ``Idle``, ``Cover``, ``Aim``, ``Special``, ``Exotic``
     and ``Goddess`` presentations, no mask): the presentation's background
-    (fitted to the frame, autocontrasted and dark-faded toward its dominant
-    color — the solid black for the goddess presentation) carries the white
-    NIKKE logo and the copyright line (white); the card name is not drawn on
-    the full-art cards. The framing is the presentation's (the
-    ``--half-body`` flag for the classic, idle, special and exotic; the
-    viewer's default framing for the cover, aim and the goddess's ``sc``
-    variant).
+    (fitted to the frame and left as-is — no auto-contrast, no fade, the
+    standard tier's treatments — a solid black for the goddess
+    presentation) carries the white NIKKE logo and the copyright line
+    (white); the card name is not drawn on the full-art cards. The framing
+    is the presentation's (the ``--half-body`` flag for the classic, idle,
+    special and exotic; the viewer's default framing for the cover, aim and
+    the goddess's ``sc`` variant).
 
     With *no_video* (``--no-video``) an animated presentation renders its
     first frame alone — its MP4 is skipped and the viewer reaped right
@@ -961,26 +961,15 @@ def _process_full_art(
             return out_path, True, None
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # The full-art base: the presentation's background fitted to the frame,
-    # autocontrasted and dark-faded toward its dominant color (the
-    # standard's treatment minus the mask) — or the solid black for the
-    # goddess presentation (which composites on no background).
+    # The full-art base: the presentation's background fitted to the frame
+    # and left as-is (no auto-contrast, no fade — the scene's own colors;
+    # those treatments are the standard tier's) — or the solid black for
+    # the goddess presentation (which composites on no background).
     if presentation.background == "black":
         base = Image.new("RGBA", size, (0, 0, 0, 255))
     else:
         background = expansion.load_background(exp, presentation.background)
-        background = _fit_background(background, size)
-        background = ImageOps.autocontrast(
-            background.convert("RGB"),
-            cutoff=(20, 0),
-            preserve_tone=True,
-        ).convert("RGBA")
-        brightness = ImageStat.Stat(background).mean[0]
-        background = _fade_to_dominant(
-            background,
-            factor=min(4.0 * max(brightness - 80, 0) / 255, 1.0),
-        )
-        base = background
+        base = _fit_background(background, size)
 
     # The GPU is shared with other tenants, so failures here can be
     # transient (render error, truncated frame stream, encode error); the

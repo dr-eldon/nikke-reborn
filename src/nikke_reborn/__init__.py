@@ -11,9 +11,11 @@ relative to the expansion's folder).
 
 Every character renders the same fixed set of presentations (the tiers
 below). Each is composited in memory over its background — fitted to the
-card's viewport, autocontrasted, and (for the standard and profile cards)
-faded a bit toward its dominant color — and masked by its tier's mask (the
-standard's or the profile's; the full-art presentations unmasked). Every
+card's viewport and masked by its tier's mask (the standard's or the
+profile's; the full-art presentations unmasked). The standard's background
+is autocontrasted and faded a bit toward its dominant color; the full-art's
+is left as-is (no contrast adjustment, no fade); the profile's is
+flattened to a monochrome of its dominant tint. Every
 card is stamped with the NIKKE logo (the white one on the full-art cards,
 the black one on the standard and profile cards) and the copyright line at
 the bottom left. The standard and profile cards additionally carry the card
@@ -46,7 +48,8 @@ animation:
   variant): the classic, idle, special and exotic are half-body frames and
   the cover, aim and goddess are full-body, no mask, each on its own
   background (the ``base``, ``battle`` or ``special`` — a solid black for
-  the goddess) fitted to the card's own aspect and faded the same way.
+  the goddess) fitted to the card's own aspect and left as-is (no fade, no
+  contrast adjustment).
 
 The profile's presentations are rendered in two locked-together streams —
 the face's stream (the viewer's ``--face`` framing, shifted aside from the

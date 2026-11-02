@@ -90,10 +90,8 @@ Viewer flags for `nikke-viewer <id>` (flags precede the id; `--width/--height`
 - `--time 0` → one frame (PNG). No `--time` → the whole animation (MP4 +
   first-frame PNG).
 - "like Standard but without the mask" (full art) = the Standard pipeline
-  with the mask compositing step removed; the background keeps the same
-  fit → auto-contrast → fade treatment (a dark `base` yields a zero fade, so
-  for the current ELYSION scene this is visually the plain fitted
-  background).
+  with the mask compositing step, the auto-contrast and the fade-to-dominant
+  removed; the background is the scene fitted to the frame and left as-is.
 - Goddess: `--variant sc` only, per decision — the `sc` variant's preferred
   animation. Solid black background (no fit/fade).
 - **Goddess is conditional**: availability is checked per character with
@@ -225,9 +223,9 @@ nikke-viewer [<framing>] [--variant V] [--animation A] [--time T]
 ### 5.4 Backgrounds and masks
 
 - `base`/`special`/`battle`: loaded once per (expansion, key), fitted per
-  tier exactly as today (standard: fit → auto-contrast(cutoff 20) →
-  fade-to-dominant → standard mask; profile: `_profile_layers`; full art:
-  the standard treatment minus the mask).
+  tier (standard: fit → auto-contrast(cutoff 20) → fade-to-dominant →
+  standard mask; profile: `_profile_layers`; full art: fit —
+  no auto-contrast, no fade, no mask).
 - Solid black (Goddess): a filled RGB frame; no fit/fade.
 - Masks (`STANDARD_MASK_PATH`, `PROFILE_MASK_PATH`), the white NIKKE logo,
   the font: unchanged assets.
