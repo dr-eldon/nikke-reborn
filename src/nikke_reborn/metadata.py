@@ -15,13 +15,11 @@ BUNDLE_NAME = "NIKKE_REBORN"
 RARITIES = [
     "ClassicStandard",
     "ClassicProfile",
-    "RareStandard",
     "SpecialStandard",
     "IdleProfile",
     "CoverProfile",
     "AimProfile",
     "Classic",
-    "Rare",
     "Idle",
     "Cover",
     "Aim",
@@ -146,7 +144,6 @@ def expansion(set, cards) -> dict:
 def pack(set) -> dict:
     def slot(
         classic,
-        rare,
         special=0,
         idle=0,
         cover=0,
@@ -158,7 +155,6 @@ def pack(set) -> dict:
         profile_factor=4,
         full_art_factor=0,
     ) -> dict:
-        rare_standard = rare * standard_factor
         special_standard = special * standard_factor
         exotic_standard = exotic * standard_factor / 18
 
@@ -168,7 +164,6 @@ def pack(set) -> dict:
         aim_profile = aim * profile_factor
 
         classic = classic * full_art_factor
-        rare = rare * full_art_factor
         special = special * full_art_factor
         idle = idle * full_art_factor
         cover = cover * full_art_factor
@@ -178,27 +173,15 @@ def pack(set) -> dict:
 
         return {
             "ClassicStandard": 100
-            - (
-                classic
-                + rare
-                + special
-                + idle
-                + cover
-                + aim
-                + exotic
-                + goddess
-                + classified
-            )
-            - (rare_standard + special_standard + exotic_standard)
+            - (classic + special + idle + cover + aim + exotic + goddess + classified)
+            - (special_standard + exotic_standard)
             - (classic_profile + idle_profile + cover_profile + aim_profile),
             "ClassicProfile": classic_profile,
-            "RareStandard": rare_standard,
             "SpecialStandard": special_standard,
             "IdleProfile": idle_profile,
             "CoverProfile": cover_profile,
             "AimProfile": aim_profile,
             "Classic": classic,
-            "Rare": rare,
             "Special": special,
             "Idle": idle,
             "Cover": cover,
@@ -209,10 +192,9 @@ def pack(set) -> dict:
             "Classified": classified,
         }
 
-    common = slot(classic=1, rare=0.05, special=0.025)
+    common = slot(classic=1, special=0.025)
     uncommon = slot(
         classic=2,
-        rare=0.1,
         special=0.05,
         aim=0.05,
         cover=0.05,
@@ -221,7 +203,6 @@ def pack(set) -> dict:
 
     rare = slot(
         classic=1,
-        rare=0.3,
         special=0.4,
         idle=0.5,
         aim=0.5,
@@ -300,14 +281,12 @@ def _card(name, variant, rarity, sprite) -> dict:
 
     VARIANT_BORDER = {
         "ClassicStandard": 0,
-        "RareStandard": 0,
         "SpecialStandard": 0,
         "ClassicProfile": 0,
         "IdleProfile": 2,
         "CoverProfile": 1,
         "AimProfile": 1,
         "Classic": 2,
-        "Rare": 2,
         "Special": 2,
         "Idle": 2,
         "Cover": 2,
