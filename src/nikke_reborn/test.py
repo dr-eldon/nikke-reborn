@@ -1,9 +1,10 @@
 """The test command: the byte-for-byte regression check for a card.
 
-Generates every presentation of the selected character(s) — each
-character's full-art, profile and standard cards (with the animated
-cards' first-frame PNGs) — plus the expansion's pack and box materials
-and items, with a forced, single-worker :func:`generate.run`, and
+Generates every presentation the expansion's ``rarities`` select for the
+selected character(s) — each character's full-art, profile and standard
+cards (with the animated cards' first-frame PNGs) — plus the expansion's
+pack and box materials and items, with a forced, single-worker
+:func:`generate.run`, and
 compares the finished files' SHA-256 against the recorded baselines
 under ``tests/baselines/<set>/`` (one per character —
 ``<card>.<preset>.sha256`` — and one for the expansion's pack and box —

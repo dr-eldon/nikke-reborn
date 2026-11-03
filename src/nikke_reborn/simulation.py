@@ -165,8 +165,8 @@ def _load_expansion(expansion_path: Path) -> tuple[dict, dict, str]:
     if not cards:
         raise GenerationError(f"no cards under {expansion_path.relative_to(REPO_ROOT)}/")
     return (
-        metadata.expansion(exp.name, cards),
-        metadata.pack(exp.name),
+        metadata.expansion(exp.name, cards, exp.rarities),
+        metadata.pack(exp.name, exp.rarities),
         exp.name,
     )
 

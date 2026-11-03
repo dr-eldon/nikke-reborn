@@ -9,8 +9,10 @@ backgrounds (the ``background`` table: the ``base``, the ``special`` and
 the ``battle``) and its logo (``logo.path`` and ``logo.placement``,
 relative to the expansion's folder).
 
-Every character renders the same fixed set of presentations (the tiers
-below). Each is composited in memory over its background — fitted to the
+Every character renders the expansion's ``rarities`` subset of the fixed
+set of presentations (the tiers below — the ``rarities`` list of the
+expansion's TOML names the presentations the set generates, in the order
+the set carries them). Each is composited in memory over its background — fitted to the
 card's viewport and masked by its tier's mask (the standard's or the
 profile's; the full-art presentations unmasked). The standard's background
 is autocontrasted and faded a bit toward its dominant color; the full-art's

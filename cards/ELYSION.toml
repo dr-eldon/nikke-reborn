@@ -1,3 +1,15 @@
+rarities = [
+    "ClassicStandard",
+    "ClassicProfile",
+    "SpecialStandard",
+    "CoverProfile",
+    "AimProfile",
+    "Special",
+    "ExoticStandard",
+    "Exotic",
+    "Goddess",
+]
+
 pack = [
     { id = "c010", animation = "action", time = 1.247, zoom = 0.9 },
     { id = "c011" },

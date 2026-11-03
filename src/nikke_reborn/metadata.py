@@ -12,24 +12,6 @@ from nikke_reborn.preset import Preset
 
 BUNDLE_NAME = "NIKKE_REBORN"
 
-RARITIES = [
-    "ClassicStandard",
-    "ClassicProfile",
-    "SpecialStandard",
-    "IdleProfile",
-    "CoverProfile",
-    "AimProfile",
-    "Classic",
-    "Idle",
-    "Cover",
-    "Aim",
-    "Special",
-    "ExoticStandard",
-    "Exotic",
-    "Goddess",
-    "Classified",
-]
-
 
 def write(preset: Preset = Preset.DEFAULT) -> None:
     """Write each expansion's metadata bundle (``<out>/<set>.json``) and
@@ -52,14 +34,14 @@ def write(preset: Preset = Preset.DEFAULT) -> None:
 
             copy(file, out_set / file.name)
 
-        with (out_set.with_name(f"{exp.name}.json")).open(
+        with (out_set.with_name(f"{out_set.name}.json")).open(
             "w", newline="\n", encoding="utf-8"
         ) as file:
             json.dump(
                 bundle(
                     exp.name,
-                    items=[pack(exp.name), box(exp.name)],
-                    expansions=[expansion(exp.name, cards(exp))],
+                    items=[pack(exp.name, exp.rarities), box(exp.name)],
+                    expansions=[expansion(exp.name, cards(exp), exp.rarities)],
                 ),
                 file,
                 indent=2,
@@ -69,15 +51,15 @@ def write(preset: Preset = Preset.DEFAULT) -> None:
 def cards(exp: expansion_mod.Expansion) -> list[dict]:
     """The card entries of *exp*'s metadata bundle: every character of the
     expansion, expanded into the presentations the pipeline renders (the
-    fixed per-character set — the standard's, the profile's and the
-    full-art's presentations, the goddess presentation dropped for the
-    characters without the ``sc`` variant and the two special presentations
-    dropped for the characters without a reel animation — see
-    :func:`nikke_reborn.expansion.presentations_for`), each carrying the
-    character's rarity (the base character's when the id is suffixed).
-    Shared by :func:`write` (which writes each set's bundle to the output
-    directory) and :mod:`nikke_reborn.simulation` (which simulates pack
-    openings against the current tuning)."""
+    expansion's ``rarities`` subset — the standard's, the profile's and
+    the full-art's presentations, the goddess presentation dropped for
+    the characters without the ``sc`` variant and the two special
+    presentations dropped for the characters without a reel animation —
+    see :func:`nikke_reborn.expansion.presentations_for`), each carrying
+    the character's rarity (the base character's when the id is
+    suffixed). Shared by :func:`write` (which writes each set's bundle to
+    the output directory) and :mod:`nikke_reborn.simulation` (which
+    simulates pack openings against the current tuning)."""
     cards = []
     for entry in exp.cards:
         info = expansion_mod.resolve_character(entry)
@@ -119,7 +101,11 @@ def bundle(name, items=None, expansions=None) -> dict:
     }
 
 
-def expansion(set, cards) -> dict:
+def expansion(set, cards, rarities) -> dict:
+    """The set's metadata's expansion entry: its cards and its rarities
+    (*rarities* — the subset the set's TOML declares, in the order the
+    set carries them: the order the set's price ladder indexes, the
+    simulation and the sprite sheet follow)."""
     return {
         "Name": f"{set} Set",
         "CardExpansion": f"{BUNDLE_NAME}_{set}",
@@ -127,7 +113,7 @@ def expansion(set, cards) -> dict:
         "MenuCategory": "NIKKE",
         "CardbackSprite": "Cardback",
         "FoilMask": "Foilmask",
-        "Rarities": RARITIES,
+        "Rarities": list(rarities),
         "HasRandomFoils": False,
         "FoilChance": 0,
         "CardPriceStrategy": "RarityDriven",
@@ -141,7 +127,14 @@ def expansion(set, cards) -> dict:
     }
 
 
-def pack(set) -> dict:
+def pack(set, rarities) -> dict:
+    """The set's pack entry: its slots' rarity weights — the fixed tuning
+    projected on the set's *rarities* subset: the slots' tables carry only
+    the rarities the set generates, the remaining weights renormalizing,
+    so the set's pack rolls only its rarities."""
+
+    allowed = frozenset(rarities)
+
     def slot(
         classic,
         special=0,
@@ -171,7 +164,7 @@ def pack(set) -> dict:
         exotic = exotic * full_art_factor
         classified = classified * full_art_factor
 
-        return {
+        weights = {
             "ClassicStandard": 100
             - (classic + special + idle + cover + aim + exotic + goddess + classified)
             - (special_standard + exotic_standard)
@@ -190,6 +183,13 @@ def pack(set) -> dict:
             "Exotic": exotic,
             "Goddess": goddess,
             "Classified": classified,
+        }
+        # Only the rarities the set generates stay in the slot's table
+        # (the remaining weights renormalize over the set's rarities).
+        return {
+            rarity: weight
+            for rarity, weight in weights.items()
+            if rarity in allowed
         }
 
     common = slot(classic=1, special=0.025)

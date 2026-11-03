@@ -82,9 +82,9 @@ def run(argv: list[str] | None = None) -> None:
     try:
         expansions = card.select_expansions(args.paths)
         # The run's work: the selected expansions' cards' presentations
-        # (the fixed per-character set, the goddess presentation dropped
-        # for the characters without the sc variant), filtered to the
-        # characters the caller named. Every selected character is
+        # (the expansions' rarities subsets, the goddess presentation
+        # dropped for the characters without the sc variant), filtered to
+        # the characters the caller named. Every selected character is
         # resolved against the viewer (its variants, its reel's
         # animation) before anything is rendered, so a character that
         # cannot render a presentation fails before the run starts.

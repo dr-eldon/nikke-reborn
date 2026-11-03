@@ -3,11 +3,14 @@
 One TOML per expansion (``cards/<expansion>.toml``) is the single input
 for its NIKKES (``cards`` — the viewer ids, in order; the card's stem is
 its 1-based position plus the compact name from the game's data), its
-pack/box materials (``pack`` — the featured characters, ``background`` —
-the base/special/battle backgrounds, ``logo``) and its card names (the
+rarities (``rarities`` — the subset of the presentations' names the set
+generates, in the order the set carries them), its pack/box materials
+(``pack`` — the featured characters, ``background`` — the base/special/
+battle backgrounds, ``logo``) and its card names (the
 title from ``characters.json``, the subtitle from ``models.json`` — the
 model's name minus the character's name). Every character renders the
-same fixed set of presentations (see :func:`presentations_for`): the
+expansion's ``rarities`` subset of the fixed set of presentations (see
+:func:`presentations_for`): the
 standard tier (the classic, special and exotic presentations, on the
 standard's mask), the profile tier (the classic, idle, cover and aim
 presentations, on the profile's mask) and the full-art tier (the classic,
@@ -248,13 +251,16 @@ class Featured:
 
 @dataclass(frozen=True)
 class Expansion:
-    """A loaded ``cards/<expansion>.toml``: its pack's featured
-    characters, its cards (in file order), its backgrounds' paths (the
-    ``background`` table's keys, relative to the expansion's folder) and
-    its logo's path and placement."""
+    """A loaded ``cards/<expansion>.toml``: its rarities (the subset of
+    the presentations' names the set generates, in the order the set
+    carries them), its pack's featured characters, its cards (in file
+    order), its backgrounds' paths (the ``background`` table's keys,
+    relative to the expansion's folder) and its logo's path and
+    placement."""
 
     path: Path
     name: str
+    rarities: tuple[str, ...]
     pack: tuple[Featured, ...]
     cards: tuple[CardEntry, ...]
     backgrounds: dict[str, str]
@@ -344,14 +350,15 @@ def _models_db() -> dict[str, str]:
 
 
 def load_expansion(path: Path) -> Expansion:
-    """Parse and validate one expansion's TOML (its ``pack``, its
-    ``cards``, its ``background`` table and its ``logo``), deriving each
-    card's stem from its position and the game's data (see
-    :func:`_card_entry`). Every referenced file (the backgrounds', the
-    logo's) must exist; the character ids must be in the game's data (the
-    base character when the id is suffixed), and the models must be named
-    after their character (the subtitle is the model's name minus the
-    character's)."""
+    """Parse and validate one expansion's TOML (its ``rarities``, its
+    ``pack``, its ``cards``, its ``background`` table and its
+    ``logo``), deriving each card's stem from its position and the
+    game's data (see :func:`_card_entry`). Every referenced file (the
+    backgrounds', the logo's) must exist; the character ids must be in
+    the game's data (the base character when the id is suffixed), the
+    models must be named after their character (the subtitle is the
+    model's name minus the character's) and the ``rarities`` entries
+    must be names of the fixed presentations (no duplicates)."""
     path = path.resolve()
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -361,6 +368,28 @@ def load_expansion(path: Path) -> Expansion:
         except ValueError:
             shown = path
         raise GenerationError(f"cannot read {shown}: {exc}") from exc
+
+    rarities_data = data.get("rarities")
+    if (
+        not isinstance(rarities_data, list)
+        or not rarities_data
+        or not all(isinstance(name, str) for name in rarities_data)
+    ):
+        raise GenerationError(
+            f"{path.name}: 'rarities' must be a non-empty list of the "
+            "presentations' names"
+        )
+    known = [name for name, *_ in PRESENTATION_SPECS]
+    unknown = [name for name in rarities_data if name not in known]
+    if unknown:
+        raise GenerationError(
+            f"{path.name}: unknown presentation name(s) in 'rarities': "
+            f"{', '.join(unknown)} (the known ones: {', '.join(known)})"
+        )
+    if len(set(rarities_data)) != len(rarities_data):
+        raise GenerationError(
+            f"{path.name}: duplicate presentation names in 'rarities'"
+        )
 
     pack = data.get("pack")
     if not isinstance(pack, list) or not pack or not all(
@@ -454,6 +483,7 @@ def load_expansion(path: Path) -> Expansion:
     return Expansion(
         path=path,
         name=path.stem,
+        rarities=tuple(rarities_data),
         pack=tuple(featured),
         cards=tuple(
             _card_entry(path.name, number, char_id)
@@ -624,14 +654,18 @@ def reel_animations(char_id: str) -> list[str]:
 def presentations_for(
     expansion: Expansion, entry: CardEntry, info: CharacterInfo
 ) -> list[Presentation]:
-    """The character's presentations (the fixed set of
-    :data:`PRESENTATION_SPECS`, the ``Goddess`` presentation dropped when
-    the character carries no ``sc`` variant and the two ``Special``
-    presentations dropped when the character has no reel animation), the
-    ``Special`` presentations' animation resolved to the reel's pick."""
+    """The character's presentations (the expansion's ``rarities``
+    subset of :data:`PRESENTATION_SPECS`, the ``Goddess`` presentation
+    dropped when the character carries no ``sc`` variant and the two
+    ``Special`` presentations dropped when the character has no reel
+    animation), the ``Special`` presentations' animation resolved to the
+    reel's pick."""
+    allowed = set(expansion.rarities)
     presentations = []
     for spec in PRESENTATION_SPECS:
         name, tier, variant, animation, time, half_body, background, mask, face = spec
+        if name not in allowed:
+            continue  # the expansion's rarities do not carry the presentation
         if name == "Goddess" and "sc" not in info.variants:
             continue
         if animation == REEL:

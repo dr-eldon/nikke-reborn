@@ -21,11 +21,12 @@ The sheet composites the finished first frames
   labels' numbers align, its words' CamelCase split by whitespace (``#01
   Rapi`` … ``#21 Diesel: Black Sunday``);
 * one column per presentation: every presentation the roster carries
-  (the fixed per-character set — the standard's, the profile's and the
-  full-art's presentations — in the order of ``metadata.RARITIES``; the
-  goddess presentation's column only appears when the roster carries a
-  character with the ``sc`` variant, and the two special presentations'
-  columns only when the roster carries a character with a reel animation),
+  (the expansion's ``rarities`` subset — the standard's, the profile's
+  and the full-art's presentations — in the order of the expansion's
+  ``rarities``; the goddess presentation's column only appears when the
+  roster carries a character with the ``sc`` variant, and the two
+  special presentations' columns only when the roster carries a
+  character with a reel animation),
   each column labeled above the grid with its presentation (whitespace
   between its capital letters —
   ``ClassicProfile`` reads as ``Classic Profile``). A cell the character
@@ -86,7 +87,6 @@ from nikke_reborn.lettering import (
     _set_weight,
     _text_ink_offsets,
 )
-from nikke_reborn.metadata import RARITIES
 
 # --- the finished sheet's geometry ----------------------------------------
 # The sheet is fitted to its content on both axes: the width is the label
@@ -272,7 +272,7 @@ def _card_grid(
 ) -> tuple[list[str], list[str], set[tuple[str, str]]]:
     """The sheet's grid: its rows (the card's stems, in the roster's order),
     its columns (every presentation the roster carries, in the order of
-    :data:`nikke_reborn.metadata.RARITIES` — the standard's, the profile's
+    the expansion's ``rarities`` — the standard's, the profile's
     and the full-art's presentations — the goddess presentation's column
     only when the roster carries a character with the ``sc`` variant, the
     two special presentations' columns only when the roster carries a
@@ -293,7 +293,7 @@ def _card_grid(
         for presentation in expansion.presentations_for(exp, entry, info):
             present.add(presentation.name)
             cells.add((entry.stem, presentation.name))
-    columns = [name for name in RARITIES if name in present]
+    columns = [name for name in exp.rarities if name in present]
     return rows, columns, cells
 
 

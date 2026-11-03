@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Pipeline that renders NIKKE trading cards: one `cards/<set>.toml` per
-expansion (its characters, backgrounds and logo) → GPU viewer + Pillow +
+expansion (its characters, its `rarities` — the subset of presentations
+to generate for the set — its backgrounds and logo) → GPU viewer + Pillow +
 ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 `draft/` (drafts), and BepInEx bundles under `bundles/`.
 
