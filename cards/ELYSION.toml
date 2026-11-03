@@ -8,6 +8,7 @@ rarities = [
     "ExoticStandard",
     "Exotic",
     "Goddess",
+    "Classified",
 ]
 
 pack = [

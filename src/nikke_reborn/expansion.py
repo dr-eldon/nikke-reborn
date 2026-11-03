@@ -171,6 +171,13 @@ PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
     ("Goddess", "full", "sc", "main", None, False, "black", None, False),
 )
 
+#: The event-only presentations: valid in a set's ``rarities`` but
+#: rendered only by the event (a single full-art presentation on the
+#: ``black`` background) — the characters never take them.
+EVENT_ONLY_PRESENTATIONS: tuple[_PresentationSpec, ...] = (
+    ("Classified", "full", None, None, None, False, "black", None, False),
+)
+
 #: The tiers a run's passes render (the ``--no-<tier>`` flags).
 TIERS = ("standard", "profile", "full")
 
@@ -335,7 +342,8 @@ def load_expansion(path: Path) -> Expansion:
     the id is suffixed), the models must be named after their character
     (the subtitle is the model's name minus the character's) and the
     ``rarities`` entries must be names of the fixed presentations (no
-    duplicates)."""
+    duplicates; the event-only ones among them render only for the
+    event)."""
     path = path.resolve()
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -356,7 +364,7 @@ def load_expansion(path: Path) -> Expansion:
             f"{path.name}: 'rarities' must be a non-empty list of the "
             "presentations' names"
         )
-    known = [name for name, *_ in PRESENTATION_SPECS]
+    known = [name for name, *_ in (*PRESENTATION_SPECS, *EVENT_ONLY_PRESENTATIONS)]
     unknown = [name for name in rarities_data if name not in known]
     if unknown:
         raise GenerationError(
@@ -496,9 +504,9 @@ def _event_framings(entry: dict, name: str) -> dict[str, dict[str, int | float]]
 
 
 def _spec_background(presentation: str) -> str:
-    """The ``PRESENTATION_SPECS`` entry named *presentation*'s background
-    key: an event's full-art presentation renders on its highest
-    presentation's background."""
+    """The spec named *presentation*'s background key: an event's
+    full-art presentation renders on its highest presentation's
+    background (the event-only ones' — ``black``)."""
     for (
         name,
         _tier,
@@ -509,7 +517,7 @@ def _spec_background(presentation: str) -> str:
         background,
         _mask,
         _face,
-    ) in PRESENTATION_SPECS:
+    ) in (*PRESENTATION_SPECS, *EVENT_ONLY_PRESENTATIONS):
         if name == presentation:
             return background
     raise GenerationError(f"no presentation spec for {presentation!r}")
