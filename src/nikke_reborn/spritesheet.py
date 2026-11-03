@@ -3,7 +3,8 @@ cards, fitted to the grid — over the expansion's background (dimmed
 toward black so the grid reads against it).
 
 The sheet composites the finished first frames
-(``output/<set>/<stem>_<presentation>.png``) into a grid: the
+(``output/<set>/<stem>_<rarity index>_<presentation>.png``) into a
+grid: the
 expansion's logo at the top, one row per character (a label column
 with the card's number and name) and one column per presentation
 (the expansion's ``rarities`` subset, in its order; a column only
@@ -38,15 +39,13 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from nikke_reborn import expansion
+from nikke_reborn import card, expansion
 from nikke_reborn.config import (
     CARD_REFERENCE_WIDTH,
     CARD_VIEWPORT,
-    DRAFT_DIR,
     FONT,
     IMAGES_DIR,
     MAX_STAGE_THREADS,
-    OUTPUT_DIR,
     REPO_ROOT,
     SOURCE_HASH_KEY,
 )
@@ -60,6 +59,7 @@ from nikke_reborn.lettering import (
     _set_weight,
     _text_ink_offsets,
 )
+from nikke_reborn.preset import Preset
 
 # --- the finished sheet's geometry ----------------------------------------
 #: The sheet's margin around the header and the grid (on every side); the
@@ -135,9 +135,9 @@ def run() -> None:
     """Compose the selected expansion's sprite sheet (the ``spritesheet``
     command)."""
     args = _parse_args()
-    out_dir = DRAFT_DIR if args.draft else OUTPUT_DIR
+    preset = Preset.DRAFT if args.draft else Preset.DEFAULT
     try:
-        out_path, rows, columns, skipped = _build(args.expansion, out_dir, args.force)
+        out_path, rows, columns, skipped = _build(args.expansion, preset, args.force)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -183,8 +183,9 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]:
-    """Compose ``<out_dir>/<name>.png`` for the expansion *name*.
+def _build(name: str, preset: Preset, force: bool) -> tuple[Path, int, int, bool]:
+    """Compose ``<name>.png`` in the preset's output root for the
+    expansion *name*.
 
     Returns the sheet's path, its grid's row and column counts and whether
     the sheet was skipped (up to date)."""
@@ -192,9 +193,12 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
     rows, columns, cells = _card_grid(exp)
     if not rows:
         raise GenerationError(f"{exp.name}: the expansion's roster is empty")
-    card_dir = out_dir / exp.name
+    # Every presentation's first frame (the still card's PNG or the
+    # video card's PNG sidecar) at the pipeline's own output path.
     paths = {
-        (prefix, column): card_dir / f"{prefix}_{column}.png"
+        (prefix, column): card.output_path(
+            exp.name, prefix, column, exp.rarities.index(column) + 1, "png", preset
+        )
         for prefix, column in sorted(cells)
     }
     # A cell whose first frame is not on disk renders as a placeholder
@@ -211,7 +215,7 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
             f"'{MISSING_TEXT}' placeholder: {shown}{more}",
             file=sys.stderr,
         )
-    out_path = out_dir / f"{exp.name}.png"
+    out_path = preset.base / f"{exp.name}.png"
     background, background_path = _expansion_background(exp)
     logo, logo_path = _expansion_logo(exp)
     source_hash = _source_hash(exp, logo_path, background_path, paths)
