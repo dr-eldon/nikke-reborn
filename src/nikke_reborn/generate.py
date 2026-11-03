@@ -66,15 +66,24 @@ def run(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     draft = args.draft
     ultra = args.ultra
+    low = args.low
     force = args.force
     no_video = args.no_video
     no_profile = args.no_profile
     no_standard = args.no_standard
     no_full_art = args.no_full_art
-    # One run, one mode (draft and ultra are mutually exclusive): the
-    # preset carries the run's output scale, its output root (draft/
+    # One run, one mode (draft, ultra and low are mutually exclusive):
+    # the preset carries the run's output scale, its output root (draft/
     # for a draft, output/ otherwise) and its encoding settings.
-    preset = Preset.DRAFT if draft else Preset.ULTRA if ultra else Preset.DEFAULT
+    preset = (
+        Preset.DRAFT
+        if draft
+        else Preset.ULTRA
+        if ultra
+        else Preset.LOW
+        if low
+        else Preset.DEFAULT
+    )
     try:
         expansions = card.select_expansions(args.paths)
         presentations = card.build_selection(expansions, args.ids)
@@ -145,6 +154,8 @@ def _run_notes(preset: Preset, no_video: bool) -> str:
     notes = []
     if preset is Preset.DRAFT:
         notes.append(f"x264 preset '{preset.x264_preset}'")
+    if preset is Preset.LOW:
+        notes.append(f"{preset.framerate} fps MP4s")
     if no_video:
         notes.append("no MP4")
     suffix = (
@@ -152,6 +163,8 @@ def _run_notes(preset: Preset, no_video: bool) -> str:
         if preset is Preset.DRAFT
         else " (ultra)"
         if preset is Preset.ULTRA
+        else " (low)"
+        if preset is Preset.LOW
         else ""
     )
     if not notes:
@@ -206,6 +219,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "ultra mode: twice the default resolution (the native "
             "resolution), results written to the '<set> (Ultra)' set "
             "folders inside output/ instead of '<set>'"
+        ),
+    )
+    run_mode.add_argument(
+        "--low",
+        action="store_true",
+        help=(
+            "low mode: the default's settings at a lower video framerate "
+            "(30 fps instead of 60), results written to the '<set> (Low)' "
+            "set folders inside output/ instead of '<set>'"
         ),
     )
     parser.add_argument(

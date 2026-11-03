@@ -33,8 +33,6 @@ ENCODER = "ffmpeg"
 #: syscall per kernel quantum).
 PIPE_BUFSIZE = 1 << 20
 
-DEFAULT_FRAMERATE = 60
-
 #: Brightness scale for the monochrome face: below 1.0 it sits quieter
 #: against the tinted background.
 PROFILE_FACE_BRIGHTNESS = 0.7

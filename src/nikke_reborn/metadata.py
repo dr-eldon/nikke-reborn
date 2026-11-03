@@ -19,8 +19,10 @@ def write(preset: Preset = Preset.DEFAULT) -> None:
     shop images) to ``<out>/<set>/``. An ultra run writes them to the
     ``<set> (Ultra)`` set folder and ``<set> (Ultra).json`` instead, so
     the ultra set folders are self-contained and parallel to the
-    default ones; a draft run writes them to ``draft/`` instead of
-    ``output/`` (the preset's output root, :meth:`Preset.set_path`)."""
+    default ones; a low run writes them to the ``<set> (Low)`` set
+    folder and ``<set> (Low).json`` the same way; a draft run writes
+    them to ``draft/`` instead of ``output/`` (the preset's output
+    root, :meth:`Preset.set_path`)."""
     for exp in expansion_mod.find_expansions():
         out_set = preset.set_path(exp.name)
 

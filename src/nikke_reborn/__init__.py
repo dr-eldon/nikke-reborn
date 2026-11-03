@@ -21,10 +21,12 @@ finished materials, so they are generated after them.
 
 The finished results are written under ``output/<set>/`` (half
 resolution by default — the ``--ultra`` preset renders at the native
-resolution into the ``<set> (Ultra)`` set folders; ``--draft`` runs the
-whole pipeline at half resolution into ``draft/``), with the SHA-256 of
-their inputs embedded as metadata: a result whose stored hash matches
-the current inputs is skipped instead of re-rendered. ``--force``
+resolution into the ``<set> (Ultra)`` set folders, the ``--low`` preset
+renders the default's settings at a lower framerate into the
+``<set> (Low)`` set folders, and ``--draft`` runs the whole pipeline at
+half resolution into ``draft/``), with the SHA-256 of their inputs
+embedded as metadata: a result whose stored hash matches the current
+inputs is skipped instead of re-rendered. ``--force``
 skips the up-to-date check; ``--no-video`` skips the MP4 generation
 (see :mod:`nikke_reborn.video`); ``--no-standard``, ``--no-profile``
 and ``--no-full-art`` disable the three generation passes.

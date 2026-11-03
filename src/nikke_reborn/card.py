@@ -22,7 +22,7 @@ from nikke_reborn.error import GenerationError
 from nikke_reborn.file import hash_term
 from nikke_reborn.image import PROFILE_MASK_PATH, STANDARD_MASK_PATH
 from nikke_reborn.lettering import FONT_NAME, FONT_RECT_ARROW
-from nikke_reborn.preset import Preset
+from nikke_reborn.preset import DEFAULT_FRAMERATE, Preset
 
 #: The NIKKE logo's two faces: the first frame's luma picks which one a
 #: card stamps (see :func:`nikke_reborn.lettering._overlay_for`).
@@ -110,6 +110,8 @@ def presentation_source_hash(
     (``characters.json`` and ``models.json``) and the fonts the lettering
     stamps — plus the run's scale (mixed in only when it deviates from
     1.0, the full-resolution default, so an ultra card's hash is the
+    canonical one) and the run's framerate (mixed in only when it
+    deviates from the default's, so a default run's hash is the
     canonical one)."""
     digest = hashlib.sha256()
     card = presentation.card
@@ -157,6 +159,9 @@ def presentation_source_hash(
     scale = preset.scale
     if scale != 1.0:
         hash_term(digest, f"{scale:g}".encode())
+    framerate = preset.framerate
+    if framerate != DEFAULT_FRAMERATE:
+        hash_term(digest, str(framerate).encode())
     return digest.hexdigest()
 
 

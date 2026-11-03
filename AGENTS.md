@@ -8,7 +8,7 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 
 ## Commands (run via `uv`)
 
-- `generate [paths] [--draft | --ultra] [--force] [--no-video] [--jobs N]`
+- `generate [paths] [--draft | --ultra | --low] [--force] [--no-video] [--jobs N]`
   — render and composite cards (paths: an expansion's name or
   `cards/<set>.toml`; `--ids` restricts a run to the named characters)
 - `test <set> [ids…] [--new-baseline]` — byte-for-byte

@@ -4,9 +4,10 @@ Builds the ``bundles/`` directory that ships with the mod: each set's
 rendered cards and metadata bundle are copied in and turned into a Unity
 asset bundle by :func:`nikke_reborn.bundler.build`, and the shop images
 are laid out under the phone-app plugin. Every set folder under the
-output root is bundled — the ``<set> (Ultra)`` twins included — so a
-set's native-resolution cards ship alongside the default one, with the
-same structure and the set's own (un-suffixed) internal names.
+output root is bundled — the suffixed run-modes' twins (``<set>
+(Ultra)``, ``<set> (Low)``) included — so a set's native-resolution
+and low-framerate cards ship alongside the default one, with the same
+structure and the set's own (un-suffixed) internal names.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import shutil
 from nikke_reborn import bundler, metadata
 from nikke_reborn.config import BUNDLES_DIR, CARDS_DIR, OUTPUT_DIR, SHOP_DIR
 from nikke_reborn.file import copy
-from nikke_reborn.preset import ULTRA_SUFFIX
+from nikke_reborn.preset import Preset
 
 MOD_NAME = "NIKKE REBORN"
 
@@ -31,9 +32,9 @@ def run() -> None:
         prog="bundle",
         description=(
             "Compose the game bundle from the rendered output: every set "
-            "folder under output/ (the default and the '<set> (Ultra)' "
-            "twins) is copied in and turned into a Unity asset bundle under "
-            "bundles/"
+            "folder under output/ (the default and the run-modes' twins, "
+            "'<set> (Ultra)' and '<set> (Low)') is copied in and turned "
+            "into a Unity asset bundle under bundles/"
         ),
     ).parse_args()
 
@@ -45,9 +46,9 @@ def run() -> None:
             continue
 
         # The set the bundle's identity is named after: the output
-        # folder's own name, minus the ultra run's " (Ultra)" twin
-        # suffix (the ultra twins carry the set's own internal names).
-        set_name = target.name.removesuffix(ULTRA_SUFFIX)
+        # folder's own name, minus its run-mode's twin suffix (the
+        # twins carry the set's own internal names).
+        set_name = Preset.strip_suffix(target.name)
 
         bundle = BUNDLES_DIR / f"{MOD_NAME} - {target.name}"
         bundle.mkdir(parents=True)

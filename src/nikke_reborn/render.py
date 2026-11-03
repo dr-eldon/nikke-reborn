@@ -43,7 +43,6 @@ from nikke_reborn.lettering import (
 )
 from nikke_reborn.preset import Preset
 from nikke_reborn.video import (
-    DEFAULT_FRAMERATE,
     PIPE_BUFSIZE,
     _encode_mp4,
     _PipeDrain,
@@ -120,6 +119,15 @@ def _framing_overrides(presentation: expansion.Presentation) -> list[str]:
     if presentation.zoom is not None:
         flags += ["--zoom", str(presentation.zoom)]
     return flags
+
+
+def _framerate_flags(presentation: expansion.Presentation, framerate: int) -> list[str]:
+    """The viewer's export-framerate flag (animation streams only — the
+    viewer ignores it for a ``--time`` still). It must equal the run's
+    mux framerate: the viewer samples the animation at that rate and
+    ffmpeg labels the MP4 with it, so a mismatch would play the card
+    back at the wrong speed."""
+    return ["--framerate", str(framerate)] if presentation.animated else []
 
 
 def _viewer_args(size: tuple[int, int], char_id: str, *flags: str) -> list[str]:
@@ -202,6 +210,7 @@ def _render_and_finish(
         *(["--half-body"] if half_body else []),
         *_presentation_flags(presentation),
         *_framing_overrides(presentation),
+        *_framerate_flags(presentation, framerate),
     )
     try:
         viewer = subprocess.Popen(
@@ -610,12 +619,14 @@ def _render_profile(
         "--offset-x",
         str(face_offset),
         *_presentation_flags(presentation),
+        *_framerate_flags(presentation, framerate),
     )
     body_args = _viewer_args(
         size,
         presentation.card.id,
         *_presentation_flags(presentation),
         *_framing_overrides(presentation),
+        *_framerate_flags(presentation, framerate),
     )
     try:
         face_viewer = subprocess.Popen(
@@ -759,6 +770,7 @@ def _render_standard(
         "--half-body",
         *_presentation_flags(presentation),
         *_framing_overrides(presentation),
+        *_framerate_flags(presentation, framerate),
     )
     try:
         viewer = subprocess.Popen(
@@ -842,7 +854,7 @@ def _process_full_art(
     # like.
     padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
-    framerate = DEFAULT_FRAMERATE
+    framerate = preset.framerate
 
     # The run's final size: the card's viewport at the run's scale (even
     # dims for the yuv420p encode). The whole pipeline — the viewer, the
@@ -968,7 +980,7 @@ def _process_profile_card(
     manufacturer_logo = _manufacturer_logo(entry.id)
     padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
-    framerate = DEFAULT_FRAMERATE
+    framerate = preset.framerate
 
     size = card.run_size(preset)
 
@@ -1086,7 +1098,7 @@ def _process_standard_card(
     manufacturer_logo = _manufacturer_logo(entry.id)
     padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
-    framerate = DEFAULT_FRAMERATE
+    framerate = preset.framerate
 
     size = card.run_size(preset)
 
