@@ -15,7 +15,7 @@ import subprocess
 import threading
 import time
 from collections import deque
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import IO
@@ -141,8 +141,7 @@ def _stream_composited(
     label: str,
     size: tuple[int, int],
     base: Image.Image,
-    overlay: Image.Image,
-    overlay_pos: tuple[int, int],
+    make_overlay: Callable[[Image.Image], tuple[Image.Image, tuple[int, int]]],
     composite_workers: int,
     first_frame: list[Image.Image],
     composite_time: list[float],
@@ -150,16 +149,20 @@ def _stream_composited(
     parts: _NameLayers | None = None,
 ) -> Generator[Image.Image]:
     """Composite the viewer's raw RGBA stdout frames and yield them in
-    order: each frame is decoded and composited over *base*, the
-    *overlay* stamped on top — and the name stack (*parts*, when any)
-    applied — in a sliding window of *composite_workers* threads (Pillow
-    releases the GIL in its raster ops, so the reader stays ahead of the
-    encode). At most ~2x the worker count of frames are in memory at
-    once. The first composited frame is appended to *first_frame*; when
-    the stream ends (or the consumer stops) the viewer is reaped and a
-    non-zero exit surfaced. *composite_time* and *stream_end*
-    accumulate the composite wall seconds and the moment the stream
-    reaches end-of-file."""
+    order: each frame is decoded and composited over *base*, the overlay
+    — the caller's *make_overlay* applied to the first frame's art (the
+    stamps' faces are chosen from that frame's luma) — stamped on top of
+    every frame, and the name stack (*parts*, when any) applied, in a
+    sliding window of *composite_workers* threads (Pillow releases the
+    GIL in its raster ops, so the reader stays ahead of the encode).
+    Frame 0 is read and composited on the calling thread (the overlay
+    is derived from it, so it cannot race the window's workers); at most
+    ~2x the worker count of further frames are in memory at once. The
+    first composited frame is appended to *first_frame*; when the stream
+    ends (or the consumer stops) the viewer is reaped and a non-zero
+    exit surfaced. *composite_time* and *stream_end* accumulate the
+    composite wall seconds and the moment the stream reaches
+    end-of-file."""
     width, height = size
     frame_bytes = width * height * 4
     assert viewer.stdout is not None
@@ -172,15 +175,15 @@ def _stream_composited(
     if base_alpha.getextrema() != (255, 255):
         base_alpha = None
 
-    def composite(data: bytes) -> Image.Image:
-        started = time.perf_counter()
+    def to_art(data: bytes) -> Image.Image:
         frame = Image.frombytes("RGBA", (width, height), data)
-        art = _composite_frame(frame, base, base_alpha)
+        return _composite_frame(frame, base, base_alpha)
+
+    def stamp(
+        art: Image.Image, overlay: Image.Image, overlay_pos: tuple[int, int]
+    ) -> Image.Image:
         art.alpha_composite(overlay, overlay_pos)
-        result = _apply_name(art, parts) if parts is not None else art
-        with time_lock:
-            composite_time[0] += time.perf_counter() - started
-        return result
+        return _apply_name(art, parts) if parts is not None else art
 
     time_lock = threading.Lock()
     workers = max(1, composite_workers)
@@ -188,7 +191,37 @@ def _stream_composited(
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             pending: deque[Future[Image.Image]] = deque()
-            yielded = 0
+
+            # Frame 0, on the calling thread: make_overlay picks the
+            # overlay's faces from its luma, and the window's workers
+            # stamp the overlay, so it must not race them.
+            data = _read_exact(stdout, frame_bytes)
+            if not data:
+                eof = True
+                stream_end[0] = time.perf_counter()
+                raise GenerationError(f"{VIEWER} produced no frames for {label}")
+            if len(data) != frame_bytes:
+                raise GenerationError(
+                    f"{VIEWER} stream for {label} truncated: "
+                    f"{len(data)} of {frame_bytes} bytes"
+                )
+            art = to_art(data)
+            overlay, overlay_pos = make_overlay(art)
+            started = time.perf_counter()
+            first = stamp(art, overlay, overlay_pos)
+            with time_lock:
+                composite_time[0] += time.perf_counter() - started
+            # Keep the first composited frame: for animations it is
+            # written alongside the mp4, for a static card it is the
+            # card itself.
+            first_frame.append(first)
+
+            def composite(data: bytes) -> Image.Image:
+                started = time.perf_counter()
+                result = stamp(to_art(data), overlay, overlay_pos)
+                with time_lock:
+                    composite_time[0] += time.perf_counter() - started
+                return result
 
             def submit_next() -> None:
                 nonlocal eof
@@ -204,6 +237,8 @@ def _stream_composited(
                     )
                 pending.append(pool.submit(composite, data))
 
+            yield first
+
             # Prime the window.
             for _ in range(workers):
                 submit_next()
@@ -216,18 +251,9 @@ def _stream_composited(
                     for pending_future in pending:
                         pending_future.cancel()
                     raise
-                if yielded == 0:
-                    # Keep the first composited frame: for animations it is
-                    # written alongside the mp4, for a static card it is the
-                    # card itself.
-                    first_frame.append(frame)
-                yielded += 1
                 # Keep the window full (read ahead) before handing off.
                 submit_next()
                 yield frame
-
-        if yielded == 0:
-            raise GenerationError(f"{VIEWER} produced no frames for {label}")
     finally:
         _reap_viewer(viewer, drain, clean_exit_expected=eof)
 
@@ -242,8 +268,7 @@ def _stream_dual_composited(
     background: Image.Image,
     tint: Image.Image,
     mask: Image.Image,
-    overlay: Image.Image,
-    overlay_pos: tuple[int, int],
+    make_overlay: Callable[[Image.Image], tuple[Image.Image, tuple[int, int]]],
     parts: _NameLayers | None,
     reel: list[tuple[Image.Image, tuple[int, int]]],
     composite_workers: int,
@@ -262,11 +287,14 @@ def _stream_dual_composited(
     to a monochrome of the background's dominant tint — is composited
     over *background*, the *tint* wash laid over both, then the *mask*
     and the body frame, then the *reel* (the photo reel's face stills,
-    if any) and the *overlay*, in a sliding window of *composite_workers*
-    threads — as in :func:`_stream_composited` — and yielded in order.
-    The first composited frame is appended to *first_frame*; when both
-    streams reach end-of-file (or the consumer stops) the two viewers
-    are reaped and a non-zero exit surfaced."""
+    if any), the overlay — the caller's *make_overlay* applied to the
+    first frame's art (the stamps' faces are chosen from that frame's
+    luma, the reel already in place under the stamps) — and the name
+    stack, in a sliding window of *composite_workers* threads — as in
+    :func:`_stream_composited`, frame 0 on the calling thread — and
+    yielded in order. The first composited frame is appended to
+    *first_frame*; when both streams reach end-of-file (or the consumer
+    stops) the two viewers are reaped and a non-zero exit surfaced."""
     width, height = size
     frame_bytes = width * height * 4
     assert face_viewer.stdout is not None
@@ -289,8 +317,7 @@ def _stream_dual_composited(
     tint_alpha = tint.getchannel("A")
     mask_alpha = mask.getchannel("A")
 
-    def composite(face_data: bytes, body_data: bytes) -> Image.Image:
-        started = time.perf_counter()
+    def to_art(face_data: bytes, body_data: bytes) -> Image.Image:
         face = Image.frombytes("RGBA", (width, height), face_data)
         face = _monochrome(face, tint_rgb, PROFILE_FACE_BRIGHTNESS)
         body = Image.frombytes("RGBA", (width, height), body_data)
@@ -306,15 +333,18 @@ def _stream_dual_composited(
             art.alpha_composite(tint)
             art.alpha_composite(mask)
             art.alpha_composite(body)
+        return art
 
+    def apply_reel(art: Image.Image) -> Image.Image:
         for still, position in reel:
             art.alpha_composite(still, position)
+        return art
 
+    def stamp(
+        art: Image.Image, overlay: Image.Image, overlay_pos: tuple[int, int]
+    ) -> Image.Image:
         art.alpha_composite(overlay, overlay_pos)
-        result = _apply_name(art, parts) if parts is not None else art
-        with time_lock:
-            composite_time[0] += time.perf_counter() - started
-        return result
+        return _apply_name(art, parts) if parts is not None else art
 
     time_lock = threading.Lock()
     workers = max(1, composite_workers)
@@ -323,7 +353,49 @@ def _stream_dual_composited(
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             pending: deque[Future[Image.Image]] = deque()
-            yielded = 0
+
+            # Frame 0, on the calling thread: make_overlay picks the
+            # overlay's faces from its luma, and the window's workers
+            # stamp the overlay, so it must not race them.
+            face_data = _read_exact(face_stdout, frame_bytes)
+            if not face_data:
+                face_eof = True
+                stream_end[0] = time.perf_counter()
+                raise GenerationError(f"{VIEWER} produced no frames for {label}")
+            if len(face_data) != frame_bytes:
+                raise GenerationError(
+                    f"{VIEWER} face stream for {label} truncated: "
+                    f"{len(face_data)} of {frame_bytes} bytes"
+                )
+            body_data = _read_exact(body_stdout, frame_bytes)
+            if not body_data:
+                body_eof = True
+                stream_end[0] = time.perf_counter()
+                raise GenerationError(f"{VIEWER} produced no frames for {label}")
+            if len(body_data) != frame_bytes:
+                raise GenerationError(
+                    f"{VIEWER} body stream for {label} truncated: "
+                    f"{len(body_data)} of {frame_bytes} bytes"
+                )
+            art = apply_reel(to_art(face_data, body_data))
+            overlay, overlay_pos = make_overlay(art)
+            started = time.perf_counter()
+            first = stamp(art, overlay, overlay_pos)
+            with time_lock:
+                composite_time[0] += time.perf_counter() - started
+            # Keep the first composited frame: for animations it is
+            # written alongside the mp4, for a static card it is the
+            # card itself.
+            first_frame.append(first)
+
+            def composite(face_data: bytes, body_data: bytes) -> Image.Image:
+                started = time.perf_counter()
+                result = stamp(
+                    apply_reel(to_art(face_data, body_data)), overlay, overlay_pos
+                )
+                with time_lock:
+                    composite_time[0] += time.perf_counter() - started
+                return result
 
             def submit_next() -> None:
                 nonlocal face_eof, body_eof
@@ -351,6 +423,8 @@ def _stream_dual_composited(
                     )
                 pending.append(pool.submit(composite, face_data, body_data))
 
+            yield first
+
             # Prime the window.
             for _ in range(workers):
                 submit_next()
@@ -363,18 +437,9 @@ def _stream_dual_composited(
                     for pending_future in pending:
                         pending_future.cancel()
                     raise
-                if yielded == 0:
-                    # Keep the first composited frame: for animations it is
-                    # written alongside the mp4, for a static card it is the
-                    # card itself.
-                    first_frame.append(frame)
-                yielded += 1
                 # Keep the window full (read ahead) before handing off.
                 submit_next()
                 yield frame
-
-        if yielded == 0:
-            raise GenerationError(f"{VIEWER} produced no frames for {label}")
     finally:
         # A stream is "clean" only if read to end-of-file; one abandoned
         # early may be blocked on a full pipe and is killed instead.

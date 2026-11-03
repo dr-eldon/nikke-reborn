@@ -36,8 +36,8 @@ from nikke_reborn.lettering import (
     FONT_NAME,
     MANUFACTURER_LOGO_WIDTH,
     NAME_RECT_COLOR,
-    _logo_copyright_overlay,
     _name_layers,
+    _overlay_for,
     _rect_tint,
     _tint_layer,
 )
@@ -138,15 +138,26 @@ def _viewer_args(size: tuple[int, int], char_id: str, *flags: str) -> list[str]:
     ]
 
 
+def _logo_faces() -> tuple[Image.Image, Image.Image]:
+    """The NIKKE logo's two faces (black, white), both required: the
+    first frame's luma picks the one a card stamps (see
+    :func:`nikke_reborn.lettering._overlay_for`)."""
+    faces: list[Image.Image] = []
+    for path in (LOGO_PATHS[True], LOGO_PATHS[False]):
+        if not path.is_file():
+            raise GenerationError(f"logo not found: {path}")
+        faces.append(Image.open(path).convert("RGBA"))
+    return faces[0], faces[1]
+
+
 def _render_and_finish(
     presentation: expansion.Presentation,
     size: tuple[int, int],
     animated: bool,
     base: Image.Image,
-    logo: Image.Image,
+    faces: tuple[Image.Image, Image.Image],
     margin: int,
     padding: int,
-    copyright_color: tuple[int, int, int, int],
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
@@ -172,12 +183,15 @@ def _render_and_finish(
     pipe buffer, so the viewer blocks on write until the reader drains:
     under load ``render`` therefore reflects the slowest downstream stage
     as much as the viewer itself."""
-    # The logo and copyright line sit on top of the art: pre-stamp them
-    # onto a transparent layer, applied to each frame after the art is
-    # composited.
-    overlay, overlay_pos = _logo_copyright_overlay(
-        size, logo, margin, padding, copyright_color
-    )
+
+    # The logo and copyright line sit on top of the art: the first
+    # frame's luma under each picks its face, and the overlay is applied
+    # to each frame after the art is composited.
+    def make_overlay(
+        art: Image.Image,
+    ) -> tuple[Image.Image, tuple[int, int]]:
+        return _overlay_for(art, size, faces[0], faces[1], margin, padding)
+
     composite_time: list[float] = [0.0]
     stream_end: list[float] = [0.0]
 
@@ -208,8 +222,7 @@ def _render_and_finish(
         presentation.label,
         size,
         base,
-        overlay,
-        overlay_pos,
+        make_overlay,
         composite_workers,
         first_frame,
         composite_time,
@@ -525,10 +538,9 @@ def _render_profile(
     tint: Image.Image,
     mask: Image.Image,
     tint_rgb: tuple[int, int, int],
-    logo: Image.Image,
+    faces: tuple[Image.Image, Image.Image],
     margin: int,
     padding: int,
-    copyright_color: tuple[int, int, int, int],
     name: str,
     subtitle: str,
     manufacturer_logo: Image.Image | None,
@@ -547,7 +559,9 @@ def _render_profile(
     if any, apply to the body stream; the face close-up keeps its own
     zoom and offset). The name and subtitle overlays are
     applied as usual (with the character's manufacturer's logo above the
-    name's bar, *manufacturer_logo*); the logo sits at the top right.
+    name's bar, *manufacturer_logo*). The logo and copyright line sit
+    on top of the art, the logo at the top right instead of the bottom
+    right, each stamp's face chosen from the first frame's luma under it.
     The card's photo reel (:func:`_photo_reel`) is composited onto every
     frame as well.
 
@@ -555,11 +569,17 @@ def _render_profile(
     disk; only the finished card is written (atomically). Returns the
     finished card's path and the stage timings (see
     :func:`_write_final_card`)."""
+
     # The logo and copyright line sit on top of the art; the profile
-    # card's logo sits at the top right instead of the bottom right.
-    overlay, overlay_pos = _logo_copyright_overlay(
-        size, logo, margin, padding, copyright_color, logo_top=True
-    )
+    # card's logo sits at the top right instead of the bottom right, and
+    # the first frame's luma under each picks its face.
+    def make_overlay(
+        art: Image.Image,
+    ) -> tuple[Image.Image, tuple[int, int]]:
+        return _overlay_for(
+            art, size, faces[0], faces[1], margin, padding, logo_top=True
+        )
+
     parts = (
         _name_layers(
             size,
@@ -633,8 +653,7 @@ def _render_profile(
         background,
         tint,
         mask,
-        overlay,
-        overlay_pos,
+        make_overlay,
         parts,
         reel,
         composite_workers,
@@ -667,10 +686,9 @@ def _render_standard(
     name: str,
     subtitle: str,
     manufacturer_logo: Image.Image | None,
-    logo: Image.Image,
+    faces: tuple[Image.Image, Image.Image],
     margin: int,
     padding: int,
-    copyright_color: tuple[int, int, int, int],
     framerate: int,
     ffmpeg_threads: int,
     composite_workers: int,
@@ -685,35 +703,40 @@ def _render_standard(
     presentation's animation) animates over it. The name and subtitle
     overlays are applied as usual; the manufacturer's logo
     (*manufacturer_logo*) sits at the top right, its corner inset and
-    drawn in black (the white face would hide the white version); the
-    NIKKE logo sits at the bottom right and the copyright at the bottom
-    left, both in black.
+    drawn in black; the NIKKE logo sits at the bottom right and the
+    copyright at the bottom left, each stamp's face chosen from the
+    first frame's luma under it.
 
     Like :func:`_render_and_finish`, nothing intermediate touches the
     disk; only the finished card is written (atomically). Returns the
     finished card's path and the stage timings (see
     :func:`_write_final_card`)."""
-    # The manufacturer's logo joins the overlay: top right, drawn in
-    # black (the standard card's white face would hide the white
-    # version).
-    overlay, overlay_pos = _logo_copyright_overlay(
-        size, logo, margin, padding, copyright_color
-    )
-    if manufacturer_logo is not None:
-        inset = round(padding * 1.5)
-        mark_w = round(size[0] * MANUFACTURER_LOGO_WIDTH)
-        mark_h = round(mark_w * manufacturer_logo.height / manufacturer_logo.width)
-        mark = manufacturer_logo.resize((mark_w, mark_h), Image.Resampling.LANCZOS)
-        mark = _tint_layer(mark.getchannel("A"), (0, 0, 0), 1.0)
-        # Rebuild on a full frame so the (already cropped) overlay and
-        # the new mark land at their card positions, then crop back to
-        # the combined ink.
-        full = Image.new("RGBA", size, (0, 0, 0, 0))
-        full.alpha_composite(overlay, overlay_pos)
-        full.alpha_composite(mark, (size[0] - inset - mark_w, inset))
-        box = full.getbbox()
-        assert box is not None, "the standard card's overlay is empty"
-        overlay, overlay_pos = full.crop(box), (box[0], box[1])
+
+    # The overlay's faces are picked from the first frame's luma; the
+    # manufacturer's logo joins it: top right, drawn in black.
+    def make_overlay(
+        art: Image.Image,
+    ) -> tuple[Image.Image, tuple[int, int]]:
+        overlay, overlay_pos = _overlay_for(
+            art, size, faces[0], faces[1], margin, padding
+        )
+        if manufacturer_logo is not None:
+            inset = round(padding * 1.5)
+            mark_w = round(size[0] * MANUFACTURER_LOGO_WIDTH)
+            mark_h = round(mark_w * manufacturer_logo.height / manufacturer_logo.width)
+            mark = manufacturer_logo.resize((mark_w, mark_h), Image.Resampling.LANCZOS)
+            mark = _tint_layer(mark.getchannel("A"), (0, 0, 0), 1.0)
+            # Rebuild on a full frame so the (already cropped) overlay
+            # and the new mark land at their card positions, then crop
+            # back to the combined ink.
+            full = Image.new("RGBA", size, (0, 0, 0, 0))
+            full.alpha_composite(overlay, overlay_pos)
+            full.alpha_composite(mark, (size[0] - inset - mark_w, inset))
+            box = full.getbbox()
+            assert box is not None, "the standard card's overlay is empty"
+            return full.crop(box), (box[0], box[1])
+        return overlay, overlay_pos
+
     parts = (
         _name_layers(
             size,
@@ -756,8 +779,7 @@ def _render_standard(
         presentation.label,
         size,
         base,
-        overlay,
-        overlay_pos,
+        make_overlay,
         composite_workers,
         first_frame,
         composite_time,
@@ -812,10 +834,7 @@ def _process_full_art(
     exp = presentation.expansion
     entry = presentation.card
 
-    logo_path = LOGO_PATHS[False]
-    if not logo_path.is_file():
-        raise GenerationError(f"logo not found: {logo_path}")
-    logo = Image.open(logo_path).convert("RGBA")
+    faces = _logo_faces()
     if not FONT.is_file():
         raise GenerationError(f"font not found: {FONT}")
     # The effective padding at the run's final size (the card's padding
@@ -823,7 +842,6 @@ def _process_full_art(
     # like.
     padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
-    copyright_color = (255, 255, 255, 255)
     framerate = DEFAULT_FRAMERATE
 
     # The run's final size: the card's viewport at the run's scale (even
@@ -884,10 +902,9 @@ def _process_full_art(
                 size,
                 animated,
                 base,
-                logo,
+                faces,
                 margin,
                 padding,
-                copyright_color,
                 framerate,
                 ffmpeg_threads,
                 composite_workers,
@@ -939,12 +956,7 @@ def _process_profile_card(
     exp = presentation.expansion
     entry = presentation.card
 
-    # Black logo and black copyright: the profile card's white mask would
-    # wash out the white versions (the name stays white, as elsewhere).
-    logo_path = LOGO_PATHS[True]
-    if not logo_path.is_file():
-        raise GenerationError(f"logo not found: {logo_path}")
-    logo = Image.open(logo_path).convert("RGBA")
+    faces = _logo_faces()
     if not FONT.is_file():
         raise GenerationError(f"font not found: {FONT}")
     if not FONT_NAME.is_file():
@@ -956,7 +968,6 @@ def _process_profile_card(
     manufacturer_logo = _manufacturer_logo(entry.id)
     padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
-    copyright_color = (0, 0, 0, 255)
     framerate = DEFAULT_FRAMERATE
 
     size = card.run_size(preset)
@@ -1005,10 +1016,9 @@ def _process_profile_card(
                 tint,
                 mask,
                 tint_rgb,
-                logo,
+                faces,
                 margin,
                 padding,
-                copyright_color,
                 name,
                 subtitle,
                 manufacturer_logo,
@@ -1064,12 +1074,7 @@ def _process_standard_card(
     exp = presentation.expansion
     entry = presentation.card
 
-    # Black logo and black copyright: the standard card's white face
-    # would wash out the white versions (the name stays white).
-    logo_path = LOGO_PATHS[True]
-    if not logo_path.is_file():
-        raise GenerationError(f"logo not found: {logo_path}")
-    logo = Image.open(logo_path).convert("RGBA")
+    faces = _logo_faces()
     if not FONT.is_file():
         raise GenerationError(f"font not found: {FONT}")
     if not FONT_NAME.is_file():
@@ -1081,7 +1086,6 @@ def _process_standard_card(
     manufacturer_logo = _manufacturer_logo(entry.id)
     padding = card.padding(preset)
     margin = round(LOGO_PADDING_FACTOR * padding)
-    copyright_color = (0, 0, 0, 255)
     framerate = DEFAULT_FRAMERATE
 
     size = card.run_size(preset)
@@ -1146,10 +1150,9 @@ def _process_standard_card(
                 name,
                 subtitle,
                 manufacturer_logo,
-                logo,
+                faces,
                 margin,
                 padding,
-                copyright_color,
                 framerate,
                 ffmpeg_threads,
                 composite_workers,

@@ -24,8 +24,8 @@ from nikke_reborn.image import PROFILE_MASK_PATH, STANDARD_MASK_PATH
 from nikke_reborn.lettering import FONT_NAME, FONT_RECT_ARROW
 from nikke_reborn.preset import Preset
 
-#: The NIKKE logo's two faces: the white one (the full-art cards) and the
-#: black one (the standard's and profile's cards).
+#: The NIKKE logo's two faces: the first frame's luma picks which one a
+#: card stamps (see :func:`nikke_reborn.lettering._overlay_for`).
 LOGO_PATHS = {
     False: IMAGES_DIR / "Logo_White.png",
     True: IMAGES_DIR / "Logo_Black.png",
@@ -104,8 +104,9 @@ def presentation_source_hash(
     presentation's name and its viewer terms (in canonical form, plus the
     framing overrides when the TOML names them), the background's bytes
     (the solid black's marker for the goddess
-    presentation), the mask's bytes, the NIKKE logo's face, the
-    manufacturer's logo (when the character has one), the game's data
+    presentation), the mask's bytes, the NIKKE logo's two faces (the
+    first frame's luma picks which one is stamped), the manufacturer's
+    logo (when the character has one), the game's data
     (``characters.json`` and ``models.json``) and the fonts the lettering
     stamps — plus the run's scale (mixed in only when it deviates from
     1.0, the full-resolution default, so an ultra card's hash is the
@@ -144,7 +145,8 @@ def presentation_source_hash(
         hash_term(digest, STANDARD_MASK_PATH.read_bytes())
     elif presentation.mask == "profile":
         hash_term(digest, PROFILE_MASK_PATH.read_bytes())
-    hash_term(digest, LOGO_PATHS[presentation.tier != "full"].read_bytes())
+    for face_path in (LOGO_PATHS[True], LOGO_PATHS[False]):
+        hash_term(digest, face_path.read_bytes())
     logo_path = _manufacturer_logo_path(card.id)
     if logo_path is not None:
         hash_term(digest, logo_path.read_bytes())

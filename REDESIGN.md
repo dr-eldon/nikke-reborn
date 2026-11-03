@@ -232,8 +232,12 @@ nikke-viewer [<framing>] [--variant V] [--animation A] [--time T]
   machinery, the standard's contrast/fade, the name plates, the
   manufacturer logo (DB `manufacturer` → `assets/images/logos/<m>.png`),
   the first-frame sidecar, atomic writes.
-- Logo/copyright colors: full art uses the white logo + white copyright
-  (the legacy default); profile and standard keep black.
+- Logo/copyright colors: chosen per stamp, per card — the first
+  composited frame (before the stamps are applied) is sampled under the
+  NIKKE logo and under the copyright line (each its own region), and
+  each stamp is black where its region's mean luma is at or above the
+  threshold (80), white where it is dark. Full art was fixed white;
+  standard/profile keep black on their white faces.
 - The profile's `_face_offset` measures the body's first frame with the
   default framing (it used to pass `--full-body`).
 
@@ -260,7 +264,8 @@ SHA-256 over, in fixed order:
 5. the background's bytes (the resolved file; a fixed `solid-black` marker
    for Goddess),
 6. the mask's bytes (standard/profile; omitted for full art),
-7. the NIKKE logo's bytes (the black/white face used),
+7. the NIKKE logo's two faces' bytes (the first frame's luma picks
+   which one is stamped),
 8. the manufacturer logo's bytes (when the character has one),
 9. `database/characters.json`'s and `database/models.json`'s bytes
    (name/rarity/manufacturer, the subtitle derivation),

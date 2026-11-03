@@ -11,7 +11,7 @@ from __future__ import annotations
 import colorsys
 import statistics
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageStat
 
 from nikke_reborn.config import CARD_REFERENCE_WIDTH, FONT, FONTS_DIR
 from nikke_reborn.image import _scale_logo, _set_luma, _with_logo
@@ -95,6 +95,16 @@ COPYRIGHT_WEIGHT = 300
 COPYRIGHT_SUPERSAMPLE = 4
 
 COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
+
+#: The luma (0..255) of a stamp's own region — the first frame's mean
+#: under where the stamp lands — at and above which the stamp (the
+#: NIKKE logo, the copyright line) is drawn in black, below which in
+#: white.
+STAMP_LUMA_THRESHOLD = 80.0
+
+#: The stamps' two colors.
+STAMP_BLACK = (0, 0, 0, 255)
+STAMP_WHITE = (255, 255, 255, 255)
 
 
 def _set_weight(font: ImageFont.FreeTypeFont, weight: int) -> None:
@@ -491,3 +501,44 @@ def _logo_copyright_overlay(
     box = overlay.getbbox()
     assert box is not None, "the logo and copyright layer is empty"
     return overlay.crop(box), (box[0], box[1])
+
+
+def _luma(art: Image.Image, box: tuple[int, int, int, int]) -> float:
+    """The mean luma (0..255) of *art* over *box* (the region a stamp
+    will cover, deciding its face)."""
+    return ImageStat.Stat(art.crop(box).convert("L")).mean[0]
+
+
+def _overlay_for(
+    art: Image.Image,
+    size: tuple[int, int],
+    black_face: Image.Image,
+    white_face: Image.Image,
+    margin: int,
+    padding: int,
+    logo_top: bool = False,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """The logo and copyright overlay for *art* — the card's first
+    composited frame, the art before the stamps. Each stamp's face is
+    chosen from the luma of the region it will cover, probed with the
+    stamp's own placement (so the sample region and the stamped ink
+    cannot drift apart), and the overlay is then built as in
+    :func:`_logo_copyright_overlay`."""
+    logo_box = _with_logo(
+        Image.new("RGBA", size, (0, 0, 0, 0)),
+        _scale_logo(white_face, size[0]),
+        margin,
+        logo_top,
+    ).getbbox()
+    assert logo_box is not None, "the logo's probe is empty"
+    copyright_box = _with_copyright(
+        Image.new("RGBA", size, (0, 0, 0, 0)), padding, STAMP_WHITE
+    ).getbbox()
+    assert copyright_box is not None, "the copyright's probe is empty"
+    logo = black_face if _luma(art, logo_box) >= STAMP_LUMA_THRESHOLD else white_face
+    color = (
+        STAMP_BLACK
+        if _luma(art, copyright_box) >= STAMP_LUMA_THRESHOLD
+        else STAMP_WHITE
+    )
+    return _logo_copyright_overlay(size, logo, margin, padding, color, logo_top)
