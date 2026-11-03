@@ -108,6 +108,20 @@ def _presentation_flags(presentation: expansion.Presentation) -> list[str]:
     return flags
 
 
+def _framing_overrides(presentation: expansion.Presentation) -> list[str]:
+    """The presentation's viewer framing overrides (its *x*/*y* world-space
+    translation and *zoom* multiplier, when the TOML names them for the
+    presentation) as the viewer's ``--x``/``--y``/``--zoom`` flags."""
+    flags: list[str] = []
+    if presentation.x is not None:
+        flags += ["--x", str(presentation.x)]
+    if presentation.y is not None:
+        flags += ["--y", str(presentation.y)]
+    if presentation.zoom is not None:
+        flags += ["--zoom", str(presentation.zoom)]
+    return flags
+
+
 def _viewer_args(size: tuple[int, int], char_id: str, *flags: str) -> list[str]:
     """The viewer's command for one stream: the *flags* (the framing and
     the presentation's terms), the run's size and the character's id —
@@ -173,6 +187,7 @@ def _render_and_finish(
         presentation.card.id,
         *(["--half-body"] if half_body else []),
         *_presentation_flags(presentation),
+        *_framing_overrides(presentation),
     )
     try:
         viewer = subprocess.Popen(
@@ -415,7 +430,12 @@ def _face_offset(
     default framing — the body stream's — with its variant and
     animation)."""
     width, height = size
-    body = _first_frame(size, presentation.card.id, *_presentation_flags(presentation))
+    body = _first_frame(
+        size,
+        presentation.card.id,
+        *_presentation_flags(presentation),
+        *_framing_overrides(presentation),
+    )
     alpha = body.getchannel("A").point(lambda v: 255 if v > 32 else 0)
     centre_y = int(height * PROFILE_FACE_CENTER_Y)
     half = int(height * PROFILE_FACE_CENTER_Y * PROFILE_FACE_ZOOM) // 2
@@ -521,7 +541,9 @@ def _render_profile(
     ``<card>_<presentation>.<suffix>``): the ``--face`` framing animates
     (as a monochrome of the tint's hue, shifted aside from the body)
     over the background, under the tint wash, and the body over the
-    mask, both streamed in lockstep. The name and subtitle overlays are
+    mask, both streamed in lockstep (the presentation's framing overrides,
+    if any, apply to the body stream; the face close-up keeps its own
+    zoom and offset). The name and subtitle overlays are
     applied as usual (with the character's manufacturer's logo above the
     name's bar, *manufacturer_logo*); the logo sits at the top right.
     The card's photo reel (:func:`_photo_reel`) is composited onto every
@@ -571,6 +593,7 @@ def _render_profile(
         size,
         presentation.card.id,
         *_presentation_flags(presentation),
+        *_framing_overrides(presentation),
     )
     try:
         face_viewer = subprocess.Popen(
@@ -710,6 +733,7 @@ def _render_standard(
         presentation.card.id,
         "--half-body",
         *_presentation_flags(presentation),
+        *_framing_overrides(presentation),
     )
     try:
         viewer = subprocess.Popen(

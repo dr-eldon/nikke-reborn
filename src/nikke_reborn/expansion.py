@@ -37,7 +37,7 @@ import json
 import subprocess
 import tomllib
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -177,8 +177,11 @@ class CardEntry:
     in the expansion's ``cards`` (the card's number), the card's stem
     (``<number>_<name>[_<subtitle>]``, the compact — whitespace-free —
     name), the name it renders (the title, and the subtitle when the
-    character is a skin), and the rarity and manufacturer the game's data
-    carry (the base character's when the id is suffixed)."""
+    character is a skin), the rarity and manufacturer the game's data
+    carry (the base character's when the id is suffixed), and the
+    per-presentation viewer framing overrides its ``cards`` table names
+    (each a presentation's ``x``/``y``/``zoom``, plumbed to the viewer's
+    ``--x``/``--y``/``--zoom``)."""
 
     id: str
     number: int
@@ -187,6 +190,7 @@ class CardEntry:
     subtitle: str
     rarity: str
     manufacturer: str | None
+    framings: dict[str, dict[str, int | float]] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
@@ -235,10 +239,11 @@ class Expansion:
 @dataclass(frozen=True)
 class Presentation:
     """One presentation of one card (a row of the run's work): what the
-    viewer renders (the variant, the animation, the time), how the frame
-    composites (the background's key, the mask, the framing — the
-    half-body flag or the two-stream profile) and where its output goes
-    (the presentation's name, the output's suffix)."""
+    viewer renders (the variant, the animation, the time, and the
+    presentation's *x*/*y*/*zoom* framing overrides when the TOML names
+    them), how the frame composites (the background's key, the mask, the
+    framing — the half-body flag or the two-stream profile) and where its
+    output goes (the presentation's name, the output's suffix)."""
 
     expansion: Expansion
     card: CardEntry
@@ -251,6 +256,9 @@ class Presentation:
     background: str
     mask: str | None
     face: bool
+    x: int | float | None = None
+    y: int | float | None = None
+    zoom: int | float | None = None
 
     @property
     def animated(self) -> bool:
@@ -450,8 +458,8 @@ def load_expansion(path: Path) -> Expansion:
         rarities=tuple(rarities_data),
         pack=tuple(featured),
         cards=tuple(
-            _card_entry(path.name, number, char_id)
-            for number, char_id in enumerate(ids, 1)
+            _card_entry(path.name, number, entry["id"], _card_framings(entry))
+            for number, entry in enumerate(cards_data, 1)
         ),
         backgrounds=dict(backgrounds),
         logo_path=logo["path"],
@@ -459,7 +467,24 @@ def load_expansion(path: Path) -> Expansion:
     )
 
 
-def _card_entry(file_name: str, number: int, char_id: str) -> CardEntry:
+def _card_framings(entry: dict) -> dict[str, dict[str, int | float]]:
+    """The character's per-presentation framing overrides: each non-``id``
+    key of its ``cards`` table is a presentation name mapped to its viewer
+    framing terms (``x``/``y``/``zoom``), plumbed raw to the viewer's
+    ``--x``/``--y``/``--zoom``."""
+    return {
+        name: dict(table)
+        for name, table in entry.items()
+        if name != "id" and isinstance(table, dict)
+    }
+
+
+def _card_entry(
+    file_name: str,
+    number: int,
+    char_id: str,
+    framings: dict[str, dict[str, int | float]],
+) -> CardEntry:
     """The card's identity derived from *char_id*'s position and the
     game's data: the title (the character's name — the base character's
     when the id is suffixed), the subtitle (the model's name minus the
@@ -502,6 +527,7 @@ def _card_entry(file_name: str, number: int, char_id: str) -> CardEntry:
         subtitle=subtitle,
         rarity=str(record.get("rarity") or "R"),
         manufacturer=record.get("manufacturer"),
+        framings=framings,
     )
 
 
@@ -632,6 +658,7 @@ def presentations_for(
             if info.reel is None:
                 continue  # no reel: the Special presentation is skipped
             animation = info.reel
+        framing = entry.framings.get(name) or {}
         presentations.append(
             Presentation(
                 expansion=expansion,
@@ -645,6 +672,9 @@ def presentations_for(
                 background=background,
                 mask=mask,
                 face=face,
+                x=framing.get("x"),
+                y=framing.get("y"),
+                zoom=framing.get("zoom"),
             )
         )
     return presentations

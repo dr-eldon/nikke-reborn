@@ -97,8 +97,9 @@ def presentation_source_hash(
 ) -> str:
     """The SHA-256 of a presentation's inputs — everything the finished
     card depends on: the expansion's file, the card's stem, the
-    presentation's name and its viewer terms (in canonical form), the
-    background's bytes (the solid black's marker for the goddess
+    presentation's name and its viewer terms (in canonical form, plus the
+    framing overrides when the TOML names them), the background's bytes
+    (the solid black's marker for the goddess
     presentation), the mask's bytes, the NIKKE logo's face, the
     manufacturer's logo (when the character has one), the game's data
     (``characters.json`` and ``models.json``) and the fonts the lettering
@@ -119,6 +120,13 @@ def presentation_source_hash(
         )
     )
     hash_term(digest, flags.encode())
+    for flag, value in (
+        ("x", presentation.x),
+        ("y", presentation.y),
+        ("zoom", presentation.zoom),
+    ):
+        if value is not None:
+            hash_term(digest, f"{flag}:{value}".encode())
     if presentation.background == "black":
         hash_term(digest, b"solid-black")
     else:
