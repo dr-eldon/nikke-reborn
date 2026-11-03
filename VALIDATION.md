@@ -21,8 +21,11 @@ missing source is flagged in the bucket file, not papered over)
 
 Repo:
 
-- `database/characters.json` — `release_date` per base model; primary source
-  for base `c###` entries.
+- `database/models.json` — `date` per model (base and variant); the single
+  source of truth for dates, primary source for base `c###` entries.
+  `characters.json` carries no dates (its `release_date` was deleted
+  2026-11-03 — it predated the bucket validation and contradicted the
+  verified dates on 10 entries).
 - `database/banners.json` — GLOBAL banner history (`start`/`end`, `rerun`).
 
 `/tmp` (fetched 2026-11-03/04; see RESEARCH.md §Sources):
