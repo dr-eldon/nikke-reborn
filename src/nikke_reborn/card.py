@@ -187,8 +187,11 @@ def build_selection(
 ) -> list[expansion.Presentation]:
     """The run's work: every selected expansion's cards' presentations (the
     expansion's ``rarities`` subset, the ``Goddess`` presentation dropped
-    when the character carries no ``sc`` variant and the two ``Special``
-    presentations dropped when the character has no reel animation),
+    when the character carries no ``sc`` variant, the ``CoverProfile`` and
+    ``AimProfile`` presentations dropped when the character lacks the
+    corresponding variant, the two ``Special`` presentations dropped when
+    the character has no reel animation and the two ``Exotic``
+    presentations dropped when the character has no ``action`` animation),
     filtered to the characters the caller named when *ids* is given (an id
     that is not in an expansion's roster errors, naming the known ids).
     Every selected character is resolved against the viewer (its variants,

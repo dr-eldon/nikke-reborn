@@ -295,13 +295,16 @@ class Presentation:
 @dataclass(frozen=True)
 class CharacterInfo:
     """What the viewer reports for one character: the variants it renders
-    (the ``sc`` variant decides the goddess presentation) and the
+    (the ``sc`` variant decides the goddess presentation, the
+    ``cover``/``aim`` ones the cover/aim profiles), the animations (the
+    ``action`` one decides the exotic presentations) and the
     profile-reel's animation (the first of
     :data:`PROFILE_REEL_ANIMATIONS` it has — the ``Special``
     presentations' animation; a character with none has no
     ``Special`` presentations)."""
 
     variants: frozenset[str]
+    animations: frozenset[str]
     reel: str | None
 
 
@@ -688,17 +691,19 @@ def _character_lists(char_id: str) -> tuple[frozenset[str], frozenset[str]]:
 def resolve_character(entry: CardEntry) -> CharacterInfo:
     """The character's renderability, asked of the viewer (once per
     process, see :func:`_character_lists`): its variants (the ``sc`` variant
-    decides the goddess presentation) and the profile-reel's animation — the
-    first of :data:`PROFILE_REEL_ANIMATIONS` the character has, which the
-    ``Special`` presentations run. A character with no reel animation has no
-    reel, so its ``Special`` presentations are dropped (see
+    decides the goddess presentation, the ``cover``/``aim`` ones the
+    cover/aim profiles), its animations (the ``action`` one decides the
+    exotic presentations) and the profile-reel's animation —
+    the first of :data:`PROFILE_REEL_ANIMATIONS` the character has, which
+    the ``Special`` presentations run. A character with no reel animation
+    has no reel, so its ``Special`` presentations are dropped (see
     :func:`presentations_for`), mirroring the ``sc``/goddess skip."""
     variants, available = _character_lists(entry.id)
     reel = next(
         (animation for animation in PROFILE_REEL_ANIMATIONS if animation in available),
         None,
     )
-    return CharacterInfo(variants=variants, reel=reel)
+    return CharacterInfo(variants=variants, animations=available, reel=reel)
 
 
 def reel_animations(char_id: str) -> list[str]:
@@ -719,10 +724,13 @@ def presentations_for(
 ) -> list[Presentation]:
     """The character's presentations (the expansion's ``rarities``
     subset of :data:`PRESENTATION_SPECS`, the ``Goddess`` presentation
-    dropped when the character carries no ``sc`` variant and the two
-    ``Special`` presentations dropped when the character has no reel
-    animation), the ``Special`` presentations' animation resolved to the
-    reel's pick. An event (an id that is not a character) is a single
+    dropped when the character carries no ``sc`` variant, the
+    ``CoverProfile`` and ``AimProfile`` presentations dropped when the
+    character lacks the corresponding variant, the two ``Special``
+    presentations dropped when the character has no reel animation and
+    the two ``Exotic`` presentations dropped when the character has no
+    ``action`` animation), the ``Special`` presentations' animation
+    resolved to the reel's pick. An event (an id that is not a character) is a single
     full-art presentation at the set's highest presentation: its
     ``models.json`` name, that presentation's background and its
     top-level framing."""
@@ -755,6 +763,10 @@ def presentations_for(
             continue  # the expansion's rarities do not carry the presentation
         if name == "Goddess" and "sc" not in info.variants:
             continue
+        if variant in ("cover", "aim") and variant not in info.variants:
+            continue  # no such variant: the cover/aim profiles are skipped
+        if animation == "action" and "action" not in info.animations:
+            continue  # no action animation: the exotic presentations are skipped
         if animation == REEL:
             if info.reel is None:
                 continue  # no reel: the Special presentation is skipped
