@@ -31,7 +31,7 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
   narration, per-parameter docs). Write each fact once, at its defining
   site; reference it elsewhere.
 
-## Don't break (verify with `uv run test ELYSION c010`)
+## Don't break (verify with `uv run test Base c010`)
 
 - The byte protocol: a forced single-worker re-render is byte-for-byte
   identical to the recorded baselines (`test`); the `nikke-reborn-source`
