@@ -38,6 +38,7 @@ cards = [
     { id = "c306" },
     { id = "c010_02" },
     { id = "c072_01" },
+    { id = "nocallerid", x = 30.18, y = 318.23, zoom = 1.6 },
 ]
 
 [logo]

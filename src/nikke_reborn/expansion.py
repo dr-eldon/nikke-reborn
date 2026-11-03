@@ -90,6 +90,10 @@ LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo.placement`
 #: paths, against the expansion's folder).
 BACKGROUND_KEYS = ("base", "special", "battle")
 
+#: An event's rarity (fixed, the game's top one — it carries the set's
+#: highest).
+EVENT_RARITY = "SSR"
+
 # --- the presentations --------------------------------------------------------
 #: The fixed per-character set of presentations, in the order the passes
 #: run (the standard tier, the profile tier, the full-art tier). Each
@@ -173,15 +177,16 @@ TIERS = ("standard", "profile", "full")
 
 @dataclass(frozen=True)
 class CardEntry:
-    """One character of an expansion: its viewer id, its 1-based position
+    """One card of an expansion: its viewer id, its 1-based position
     in the expansion's ``cards`` (the card's number), the card's stem
     (``<number>_<name>[_<subtitle>]``, the compact — whitespace-free —
     name), the name it renders (the title, and the subtitle when the
     character is a skin), the rarity and manufacturer the game's data
-    carry (the base character's when the id is suffixed), and the
-    per-presentation viewer framing overrides its ``cards`` table names
-    (each a presentation's ``x``/``y``/``zoom``, plumbed to the viewer's
-    ``--x``/``--y``/``--zoom``)."""
+    carry (the base character's when the id is suffixed; the event's
+    fixed rarity and none for an event — an id that is not a
+    character), and the per-presentation viewer framing overrides its
+    ``cards`` table names (each a presentation's ``x``/``y``/``zoom``,
+    plumbed to the viewer's ``--x``/``--y``/``--zoom``)."""
 
     id: str
     number: int
@@ -452,19 +457,62 @@ def load_expansion(path: Path) -> Expansion:
     if not (path.parent / logo["path"]).resolve().is_file():
         raise GenerationError(f"{path.name}: logo not found: {logo['path']}")
 
+    top = rarities_data[-1]
     return Expansion(
         path=path,
         name=path.stem,
         rarities=tuple(rarities_data),
         pack=tuple(featured),
         cards=tuple(
-            _card_entry(path.name, number, entry["id"], _card_framings(entry))
+            _card_entry(
+                path.name,
+                number,
+                entry["id"],
+                _event_framings(entry, top)
+                if is_event(entry["id"])
+                else _card_framings(entry),
+                EVENT_RARITY,
+            )
             for number, entry in enumerate(cards_data, 1)
         ),
         backgrounds=dict(backgrounds),
         logo_path=logo["path"],
         logo_placement=logo["placement"],
     )
+
+
+def is_event(char_id: str) -> bool:
+    """True when the id is an event illustration CG (not a character: it
+    does not start with ``c``)."""
+    return not char_id.startswith("c")
+
+
+def _event_framings(entry: dict, name: str) -> dict[str, dict[str, int | float]]:
+    """The event's framing override (its top-level ``x``/``y``/``zoom``,
+    its single presentation's), keyed by the presentation's name (the
+    set's highest)."""
+    framing = {key: entry[key] for key in ("x", "y", "zoom") if key in entry}
+    return {name: framing} if framing else {}
+
+
+def _spec_background(presentation: str) -> str:
+    """The ``PRESENTATION_SPECS`` entry named *presentation*'s background
+    key: an event's full-art presentation renders on its highest
+    presentation's background."""
+    for (
+        name,
+        _tier,
+        _variant,
+        _animation,
+        _time,
+        _half_body,
+        background,
+        _mask,
+        _face,
+    ) in PRESENTATION_SPECS:
+        if name == presentation:
+            return background
+    raise GenerationError(f"no presentation spec for {presentation!r}")
 
 
 def _card_framings(entry: dict) -> dict[str, dict[str, int | float]]:
@@ -484,38 +532,54 @@ def _card_entry(
     number: int,
     char_id: str,
     framings: dict[str, dict[str, int | float]],
+    highest_rarity: str,
 ) -> CardEntry:
     """The card's identity derived from *char_id*'s position and the
-    game's data: the title (the character's name — the base character's
-    when the id is suffixed), the subtitle (the model's name minus the
-    character's, empty when the model is the character itself), the stem
-    (the 1-based number plus the compact name) and the rarity/manufacturer
-    (the character's own, the base's when the id is suffixed)."""
-    characters = _characters_db()
-    base_id = char_id.split("_", 1)[0]
-    record = characters.get(char_id) or characters.get(base_id)
-    if record is None:
-        raise GenerationError(
-            f"{file_name}: no character {char_id!r} (or base {base_id!r}) in "
-            "characters.json; cannot derive its name"
-        )
-    title = str(record["name"])
-    model_name = _models_db().get(char_id)
-    if model_name is None:
-        raise GenerationError(
-            f"{file_name}: no model {char_id!r} in models.json; cannot "
-            "derive its subtitle"
-        )
-    if model_name == title:
+    game's data (the event's from ``models.json`` alone): the title
+    (the character's name — the base character's when the id is suffixed;
+    the event's model's name), the subtitle (the model's name minus the
+    character's, empty when the model is the character itself or when the
+    card is an event), the stem (the 1-based number plus the compact name)
+    and the rarity/manufacturer (the character's own, the base's when the
+    id is suffixed; the event's fixed rarity and none for an event)."""
+    if is_event(char_id):
+        title = _models_db().get(char_id)
+        if title is None:
+            raise GenerationError(
+                f"{file_name}: no model {char_id!r} in models.json; cannot "
+                "derive the event's name"
+            )
         subtitle = ""
-    elif model_name.startswith(title + " "):
-        subtitle = model_name[len(title) + 1 :]
+        rarity = highest_rarity
+        manufacturer = None
     else:
-        raise GenerationError(
-            f"{file_name}: {char_id!r}'s model name {model_name!r} does not "
-            f"start with the character's name {title!r}; cannot derive its "
-            "subtitle"
-        )
+        characters = _characters_db()
+        base_id = char_id.split("_", 1)[0]
+        record = characters.get(char_id) or characters.get(base_id)
+        if record is None:
+            raise GenerationError(
+                f"{file_name}: no character {char_id!r} (or base {base_id!r}) "
+                "in characters.json; cannot derive its name"
+            )
+        title = str(record["name"])
+        model_name = _models_db().get(char_id)
+        if model_name is None:
+            raise GenerationError(
+                f"{file_name}: no model {char_id!r} in models.json; cannot "
+                "derive its subtitle"
+            )
+        if model_name == title:
+            subtitle = ""
+        elif model_name.startswith(title + " "):
+            subtitle = model_name[len(title) + 1 :]
+        else:
+            raise GenerationError(
+                f"{file_name}: {char_id!r}'s model name {model_name!r} does "
+                f"not start with the character's name {title!r}; cannot "
+                "derive its subtitle"
+            )
+        rarity = str(record.get("rarity") or "R")
+        manufacturer = record.get("manufacturer")
     name_part = "".join(title.split())
     if subtitle:
         name_part += f"_{''.join(subtitle.split())}"
@@ -525,8 +589,8 @@ def _card_entry(
         stem=f"{number:04d}_{name_part}",
         title=title,
         subtitle=subtitle,
-        rarity=str(record.get("rarity") or "R"),
-        manufacturer=record.get("manufacturer"),
+        rarity=rarity,
+        manufacturer=manufacturer,
         framings=framings,
     )
 
@@ -645,7 +709,31 @@ def presentations_for(
     dropped when the character carries no ``sc`` variant and the two
     ``Special`` presentations dropped when the character has no reel
     animation), the ``Special`` presentations' animation resolved to the
-    reel's pick."""
+    reel's pick. An event (an id that is not a character) is a single
+    full-art presentation at the set's highest presentation: its
+    ``models.json`` name, that presentation's background and its
+    top-level framing."""
+    if is_event(entry.id):
+        top = expansion.rarities[-1]
+        framing = entry.framings.get(top) or {}
+        return [
+            Presentation(
+                expansion=expansion,
+                card=entry,
+                name=top,
+                tier="full",
+                variant=None,
+                animation=None,
+                time=None,
+                half_body=False,
+                background=_spec_background(top),
+                mask=None,
+                face=False,
+                x=framing.get("x"),
+                y=framing.get("y"),
+                zoom=framing.get("zoom"),
+            )
+        ]
     allowed = set(expansion.rarities)
     presentations = []
     for spec in PRESENTATION_SPECS:
