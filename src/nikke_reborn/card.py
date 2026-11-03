@@ -83,14 +83,13 @@ def _manufacturer_logo_path(card_id: str) -> Path | None:
     manufacturer = record.get("manufacturer")
     if not manufacturer:
         return None
-    path = DATABASE_DIR / "images" / "manufacturers" / f"{manufacturer}.png"
+    path = IMAGES_DIR / "logos" / f"{manufacturer}.png"
     return path if path.is_file() else None
 
 
 def _manufacturer_logo(card_id: str) -> Image.Image | None:
     """The character's manufacturer's logo (RGBA), opened for the
-    composite (the nameplate's logo), or None (see
-    :func:`_manufacturer_logo_path`)."""
+    composite, or None (see :func:`_manufacturer_logo_path`)."""
     path = _manufacturer_logo_path(card_id)
     if path is None:
         return None
