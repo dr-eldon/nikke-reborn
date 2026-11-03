@@ -44,7 +44,7 @@ def run() -> None:
     the finished files against the recorded baselines (or record new
     baselines with ``--new-baseline``)."""
     args = _parse_args()
-    preset = Preset.ULTRA if args.ultra else Preset.DEFAULT
+    preset = Preset.DEFAULT
     try:
         expansion_path = expansion.resolve_expansion_path(args.paths[0])
         exp = expansion.load_expansion(expansion_path)
@@ -70,7 +70,7 @@ def run() -> None:
                 f"{exp.name}/expansion",
                 _baseline_path(exp.name, "expansion", preset),
             )
-        _generate(expansion_path, ids, preset)
+        _generate(expansion_path, ids)
         for entry in entries:
             info = expansion.resolve_character(entry)
             actual = {
@@ -139,15 +139,6 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--ultra",
-        action="store_true",
-        help=(
-            "the ultra preset (the native resolution, written to the "
-            "'<set> (Ultra)' set folders; the default preset is checked "
-            "otherwise)"
-        ),
-    )
-    parser.add_argument(
         "--new-baseline",
         action="store_true",
         help=(
@@ -158,7 +149,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _generate(expansion_path: Path, ids: list[str], preset: Preset) -> None:
+def _generate(expansion_path: Path, ids: list[str]) -> None:
     """The forced, single-worker generate run behind the check (see the
     module docstring): the byte protocol — the same code, inputs and
     worker count produce the same bytes."""
@@ -170,8 +161,6 @@ def _generate(expansion_path: Path, ids: list[str], preset: Preset) -> None:
     ]
     if ids:
         argv += ["--ids", *ids]
-    if preset is Preset.ULTRA:
-        argv.append("--ultra")
     try:
         generate.run(argv)
     except SystemExit as exc:

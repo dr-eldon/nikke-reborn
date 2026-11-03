@@ -11,7 +11,7 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 - `generate [paths] [--draft | --ultra] [--force] [--no-video] [--jobs N]`
   — render and composite cards (paths: an expansion's name or
   `cards/<set>.toml`; `--ids` restricts a run to the named characters)
-- `test <set> [ids…] [--ultra] [--new-baseline]` — byte-for-byte
+- `test <set> [ids…] [--new-baseline]` — byte-for-byte
   regression check: a forced single-worker re-render of the character(s)'
   presentations (and the expansion's pack/box) compared by SHA-256 against
   `tests/baselines/<set>/`
@@ -23,7 +23,7 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
   clean.
 - Only commit or push when explicitly asked.
 - For quick iteration, `generate` a single character (`--ids`) with the
-  default settings; avoid `--ultra` (`generate` and `test`) until the very
+  default settings; avoid `--ultra` (`generate`) until the very
   end — it renders at native resolution and is much slower.
 - Comments/docstrings cover only what the code does not say:
   invariants, protocol semantics, units, gotchas. Never values (numbers,
@@ -31,7 +31,7 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
   narration, per-parameter docs). Write each fact once, at its defining
   site; reference it elsewhere.
 
-## Don't break (verify with `uv run test ELYSION c010 [--ultra]`)
+## Don't break (verify with `uv run test ELYSION c010`)
 
 - The byte protocol: a forced single-worker re-render is byte-for-byte
   identical to the recorded baselines (`test`); the `nikke-reborn-source`

@@ -336,7 +336,7 @@ unchanged.
     expansion (error otherwise).
   - Scope: an expansion in scope ⇒ its pack + box + metadata bundle are in
     scope too (the legacy runs always picked up the set's pack/box).
-- `test <expansion> [ID …] [--ultra] [--new-baseline]` — same selection
+- `test <expansion> [ID …] [--new-baseline]` — same selection
   rules; forces a single-worker re-render (section 6).
 - `bundle`, `simulate <set>`, `spritesheet <set>`: unchanged surfaces,
   TOML-backed internals.
