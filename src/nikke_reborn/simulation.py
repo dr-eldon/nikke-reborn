@@ -1,43 +1,25 @@
 """Simulate pack openings for an expansion and write an HTML report.
 
-``simulate <expansion>`` opens 1000 packs of the expansion and writes a
-self-contained report to ``output/<Expansion>.html`` with the statistics
-for fine-tuning the pack odds and the card prices: how many cards per
-rarity were obtained (observed and expected), the average price per
-rarity and each rarity's share of the total value, the average packs per
-hit (a hit is a card worth more than the ``--hit`` threshold, 100 by
-default), the expected value per pack (simulated and theoretical), the
-median pack value, the pack value distribution, the per-slot expected
-value and the top cards of the set.
+``simulate <expansion>`` opens packs of the expansion and writes a
+self-contained report to ``output/<Expansion>.html`` with the
+statistics for fine-tuning the pack odds and the card prices: cards
+per rarity (observed and expected), the average price per rarity and
+each rarity's share of the total value, the packs per hit (a hit is a
+card worth more than the ``--hit`` threshold), the expected value per
+pack (simulated and theoretical), the pack value distribution, the
+per-slot expected value and the top cards of the set.
 
 The expansion's bundle is rebuilt from ``cards/<expansion>.toml``,
-``database/characters.json`` and the current :mod:`nikke_reborn.metadata`
-tuning (the same inputs ``generate`` writes to ``output/<expansion>.json``),
-so the report always reflects the current ``SlotWeights`` and price
-parameters — no ``generate`` run needed, and a stale bundle on disk is
-never consulted.
+``database/characters.json`` and the current
+:mod:`nikke_reborn.metadata` tuning (the same inputs ``generate``
+writes to ``output/<expansion>.json``), so the report always reflects
+the current tuning — no ``generate`` run needed, and a stale bundle on
+disk is never consulted.
 
-A pack is opened the way the game's pack generation strategies do:
-
-* ``Guaranteed`` — the seven slots of the pack's ``SlotWeights`` tables,
-  one rarity per slot drawn by weight, then one card of that rarity;
-* ``AllRandomWeighted`` — all seven slots draw their rarity from the
-  shared ``NormalWeights`` table;
-* ``AllRandom`` — every slot is a uniform random card of the pool.
-
-A card is never repeated within a pack when the pack disallows
-duplicates: a slot draws its rarity from its own weight table
-renormalized over the rarities that still have an untaken card, and
-comes up empty only when none of the rarities in its table can be
-drawn any more. A god pack (rolled when the pack enables them) forces
-all of its cards to foil (drawn from ``GodWeights`` when the pack
-carries some). Every card is priced with the expansion's ``RarityDriven``
-formula:
-
-    (floor + step * the card's index in the expansion's rarity list)
-    * border base ** the card's border index,
-
-multiplied by the foil multiplier when the card is foil.
+A pack is opened the way the game's pack generation strategies do (see
+:func:`run_simulation` and :func:`_slot_tables`), and every card is
+priced with the expansion's ``RarityDriven`` formula (see
+:func:`card_price`).
 """
 
 from __future__ import annotations
@@ -58,9 +40,8 @@ from nikke_reborn import expansion, metadata
 from nikke_reborn.config import CARDS_DIR, OUTPUT_DIR, REPO_ROOT
 from nikke_reborn.error import GenerationError
 
-#: The border types in the game's ``ECardBorderType`` order (the price
-#: formula multiplies by the border base raised to the border's index
-#: here).
+#: The border types in the game's ``ECardBorderType`` order (their
+#: index feeds the price formula).
 BORDERS = ["Base", "FirstEdition", "Silver", "Gold", "EX", "FullArt"]
 
 #: A "hit" is a card worth more than this (the default of ``--hit``).
@@ -1026,7 +1007,7 @@ def run() -> None:
     parser = argparse.ArgumentParser(
         prog="simulate",
         description=(
-            "Simulate 1000 pack openings of an expansion and write an HTML "
+            "Simulate pack openings of an expansion and write an HTML "
             "report (output/<Expansion>.html) with the statistics for "
             "fine-tuning the pack odds and card prices: cards per rarity, "
             "average price per rarity, average packs per hit (a hit is a "

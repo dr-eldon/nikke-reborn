@@ -1,20 +1,10 @@
-"""The card's lettering: the name stack (title, subtitle and their bars)
-and the copyright line.
+"""The card's lettering: the name stack (title, subtitle and their
+bars) and the copyright line.
 
-The name and subtitle are rasterized once per card into static layers
-(:func:`_name_layers`, gathered in :class:`_NameLayers`) and composited
-onto every frame (:func:`_apply_name`): the title in a flat dark bar with
-its top-right corner cut off at 45 degrees, the slanted bar and the three
-slanted squares above it, the manufacturer's logo above the bar, the
-subtitle in a bar filled with the background's dominant hue at a fixed
-dark level (:func:`_sample_context` for the hue, :func:`_set_luma` for
-the level), and the arrow in the title bar's right padding.
-The font size (:func:`_name_font_size`, :func:`_subtitle_font_size`), the
-weight (:func:`_set_weight`, variable fonts only) and the ink offsets
-(:func:`_text_ink_offsets`) are measured on probe renders. The copyright
-line is stamped by :func:`_with_copyright` and, with the logo, pre-composited
-into a per-frame overlay by :func:`_logo_copyright_overlay`.
-"""
+The name stack is rasterized once per card into static layers and
+composited onto every frame; the font size, weight and ink offsets are
+measured on probe renders. The copyright line is stamped, with the
+logo, into a pre-composited per-frame overlay."""
 
 from __future__ import annotations
 
@@ -26,115 +16,90 @@ from PIL import Image, ImageDraw, ImageFont
 from nikke_reborn.config import CARD_REFERENCE_WIDTH, FONT, FONTS_DIR
 from nikke_reborn.image import _scale_logo, _set_luma, _with_logo
 
-#: Aire Exterior face for the card name (vendored static font, SIL OFL).
+#: The card name's face (vendored static font, SIL OFL).
 FONT_NAME = FONTS_DIR / "AireExterior.ttf"
 
-#: ChocolateClassicalSans face for the title rectangle's arrow (vendored).
+#: The title rectangle's arrow face (vendored).
 FONT_RECT_ARROW = FONTS_DIR / "ChocolateClassicalSans-Regular.ttf"
 
-#: The manufacturer's logo above the title's bar: its width as a fraction
-#: of the frame's width (its height proportional), its left edge at the
-#: card's padding (the title's own inset), a gap of padding / 2 between
-#: its bottom and the bar's top.
+#: The manufacturer's logo's width (a fraction of the frame's width,
+#: its height proportional).
 MANUFACTURER_LOGO_WIDTH = 0.11
 
-#: Card name placement: the ink's top-left corner sits at the card's padding
-#: from the left edge and NAME_TITLE_Y of the height, left-aligned, with font
-#: size padding * NAME_SIZE_FACTOR and, on variable fonts, weight
-#: NAME_WEIGHT (700 = bold; static fonts have a fixed weight).
+#: The name's font size (in multiples of the card's padding).
 NAME_SIZE_FACTOR = 3.0
+#: The name's weight (variable fonts only; static fonts have a fixed
+#: weight).
 NAME_WEIGHT = 700
 
-#: The title's vertical position, as a fraction of the card height: the
-#: title's ink top sits at NAME_TITLE_Y of the height (its left inset is the
-#: card's own padding).
+#: The title's vertical position (a fraction of the card's height).
 NAME_TITLE_Y = 0.72
 
-#: Names of NAME_REFERENCE_LENGTH characters or fewer get the full font
-#: size; longer names are scaled down by NAME_REFERENCE_LENGTH / length
-#: (truncated to the pixel), never below NAME_MIN_SIZE_FACTOR of the
-#: base size.
+#: The name length (in characters) that still gets the full font size;
+#: longer names shrink proportionally.
 NAME_REFERENCE_LENGTH = 17
 
-#: Shrink floor: the font never drops below this fraction of its base
-#: (NAME_SIZE_FACTOR) size.
+#: The shrink floor (a fraction of the base size).
 NAME_MIN_SIZE_FACTOR = 0.6
 
-#: Subtitle sizing: the font is padding * SUBTITLE_SIZE_FACTOR (short
-#: subtitles), shrinking linearly to padding * SUBTITLE_MIN_SIZE_FACTOR
-#: between SUBTITLE_FULL_LENGTH and SUBTITLE_FLOOR_LENGTH characters.
+#: The subtitle's font size (in multiples of the card's padding): the
+#: full size up to SUBTITLE_FULL_LENGTH characters, shrinking linearly
+#: to the floor at SUBTITLE_FLOOR_LENGTH.
 SUBTITLE_SIZE_FACTOR = 1.0
 SUBTITLE_MIN_SIZE_FACTOR = 0.60
 SUBTITLE_FULL_LENGTH = 18
 SUBTITLE_FLOOR_LENGTH = 30
 
-#: Base color of the name text (title and subtitle).
+#: The name text's color.
 NAME_TEXT_COLOR = (255, 255, 255)
 
-#: Fill of the title's enclosing rectangle: a flat dark gray. The
-#: rectangle's left edge is the card's left edge and the ink sits inside
-#: with NAME_RECT_PAD of room on the other three sides.
+#: The title rectangle's fill.
 NAME_RECT_COLOR = (0x33, 0x33, 0x33)
-#: Luminance (0..1) of the subtitle's enclosing rectangle's fill: the fill
-#: takes the background's dominant hue at this dark level, so the
-#: subtitle's panel picks up the scene's tint where the title's is a flat
-#: NAME_RECT_COLOR.
+#: The subtitle rectangle's fill's luminance (0..1): its hue is the
+#: background's dominant one.
 NAME_RECT_LUMA = 0.3
-#: Padding around the title's ink (top/right/bottom of its enclosing
-#: rectangle), as a fraction of the ink's height.
+#: The padding around the title's ink (a fraction of the ink's height).
 NAME_RECT_PAD = 0.2
-#: Padding around the subtitle's ink (top/bottom, and the right before
-#: NAME_SUB_RECT_RIGHT_PAD_EXTRA), as a fraction of the ink's height:
-#: roomier than the title's NAME_RECT_PAD, so the smaller bar does not
-#: hug the text.
+#: The padding around the subtitle's ink (a fraction of the ink's
+#: height): roomier than the title's.
 NAME_SUB_RECT_PAD = 0.4
-#: Extra right-side room in the subtitle's enclosing rectangle, on top of
-#: NAME_SUB_RECT_PAD (as a fraction of the subtitle ink's height): the
-#: text's right edge gets a wider margin than the top/bottom.
+#: The extra right-side room in the subtitle's rectangle (a fraction of
+#: the ink's height).
 NAME_SUB_RECT_RIGHT_PAD_EXTRA = 1.0
 
-#: The title rectangle's top-right corner is cut off by a 45-degree diagonal
-#: spanning NAME_RECT_CORNER of the rectangle's height (the diagonal is the
-#: diagonal of a square with that side length).
+#: The rectangle's corner cut (a fraction of its height).
 NAME_RECT_CORNER = 1 / 3
 
-#: The arrow (NAME_RECT_ARROW) sits in the rectangle's right padding, its
-#: ink's bottom-right aligned NAME_RECT_ARROW_MARGIN from the rectangle's
-#: right/bottom edges (each a fraction of the rectangle's height); the font
-#: size is NAME_RECT_ARROW_SIZE of the rectangle's height.
+#: The arrow's glyph, size and margin (fractions of the rectangle's
+#: height); it sits in the rectangle's right padding.
 NAME_RECT_ARROW = "\u2196"
 NAME_RECT_ARROW_SIZE = 0.4
 NAME_RECT_ARROW_MARGIN = 0.12
 
-# --- name stack effects -------------------------------------------------
-# Context sampling for the subtitle rectangle's tint (the background's
-# dominant hue at NAME_RECT_LUMA, via _sample_context).
-NAME_SAMPLE_PX = 24  # sample resolution
-CONTEXT_FALLBACK = (170, 235, 255)  # hue/sat source for (near)-gray art
+# Context sampling for the subtitle rectangle's tint.
+NAME_SAMPLE_PX = 24  # the sample's resolution (px)
+CONTEXT_FALLBACK = (170, 235, 255)  # the (near)-gray art's fallback tint
 CONTEXT_MIN_QUALIFY = 0.25  # min fraction of sample pixels that are colored
 CONTEXT_SAT_BOOST = 1.4  # the sampled saturation is boosted...
 CONTEXT_SAT_MIN = 0.45  # ...and clamped, so the tint stays visible...
 CONTEXT_SAT_MAX = 0.90  # ...without washing out
 
-#: Nominal copyright text size (pixels) at the reference card width.
+#: The copyright text's nominal size (px at the reference card width).
 COPYRIGHT_NOMINAL_SIZE = 20
-#: Oswald weight for the copyright line (variable axis 200-700; a light
-#: weight reads quieter at this small size)
+#: The copyright's weight (a light weight reads quieter at its small
+#: size).
 COPYRIGHT_WEIGHT = 300
-#: The copyright is stamped at this multiple of its size and downscaled:
-#: at the final size FreeType quantizes glyph advances unevenly (the
-#: word spaces come out different widths), and the LANCZOS downscale
-#: re-smooths them
+#: The copyright's supersampling factor: at the final size FreeType
+#: quantizes glyph advances unevenly (the word spaces come out
+#: different widths), and the LANCZOS downscale re-smooths them.
 COPYRIGHT_SUPERSAMPLE = 4
 
-#: Copyright line rendered at the bottom left of the card.
 COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
 
 
 def _set_weight(font: ImageFont.FreeTypeFont, weight: int) -> None:
-    """Set *font*'s weight via its variation axes, if it is a variable
-    font (static fonts have a fixed weight; FreeType raises OSError
-    for them)."""
+    """Set *font*'s weight via its variation axes (variable fonts only:
+    FreeType raises OSError for static fonts)."""
     try:
         font.set_variation_by_axes([weight])
     except OSError:
@@ -142,11 +107,9 @@ def _set_weight(font: ImageFont.FreeTypeFont, weight: int) -> None:
 
 
 def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int, int]:
-    """Ink offsets (left, top, bottom) of *text* from its draw origin.
-
-    Measured on a probe render, because the rasterized ink can differ from
-    the font metrics by a pixel.
-    """
+    """The ink offsets (left, top, bottom) of *text* from its draw
+    origin — measured on a probe render, since the rasterized ink can
+    differ from the font metrics."""
     origin = 8
     probe = Image.new(
         "L",
@@ -164,18 +127,11 @@ def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int
 
 
 def _name_font_size(name: str, base_size: int) -> int:
-    """Size for *name*: the base size for names of at most
-    NAME_REFERENCE_LENGTH characters, otherwise the base size scaled by
-    NAME_REFERENCE_LENGTH / length (truncated), never below
-    NAME_MIN_SIZE_FACTOR of the base size."""
     factor = min(1.0, max(NAME_REFERENCE_LENGTH / len(name), NAME_MIN_SIZE_FACTOR))
     return int(base_size * factor)
 
 
 def _subtitle_font_size(subtitle: str, padding: int) -> int:
-    """Font size for *subtitle*: padding * SUBTITLE_SIZE_FACTOR,
-    shrinking linearly to padding * SUBTITLE_MIN_SIZE_FACTOR between
-    SUBTITLE_FULL_LENGTH and SUBTITLE_FLOOR_LENGTH characters."""
     length = len(subtitle)
     if length <= SUBTITLE_FULL_LENGTH:
         factor = SUBTITLE_SIZE_FACTOR
@@ -194,14 +150,11 @@ def _subtitle_font_size(subtitle: str, padding: int) -> int:
 def _sample_context(
     region: Image.Image,
 ) -> tuple[float, float, float | None]:
-    """(hue, sat, art luminance) sampled from *region*.
-
-    Median hue/saturation of the colored pixels (medians dodge hue
-    wrap-around and single-pixel outliers); the art luminance is the
-    mean over all pixels. (Near)-gray art returns the CONTEXT_FALLBACK
-    hue/sat, so muted art still gets a visible tint; a fully
-    transparent region has no art luminance (None).
-    """
+    """(hue, sat, art luminance) sampled from *region*: the median
+    hue/saturation of the colored pixels (medians dodge hue wrap-around
+    and single-pixel outliers) and the mean luminance over all pixels.
+    (Near)-gray art returns the fallback tint; a fully transparent
+    region has no art luminance (None)."""
     small = region.resize((NAME_SAMPLE_PX, NAME_SAMPLE_PX)).convert("RGB")
     data = small.tobytes()
     hues: list[float] = []
@@ -230,9 +183,9 @@ def _sample_context(
 
 
 def _rect_tint(background: Image.Image) -> tuple[int, int, int]:
-    """The subtitle rectangle's fill: the background's dominant hue at the
-    rectangle's base luminance (NAME_RECT_LUMA), so the dark panel picks up
-    the scene's tint instead of reading as a neutral gray."""
+    """The subtitle rectangle's fill: the background's dominant hue at
+    the rectangle's base luminance, so the panel picks up the scene's
+    tint."""
     hue, sat, _ = _sample_context(background)
     return _set_luma(hue, sat, NAME_RECT_LUMA)
 
@@ -254,14 +207,11 @@ def _tint_layer(
 
 
 class _NameLayers:
-    """The static parts of the name stack (one per card).
-
-    Each entry is the layer cropped to its ink's bounding box with the
-    position to composite it at, or ``None`` when the layer is absent;
-    :func:`_apply_name` composites the layers onto each frame's art, in
-    order (compositing a cropped layer at its position is pixel-identical
-    to compositing the full-size layer: outside the crop the alpha is 0,
-    an exact no-op)."""
+    """The static parts of the name stack (one per card): each entry is
+    the layer cropped to its ink's bounding box with the position to
+    composite it at, or ``None`` when the layer is absent. Compositing
+    the crop is pixel-identical to compositing the full-size layer
+    (outside the crop the alpha is 0)."""
 
     def __init__(
         self,
@@ -287,27 +237,17 @@ def _name_layers(
     sub_rect_color: tuple[int, int, int],
     manufacturer_logo: Image.Image | None = None,
 ) -> _NameLayers:
-    """Build the static name-stack layers for a card of *size*.
-
-    The layers are static (one per card); :func:`_apply_name` composites
-    them onto each frame's art.
-
-    The title and the subtitle are always rendered uppercase (their
-    length, and so their font size, is unaffected).
-
-    *manufacturer_logo* (the character's manufacturer's mark, white on
-    transparency, filled with the bar's own fill when placed) is put above
-    the title's bar when given (see :data:`MANUFACTURER_LOGO_WIDTH`); it is
-    part of the bar's layer, so it is only placed when the bar is.
-    """
+    """Build the static name-stack layers for a card of *size* (the
+    title and the subtitle rendered uppercase). *manufacturer_logo*
+    (white on transparency) is placed above the title's bar when given,
+    filled with the bar's own fill; it is part of the bar's layer, so it
+    is only placed when the bar is."""
     name = name.upper()
     subtitle = subtitle.upper()
     font_size = _name_font_size(name, round(padding * NAME_SIZE_FACTOR))
     font = ImageFont.truetype(str(FONT_NAME), font_size)
     _set_weight(font, NAME_WEIGHT)
     left, top, bottom = _text_ink_offsets(name, font)
-    # The title's ink top sits at NAME_TITLE_Y of the height; the left inset
-    # is the card's own padding.
     title_top = round(size[1] * NAME_TITLE_Y)
     inset = padding
 
@@ -315,13 +255,11 @@ def _name_layers(
     ImageDraw.Draw(title_mask).text(
         (inset - left, title_top - top), name, font=font, fill=255
     )
-    # Title core: flat white (NAME_TEXT_COLOR), masked by the title's
-    # alpha; only the geometry and the alpha are static.
+    # The title core's alpha (the flat-white core is tinted at the end).
     title_box = title_mask.getbbox()
     title_alpha = title_mask
-    # The top and bottom of the title's enclosing rectangle (its ink's
-    # top/bottom inset by NAME_RECT_PAD of the ink's height; None when
-    # there is no title): the subtitle sits below the bottom.
+    # The title's enclosing rectangle's top/bottom (None when there is
+    # no title): the subtitle sits below the bottom.
     rect_top = (
         title_box[1] - round((title_box[3] - title_box[1]) * NAME_RECT_PAD)
         if title_box is not None
@@ -346,14 +284,13 @@ def _name_layers(
             (-sub_left, -sub_top_off), subtitle, font=sub_font, fill=255
         )
         small = region
-        # Below the title: left-aligned with the title's own inset, its
-        # rectangle's top edge on the title rectangle's bottom (the old
-        # top-right corner placement when there is no title).
+        # Below the title (top-right when there is no title):
+        # left-aligned with the title's own inset, its rectangle's top
+        # edge on the title rectangle's bottom.
         bbox = small.getbbox()
         assert bbox is not None  # the ink is drawn (fill 255 on a black probe)
         if rect_top is not None:
-            # rect_bottom is derived from title_box, like rect_top.
-            assert rect_bottom is not None
+            assert rect_bottom is not None  # derived from title_box, like rect_top
             sub_pad = round((bbox[3] - bbox[1]) * NAME_SUB_RECT_PAD)
             px = inset - bbox[0]
             py = rect_bottom - bbox[1] + sub_pad
@@ -363,13 +300,7 @@ def _name_layers(
         sub_mask.paste(255, (px, py, px + small.width, py + small.height), small)
         sub_top = _tint_layer(sub_mask, NAME_TEXT_COLOR, 1.0)
         # The subtitle's enclosing rectangle: the title's rectangle's
-        # shape on the subtitle's ink — the background-tinted fill
-        # (sub_rect_color, in place of the title's flat NAME_RECT_COLOR),
-        # NAME_SUB_RECT_PAD of the subtitle's ink's height of room on the
-        # top/bottom (NAME_SUB_RECT_PAD + NAME_SUB_RECT_RIGHT_PAD_EXTRA on
-        # the right; the left edge is the card's left edge, as the title's),
-        # and the same 45-degree diagonal cut off the bottom-right corner
-        # (None when there is no title).
+        # shape on the subtitle's ink (None when there is no title).
         if rect_top is not None:
             sub_bbox = sub_mask.getbbox()
             assert sub_bbox is not None  # the subtitle's ink was just pasted
@@ -393,27 +324,21 @@ def _name_layers(
                 fill=(*sub_rect_color, 255),
             )
 
-    # The title's enclosing rectangle: a flat NAME_RECT_COLOR fill,
-    # starting at the card's left edge and extending past the ink by
-    # NAME_RECT_PAD of the ink's height on the top/bottom, and by
-    # NAME_RECT_PAD + the arrow's width + padding / 2 on the right; its
-    # top-right corner is cut off by a 45-degree diagonal (None when
-    # there is no title).
+    # The title's enclosing rectangle (None when there is no title): its
+    # top-right corner is cut off by a diagonal.
     rect = None
     arrow_alpha = None
     if title_box is not None:
         _, ry0, rx1, ry1 = title_box
         pad = round((ry1 - ry0) * NAME_RECT_PAD)
-        # rect_top / rect_bottom were derived from title_box above.
         assert rect_top is not None
         assert rect_bottom is not None
         top = rect_top
         bottom = rect_bottom
         rect_height = bottom - top
-        # The arrow's ink (NAME_RECT_ARROW in the rectangle's right padding),
-        # measured before the rectangle so the right edge can account for its
-        # width. A roomy probe (the glyph's ink can spill well past the font
-        # size, e.g. a descender), with the glyph centered, so the ink is not
+        # The arrow's ink, measured before the rectangle so its width can
+        # shape the right edge. A roomy probe (the glyph's ink can spill
+        # well past the font size), glyph centered, so the ink is not
         # clipped.
         arrow_font = ImageFont.truetype(
             str(FONT_RECT_ARROW), round(rect_height * NAME_RECT_ARROW_SIZE)
@@ -429,11 +354,8 @@ def _name_layers(
         )
         ink_box = probe.getbbox()
         ink = probe.crop(ink_box) if ink_box is not None else None
-        # The right edge is pad + the arrow's width + padding / 2 past the
-        # title's ink.
         right = rx1 + pad + (ink.width if ink is not None else 0) + round(padding / 2)
-        # The corner cut: NAME_RECT_CORNER of the rectangle's height, so the
-        # diagonal is the diagonal of a square with that side length.
+        # The corner cut (the diagonal of a square, so 45 degrees).
         cut = round(rect_height * NAME_RECT_CORNER)
         rect = Image.new("RGBA", size, (0, 0, 0, 0))
         ImageDraw.Draw(rect).polygon(
@@ -446,13 +368,8 @@ def _name_layers(
             ],
             fill=(*rect_color, 255),
         )
-        # The small bar above the rectangle: padding * 3 wide and
-        # padding / 2 tall, a gap of padding / 4 above the rectangle's
-        # top edge; the same fill, aligned with the rectangle's left
-        # edge, its right edge a 45-degree diagonal slanting back to
-        # the left (the bottom-right corner pulled in by the same
-        # number of pixels as the slant's vertical run, so the
-        # diagonal is the diagonal of a square with that side).
+        # The small bar above the rectangle: its right edge slants back
+        # (a 45-degree diagonal).
         bar_h = round(padding / 2)
         bar_top = top - round(padding / 4) - bar_h
         ImageDraw.Draw(rect).polygon(
@@ -464,12 +381,7 @@ def _name_layers(
             ],
             fill=(*rect_color, 255),
         )
-        # Three squares next to the bar (to its right): a square of the
-        # bar's height, a gap of padding / 4 from the bar and between the
-        # squares (the even gaps stay even down the slant, all the edges
-        # slanting alike); each square's edges slant the same 45 degrees
-        # as the bar's (the same pull on both sides, so the slant is the
-        # diagonal of a square with that side).
+        # Three squares to the bar's right, slanted the same 45 degrees.
         side = bar_h
         gap = round(padding / 4)
         for i in range(3):
@@ -483,12 +395,9 @@ def _name_layers(
                 ],
                 fill=(*rect_color, 255),
             )
-        # The manufacturer's logo above the bar: MANUFACTURER_LOGO_WIDTH
-        # the frame's width wide (its height proportional), its left edge
-        # at the card's padding (the title's own inset), a gap of
-        # padding / 2 between its bottom and the bar's top; its mark's
-        # alpha filled with the bar's own fill (the title's background),
-        # so the mark, the bar and the squares share one color.
+        # The manufacturer's logo above the bar, its mark filled with the
+        # bar's own fill, so the mark, the bar and the squares share one
+        # color.
         if manufacturer_logo is not None:
             logo_w = round(size[0] * MANUFACTURER_LOGO_WIDTH)
             logo_h = round(logo_w * manufacturer_logo.height / manufacturer_logo.width)
@@ -498,19 +407,16 @@ def _name_layers(
                 (inset, bar_top - round(padding / 2) - logo_h),
             )
         if ink is not None:
-            # The arrow: its ink's bottom-right aligned NAME_RECT_ARROW_MARGIN
-            # from the rectangle's right/bottom edges.
             margin = round(rect_height * NAME_RECT_ARROW_MARGIN)
-            # The arrow's alpha (a mask; flat white, like the title).
+            # The arrow's alpha (flat white, like the title).
             arrow_alpha = Image.new("L", size, 0)
             arrow_alpha.paste(
                 ink, (right - margin - ink.width, bottom - margin - ink.height)
             )
 
-    # The layers are static (built once per card): tint the title core and
-    # the arrow (flat white, NAME_TEXT_COLOR) here instead of per frame,
-    # and crop every layer to its ink's bounding box so
-    # :func:`_apply_name` composites the ink, not the whole frame.
+    # Tint the title core and the arrow here (once per card, not per
+    # frame) and crop every layer to its ink, so _apply_name composites
+    # the ink, not the whole frame.
     def cropped(layer: Image.Image) -> tuple[Image.Image, tuple[int, int]] | None:
         box = layer.getchannel("A").getbbox()
         if box is None:
@@ -520,11 +426,9 @@ def _name_layers(
     return _NameLayers(
         cropped(rect) if rect is not None else None,
         cropped(sub_rect) if sub_rect is not None else None,
-        # The title core: flat white, masked by the title's alpha.
         cropped(_tint_layer(title_alpha, NAME_TEXT_COLOR, 1.0))
         if title_box is not None
         else None,
-        # The arrow: flat white, like the title.
         cropped(_tint_layer(arrow_alpha, NAME_TEXT_COLOR, 1.0))
         if arrow_alpha is not None
         else None,
@@ -533,9 +437,6 @@ def _name_layers(
 
 
 def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
-    """Stamp the name stack onto *art* (the frame composited over the
-    base) and return the result. The layers are static, each cropped to
-    its ink (see :class:`_NameLayers`)."""
     for layer in (parts.rect, parts.sub_rect, parts.title, parts.arrow, parts.sub_top):
         if layer is not None:
             art.alpha_composite(layer[0], layer[1])
@@ -545,15 +446,6 @@ def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
 def _with_copyright(
     base: Image.Image, padding: int, color: tuple[int, int, int, int]
 ) -> Image.Image:
-    """Return a copy of *base* with the copyright line at the bottom left.
-
-    The ink of the text starts ``padding`` pixels from the left edge and
-    is vertically centered inside the box of height ``padding`` at the
-    bottom of the card; its size scales with the card width like the
-    logo. The text is drawn at COPYRIGHT_SUPERSAMPLE times the final
-    size and downscaled with LANCZOS, so the small letters stay evenly
-    spaced.
-    """
     canvas = base.copy()
     font_size = round(COPYRIGHT_NOMINAL_SIZE * base.width / CARD_REFERENCE_WIDTH)
     ss = COPYRIGHT_SUPERSAMPLE
@@ -588,17 +480,10 @@ def _logo_copyright_overlay(
     color: tuple[int, int, int, int],
     logo_top: bool = False,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """Pre-stamp the logo and the copyright line onto a transparent layer.
-
-    The logo sits at the bottom right (or the top right when *logo_top*)
-    and the copyright line at the bottom left, at the same placement as
-    when stamped directly, so the combined layer is cropped to its
-    bounding box; the caller composites the crop onto each frame after the
-    art is in place, keeping the stamps on top of the art.
-
-    Returns the cropped layer and the coordinates at which to composite it
-    on a card of *size*.
-    """
+    """Pre-stamp the logo and the copyright line onto a transparent
+    layer, cropped to its bounding box: the caller composites the crop
+    onto each frame after the art is in place, so the stamps stay on top
+    of the art. Returns the crop and its position."""
     width, height = size
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     overlay = _with_logo(overlay, _scale_logo(logo, width), margin, logo_top)

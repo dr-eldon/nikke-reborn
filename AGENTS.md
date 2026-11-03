@@ -24,6 +24,11 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 - For quick iteration, `generate` a single character (`--ids`) with the
   default settings; avoid `--ultra` (`generate` and `test`) until the very
   end — it renders at native resolution and is much slower.
+- Comments/docstrings cover only what the code does not say:
+  invariants, protocol semantics, units, gotchas. Never values (numbers,
+  named lists, restated defaults) or restated code (step-by-step
+  narration, per-parameter docs). Write each fact once, at its defining
+  site; reference it elsewhere.
 
 ## Don't break (verify with `uv run test ELYSION c010 [--ultra]`)
 

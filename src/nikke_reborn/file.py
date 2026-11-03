@@ -1,12 +1,8 @@
-"""Filesystem helpers shared by the pipeline.
-
-:func:`_save_atomic` saves a finished result through a ``.part`` file
-and atomically moves it into place with its source hash embedded, so a
-result only ever exists in its complete form; :func:`copy` is the
-print-on-copy used when the metadata bundles and the BepInEx tree are
-assembled; :func:`_require_executable` checks the external executables
-against ``PATH`` before a run needs them.
-"""
+"""Filesystem helpers shared by the pipeline: the atomic save of
+finished results (with the source hash embedded, so a result only ever
+exists in its complete form), the print-on-copy used when the metadata
+bundles and the BepInEx tree are assembled, and the check of the
+external executables against PATH."""
 
 from __future__ import annotations
 
@@ -39,8 +35,7 @@ def _require_executable(name: str) -> None:
 def hash_term(digest: hashlib._Hash, data: bytes) -> None:
     """Fold one term into a SHA-256 *digest*: an 8-byte big-endian
     length prefix followed by the term's bytes, so the terms never run
-    into each other (no boundary ambiguity across the concatenated
-    inputs of a source hash)."""
+    into each other."""
     digest.update(len(data).to_bytes(8, "big"))
     digest.update(data)
 
@@ -48,12 +43,10 @@ def hash_term(digest: hashlib._Hash, data: bytes) -> None:
 def _save_atomic(
     image: Image.Image, out_path: Path, source_hash: str | None = None
 ) -> Path:
-    """Save *image* to a ``.part`` file and atomically move it into place.
-
-    A finished card therefore only ever exists in its complete form.
-    *source_hash* is embedded as the SOURCE_HASH_KEY text chunk so a
-    later run can tell the card is up to date.
-    """
+    """Save *image* to a ``.part`` file and atomically move it into
+    place, with *source_hash* embedded as the SOURCE_HASH_KEY text
+    chunk when given: a finished result only ever exists in its
+    complete form, and a later run can tell it is up to date."""
     tmp_path = out_path.with_name(out_path.name + ".part")
     pnginfo = None
     if source_hash is not None:
@@ -89,14 +82,14 @@ def copy(source: pathlib.Path, dest: pathlib.Path, overwrite=False):
 
 
 def _stored_hash(out_path: Path) -> str | None:
-    """The SOURCE_HASH_KEY embedded in a finished card, or None when
-    the file carries no readable tag (older cards, corrupt files)."""
+    """The SOURCE_HASH_KEY embedded in a finished result, or None when
+    the file carries no readable tag (older results, corrupt files)."""
     if out_path.suffix == ".png":
         try:
             with Image.open(out_path) as image:
                 return image.info.get(SOURCE_HASH_KEY)
-        except Exception:  # noqa: BLE001 — older/corrupt cards simply
-            # carry no readable tag: treat the file as stale (None)
+        except Exception:  # noqa: BLE001 — older/corrupt files simply
+            # carry no readable tag
             return None
     try:
         result = subprocess.run(
@@ -138,14 +131,12 @@ def _material_hash(
 ) -> str:
     """The source hash of a finished pack image: the SHA-256 of its
     template, the output preset's scale (mixed in only when it deviates
-    from 1.0, the full-resolution default, so a scale-1.0 material
-    carries exactly the hash the code embedded before scales existed)
-    and — when *front_source* / *back_source* are given — those hashes
-    of the composed front's and back's inputs (see
-    :func:`pack.front_source_hash` / :func:`pack.back_source_hash` /
-    :func:`box.front_source_hash`), every input the result depends on.
-    Using the front's and back's *inputs* rather than their pixels lets
-    the hash be computed without rendering them."""
+    from 1.0, so a scale-1.0 material carries exactly the hash the code
+    embedded before scales existed) and — when *front_source* /
+    *back_source* are given — those hashes of the composed front's and
+    back's inputs: every input the result depends on. Using the
+    front's and back's *inputs* rather than their pixels lets the hash
+    be computed without rendering them."""
     digest = hashlib.sha256()
     if not template.is_file():
         raise GenerationError(f"pack template not found: {template}")
@@ -169,13 +160,12 @@ def _material_output_up_to_date(
     force: bool = False,
     preset: Preset = Preset.DEFAULT,
 ) -> bool:
-    """True when the pack's finished *out_name* already exists and its stored
-    hash matches the current inputs (the template, the output preset's scale
-    and the front's and back's *sources*) — computed without rendering the
-    front or back, so their renders can be skipped when nothing has changed.
-    Always False when *force* is set (everything is re-rendered). The output
-    is looked up in the output preset's set folder
-    (:meth:`Preset.set_path`)."""
+    """True when the pack's finished *out_name* already exists and its
+    stored hash matches the current inputs (the template, the output
+    preset's scale and the front's and back's sources) — computed
+    without rendering the front or back, so their renders can be
+    skipped when nothing has changed. Always False when *force* is
+    set."""
     if force:
         return False
     out_path = preset.set_path(set_name) / out_name
@@ -192,14 +182,11 @@ def _viewer_hash(
     mesh: Path, material: Path, config: Path, preset: Preset = Preset.DEFAULT
 ) -> str:
     """SHA-256 of the item's inputs: the pack's mesh, its generated
-    material (whose bytes change whenever the material does), the viewer
-    configuration (model rotation and camera zoom/pan) and the output
-    size — the viewer's defaults (:data:`ITEM_VIEWER_WIDTH` by
-    :data:`ITEM_VIEWER_HEIGHT`) at the output preset's scale — the size
-    term mixed in only when it deviates from the viewer's own defaults,
-    so an item rendered at the defaults carries exactly the hash the
-    code embedded before sizes existed, and a finished item whose stored
-    hash matches them is up to date."""
+    material, the viewer configuration and the output size (the
+    viewer's defaults at the output preset's scale) — the size term
+    mixed in only when it deviates from the viewer's own defaults, so
+    an item rendered at the defaults carries exactly the hash the code
+    embedded before sizes existed."""
     digest = hashlib.sha256()
     for path in (mesh, material, config):
         if not path.is_file():
@@ -220,13 +207,12 @@ def _viewer_output_up_to_date(
     force: bool = False,
     preset: Preset = Preset.DEFAULT,
 ) -> bool:
-    """True when the viewer's finished *out_path* already exists and its
-    stored hash matches the current *mesh*, *material*, *config* and
-    output size (the viewer's defaults at the output preset's scale) —
-    computed without rendering, so the render can be skipped when
-    nothing has changed. A missing output or input (the material not
-    generated yet) is simply not up to date. Always False when *force*
-    is set (everything is re-rendered)."""
+    """True when the viewer's finished *out_path* already exists and
+    its stored hash matches the current *mesh*, *material*, *config*
+    and output size — computed without rendering, so the render can be
+    skipped when nothing has changed. A missing output or input (the
+    material not generated yet) is simply not up to date. Always False
+    when *force* is set."""
     if force:
         return False
     if not (

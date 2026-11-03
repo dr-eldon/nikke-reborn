@@ -1,20 +1,17 @@
 """The test command: the byte-for-byte regression check for a card.
 
-Generates every presentation the expansion's ``rarities`` select for the
-selected character(s) — each character's full-art, profile and standard
-cards (with the animated cards' first-frame PNGs) — plus the expansion's
-pack and box materials and items, with a forced, single-worker
-:func:`generate.run`, and
-compares the finished files' SHA-256 against the recorded baselines
-under ``tests/baselines/<set>/`` (one per character —
-``<card>.<preset>.sha256`` — and one for the expansion's pack and box —
-``expansion.<preset>.sha256``). The run always forces the re-render (the
-check is against what the current code produces, not against files that
-happen to be up to date) and uses one worker: the byte protocol — the
-same code, inputs and worker count must produce the same bytes (the
-x264 threading must match for the MP4s to be byte-comparable).
-``--new-baseline`` records (overwrites) the baselines from the run's
-outputs instead of comparing.
+Generates every presentation the expansion's ``rarities`` select for
+the selected character(s) — each character's full-art, profile and
+standard cards (with the animated cards' first-frame PNGs) — plus the
+expansion's pack and box materials and items, with a forced,
+single-worker :func:`generate.run`, and compares the finished files'
+SHA-256 against the recorded baselines under
+``tests/baselines/<set>/``. The run always forces the re-render and
+uses one worker: the byte protocol — the same code, inputs and worker
+count must produce the same bytes (the x264 threading must match for
+the MP4s to be byte-comparable). ``--new-baseline`` records
+(overwrites) the baselines from the run's outputs instead of
+comparing.
 """
 
 from __future__ import annotations
@@ -147,9 +144,9 @@ def _parse_args() -> argparse.Namespace:
         "--ultra",
         action="store_true",
         help=(
-            "the ultra preset: the native resolution, written to the "
-            "'<set> (Ultra)' set folders (the default preset — the half "
-            "resolution, output/ — is checked otherwise)"
+            "the ultra preset (the native resolution, written to the "
+            "'<set> (Ultra)' set folders; the default preset is checked "
+            "otherwise)"
         ),
     )
     parser.add_argument(

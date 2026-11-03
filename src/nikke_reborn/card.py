@@ -1,8 +1,6 @@
 """The card's identity and its work: the per-presentation source hash
-(embedded in a finished card so it is skipped when nothing changed), the
-card's output path (``<card's stem>_<presentation>`` under the output
-preset's set folder), the character's manufacturer's logo (its name from
-the game's data, the base character's when the id is suffixed), and the
+(embedded in a finished card so it is skipped when nothing changed),
+the card's output path, the character's manufacturer's logo, and the
 run's selection (the expansions' presentations, filtered by the
 characters the caller named)."""
 
@@ -39,7 +37,7 @@ PADDING = 50
 
 
 def padding(preset: Preset) -> int:
-    """The run's padding (the card's 50px native padding at the run's
+    """The run's padding (the card's native padding at the run's
     scale), rounded to the px."""
     return round(PADDING * preset.scale)
 
@@ -62,9 +60,9 @@ def output_path(
     suffix: str,
     preset: Preset,
 ) -> Path:
-    """A card's finished output path: ``<card's stem>_<presentation>.<suffix>``
-    under the output preset's set folder (``output/<set>/`` at default,
-    ``output/<set> (Ultra)/`` at ultra)."""
+    """A card's finished output path:
+    ``<card's stem>_<presentation>.<suffix>`` under the output preset's
+    set folder."""
     return preset.set_path(set_name) / f"{card_stem}_{presentation}.{suffix}"
 
 
@@ -97,15 +95,14 @@ def _manufacturer_logo(card_id: str) -> Image.Image | None:
 def presentation_source_hash(presentation: expansion.Presentation, preset: Preset) -> str:
     """The SHA-256 of a presentation's inputs — everything the finished
     card depends on: the expansion's file, the card's stem, the
-    presentation's name and its viewer terms (the variant, the animation,
-    the time and the framing, in canonical form), the background's bytes
-    (the solid black's marker for the goddess presentation), the mask's
-    bytes, the NIKKE logo's face, the manufacturer's logo (when the
-    character has one), the game's data (``characters.json`` and
-    ``models.json`` — the name, the rarity and the manufacturer come
-    from them) and the fonts the lettering stamps — plus the run's scale
-    (mixed in only when it deviates from 1.0, the full-resolution
-    default, so an ultra card's hash is the canonical one)."""
+    presentation's name and its viewer terms (in canonical form), the
+    background's bytes (the solid black's marker for the goddess
+    presentation), the mask's bytes, the NIKKE logo's face, the
+    manufacturer's logo (when the character has one), the game's data
+    (``characters.json`` and ``models.json``) and the fonts the lettering
+    stamps — plus the run's scale (mixed in only when it deviates from
+    1.0, the full-resolution default, so an ultra card's hash is the
+    canonical one)."""
     digest = hashlib.sha256()
     card = presentation.card
     hash_term(digest, presentation.expansion.path.read_bytes())
@@ -131,8 +128,6 @@ def presentation_source_hash(presentation: expansion.Presentation, preset: Prese
         hash_term(digest, STANDARD_MASK_PATH.read_bytes())
     elif presentation.mask == "profile":
         hash_term(digest, PROFILE_MASK_PATH.read_bytes())
-    # The logo's face: the white logo on the full-art cards, the black one
-    # on the standard's and profile's.
     hash_term(digest, LOGO_PATHS[presentation.tier != "full"].read_bytes())
     logo_path = _manufacturer_logo_path(card.id)
     if logo_path is not None:
@@ -145,13 +140,6 @@ def presentation_source_hash(presentation: expansion.Presentation, preset: Prese
     if scale != 1.0:
         hash_term(digest, f"{scale:g}".encode())
     return digest.hexdigest()
-
-
-# ---------------------------------------------------------------------------
-# The run's selection: the expansions (resolved from the caller's paths,
-# every expansion when none are given) and their presentations (the
-# characters' fixed sets, filtered by the ids the caller named).
-# ---------------------------------------------------------------------------
 
 
 def select_expansions(paths: list[str] | None) -> list[expansion.Expansion]:

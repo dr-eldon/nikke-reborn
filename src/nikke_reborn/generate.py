@@ -81,13 +81,6 @@ def run(argv: list[str] | None = None) -> None:
     )
     try:
         expansions = card.select_expansions(args.paths)
-        # The run's work: the selected expansions' cards' presentations
-        # (the expansions' rarities subsets, the goddess presentation
-        # dropped for the characters without the sc variant), filtered to
-        # the characters the caller named. Every selected character is
-        # resolved against the viewer (its variants, its reel's
-        # animation) before anything is rendered, so a character that
-        # cannot render a presentation fails before the run starts.
         presentations = card.build_selection(expansions, args.ids)
         if no_profile:
             print("Skipping the profile pass (--no-profile).")
@@ -136,13 +129,12 @@ def _default_jobs() -> int:
 
 
 def _stage_threads(jobs: int, total: int, no_video: bool) -> tuple[int, int]:
-    """``(ffmpeg_threads, composite_workers)`` for a run of *jobs* workers
-    over *total* outputs: the split of the cores available to each card
-    between the stages that run in parallel — the frame compositing and
-    the ffmpeg encode: half each (at least 2 each, capped at
-    :data:`MAX_STAGE_THREADS`) — or all of it to the compositing when
-    there is no encode (*no_video*): the returned encode count is then a
-    placeholder the encode never sees."""
+    """``(ffmpeg_threads, composite_workers)`` for a run of *jobs*
+    workers over *total* outputs: the split of the cores available to
+    each card between the stages that run in parallel — the frame
+    compositing and the ffmpeg encode — half each (or all of it to the
+    compositing when there is no encode (*no_video*); the returned
+    encode count is then a placeholder the encode never sees)."""
     per_card = (os.cpu_count() or 1) // max(1, min(jobs, total))
     if no_video:
         return 1, max(2, min(MAX_STAGE_THREADS, per_card))
@@ -152,9 +144,8 @@ def _stage_threads(jobs: int, total: int, no_video: bool) -> tuple[int, int]:
 
 
 def _run_notes(preset: Preset, no_video: bool) -> str:
-    """The run-mode notes for the ``Rendering ...`` line — the draft's
-    x264 preset and the skipped MP4 (``--no-video``) — as ``', x264
-    preset ..., (draft)'``; ultra runs carry an ``(ultra)`` suffix."""
+    """The run-mode notes for the ``Rendering ...`` line (the draft's
+    x264 preset, the skipped MP4) and the run-mode suffix."""
     notes = []
     if preset is Preset.DRAFT:
         notes.append(f"x264 preset '{preset.x264_preset}'")
@@ -201,8 +192,6 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=_default_jobs(),
         help="number of cards to process in parallel (default: %(default)s)",
     )
-    # --draft and --ultra pick the run mode (its output scale, its
-    # output root and its encoding settings): one run, one mode.
     run_mode = parser.add_mutually_exclusive_group()
     run_mode.add_argument(
         "--draft",
@@ -262,9 +251,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _timings_suffix(timings: dict[str, float | None] | None) -> str:
-    """The per-stage timings as a ``(render 1.20s, composite 0.30s,
-    encode 0.85s, total 2.10s)``-style suffix; empty for results that
-    carry none."""
+    """The per-stage timings as a parenthesized suffix (``stage 1.20s``
+    per stage); empty for results that carry none."""
     if not timings:
         return ""
     parts = [
@@ -284,18 +272,15 @@ def _generate_profiles(
     force: bool = False,
     no_video: bool = False,
 ) -> None:
-    """Render the profile presentations (the ``Classic``, ``Idle``,
-    ``Cover`` and ``Aim`` presentations, on the profile's mask) in a pool
-    of worker processes. No pack artwork or metadata is produced.
+    """Render the profile presentations in a pool of worker processes.
+    No pack artwork or metadata is produced.
 
-    With *no_video* (``--no-video``) the animated profile cards skip their
-    MP4 and write out their first frame (PNG) alone — and the run needs
-    only the viewer, no ffmpeg.
+    With *no_video* the animated profile cards skip their MP4 and write
+    out their first frame (PNG) alone — and the run needs only the
+    viewer, no ffmpeg.
     """
     _require_executable(VIEWER)
     if not no_video:
-        # The encode (and the mp4's stored-hash probe) are the run's only
-        # ffmpeg users; a --no-video run needs the viewer alone.
         _require_executable(ENCODER)
         _require_executable(PROBER)
     if not presentations:
@@ -303,8 +288,6 @@ def _generate_profiles(
         return
     start = time.monotonic()
     total = len(presentations)
-    # The per-presentation split of the cores between the stages that run
-    # in parallel (see _stage_threads).
     ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
     notes_text = _run_notes(preset, no_video)
     print(
@@ -318,9 +301,6 @@ def _generate_profiles(
     done = 0
     skipped = 0
     with ProcessPoolExecutor(max_workers=jobs) as pool:
-        # Report one finished future. Failures are collected here and reported
-        # (the run exits non-zero) once everything has had its turn, so one
-        # bad presentation never aborts the rest.
         def report(future: Future[_Result], label: str) -> None:
             nonlocal done, skipped
             done += 1
@@ -388,18 +368,15 @@ def _generate_standards(
     force: bool = False,
     no_video: bool = False,
 ) -> None:
-    """Render the standard presentations (the ``Classic``, ``Special`` and
-    ``Exotic`` presentations, on the standard's mask) in a pool of worker
-    processes. No pack artwork or metadata is produced.
+    """Render the standard presentations in a pool of worker processes.
+    No pack artwork or metadata is produced.
 
-    With *no_video* (``--no-video``) the animated standard cards skip their
-    MP4 and write out their first frame (PNG) alone — and the run needs
-    only the viewer, no ffmpeg.
+    With *no_video* the animated standard cards skip their MP4 and write
+    out their first frame (PNG) alone — and the run needs only the
+    viewer, no ffmpeg.
     """
     _require_executable(VIEWER)
     if not no_video:
-        # The encode (and the mp4's stored-hash probe) are the run's only
-        # ffmpeg users; a --no-video run needs the viewer alone.
         _require_executable(ENCODER)
         _require_executable(PROBER)
     if not presentations:
@@ -407,8 +384,6 @@ def _generate_standards(
         return
     start = time.monotonic()
     total = len(presentations)
-    # The per-presentation split of the cores between the stages that run
-    # in parallel (see _stage_threads).
     ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
     notes_text = _run_notes(preset, no_video)
     print(
@@ -422,9 +397,6 @@ def _generate_standards(
     done = 0
     skipped = 0
     with ProcessPoolExecutor(max_workers=jobs) as pool:
-        # Report one finished future. Failures are collected here and reported
-        # (the run exits non-zero) once everything has had its turn, so one
-        # bad presentation never aborts the rest.
         def report(future: Future[_Result], label: str) -> None:
             nonlocal done, skipped
             done += 1
@@ -494,31 +466,25 @@ def _generate_variants(
     no_video: bool = False,
     selected: bool = False,
 ) -> None:
-    """Process the full-art presentations (the ``Classic``, ``Special``,
-    ``Exotic`` and ``Goddess`` presentations, no mask) in a pool of worker
-    processes, and the selected expansions' pack and box materials and
-    items (the expansion in scope renders its pack and box).
+    """Process the full-art presentations in a pool of worker processes,
+    and the selected expansions' pack and box materials and items (the
+    expansion in scope renders its pack and box).
 
-    With *no_video* (``--no-video``) the animated cards skip their MP4 and
-    write out their first frame (PNG) alone — and the run needs only the
-    viewer, no ffmpeg.
+    With *no_video* the animated cards skip their MP4 and write out
+    their first frame (PNG) alone — and the run needs only the viewer,
+    no ffmpeg.
     """
 
     _require_executable(VIEWER)
     if not no_video:
-        # The encode (and the mp4's stored-hash probe) are the run's only
-        # ffmpeg users; a --no-video run needs the viewer alone.
         _require_executable(ENCODER)
         _require_executable(PROBER)
     start = time.monotonic()
-    # Compose each pack's fronts in the main process: its featured NIKKES
-    # are GPU-rendered here, so a front is produced once per material that
-    # needs it (the pack's front for the pack's material, the box's front —
-    # a different size — for the box's material). They are transient —
-    # composed on the fly from the expansion's TOML and never written to
-    # disk. The fronts' inputs are hashed up front (without rendering
-    # them), so the renders are skipped entirely when the materials and
-    # the items — the pack's and the box's — are all already up to date.
+    # Compose each pack's and box's fronts in the main process (they are
+    # transient — composed on the fly, never written to disk). The
+    # fronts' inputs are hashed up front (without rendering them), so
+    # the renders are skipped entirely when the materials and the items
+    # are all already up to date.
 
     material_needs: set[str] = set()
     item_needs: set[str] = set()
@@ -536,8 +502,6 @@ def _generate_variants(
         front_source = pack.front_source_hash(exp)
         back_source = pack.back_source_hash(exp)
         box_front_source = box.front_source_hash(exp)
-        # The run's set folder (the "<set> (Ultra)" twin for the ultra
-        # preset).
         set_path = preset.set_path(exp.name)
         material_ok = _material_output_up_to_date(
             PACK_TEMPLATE,
@@ -583,10 +547,8 @@ def _generate_variants(
             box_needs.add(exp.name)
         if not box_item_ok:
             box_item_needs.add(exp.name)
-        # The materials need the composed fronts (the item is rendered by
-        # unity-viewer from the material's output file): the pack's front
-        # and back, and the box's front — its own size, the box template's
-        # blue rectangle, so its own composition.
+        # The materials need the composed fronts; the items are rendered
+        # by unity-viewer from the material's output file.
         if not material_ok:
             fronts[exp.name] = pack.build_front(exp, pack.front_size())
             front_sources[exp.name] = front_source
@@ -604,8 +566,6 @@ def _generate_variants(
         + len(box_needs)
         + len(box_item_needs)
     )
-    # The per-presentation split of the cores between the stages that run
-    # in parallel (see _stage_threads).
     ffmpeg_threads, composite_workers = _stage_threads(jobs, total, no_video)
     notes_text = _run_notes(preset, no_video)
     what = f"{len(presentations)} full-art card(s)" + (
@@ -688,9 +648,9 @@ def _generate_variants(
             for p in presentations
         }
         # The item is rendered from the material's output file, so each
-        # expansion's item starts only after its material has finished.
-        # Expansions whose material is already up to date need no wait:
-        # their item renders from the material that is already on disk.
+        # expansion's item starts only after its material has finished;
+        # the items of the expansions whose material is already up to
+        # date start at once, from the material on disk.
         exp_by_name = {e.name: e for e in expansions}
         item_futures: dict[Future[tuple[Path, bool]], str] = {
             pool.submit(

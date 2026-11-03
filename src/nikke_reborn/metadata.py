@@ -14,13 +14,13 @@ BUNDLE_NAME = "NIKKE_REBORN"
 
 
 def write(preset: Preset = Preset.DEFAULT) -> None:
-    """Write each expansion's metadata bundle (``<out>/<set>.json``) and
-    copy the set's shared assets (foilmask, cardback, box mesh, shop
-    images) to ``<out>/<set>/``. An ultra run writes them to the
+    """Write each expansion's metadata bundle (``<out>/<set>.json``)
+    and copy the set's shared assets (foilmask, cardback, box mesh,
+    shop images) to ``<out>/<set>/``. An ultra run writes them to the
     ``<set> (Ultra)`` set folder and ``<set> (Ultra).json`` instead, so
-    the ultra set folders are self-contained and parallel to the default
-    ones; a draft run writes them to ``draft/`` instead of ``output/``
-    (the preset's output root, :meth:`Preset.set_path`)."""
+    the ultra set folders are self-contained and parallel to the
+    default ones; a draft run writes them to ``draft/`` instead of
+    ``output/`` (the preset's output root, :meth:`Preset.set_path`)."""
     for exp in expansion_mod.find_expansions():
         out_set = preset.set_path(exp.name)
 
@@ -49,17 +49,12 @@ def write(preset: Preset = Preset.DEFAULT) -> None:
 
 
 def cards(exp: expansion_mod.Expansion) -> list[dict]:
-    """The card entries of *exp*'s metadata bundle: every character of the
-    expansion, expanded into the presentations the pipeline renders (the
-    expansion's ``rarities`` subset — the standard's, the profile's and
-    the full-art's presentations, the goddess presentation dropped for
-    the characters without the ``sc`` variant and the two special
-    presentations dropped for the characters without a reel animation —
-    see :func:`nikke_reborn.expansion.presentations_for`), each carrying
-    the character's rarity (the base character's when the id is
-    suffixed). Shared by :func:`write` (which writes each set's bundle to
-    the output directory) and :mod:`nikke_reborn.simulation` (which
-    simulates pack openings against the current tuning)."""
+    """The card entries of *exp*'s metadata bundle: every character of
+    the expansion, expanded into the presentations the pipeline renders
+    (see :func:`nikke_reborn.expansion.presentations_for`), each
+    carrying the character's rarity (the base character's when the id
+    is suffixed). Shared by :func:`write` and
+    :mod:`nikke_reborn.simulation`."""
     cards = []
     for entry in exp.cards:
         info = expansion_mod.resolve_character(entry)
@@ -184,8 +179,7 @@ def pack(set, rarities) -> dict:
             "Goddess": goddess,
             "Classified": classified,
         }
-        # Only the rarities the set generates stay in the slot's table
-        # (the remaining weights renormalize over the set's rarities).
+        # Keep only the rarities the set generates in the slot's table.
         return {
             rarity: weight
             for rarity, weight in weights.items()
@@ -306,8 +300,8 @@ def _card(name, variant, rarity, sprite) -> dict:
     border = VARIANT_BORDER[variant]
     bonus = RARITY_BONUS[rarity]
 
-    # Half-up: round() would round the exact halves (SR at border 2, SSR
-    # at border 4) to even instead of up.
+    # Half-up: round() would round the exact halves to even instead of
+    # up.
     bonus = math.floor(bonus / border + 0.5) if border > 0 else bonus
 
     border = BORDERS[

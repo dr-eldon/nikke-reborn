@@ -1,20 +1,14 @@
 """Build Unity AssetBundles without Unity.
 
-The pipeline used to drive the Unity editor (an ExpansionBuilder project) to import each
-PNG as a BC7 Texture2D (+ Sprite), create a Standard-shader Material for every `*_Material`
-texture, and pack them into a per-set AssetBundle. This reproduces that output with UnityPy
-so the pipeline no longer needs Unity (and its licensing, Windows-only, DLL and caching
-problems).
-
-The bundles are consumed by TCG Card Shop Simulator (Unity 2021.3.38f1). We can't author
-a byte-identical file, but the game resolves assets by name/container path, so a
-structurally faithful bundle loads the same. UnityPy also can't author a SerializedFile
-from nothing, so we build on top of `seed.bundle` -- a ~47 KB distillation of a real
-Unity-built bundle holding the container scaffolding, the embedded built-in Standard
-shader, and one prototype of each object type. We clone those prototypes (so Unity's
-field defaults come along for free) and override only what matters: name, image, size,
-and the PPtr wiring between them.
-"""
+The bundles are consumed by TCG Card Shop Simulator: the game resolves
+assets by name/container path, so a structurally faithful bundle loads
+the same. UnityPy can't author a SerializedFile from nothing, so we
+build on top of ``seed.bundle`` — a distillation of a real
+Unity-built bundle holding the container scaffolding, the embedded
+built-in Standard shader, and one prototype of each object type. We
+clone those prototypes (so Unity's field defaults come along for free)
+and override only what matters: name, image, size, and the PPtr wiring
+between them."""
 
 from __future__ import annotations
 
@@ -35,28 +29,25 @@ from UnityPy.files.BundleFile import BundleFile
 from UnityPy.files.ObjectReader import ObjectReader
 from UnityPy.files.SerializedFile import SerializedFile
 
-# UnityPy cannot author a SerializedFile from nothing, so we ship a ~47 KB seed bundle:
-# the irreducible container scaffolding plus one prototype of each object we build
-# (Texture2D/Sprite/Material) and the built-in Standard shader materials bind to. It was
-# distilled once from a real Unity-built bundle; see scripts/distill_seed.py.
+# The seed bundle (see the module docstring; distilled by
+# scripts/distill_seed.py).
 SEED = importlib.resources.files(__package__) / "seed.bundle"
 
-# GPU format Builder.cs bakes with (TextureImporterFormat.BC7, best quality). BC7 is
-# 1 byte/px; UnityPy encodes it via etcpak.compress_bc7.
+# The GPU format the original Builder baked in; UnityPy encodes it via
+# etcpak.compress_bc7.
 TEXTURE_FORMAT = TextureFormat.BC7
 
-# Sprite import default Unity used (pixels-per-unit 100); centre pivot / extrude come
-# from the prototype unchanged.
+# The sprite import default Unity used (pixels per unit); the pivot and
+# extrude come from the prototype unchanged.
 SPRITE_PIXELS_TO_UNITS = 100.0
 
-# Builder.GenerateMaterials created a Standard material for every `*_Material` texture.
-# Those become Texture2D + Material; every other PNG becomes Texture2D + Sprite.
+# The suffix that marks a texture that also gets a Standard material
+# (Texture2D + Material); every other PNG is Texture2D + Sprite.
 MATERIAL_SUFFIX = "_Material"
 
-# Static card art comes from an already-encoded source texture that `bundle` only relocates.
-# To avoid a lossy decode->PNG->re-encode round-trip, `extract` stashes the source texture
-# (format + dimensions + raw bytes) verbatim in this private PNG chunk, and `build` embeds it
-# untouched. Private/ancillary/safe-to-copy PNG chunk name, so it survives a byte copy.
+# The private PNG chunk `extract` stashes an already-encoded source
+# texture in (format + dimensions + raw bytes), so `build` can embed it
+# untouched — avoiding a lossy decode -> PNG -> re-encode round-trip.
 RAW_TEXTURE_CHUNK = b"nkTx"
 
 
@@ -67,7 +58,8 @@ def pack_raw_texture(
 
 
 def read_raw_texture(png: pathlib.Path):
-    """Return (format, width, height, data) from a PNG's raw-texture chunk, or None."""
+    """(format, width, height, data) from a PNG's raw-texture chunk, or
+    None."""
     blob = png.read_bytes()
     if blob[:8] != b"\x89PNG\r\n\x1a\n":
         return None
@@ -84,23 +76,23 @@ def read_raw_texture(png: pathlib.Path):
 
 
 def compress_texture(image: Image.Image) -> tuple[int, bytes]:
-    """Compress an RGBA image to GPU texture bytes the way Unity's importer does.
+    """Compress an RGBA image to GPU texture bytes the way Unity's
+    importer does.
 
-    BC7 (like all block formats) needs both dimensions to be multiples of 4. Unity
-    falls back to uncompressed RGBA32 otherwise -- as the source assets confirm -- so
-    match that: forcing BC7 would pad the block grid and store a texture the game's
-    runtime never sees Unity produce (and lose quality, since RGBA32 is lossless).
-    The encoding is delegated to UnityPy's Texture2DConverter, so the bytes are
-    identical to what ``Texture2D.set_image`` would write for the same image.
-    """
+    Block formats need both dimensions to be multiples of 4; otherwise
+    Unity falls back to uncompressed RGBA32, so match that — forcing BC7
+    would store a texture Unity never produces (and lose quality: RGBA32
+    is lossless). The encoding is delegated to UnityPy's
+    Texture2DConverter, so the bytes are identical to what
+    ``Texture2D.set_image`` would write for the same image."""
     width, height = image.size
     fmt = TEXTURE_FORMAT if (width % 4 == 0 and height % 4 == 0) else TextureFormat.RGBA32
     data, _ = Texture2DConverter.image_to_texture2d(image, fmt)
     return int(fmt), data
 
 
-# Unity's mesh vertex layout for an imported model: position + normal + tangent + uv0,
-# interleaved as floats (channels 0/1/2/4), 48-byte stride. Matches the seed's mesh prototype.
+# Unity's imported-model mesh vertex layout (position, normal, tangent,
+# uv0); matches the seed's mesh prototype.
 VERTEX_STRIDE = 48
 
 
@@ -136,12 +128,13 @@ def _parse_obj(path: pathlib.Path):
 def build_mesh_buffers(path: pathlib.Path):
     """Convert a Wavefront .obj to Unity mesh buffers.
 
-    Returns (vertex_count, vertex_bytes, index_bytes, index_count, index_format, center,
-    extent). Unity's importer converts the .obj's right-handed Y-up space to its own
-    left-handed system; we negate X and reverse triangle winding to match. Tangents are a
-    placeholder -- figurine materials sample only albedo. NOTE: the axis/winding is the one
-    thing that needs an in-game check; flip it here if a figurine renders mirrored/inside-out.
-    """
+    Returns (vertex_count, vertex_bytes, index_bytes, index_count,
+    index_format, center, extent). Unity's importer converts the .obj's
+    right-handed Y-up space to its own left-handed system: we negate X
+    and reverse triangle winding to match. Tangents are a placeholder
+    (figurine materials sample only albedo). NOTE: the axis/winding is
+    the one thing that needs an in-game check; flip it here if a
+    figurine renders mirrored/inside-out."""
     positions, normals, uvs, faces = _parse_obj(path)
 
     seen: dict = {}
@@ -230,26 +223,27 @@ class Bundle:
         self._protos = self._extract_prototypes()
         self._manifest = self._find(lambda o: o.type.name == "AssetBundle")
 
-        # Assign PathIDs that can't collide with the objects we keep (shader + manifest).
+        # Assign PathIDs that can't collide with the objects we keep
+        # (shader + manifest).
         self._next_path_id = max(self._sf.objects) + 1
 
-        # Start from a clean slate: keep only the manifest and the Standard shader,
-        # drop every Pokémon-specific object. We re-add our own below.
+        # Start from a clean slate: keep only the manifest and the
+        # Standard shader, drop every seed-specific object (we re-add our
+        # own below).
         keep = {self._manifest.path_id, self._protos.shader_path_id}
         self._sf.objects = {
             path_id: obj for path_id, obj in self._sf.objects.items() if path_id in keep
         }
 
-        # Rebuild the bundle's file table with exactly one entry: our SerializedFile under a
-        # unique internal name. Two things happen here:
-        #  * The reference's `.resS` resource stream is dropped (~all its texture pixel data
-        #    lives there via m_StreamData). Our textures store data inline via set_image, so
-        #    nothing references the stream and carrying it would bloat the bundle to ~240 MB.
-        #  * The `CAB-<hash>` archive name is made unique per bundle. Every bundle is cloned
-        #    from one seed, so they'd otherwise all share the seed's name -- and Unity keys
-        #    loaded SerializedFiles by that name, silently refusing to load a second bundle
-        #    whose name it already holds (only the first of ours would load at runtime).
-        # blake2b is just a stable Unity-style identifier here, not a security hash.
+        # Rebuild the bundle's file table with one entry: our
+        # SerializedFile under a unique internal name. Two things happen
+        # here: the seed's `.resS` resource stream is dropped (our
+        # textures store data inline, and carrying the stream would bloat
+        # the bundle), and the `CAB-<hash>` archive name is made unique
+        # per bundle — Unity keys loaded SerializedFiles by that name and
+        # silently refuses to load a second bundle whose name it already
+        # holds. blake2b is just a stable Unity-style identifier here,
+        # not a security hash.
         cab = "CAB-" + hashlib.blake2b(name.encode(), digest_size=16).hexdigest()
         self._bundle_file.files = {cab: self._sf}
 
@@ -262,8 +256,8 @@ class Bundle:
     def _extract_prototypes(self) -> Prototypes:
         texture = self._find(lambda o: o.type.name == "Texture2D")
         sprite = self._find(lambda o: o.type.name == "Sprite")
-        # `defaultMat` is the one reference material bound to the built-in Standard shader
-        # (the others use a third-party shader Nikke doesn't use).
+        # `defaultMat`: the one reference material bound to the built-in
+        # Standard shader.
         material = self._find(
             lambda o: o.type.name == "Material" and o.read().m_Name == "defaultMat"
         )
@@ -272,8 +266,9 @@ class Bundle:
         mesh = self._find(lambda o: o.type.name == "Mesh")
         mesh_filter = self._find(lambda o: o.type.name == "MeshFilter")
         mesh_renderer = self._find(lambda o: o.type.name == "MeshRenderer")
-        # The child carries the mesh (Transform + MeshFilter + MeshRenderer); the root just
-        # parents it (Transform only) and is the asset the game loads by name.
+        # The child carries the mesh (Transform + MeshFilter +
+        # MeshRenderer); the root just parents it (Transform only) and is
+        # the asset the game loads by name.
         objects = [o for o in self._sf.objects.values() if o.type.name == "GameObject"]
         child_object = next(o for o in objects if len(o.read().m_Component) == 3)
         root_object = next(o for o in objects if len(o.read().m_Component) == 1)
@@ -377,14 +372,15 @@ class Bundle:
         return obj
 
     def add_mesh(self, name: str, obj_path: pathlib.Path):
-        """Build a figurine model from a .obj: a Mesh and the GameObject hierarchy Unity
-        imports for it. Returns (root_object, objects) -- the root GameObject is what the
-        game loads by `name`; `objects` is the whole graph, for the container preload.
+        """Build a figurine model from a .obj: a Mesh and the GameObject
+        hierarchy Unity imports for it. Returns (root_object, objects) —
+        the root GameObject is what the game loads by `name`; `objects`
+        is the whole graph, for the container preload.
 
-        The MeshRenderer gets a placeholder `defaultMat` (what Unity's importer assigns to
-        a material-less .obj); the figurine's real material lives as a separate asset that
-        the mod loader applies at runtime from its JSON, so we don't wire it here.
-        """
+        The MeshRenderer gets a placeholder `defaultMat` (what Unity's
+        importer assigns to a material-less .obj); the figurine's real
+        material is a separate asset the loader applies at runtime, so it
+        is not wired here."""
         mesh = self._clone(self._protos.mesh)
         mesh_filter = self._clone(self._protos.mesh_filter)
         mesh_renderer = self._clone(self._protos.mesh_renderer)
@@ -469,13 +465,12 @@ class Bundle:
     def _prune_types(self) -> None:
         """Drop m_Types entries for classes no surviving object uses.
 
-        Bundles are cloned from one seed whose SerializedFile declares every prototype class
-        (Mesh, GameObject, MeshFilter, MeshRenderer, Transform, ...). Dropping the prototype
-        *objects* leaves those declarations behind in m_Types -- harmless at load time, but
-        they surface as phantom entries in tools (e.g. AssetStudio's "Asset Classes" tab) and
-        don't match what Unity emits. Rebuild m_Types from the types still in use and reindex
-        each object's type_id (an index into m_Types for these files).
-        """
+        The seed declares every prototype class; dropping the prototype
+        *objects* leaves the declarations behind — harmless at load time,
+        but they surface as phantom entries in tools and don't match what
+        Unity emits. Rebuild m_Types from the types still in use and
+        reindex each object's type_id (an index into m_Types for these
+        files)."""
         used = sorted({obj.type_id for obj in self._sf.objects.values()})
         remap = {old: new for new, old in enumerate(used)}
         self._sf.types = [self._sf.types[old] for old in used]
@@ -489,8 +484,8 @@ class Bundle:
     def save(self, output: pathlib.Path):
         from UnityPy.classes import AssetInfo, PPtr
 
-        # Unity omits the Standard shader from bundles with no materials (e.g. the animated
-        # frame bundles). Drop our seed shader when nothing references it so we match.
+        # Unity omits the Standard shader from bundles with no materials;
+        # drop the seed shader when nothing references it, to match.
         has_material = any(o.type.name == "Material" for o in self._sf.objects.values())
         if not has_material:
             self._sf.objects.pop(self._protos.shader_path_id, None)
@@ -510,9 +505,9 @@ class Bundle:
                 PPtr(m_FileID=0, m_PathID=o.path_id, assetsfile=self._sf)
                 for o in preload
             )
-            # attrs generates AssetInfo.__init__ at runtime, so the checker
-            # can't see its signature; the kwargs match the class's fields
-            # (UnityPy.classes.AssetInfo: asset, preloadIndex, preloadSize).
+            # attrs generates AssetInfo.__init__ at runtime, so the
+            # checker can't see its signature; the kwargs match the
+            # class's fields.
             # ty: ignore[unknown-argument]
             info = AssetInfo(
                 preloadIndex=index,
@@ -531,11 +526,9 @@ class Bundle:
 
 
 def progress(items: list, label: str):
-    """Yield each of `items`, reporting `label: done/total (pct%)` as it goes.
-
-    In a terminal the line updates in place via a carriage return; CI logs don't collapse
-    those, so there it prints once per percent instead of once per item.
-    """
+    """Yield each of `items`, reporting `label: done/total (pct%)` as it
+    goes: in place via a carriage return in a terminal, once per
+    percent in a CI log."""
     total = len(items)
 
     if not total:
@@ -558,15 +551,15 @@ def progress(items: list, label: str):
 
 
 def parallel_map(items: list, worker, label: str, workers: int | None = None) -> list:
-    """Run `worker(item)` over `items` across a process pool, returning the results
-    in input order and reporting progress as items complete.
+    """Run `worker(item)` over `items` across a process pool, returning
+    the results in input order and reporting progress as items complete.
 
-    A process pool, not threads: the payload here (the BC7 encode) holds the GIL while
-    it searches for each block's best mode, so threads would serialize it. `worker` and
-    each item must be picklable (a module-level function, plain data). Progress is
-    printed the same way as `progress`, just keyed off completion order rather than
-    iteration order. The first worker exception is re-raised. Defaults to one worker
-    per CPU; the pool spawns lazily, so more workers than items costs nothing.
+    A process pool, not threads: the payload here (the BC7 encode) holds
+    the GIL while it searches for each block's best mode, so threads
+    would serialize it. `worker` and each item must be picklable.
+    Progress prints as in `progress`, keyed off completion order. The
+    first worker exception is re-raised; one worker per CPU by default
+    (the pool spawns lazily, so more workers than items costs nothing).
     """
     total = len(items)
 
@@ -602,13 +595,11 @@ def parallel_map(items: list, worker, label: str, workers: int | None = None) ->
 
 
 def _texture_payload(asset: pathlib.Path) -> tuple[int, int, int, bytes]:
-    """The (format, width, height, bytes) `asset` embeds into the bundle.
-
-    Already-encoded textures pass through the `nkTx` chunk verbatim; every other PNG is
-    decoded and compressed the way Unity's importer does (see `compress_texture`).
-    Runs in a worker process: it touches only `asset` and fresh per-call state, and is
-    picklable (module-level, plain arguments and result).
-    """
+    """The (format, width, height, bytes) `asset` embeds into the
+    bundle: already-encoded textures pass through the raw chunk
+    verbatim, every other PNG is decoded and compressed the way Unity's
+    importer does. Runs in a worker process (picklable, fresh per-call
+    state)."""
     raw = read_raw_texture(asset)
     if raw is not None:
         return raw
@@ -626,27 +617,29 @@ def build(
     set_name: str | None = None,
     jobs: int | None = None,
 ) -> None:
-    """Build one AssetBundle named `name` from the PNGs under `assets_dir`.
+    """Build one AssetBundle named `name` from the PNGs under
+    `assets_dir`.
 
-    Mirrors Unity's Builder.Run: `*_Material` PNGs become Texture2D + Standard Material,
-    every other PNG becomes Texture2D + Sprite. Container paths are `assets/<set_name>/`
-    + the path relative to `assets_dir`, lowercased -- exactly what Unity emitted when
-    the set's folder was copied into the project's Assets/ -- so the game resolves assets
-    the same. `set_name` defaults to `assets_dir.name` (the set folder the assets live
-    in); pass it when the on-disk folder differs from the set's identity (the ultra run's
-    `<set> (Ultra)` twin keeps the base set's names and container paths).
+    Mirrors Unity's Builder.Run: `*_Material` PNGs become Texture2D +
+    Standard Material, every other PNG becomes Texture2D + Sprite.
+    Container paths are `assets/<set_name>/` + the path relative to
+    `assets_dir`, lowercased — exactly what Unity emitted — so the game
+    resolves assets the same. `set_name` defaults to `assets_dir.name`;
+    pass it when the on-disk folder differs from the set's identity
+    (the ultra run's twin keeps the base set's names and container
+    paths).
 
-    `jobs` is the process-pool size for the texture compression (one per CPU by default).
-    """
+    `jobs` is the process-pool size for the texture compression."""
     bundle = Bundle(name)
     set_name = set_name or assets_dir.name
     assets = sorted(p for p in assets_dir.rglob("*") if p.is_file())
     textures = [p for p in assets if p.suffix == ".png"]
     meshes = [p for p in assets if p.suffix == ".obj"]
 
-    # The slow part is the texture data itself (the BC7 encode, which holds the GIL), so
-    # gather it across a process pool. Object construction stays serial, in asset order,
-    # so path IDs and container order -- and thus the bundle's bytes -- stay deterministic.
+    # The slow part is the texture data (the BC7 encode holds the GIL),
+    # so gather it across a process pool. Object construction stays
+    # serial, in asset order, so path IDs and container order — and thus
+    # the bundle's bytes — stay deterministic.
     payloads = parallel_map(textures, _texture_payload, name, jobs)
 
     for asset, (texture_format, width, height, data) in zip(textures, payloads):
@@ -665,19 +658,17 @@ def build(
             sprite = bundle.add_sprite(asset.stem, texture, (width, height))
             bundle.register(container, sprite, [sprite, texture])
 
-    # A figurine .obj imports as a model whose MeshRenderer uses a placeholder defaultMat;
-    # its real material is a separate asset above, applied by the loader from the JSON.
     for asset in progress(meshes, f"{name} meshes"):
         container = (
             f"assets/{set_name}/{asset.relative_to(assets_dir).as_posix()}".lower()
         )
         root_object, graph = bundle.add_mesh(asset.stem, asset)
         preload = graph + [bundle.shader]
-        # Unity's model importer makes the GameObject, its placeholder material, and its mesh
-        # all addressable at the .obj path. EPL resolves a figurine's mesh (and material) by
-        # name from the bundle container, so without these sub-asset entries the lookup
-        # returns null and the figurine renders invisibly. Register all three (matching the
-        # Unity-built reference bundle); each shares the full dependency graph as its preload.
+        # Unity's model importer makes the GameObject, its placeholder
+        # material, and its mesh all addressable at the .obj path;
+        # without these sub-asset entries the loader's lookup returns
+        # null and the figurine renders invisibly. Each shares the full
+        # dependency graph as its preload.
         default_material = next(o for o in graph if o.type.name == "Material")
         mesh_object = next(o for o in graph if o.type.name == "Mesh")
         bundle.register(container, root_object, preload)

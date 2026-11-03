@@ -5,58 +5,21 @@ for its NIKKES (``cards`` — the viewer ids, in order; the card's stem is
 its 1-based position plus the compact name from the game's data), its
 rarities (``rarities`` — the subset of the presentations' names the set
 generates, in the order the set carries them), its pack/box materials
-(``pack`` — the featured characters, ``background`` — the base/special/
-battle backgrounds, ``logo``) and its card names (the
-title from ``characters.json``, the subtitle from ``models.json`` — the
-model's name minus the character's name). Every character renders the
-expansion's ``rarities`` subset of the fixed set of presentations (see
-:func:`presentations_for`): the
-standard tier (the classic, special and exotic presentations, on the
-standard's mask), the profile tier (the classic, idle, cover and aim
-presentations, on the profile's mask) and the full-art tier (the classic,
-idle, cover, aim, special and exotic presentations, no mask, plus the
-goddess presentation — skipped when the character carries no ``sc``
-variant).
+(``pack`` — the featured characters, ``background`` — the
+base/special/battle backgrounds, ``logo``) and its card names (the title
+from ``characters.json``, the subtitle from ``models.json``). Every
+character renders the expansion's ``rarities`` subset of the fixed set
+of presentations (see :func:`presentations_for`): the standard tier,
+the profile tier and the full-art tier.
 
 The pack's front and the box's front are the same composition — the
 expansion's background, the featured NIKKES drawn over it (backs first,
-the hero on top), and the expansion's logo (its ``logo.path`` image,
-relative to the expansion's folder) with its glow on top, at its
-``logo.placement`` — so the composition lives here, shared by
-:mod:`nikke_reborn.pack` and :mod:`nikke_reborn.box` (which add only their
-own pieces: the material template's sizing, their white NIKKE logo
-placement and their background fit). The two must therefore stay in sync
-with nothing here: the shared code is written once.
-
-* the ``pack`` field lists the characters to feature: each entry is a table
-  with the character's viewer ``id`` and optional per-character overrides —
-  a horizontal nudge ``x`` (in the material's native pixels, applied to the
-  character's position before compositing, before the downscale, so it
-  scales with the material), an ``animation`` (which of the character's
-  animations to show; the viewer's default when absent), a ``time`` (the
-  second of that animation to still on; 0, the first frame, when absent) and
-  a ``zoom`` (a multiplier on the framing; the viewer's default 1.0 when
-  absent). The *first* entry is the hero: it is centered in the front. The
-  rest are placed behind it, to the left and right, at a lower scale, to
-  read as a group in perspective/distance.
-* Only ``nikke-viewer``'s output is used (the raw character render, not
-  the finished card — no background fit, logo, name or copyright). Each
-  featured character's still frame is read off the viewer's ``--stdout``
-  (that character's ``time`` on its ``animation``, zoomed by its ``zoom``,
-  the ``--half-body`` framing).
-* the expansion's logo (its ``path``, relative to the expansion's
-  folder) is composited on top at its ``placement`` with a glow: the halo
-  is screen-blended for a light bloom, a solid trail in a darkened glow
-  tint — the mark's own silhouette, offset slightly down-right — sits
-  behind it, and the sharp mark is drawn over both. The glow's tint is
-  derived from the front's background color (its hue and saturation,
-  brightened), so the bloom matches the scene rather than a fixed white.
-* the background's fit is the caller's to choose (:func:`compose_front`'s
-  *fit*): the pack's front resizes the background to the front's height
-  and center-crops it to the front's exact width; the box's front scales
-  it down just enough to cover the whole front and bottom-aligns it, so
-  its bottom touches the front's bottom edge and any excess is cropped
-  off the top.
+the hero on top), and the expansion's logo with its glow on top — so
+the composition lives here, shared by :mod:`nikke_reborn.pack` and
+:mod:`nikke_reborn.box`, which add only their own pieces (the material
+template's sizing, their white NIKKE logo placement and their
+background fit). Only ``nikke-viewer``'s output is used for the
+featured NIKKES (their still frame, read off ``--stdout``).
 
 The front's inputs — the expansion's file, the featured characters it
 lists, its background, its logo, the white NIKKE logo, and the material
@@ -92,74 +55,56 @@ from nikke_reborn.file import hash_term
 from nikke_reborn.video import _PipeDrain, _read_exact, _reap_viewer
 
 # --- front composition tuning (fractions of the front) ----------------------
-# Every NIKKE's feet sit on the front's bottom edge (feet baseline = 1.0), so
-# no one floats above a strip of background or gets clipped by the card frame.
-# The hero is the first featured NIKKE: centered, the largest, in front.
-HERO_HEIGHT = 0.78  # hero body height as a fraction of the front height
-HERO_FEET_Y = 1.0  # hero feet baseline (the bottom edge)
-# The remaining NIKKES read as a group behind the hero: smaller (the depth cue)
-# and pushed to the left and right, still with their feet on the bottom edge.
-BACK_HEIGHT = 0.42  # back body height fraction (base, before per-tier shrink)
-BACK_FEET_Y = 1.0  # back feet baseline (the bottom edge)
-BACK_OFFSET_X = 0.34  # first flank's center offset from the middle (width frac)
+# Every NIKKE's feet sit on the front's bottom edge, so no one floats or
+# gets clipped. The hero is the first featured NIKKE: centered, the
+# largest, in front; the remaining NIKKES read as a group behind it
+# (smaller — the depth cue — and pushed to the left and right).
+HERO_HEIGHT = 0.78  # the hero's body height (front-height fraction)
+HERO_FEET_Y = 1.0  # the hero's feet baseline (the bottom edge)
+BACK_HEIGHT = 0.42  # the group's body height fraction (base, before per-tier shrink)
+BACK_FEET_Y = 1.0  # the group's feet baseline (the bottom edge)
+BACK_OFFSET_X = 0.34  # the first flank's center offset from the middle (width fraction)
 BACK_TIER_GAP = 0.5  # each further tier on a side steps out by this fraction
 BACK_TIER_SHRINK = 0.9  # each further tier shrinks by this factor
 ALPHA_TRIM = 24  # alpha threshold (0-255) for the content bounding box
 
 # --- expansion logo tuning --------------------------------------------------
-# The expansion's logo (the ``logo.path`` of the expansion's ``logo`` field,
-# relative to the expansion's folder) is composited over the front with a
-# glow, at its ``placement``. Every value is relative to the front, so it is
-# the same for every expansion: the mark is scaled to :data:`LOGO_WIDTH` the
-# front's width, inset :data:`LOGO_MARGIN` from the edge (top/bottom
-# placements), and haloed with a glow tinted by the front's own background
-# color — its hue and saturation, brightened to :data:`LOGO_GLOW_VALUE` — so
-# the bloom matches the scene (a night sky glows cool violet, a bright day
-# scene glows warm) rather than a fixed white.
-LOGO_WIDTH = 0.5  # logo width as a fraction of the front width (the pack's
-# front; the box's front sizes by height — compose_front's
-# expansion_logo_height)
+# The expansion's logo is composited over the front with a glow, at its
+# ``logo.placement``; every value is relative to the front, so it is the
+# same for every expansion. The glow is tinted by the front's own
+# background color (its hue and saturation, brightened), so the bloom
+# matches the scene rather than a fixed white.
+LOGO_WIDTH = 0.5  # the logo's width (front-width fraction; the box's front
+# sizes by height — compose_front's expansion_logo_height)
 LOGO_MARGIN = 0.05  # gap from the front's top/bottom edge (height fraction)
-LOGO_GLOW_RADIUS = 0.012  # glow blur radius (fraction of the front height)
+LOGO_GLOW_RADIUS = 0.012  # glow blur radius (front-height fraction)
 LOGO_GLOW_INTENSITY = 1.0  # glow strength (alpha multiplier of the halo)
 LOGO_GLOW_VALUE = 0.9  # target brightness of the glow tint (0-1)
-LOGO_TRAIL = 0.008  # the solid diagonal trail: the mark's own silhouette,
-# filled solid (a darkened glow tint) and offset
-# down-right by this fraction of the mark's height, drawn
-# behind the mark — a tight drop-shadow that reads as a
-# small trail
-LOGO_TRAIL_DARKEN = 0.7  # how much the trail's tint is darkened relative to
-# the glow's tint (1.0 would be the full glow tint)
+LOGO_TRAIL = 0.008  # the solid trail: the mark's own silhouette in a
+# darkened glow tint, offset down-right by this fraction of the mark's
+# height — a tight drop-shadow that reads as a small trail
+LOGO_TRAIL_DARKEN = 0.7  # the trail's tint darkened relative to the glow's
 LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo.placement` field
 
-#: The keys every expansion's ``background`` table must carry (the relative
-#: paths, against the expansion's folder): the ``base`` background (the
-#: standard's classic and exotic, the profile's classic and idle, and the
-#: full-art's classic and idle), the ``special`` background (the special
-#: presentations) and the ``battle`` background (the cover and aim
-#: profiles and full-art).
+#: The keys every expansion's ``background`` table must carry (relative
+#: paths, against the expansion's folder).
 BACKGROUND_KEYS = ("base", "special", "battle")
 
 # --- the presentations --------------------------------------------------------
-#: The fixed per-character set, in the order the passes run (the standard
-#: tier, the profile tier, the full-art tier). Each row: the presentation's
-#: name (the output's suffix, e.g. ``ClassicStandard``), its tier
-#: (``standard`` | ``profile`` | ``full``), the viewer's ``--variant``
-#: (None — the viewer's default ``fb``), the ``--animation`` (None — the
-#: viewer's default; REEL — the reel's pick, resolved at selection time; the
-#: goddess's ``sc`` variant renders its ``main`` animation),
-#: the ``--time`` (0 — a still, None — the loop), the ``--half-body``
-#: framing (the standard's and the full-art's single stream), the
-#: background's key (or ``black`` — the solid black the goddess
-#: presentation composites on), the composite's mask (``standard`` |
-#: ``profile`` | None) and the two-stream profile flag (the face's stream
-#: plus the body's).
+#: The fixed per-character set of presentations, in the order the passes
+#: run (the standard tier, the profile tier, the full-art tier). Each
+#: row: the presentation's name (the output's suffix), its tier, the
+#: viewer's ``--variant``, the ``--animation`` (None — the viewer's
+#: default; REEL — the reel's pick, resolved at selection time), the
+#: ``--time`` (0 — a still, None — the loop), the ``--half-body``
+#: framing, the background's key (or ``black``), the composite's mask
+#: (or None) and the two-stream profile flag.
 REEL = "reel"
 
 #: The photo reel's candidate animations (the first
-#: :data:`PROFILE_REEL_COUNT` the character has, in this order, become the
-#: reel's stills) and the ``Special`` presentations' animation (the first
-#: the character has).
+#: :data:`PROFILE_REEL_COUNT` the character has, in this order, become
+#: the reel's stills) and the ``Special`` presentations' animation (the
+#: first the character has).
 PROFILE_REEL_ANIMATIONS = (
     "think",
     "smile",
@@ -225,22 +170,21 @@ class CardEntry:
 
     @property
     def name(self) -> str:
-        """The character's display name (the bundle's ``Name``): the title
-        alone, or the title and the subtitle (``Rapi: White Promise``)."""
+        """The character's display name (the bundle's ``Name``): the
+        title, or the title and the subtitle."""
         return f"{self.title}: {self.subtitle}" if self.subtitle else self.title
 
 
 @dataclass(frozen=True)
 class Featured:
     """A featured character on the expansion's front: its viewer id, an
-    optional horizontal nudge (*x*, in the material's native pixels — the
-    material's own resolution, so it scales with the material) applied to the
-    character's position before it is composited onto the front (negative
-    *x* nudges it left), and per-character render overrides for its frame:
-    *animation* (which of the character's animations to show; the viewer's
-    default when absent), *time* (the second of that animation to still on;
-    0, the first frame, when absent) and *zoom* (a multiplier on the
-    framing; the viewer's default 1.0 when absent)."""
+    optional horizontal nudge (*x*, in the material's native pixels, so
+    it scales with the material; negative *x* nudges it left) applied to
+    the character's position before it is composited, and
+    per-character render overrides for its frame: *animation* (the
+    viewer's default when absent), *time* (the second of that animation
+    to still on; 0 when absent) and *zoom* (a multiplier on the framing;
+    the viewer's default when absent)."""
 
     id: str
     x: int | float = 0
@@ -290,8 +234,8 @@ class Presentation:
 
     @property
     def animated(self) -> bool:
-        """True when the render loops (an MP4, with its first-frame PNG):
-        ``time`` is None; a ``time`` of 0 is a still (a PNG)."""
+        """True when the render loops (an MP4, with its first-frame
+        PNG): ``time`` is None."""
         return self.time is None
 
     @property
@@ -308,16 +252,16 @@ class CharacterInfo:
     profile-reel's animation (the first of
     :data:`PROFILE_REEL_ANIMATIONS` it has — the ``Special``
     presentations' animation; a character with none has no
-    ``Special`` presentations, mirroring the ``sc``/goddess skip)."""
+    ``Special`` presentations)."""
 
     variants: frozenset[str]
     reel: str | None
 
 
 # --- the game's data ----------------------------------------------------------
-# The characters' names, rarities and manufacturers (characters.json) and
-# the models' names (models.json): read once per process (each worker
-# reloads them).
+# The characters' names, rarities and manufacturers (characters.json)
+# and the models' names (models.json), read once per process (each
+# worker reloads them).
 _CHARACTERS: dict[str, Any] | None = None
 _MODELS: dict[str, str] | None = None
 
@@ -351,14 +295,14 @@ def _models_db() -> dict[str, str]:
 
 def load_expansion(path: Path) -> Expansion:
     """Parse and validate one expansion's TOML (its ``rarities``, its
-    ``pack``, its ``cards``, its ``background`` table and its
-    ``logo``), deriving each card's stem from its position and the
-    game's data (see :func:`_card_entry`). Every referenced file (the
-    backgrounds', the logo's) must exist; the character ids must be in
-    the game's data (the base character when the id is suffixed), the
-    models must be named after their character (the subtitle is the
-    model's name minus the character's) and the ``rarities`` entries
-    must be names of the fixed presentations (no duplicates)."""
+    ``pack``, its ``cards``, its ``background`` table and its ``logo``),
+    deriving each card's stem from its position and the game's data (see
+    :func:`_card_entry`). Every referenced file must exist; the
+    character ids must be in the game's data (the base character when
+    the id is suffixed), the models must be named after their character
+    (the subtitle is the model's name minus the character's) and the
+    ``rarities`` entries must be names of the fixed presentations (no
+    duplicates)."""
     path = path.resolve()
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -570,8 +514,7 @@ def resolve_expansion_path(raw: str | Path) -> Path:
 
 
 # --- the viewer's introspection ------------------------------------------------
-# The character's variants (the goddess presentation's ``sc``) and its
-# animations (the reel's pick and stills), asked of the viewer.
+# The character's variants and animations, asked of the viewer.
 
 
 def _run_viewer_list(flag: str, char_id: str) -> list[str]:
@@ -591,7 +534,7 @@ def _run_viewer_list(flag: str, char_id: str) -> list[str]:
 
 
 def _list_variants(char_id: str) -> list[str]:
-    """The character's variants (``fb``, ``aim``, ``cover``, ``sc`` …)."""
+    """The character's variants."""
     return _run_viewer_list("--list-variants", char_id)
 
 
@@ -600,16 +543,16 @@ def _list_animations(char_id: str) -> list[str]:
     return _run_viewer_list("--list-animations", char_id)
 
 
-#: The viewer's per-character lists, cached per process: a single character's
-#: variants and animations are asked of the viewer at most once (the selection
-#: and the metadata both resolve the same roster).
+#: The viewer's per-character lists, cached per process: each
+#: character's variants and animations are asked of the viewer at most
+#: once.
 _CHAR_LISTS: dict[str, tuple[frozenset[str], frozenset[str]]] = {}
 
 
 def _character_lists(char_id: str) -> tuple[frozenset[str], frozenset[str]]:
     """The character's variants and animations (the viewer's
-    ``--list-variants`` and ``--list-animations`` for the default ``fb``
-    variant), as sets, cached per process."""
+    ``--list-variants`` and ``--list-animations``, default variant), as
+    sets, cached per process."""
     cached = _CHAR_LISTS.get(char_id)
     if cached is None:
         cached = (
@@ -637,9 +580,9 @@ def resolve_character(entry: CardEntry) -> CharacterInfo:
 
 
 def reel_animations(char_id: str) -> list[str]:
-    """The profile's photo-reel's animations (the render's photo reel): the
-    first :data:`PROFILE_REEL_COUNT` of :data:`PROFILE_REEL_ANIMATIONS` (in
-    the list's order) the character has, per the viewer's
+    """The profile's photo-reel's animations: the first
+    :data:`PROFILE_REEL_COUNT` of :data:`PROFILE_REEL_ANIMATIONS` (in the
+    list's order) the character has, per the viewer's
     ``--list-animations`` (cached per process, see
     :func:`_character_lists`) — fewer (or none) when fewer of the list
     match."""
@@ -783,8 +726,8 @@ def fit_background(
     background: Image.Image, size: tuple[int, int], align: str = "center"
 ) -> Image.Image:
     """Resize *background* to the target's height, then crop it to the
-    target's exact width, *align*-justified: ``"center"`` for the front,
-    ``"left"`` for the back (the back takes the background's left side)."""
+    target's exact width, *align*-justified (``"center"`` for the front,
+    ``"left"`` for the back)."""
     width, height = size
     scale = height / background.height
     if scale != 1.0:
@@ -807,13 +750,10 @@ def _fit_cover(
     h_align: str = "center",
     v_align: str = "bottom",
 ) -> Image.Image:
-    """Fit *background* over the box's faces: scaled down just enough for
-    it to cover the whole region (the larger of the two dimension ratios —
-    the width for a portrait background), then cropped: horizontally per
-    *h_align* (``"left"``, ``"center"`` or ``"right"``) and vertically per
-    *v_align* (``"top"``, ``"center"`` or ``"bottom"``) — the front and the
-    side are bottom-aligned and the top top-aligned, the excess cropped
-    off the opposite side."""
+    """Fit *background* over the box's faces: scaled just enough to
+    cover the whole region, then cropped horizontally per *h_align* and
+    vertically per *v_align* — the front and the side are
+    bottom-aligned, the top top-aligned."""
     width, height = size
     scale = max(width / background.width, height / background.height)
     if scale != 1.0:
@@ -851,34 +791,23 @@ def compose_front(
     back_height: float | None = None,
     back_offset_x: float | None = None,
 ) -> Image.Image:
-    """Compose an expansion's front: its background (fitted per *fit*), the
-    featured NIKKES drawn over it (backs first, the hero on top, each with
-    its optional horizontal ``x`` nudge — the material's own pixels), and
-    the expansion's logo (its ``logo.path`` image) with its glow on top, at
-    its ``logo.placement``. The caller's white NIKKE logo is placed last
+    """Compose an expansion's front: its background (fitted per *fit*),
+    the featured NIKKES drawn over it (backs first, the hero on top,
+    each with its optional horizontal ``x`` nudge — the material's own
+    pixels), and the expansion's logo with its glow on top, at its
+    ``logo.placement``; the caller's white NIKKE logo is placed last
     (*place_logo*, on the front's own bounds). The result is returned in
     memory and never written to disk: the caller pastes it into its
     material's front rectangle.
 
-    *fit* selects the background's fit: ``"crop"`` (the pack's front)
-    resizes the background to the front's height and center-crops it to the
-    front's width; ``"cover-bottom"`` (the box's front) scales it down just
-    enough to cover the whole front and bottom-aligns it, so its bottom
-    touches the front's bottom edge and any excess is cropped off the top.
-
-    *expansion_logo_height*, when given (the box's front), sizes the
-    expansion's logo by height — that fraction of the front's height, its
-    width proportional — instead of by width (:data:`LOGO_WIDTH` the front's
-    width, the pack's front).
-
-    *hero_height*, when given (the box's front), sets the hero's body height
-    to that fraction of the front's height instead of the shared
-    :data:`HERO_HEIGHT` — the box's landscape front wants a bigger hero than
-    the pack's portrait one. *back_height* does the same for the group
-    behind the hero (instead of the shared :data:`BACK_HEIGHT` base), and
-    *back_offset_x* sets the group's center offset from the middle (width
-    fraction, instead of the shared :data:`BACK_OFFSET_X` — smaller brings
-    the group closer to the hero)."""
+    *fit* selects the background's fit (``"crop"`` — the pack's front;
+    ``"cover-bottom"`` — the box's front). *expansion_logo_height*, when
+    given (the box's front), sizes the expansion's logo by height
+    instead of by width (:data:`LOGO_WIDTH`). *hero_height*,
+    *back_height* and *back_offset_x*, when given (the box's front),
+    override the shared :data:`HERO_HEIGHT`, :data:`BACK_HEIGHT` and
+    :data:`BACK_OFFSET_X` sizing — the box's landscape front wants
+    bigger characters and the group a bit closer to the hero."""
     width, height = size
 
     background = load_background(expansion, "base")
@@ -888,8 +817,9 @@ def compose_front(
         canvas = _fit_cover(background, size)
     else:
         raise GenerationError(f"unknown background fit {fit!r}")
-    # Sample the background's color now — before the NIKKES are composited — so
-    # the logo's glow is tinted by the scene, not by the characters on top of it.
+    # Sample the background's color now — before the NIKKES are
+    # composited — so the logo's glow is tinted by the scene, not by
+    # the characters on top of it.
     glow_color = _background_glow_color(_image_average(canvas))
 
     featured = expansion.pack
@@ -897,10 +827,9 @@ def compose_front(
         raise GenerationError(f"{expansion.name}: 'pack' carries no characters")
     bodies = [_content_box(_render_featured_frame(entry)) for entry in featured]
 
-    # Backs first (behind the hero), left/right alternating, stepping further
-    # out and shrinking per tier so any number of featured NIKKES lays out.
-    # Each character's optional ``x`` nudge (the material's own pixels) is
-    # added to its horizontal center.
+    # Backs first (behind the hero), left/right alternating, stepping
+    # further out and shrinking per tier; each character's ``x`` nudge
+    # (the material's own pixels) is added to its center.
     back_scale = back_height if back_height is not None else BACK_HEIGHT
     offset_scale = back_offset_x if back_offset_x is not None else BACK_OFFSET_X
     for index, body in enumerate(bodies[1:], start=1):
@@ -925,9 +854,6 @@ def compose_front(
         height=round(hero_scale * height),
     )
 
-    # The expansion's logo (its mark and its placement come from the
-    # expansion's ``logo`` field — nothing here is specific to any one
-    # expansion).
     mark, placement = load_logo(expansion)
     _composite_logo(
         canvas,
@@ -937,20 +863,17 @@ def compose_front(
         glow_color,
         mark_height=expansion_logo_height,
     )
-
-    # The caller's white NIKKE logo on top: on the front's own bounds.
     place_logo(canvas, (0, 0, width, height))
     return canvas
 
 
 def _render_featured_frame(featured: Featured) -> Image.Image:
-    """Render the featured character's still frame via
-    ``nikke-viewer --stdout`` (raw RGBA): the ``--time <time>`` still of its
-    *animation* (the viewer's default animation when none is given), zoomed
-    by *zoom* (the viewer's default 1.0 when absent), framed with
-    ``--half-body`` (the upper body), at the viewer's default viewport
-    (the card's viewport), read straight off the stream. The viewer exits
-    once its single frame is written."""
+    """Render the featured character's still frame via ``nikke-viewer
+    --stdout`` (raw RGBA): the ``--time <time>`` still of its
+    *animation* (the viewer's default when none is given), zoomed by
+    *zoom* (the viewer's default when absent), framed with
+    ``--half-body``, at the viewer's default viewport, read straight off
+    the stream. The viewer exits once its single frame is written."""
     width, height = CARD_VIEWPORT
     frame_bytes = width * height * 4
 
@@ -1042,12 +965,12 @@ def _background_glow_color(
 def _logo_glow_layer(
     logo: Image.Image, radius: int, color: tuple[int, int, int], intensity: float
 ) -> tuple[Image.Image, int]:
-    """A soft halo around *logo*: its alpha blurred by *radius* px, tinted
-    *color*, scaled by *intensity*, on a transparent canvas padded by the
-    blur's full visible extent (three sigma) on every side, so the Gaussian
-    decays to zero inside the canvas and the halo is not clipped at the
-    mark's edges. Returns the RGBA halo and the pad, so the caller can
-    re-align it with the sharp mark."""
+    """A soft halo around *logo*: its alpha blurred by *radius* px,
+    tinted *color*, scaled by *intensity*, on a transparent canvas
+    padded by the blur's full visible extent (three sigma) on every
+    side, so the halo is not clipped at the mark's edges. Returns the
+    RGBA halo and the pad, so the caller can re-align it with the sharp
+    mark."""
     pad = max(1, 3 * radius)
     halo = Image.new("L", (logo.width + 2 * pad, logo.height + 2 * pad), 0)
     halo.paste(logo.getchannel("A"), (pad, pad))
@@ -1089,20 +1012,18 @@ def _composite_logo(
     mark_height: float | None = None,
     width_fraction: float | None = None,
 ) -> None:
-    """Composite the expansion's *logo* over *canvas* at *placement* with a
-    glow: the halo (tinted *glow_color*) is screen-blended for a light bloom,
-    and a solid trail — the mark's own silhouette filled with a darkened
-    glow tint (:data:`LOGO_TRAIL_DARKEN` of *glow_color*), offset down-right
-    by :data:`LOGO_TRAIL` the mark's height — is drawn behind the sharp mark
-    (a tight drop-shadow that reads as a small diagonal trail), which is
-    then drawn on top. The mark is scaled to
-    :data:`LOGO_WIDTH` the front's width (or, when *mark_height* is given —
-    the box's front and side — to that fraction of the face's height, its
-    width proportional; or, when *width_fraction* is given — the box's
-    top — to that fraction of the face's width, its height proportional)
-    and centered horizontally; top/bottom placements inset it
-    :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the front.
-    Modifies *canvas* in place."""
+    """Composite the expansion's *logo* over *canvas* at *placement*
+    with a glow: the halo (tinted *glow_color*) is screen-blended for a
+    light bloom, a solid trail — the mark's own silhouette in a
+    darkened glow tint, offset down-right — is drawn behind it, and the
+    sharp mark on top. The mark is scaled to :data:`LOGO_WIDTH` the
+    front's width (or, when *mark_height* is given — the box's front
+    and side — to that fraction of the face's height, its width
+    proportional; or, when *width_fraction* is given — the box's top —
+    to that fraction of the face's width, its height proportional) and
+    centered horizontally; top/bottom placements inset it
+    :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the
+    front. Modifies *canvas* in place."""
     width, height = size
     if mark_height is None:
         logo_w = round(
@@ -1140,10 +1061,6 @@ def _composite_logo(
         logo, round(LOGO_GLOW_RADIUS * height), glow_color, LOGO_GLOW_INTENSITY
     )
     _screen_composite(canvas, halo, (x - pad, y - pad))
-    # The solid trail, behind the mark: the mark's own silhouette in a
-    # darkened glow tint (solid, no bloom), offset down-right (the trail
-    # runs top-left to bottom-right), so a sliver of it shows along the
-    # mark's bottom-right edge; the rest is painted over by the mark.
     trail_offset = round(LOGO_TRAIL * logo.height)
     if trail_offset > 0:
         trail_tint = tuple(int(c * LOGO_TRAIL_DARKEN) for c in glow_color)

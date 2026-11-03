@@ -1,55 +1,28 @@
 """Compose an expansion's sprite sheet: an overview of all its rendered
-cards, fitted to the grid — every row is 160 px tall, and the sheet's
-width (the label column + the grid + the margins) and height (the header +
-the grid + the margin) grow with the content — over the expansion's
-background (its ``background.base``, resized to cover the sheet without
-deformation, bottom edges aligned, and dimmed toward black so the grid
-reads against it).
+cards, fitted to the grid — over the expansion's background (dimmed
+toward black so the grid reads against it).
 
 The sheet composites the finished first frames
-(``output/<set>/<stem>_<presentation>.png``) into a grid:
+(``output/<set>/<stem>_<presentation>.png``) into a grid: the
+expansion's logo at the top, one row per character (a label column
+with the card's number and name) and one column per presentation
+(the expansion's ``rarities`` subset, in its order; a column only
+when the roster carries it). The animated cards (an ``.mp4`` next to
+their first frame) are marked with a white ▶ in a black circle, and
+the cards' copyright line sits at the bottom left.
 
-* the expansion's logo at the top, centered — from the expansion's
-  ``logo.path`` (resolved against the expansion's folder) when the file
-  exists, else ``assets/images/logos/<set>.png`` — rendered
-  the way the pack's and box's fronts render it: a screen-blended halo
-  tinted by the sheet's own background, a solid trail behind the mark,
-  the sharp mark on top;
-* one row per character (its card's stem, ``<number>_<name>`` — the
-  card's prefix), rendered in a label column on the left as
-  ``#<number> <character>[: <skin>]`` — the number zero-padded so the
-  labels' numbers align, its words' CamelCase split by whitespace (``#01
-  Rapi`` … ``#21 Diesel: Black Sunday``);
-* one column per presentation: every presentation the roster carries
-  (the expansion's ``rarities`` subset — the standard's, the profile's
-  and the full-art's presentations — in the order of the expansion's
-  ``rarities``; the goddess presentation's column only appears when the
-  roster carries a character with the ``sc`` variant, and the two
-  special presentations' columns only when the roster carries a
-  character with a reel animation),
-  each column labeled above the grid with its presentation (whitespace
-  between its capital letters —
-  ``ClassicProfile`` reads as ``Classic Profile``). A cell the character
-  does not have (a rarity it does not carry) stays empty.
-* the animated cards (an ``.mp4`` next to their first frame) are marked
-  with a white ▶ in a black circle, centered in their cell; a legend
-  (the badge and ``= Animated``) sits in the sheet's top-right corner.
-* the cards' copyright line (a bit smaller), in white, at the bottom
-  left.
+The cells are the first frames only — the PNGs the pipeline writes
+for every card; no video is read or decoded. Every cell must already
+be on disk, so the sheet is composed after ``generate`` (missing
+cards are rendered as placeholders, named).
 
-The cells are the first frames only — the PNGs the pipeline writes for
-every card (alongside the MP4 for the animated ones); no video is read or
-decoded. Every cell must already be on disk, so the sheet is composed after
-``generate`` (missing cards are reported, named).
-
-Like the finished cards, the sheet embeds the SHA-256 of its inputs (the
-frames it composites and the expansion's logo) under the source-hash key,
-and a sheet whose stored hash matches the current inputs is skipped
-instead of re-composed. The rows' first frames are decoded and resized in
-parallel threads (one row per worker, up to
-:data:`nikke_reborn.MAX_STAGE_THREADS`), the canvas assembled on the main
-thread. ``--draft`` reads the first frames from ``draft/`` and writes
-``draft/<set>.png``; ``--force`` skips the up-to-date check.
+Like the finished cards, the sheet embeds the SHA-256 of its inputs
+under the source-hash key, and a sheet whose stored hash matches the
+current inputs is skipped instead of re-composed. The rows' first
+frames are decoded and resized in parallel threads; the canvas is
+assembled on the main thread. ``--draft`` reads the first frames from
+``draft/`` and writes ``draft/<set>.png``; ``--force`` skips the
+up-to-date check.
 """
 
 from __future__ import annotations
@@ -89,10 +62,8 @@ from nikke_reborn.lettering import (
 )
 
 # --- the finished sheet's geometry ----------------------------------------
-# The sheet is fitted to its content on both axes: the width is the label
-# column + the grid + 2 * MARGIN, the height the header + the grid +
-# MARGIN (every row is ROW_HEIGHT tall).
-#: The sheet's margin around the header and the grid (on every side).
+#: The sheet's margin around the header and the grid (on every side); the
+#: sheet is fitted to its content on both axes.
 MARGIN = 48
 #: The header's logo is scaled to fit a box of 60% of the sheet's width by
 #: LOGO_MAX_HEIGHT, aspect preserved (the height cap is in pixels, since
@@ -106,27 +77,24 @@ HEADER_PADDING = 48
 HEADER_GRID_GAP = 96
 #: The label column's inset from the longest label's ink (left and right).
 LABEL_PAD = 16
-#: The label column's cap, as a fraction of the grid's card width (the
-#: cells and their gutters, not the label column — the sheet's width fits
-#: the content, so capping against it would be circular): the label font
-#: shrinks until the longest prefix fits it.
+#: The label column's cap, as a fraction of the grid's card width
+#: (capping against the sheet's width would be circular): the label
+#: font shrinks until the longest prefix fits it.
 LABEL_MAX_FRACTION = 0.30
 #: The label font's weight (Oswald's variable axis).
 LABEL_WEIGHT = 500
 #: The label font sizes tried, largest first: the first whose longest
 #: prefix fits the label column's cap is used.
 LABEL_FONT_SIZES = (48, 44, 40, 36, 32, 28, 24, 20)
-#: The height of every grid row (px): the rows keep this height and the
-#: sheet grows vertically to fit them (the cell's width is derived from it,
-#: by the card's aspect).
+#: The height of every grid row (px): the cell's width is derived from
+#: it, by the card's aspect.
 ROW_HEIGHT = 160
 #: The gutter between the label column and the grid.
 LABEL_GAP = 32
 #: The gutter between the grid's cells.
 CELL_GAP = 8
-#: The fraction of the background's brightness kept: the background is
-#: dimmed toward black by the rest, so the grid and the labels read
-#: against it.
+#: The fraction of the background's brightness kept (the background is
+#: dimmed toward black so the grid and the labels read against it).
 BACKGROUND_DIM = 0.45
 #: The row-label color.
 LABEL_COLOR = (235, 238, 245)
@@ -191,9 +159,8 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Compose an expansion's sprite sheet (a grid of its rendered "
-            "first frames, fitted to its content — 160 px rows: the "
-            "expansion's logo on top, one row per character, one column "
-            "per presentation)"
+            "first frames, fitted to its content: the expansion's logo "
+            "on top, one row per character, one column per presentation)"
         )
     )
     parser.add_argument(
@@ -232,8 +199,8 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
         (prefix, column): card_dir / f"{prefix}_{column}.png"
         for prefix, column in sorted(cells)
     }
-    # A cell whose first frame is not on disk renders as a "MISSING!"
-    # placeholder (below) instead of failing the whole sheet.
+    # A cell whose first frame is not on disk renders as a placeholder
+    # (below) instead of failing the whole sheet.
     missing = {key for key, path in paths.items() if not path.is_file()}
     if missing:
         shown = ", ".join(
@@ -270,20 +237,16 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
 def _card_grid(
     exp: expansion.Expansion,
 ) -> tuple[list[str], list[str], set[tuple[str, str]]]:
-    """The sheet's grid: its rows (the card's stems, in the roster's order),
-    its columns (every presentation the roster carries, in the order of
-    the expansion's ``rarities`` — the standard's, the profile's
-    and the full-art's presentations — the goddess presentation's column
-    only when the roster carries a character with the ``sc`` variant, the
-    two special presentations' columns only when the roster carries a
-    character with a reel animation) and its cells (the stem/presentation
-    pairs the roster actually has).
+    """The sheet's grid: its rows (the card's stems, in the roster's
+    order), its columns (every presentation the roster carries, in the
+    order of the expansion's ``rarities``) and its cells (the
+    stem/presentation pairs the roster actually has).
 
-    The cells mirror the pipeline's eligibility exactly (each character's
-    presentations come from
-    :func:`nikke_reborn.expansion.presentations_for`, the same source the
-    run's selection uses), so a sheet composed after ``generate`` never
-    asks for a card the pipeline does not render."""
+    The cells mirror the pipeline's eligibility exactly (each
+    character's presentations come from
+    :func:`nikke_reborn.expansion.presentations_for`, the same source
+    the run's selection uses), so a sheet composed after ``generate``
+    never asks for a card the pipeline does not render."""
     rows: list[str] = []
     present: set[str] = set()
     cells: set[tuple[str, str]] = set()
@@ -298,12 +261,11 @@ def _card_grid(
 
 
 def _card_aspect() -> float:
-    """The cards' width/height ratio: the pipeline's card viewport (every
-    half-body card in a set shares it — the goddess presentation renders
-    the card's full body on the square viewport, and its cells read at the
-    same ratio). The grid's cell width is derived from this ratio; a first
-    frame might be missing, so the ratio is not read from the rendered
-    PNGs."""
+    """The cards' width/height ratio: the pipeline's card viewport
+    (every half-body card in a set shares it — the goddess presentation
+    renders the card's full body on the square viewport, and its cells
+    read at the same ratio). Not read from the rendered PNGs: a first
+    frame might be missing."""
     return CARD_VIEWPORT[0] / CARD_VIEWPORT[1]
 
 
@@ -391,11 +353,10 @@ def _column_label(column: str) -> str:
 
 
 def _row_label(entry: expansion.CardEntry, width: int) -> str:
-    """The row's label: the card's number as ``#<number>`` (zero-padded to
-    *width* digits, so the labels' numbers align) and its words' CamelCase
-    split by whitespace — the character's name, and its subtitle after a
-    colon when it has one (``0021_Diesel_BlackSunday`` reads as
-    ``#21 Diesel: Black Sunday``; with *width* 2, ``#01 Rapi``)."""
+    """The row's label: the card's number as ``#<number>`` (zero-padded
+    to *width* digits, so the labels' numbers align) and its words'
+    CamelCase split by whitespace — the character's name, and its
+    subtitle after a colon when it has one."""
     label = f"#{entry.number:0{width}d} {_split_camel(entry.title)}"
     if entry.subtitle:
         label += ": " + _split_camel(entry.subtitle)
@@ -495,29 +456,23 @@ def _compose(
     """Draw the sheet — the logo header (the logo with the pack's and
     box's glow and trail treatment), the column labels, the label
     column and the grid of first frames (the animated cards' cells
-    marked with a white ▶ in a black circle, centered in the cell, a
-    black *MISSING_TEXT* placeholder box for the cells in *missing*, and
-    a legend — the badge and ``= Animated`` — in the top-right corner) —
-    over the expansion's *background* (resized to cover the canvas
-    without deformation, bottom edges aligned, the excess cropped off
-    the top, and dimmed toward black so the grid reads against it) on
-    a canvas fitted to its content (label column + grid + the margins
-    wide; header + labels + grid + the margin tall), the cards'
-    copyright line (a bit smaller) in white at the bottom left, and
-    write it to *out_path* (atomically, the *source_hash* embedded). The rows'
-    first frames are decoded and resized in parallel threads (up to
-    :data:`nikke_reborn.MAX_STAGE_THREADS` of them, one row per worker);
-    the finished canvas is assembled on the main thread. *entries* is the
-    expansion's roster (the rows, in the roster's order)."""
+    marked with a white ▶ in a black circle, a black *MISSING_TEXT*
+    placeholder box for the cells in *missing*, and a legend — the
+    badge and ``= Animated`` — in the top-right corner) — over the
+    expansion's *background* (resized to cover the canvas without
+    deformation, bottom edges aligned, and dimmed toward black), on a
+    canvas fitted to its content, the cards' copyright line (a bit
+    smaller) in white at the bottom left, and write it to *out_path*
+    (atomically, the *source_hash* embedded). The rows' first frames
+    are decoded and resized in parallel threads; the finished canvas is
+    assembled on the main thread. *entries* is the expansion's roster
+    (the rows, in the roster's order)."""
     rows = [entry.stem for entry in entries]
     row_count = len(rows)
     col_count = len(columns)
     gutter_total = (col_count - 1) * CELL_GAP
 
     # --- the grid's geometry --------------------------------------------
-    # Every card shares the pipeline's viewport (*aspect*, read from the
-    # definitions): the row's fixed height sizes its cells (the sheet grows
-    # to fit the grid, never the other way around).
     cell_w = round(ROW_HEIGHT * aspect)
     cell_h = ROW_HEIGHT
     grid_h = row_count * cell_h + (row_count - 1) * CELL_GAP
@@ -540,13 +495,12 @@ def _compose(
     col_font = _column_label_font(col_labels, cell_w)
     label_h = sum(col_font.getmetrics())
 
-    # The *MISSING_TEXT* placeholder's font: the largest that fits a cell.
     missing_font = _missing_font(cell_w)
 
     # The ▶ markers: the cells whose card is animated (an .mp4 next to
     # its first frame) get one centered in the cell. The symbol is a
-    # filled white equilateral triangle pointing right, drawn at 4x the
-    # marker's size (so the LANCZOS downscale stays crisp).
+    # filled white triangle drawn at 4x and downscaled, so the LANCZOS
+    # downscale stays crisp.
     marker_draw = ANIMATED_MARKER_SIZE * 4
     scratch = Image.new("RGBA", (marker_draw, marker_draw))
     tri_w = round(marker_draw * 0.866)  # an equilateral triangle's width
@@ -563,10 +517,8 @@ def _compose(
         (round(ANIMATED_MARKER_SIZE * 0.866), ANIMATED_MARKER_SIZE),
         Image.Resampling.LANCZOS,
     )
-    # The badge: a translucent black circle enclosing the glyph
-    # (ANIMATED_MARKER_PAD of clearance on each side), the glyph centered
-    # in it. The circle is drawn at 4x and downscaled — Pillow's ellipse
-    # is not anti-aliased.
+    # The badge: a translucent black circle enclosing the glyph, drawn
+    # at 4x and downscaled — Pillow's ellipse is not anti-aliased.
     badge_d = marker.height + 2 * ANIMATED_MARKER_PAD
     badge_draw = badge_d * 4
     badge = Image.new("RGBA", (badge_draw, badge_draw))
@@ -587,11 +539,6 @@ def _compose(
     }
 
     height = header + label_h + COLUMN_LABEL_GAP + grid_h + MARGIN
-    # The expansion's background as the canvas's base: scaled to cover the
-    # sheet (aspect preserved) with its bottom edge on the sheet's (the
-    # excess cropped off the top, centered horizontally), then dimmed
-    # toward black (BACKGROUND_DIM of its brightness kept) so the grid
-    # and the labels read against it.
     canvas = expansion._fit_cover(background, (width, height))
     canvas = Image.blend(
         canvas, Image.new("RGBA", canvas.size, (0, 0, 0, 255)), 1 - BACKGROUND_DIM
@@ -599,10 +546,7 @@ def _compose(
     draw = ImageDraw.Draw(canvas)
 
     # --- the header's logo, the way the pack's and box's fronts render --
-    # it: a screen-blended halo (a light bloom tinted by the sheet's own
-    # background — its hue and saturation, brightened — so it matches the
-    # scene), a solid trail (the mark's own silhouette in a darkened glow
-    # tint, offset down-right), and the sharp mark on top.
+    # it (see expansion._composite_logo for the treatment).
     glow_color = expansion._background_glow_color(
         expansion._image_average(canvas)
     )
@@ -653,9 +597,6 @@ def _compose(
     canvas.alpha_composite(badge, (legend_x - LEGEND_GAP - badge.width, MARGIN))
 
     # --- the rows: rendered in worker threads, assembled on the main ----
-    # thread: each worker decodes and resizes its row's first frames (the
-    # GIL-releasing part), while the shared canvas is only ever stamped by
-    # the main thread (Pillow images are not thread-safe).
     workers = min(len(rows), os.cpu_count() or 1, MAX_STAGE_THREADS)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         rendered = pool.map(
@@ -680,8 +621,6 @@ def _compose(
                 x = grid_x + j * (cell_w + CELL_GAP)
                 key = (prefix, column)
                 if key in missing:
-                    # A cell whose card was not rendered: a black box with
-                    # the MISSING_TEXT, instead of a first frame.
                     draw.rectangle(
                         (x, y, x + cell_w - 1, y + cell_h - 1), fill=(0, 0, 0, 255)
                     )
@@ -707,8 +646,6 @@ def _compose(
                 canvas.alpha_composite(card, (x, y))
 
     # --- the copyright line: the cards' notice, bottom left, white -----
-    # (the cards' rendering — supersampled, light-weight Oswald, ink
-    # centered in the bottom margin — a bit smaller than the cards').
     font_size = round(
         COPYRIGHT_NOMINAL_SIZE * width / CARD_REFERENCE_WIDTH * COPYRIGHT_FRACTION
     )

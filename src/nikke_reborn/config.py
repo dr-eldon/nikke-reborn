@@ -1,15 +1,8 @@
-"""Shared configuration for the card pipeline.
-
-The constants more than one part of the pipeline needs: the repository
-and asset directories, the external executables (the viewer, the unity
-viewer and ffprobe), the source-hash key, the card's viewport, padding and
-reference width, the copyright line's face, the stage-thread cap, and the
-pack's and the box's asset names, the item's viewer size and their viewer
-configurations. The run's output preset (its scale, its output root, its
-encoding settings and the ultra set-folder suffix) lives in
-:mod:`nikke_reborn.preset`. Everything that only one part needs (masks,
-tints, name placement, encode flags) lives with the code that uses it.
-"""
+"""Shared configuration for the card pipeline: the directories, the
+external executables and the constants more than one part of the
+pipeline needs. The run's output preset lives in
+:mod:`nikke_reborn.preset`; what a single part of the pipeline needs
+lives with the code that uses it."""
 
 from pathlib import Path
 
@@ -27,73 +20,58 @@ SHOP_DIR = IMAGES_DIR / "shop"
 
 VIEWER = "nikke-viewer"
 UNITY_VIEWER = "unity-viewer"
-#: The ffprobe executable: reading the hash tag out of a finished
-#: MP4 card (see :func:`file._stored_hash`).
+#: ffprobe: reads the source-hash tag out of a finished MP4.
 PROBER = "ffprobe"
 
-#: Key of the embedded definition hash in the finished cards (a PNG
-#: text chunk, an MP4 tag): a card whose stored hash matches the
-#: current definition is skipped instead of re-rendered.
+#: The key of the hash embedded in every finished card (a PNG text
+#: chunk, an MP4 tag): a card whose stored hash matches the current
+#: inputs is skipped instead of re-rendered.
 SOURCE_HASH_KEY = "nikke-reborn-source"
 
-#: The viewer's default viewport (the card's native size) in pixels:
-#: the run's final size is this viewport at the run's scale.
+#: The card's native viewport (the viewer's default) in pixels: the
+#: run's final size is this at the run's scale.
 CARD_VIEWPORT = (1640, 2048)
 
-#: The card's padding (native-viewport px): the lettering, the logo
-#: placement, the reel insets and the like are expressed at this
-#: padding (every legacy definition used 50).
 CARD_PADDING = 50
 
-#: Reference card width (pixels): the nominal sizes below are expressed at
-#: this width and scale proportionally for other viewport widths.
+#: The viewport width the nominal sizes are expressed at (they scale
+#: proportionally for other widths).
 CARD_REFERENCE_WIDTH = 1640
 
-#: Oswald face for the copyright line (vendored variable font, SIL OFL).
+#: The copyright line's face (vendored variable font, SIL OFL).
 FONT = FONTS_DIR / "Oswald.ttf"
 
-#: ffmpeg encodes and frame compositing get at most this many threads
-#: each, even when a single card uses all the cores.
+#: Cap on the threads one stage (the encode, the compositing) may take.
 MAX_STAGE_THREADS = 16
 
-#: The item's (pack's and box's) viewer output size in pixels: the
-#: unity-viewer's defaults, mirrored here so the pipeline computes the
-#: scaled sizes (``round(·scale)``) explicitly instead of relying on
+#: The unity-viewer's default output size, mirrored here so the
+#: pipeline computes the scaled sizes explicitly instead of relying on
 #: the viewer's implicit ones.
 ITEM_VIEWER_WIDTH = 1024
 ITEM_VIEWER_HEIGHT = 1024
 
-#: Pack artwork: ``assets/images/`` holds the material template, whose two
-#: pure-blue mask rectangles hold the pack's back (left) and front
-#: (right) — both composed on the fly (see :mod:`nikke_reborn.pack`) —
-#: written to ``<out>/<pack>/CardPack_Material.png``. The item
-#: (``CardPack_Item.png``) is rendered with :data:`UNITY_VIEWER` from
-#: :data:`PACK_MESH` textured with the finished material.
+#: The pack's material template: its two mask rectangles mark the
+#: pack's back's (left) and front's (right) paste regions, composed on
+#: the fly (see :mod:`nikke_reborn.pack`). The item is rendered from
+#: the mesh textured with the finished material.
 PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
 PACK_MATERIAL_NAME = "CardPack_Material.png"
 PACK_ITEM_NAME = "CardPack_Item.png"
 PACK_MESH = MESHES_DIR / "CardPackStatic_Mesh.obj"
 
-#: The item's viewer configuration (model rotation and camera zoom/pan
-#: as a JSON file, exported by the viewer's GUI), passed to
-#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
+#: The pack item's viewer configuration (model rotation and camera
+#: zoom/pan, exported by the viewer's GUI).
 PACK_CONFIG = MESHES_DIR / "CardPackStatic_Mesh.json"
 
 
-#: The box's material template: its three solid mask rectangles mark the
-#: paste regions — blue for the front (the same composition as the pack's
-#: front), red for the top and green for the side (see
-#: :mod:`nikke_reborn.box`). The finished material is written to
-#: ``<out>/<pack>/CardBox_Material.png``. The item
-#: (``CardBox_Item.png``) is rendered with :data:`UNITY_VIEWER` from
-#: :data:`BOX_MESH` textured with the finished material, the way the
-#: pack's item is.
+#: The box's material template: its mask rectangles mark the paste
+#: regions — front (blue), top (red) and side (green). The item is
+#: rendered from the mesh textured with the finished material.
 BOX_TEMPLATE = IMAGES_DIR / "CardBox_Material.png"
 BOX_MATERIAL_NAME = "CardBox_Material.png"
 BOX_ITEM_NAME = "CardBox_Item.png"
 BOX_MESH = MESHES_DIR / "CardBox_Mesh.obj"
 
 #: The box item's viewer configuration (model rotation and camera
-#: zoom/pan, as a JSON file exported by the viewer's GUI), passed to
-#: :data:`UNITY_VIEWER` with ``--config``; it sits next to the mesh.
+#: zoom/pan, exported by the viewer's GUI).
 BOX_CONFIG = MESHES_DIR / "CardBox_Mesh.json"
