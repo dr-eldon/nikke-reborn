@@ -74,11 +74,7 @@ def run(argv: list[str] | None = None) -> None:
     # One run, one mode (draft and ultra are mutually exclusive): the
     # preset carries the run's output scale, its output root (draft/
     # for a draft, output/ otherwise) and its encoding settings.
-    preset = (
-        Preset.DRAFT
-        if draft
-        else Preset.ULTRA if ultra else Preset.DEFAULT
-    )
+    preset = Preset.DRAFT if draft else Preset.ULTRA if ultra else Preset.DEFAULT
     try:
         expansions = card.select_expansions(args.paths)
         presentations = card.build_selection(expansions, args.ids)
@@ -154,7 +150,9 @@ def _run_notes(preset: Preset, no_video: bool) -> str:
     suffix = (
         " (draft)"
         if preset is Preset.DRAFT
-        else " (ultra)" if preset is Preset.ULTRA else ""
+        else " (ultra)"
+        if preset is Preset.ULTRA
+        else ""
     )
     if not notes:
         return f",{suffix}" if suffix else ""
@@ -246,7 +244,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
     if args.ids and not args.paths:
-        parser.error("--ids selects characters within the expansions: name at least one expansion")
+        parser.error(
+            "--ids selects characters within the expansions: name at least one expansion"
+        )
     return args
 
 
@@ -301,6 +301,7 @@ def _generate_profiles(
     done = 0
     skipped = 0
     with ProcessPoolExecutor(max_workers=jobs) as pool:
+
         def report(future: Future[_Result], label: str) -> None:
             nonlocal done, skipped
             done += 1
@@ -352,7 +353,9 @@ def _generate_profiles(
     word = (
         "drafts"
         if preset is Preset.DRAFT
-        else "final cards (ultra)" if preset is Preset.ULTRA else "final cards"
+        else "final cards (ultra)"
+        if preset is Preset.ULTRA
+        else "final cards"
     )
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(
@@ -397,6 +400,7 @@ def _generate_standards(
     done = 0
     skipped = 0
     with ProcessPoolExecutor(max_workers=jobs) as pool:
+
         def report(future: Future[_Result], label: str) -> None:
             nonlocal done, skipped
             done += 1
@@ -448,7 +452,9 @@ def _generate_standards(
     word = (
         "drafts"
         if preset is Preset.DRAFT
-        else "final cards (ultra)" if preset is Preset.ULTRA else "final cards"
+        else "final cards (ultra)"
+        if preset is Preset.ULTRA
+        else "final cards"
     )
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(
@@ -594,7 +600,9 @@ def _generate_variants(
         # turn, so one bad card never aborts the rest.
         # The cards' futures carry a timings dict (the third element); the
         # material/item/box futures carry only (out_path, skipped).
-        def report(future: Future[_Result] | Future[tuple[Path, bool]], label: str) -> None:
+        def report(
+            future: Future[_Result] | Future[tuple[Path, bool]], label: str
+        ) -> None:
             nonlocal done, skipped
             done += 1
             try:
@@ -701,9 +709,7 @@ def _generate_variants(
                 continue  # no material -> no item for this expansion
             if name in item_needs:
                 item_futures[
-                    pool.submit(
-                        _process_pack_item, exp_by_name[name], force, preset
-                    )
+                    pool.submit(_process_pack_item, exp_by_name[name], force, preset)
                 ] = item_label(name)
         for future in as_completed(box_futures):
             name = box_futures[future]
@@ -712,9 +718,7 @@ def _generate_variants(
                 continue  # no box material -> no box item for this expansion
             if name in box_item_needs:
                 box_item_futures[
-                    pool.submit(
-                        _process_box_item, exp_by_name[name], force, preset
-                    )
+                    pool.submit(_process_box_item, exp_by_name[name], force, preset)
                 ] = box_item_label(name)
         for future in as_completed(card_futures):
             report(future, card_futures[future])
@@ -729,7 +733,9 @@ def _generate_variants(
     word = (
         "drafts"
         if preset is Preset.DRAFT
-        else "final cards (ultra)" if preset is Preset.ULTRA else "final cards"
+        else "final cards (ultra)"
+        if preset is Preset.ULTRA
+        else "final cards"
     )
     skipped_text = f", {skipped} unchanged" if skipped else ""
     print(

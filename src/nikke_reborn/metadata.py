@@ -181,9 +181,7 @@ def pack(set, rarities) -> dict:
         }
         # Keep only the rarities the set generates in the slot's table.
         return {
-            rarity: weight
-            for rarity, weight in weights.items()
-            if rarity in allowed
+            rarity: weight for rarity, weight in weights.items() if rarity in allowed
         }
 
     common = slot(classic=1, special=0.025)

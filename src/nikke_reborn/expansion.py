@@ -132,8 +132,28 @@ _PresentationSpec = tuple[
 
 PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
     ("ClassicStandard", "standard", None, None, 0.0, True, "base", "standard", False),
-    ("SpecialStandard", "standard", None, REEL, 0.0, True, "special", "standard", False),
-    ("ExoticStandard", "standard", None, "action", None, True, "base", "standard", False),
+    (
+        "SpecialStandard",
+        "standard",
+        None,
+        REEL,
+        0.0,
+        True,
+        "special",
+        "standard",
+        False,
+    ),
+    (
+        "ExoticStandard",
+        "standard",
+        None,
+        "action",
+        None,
+        True,
+        "base",
+        "standard",
+        False,
+    ),
     ("ClassicProfile", "profile", None, None, 0.0, False, "base", "profile", True),
     ("IdleProfile", "profile", None, "idle", None, False, "base", "profile", True),
     ("CoverProfile", "profile", "cover", None, None, False, "battle", "profile", True),
@@ -336,13 +356,16 @@ def load_expansion(path: Path) -> Expansion:
         )
 
     pack = data.get("pack")
-    if not isinstance(pack, list) or not pack or not all(
-        isinstance(entry, dict) and isinstance(entry.get("id"), str)
-        for entry in pack
+    if (
+        not isinstance(pack, list)
+        or not pack
+        or not all(
+            isinstance(entry, dict) and isinstance(entry.get("id"), str)
+            for entry in pack
+        )
     ):
         raise GenerationError(
-            f"{path.name}: 'pack' must be a non-empty list of tables, "
-            "each with an 'id'"
+            f"{path.name}: 'pack' must be a non-empty list of tables, each with an 'id'"
         )
     featured: list[Featured] = []
     for entry in pack:
@@ -374,9 +397,7 @@ def load_expansion(path: Path) -> Expansion:
                 f"non-numeric 'zoom': {zoom!r}"
             )
         featured.append(
-            Featured(
-                id=char_id, x=x, animation=animation, time=time, zoom=zoom
-            )
+            Featured(id=char_id, x=x, animation=animation, time=time, zoom=zoom)
         )
 
     cards_data = data.get("cards")
@@ -413,8 +434,7 @@ def load_expansion(path: Path) -> Expansion:
     logo = data.get("logo")
     if not isinstance(logo, dict) or not isinstance(logo.get("path"), str):
         raise GenerationError(
-            f"{path.name}: 'logo' must be a table with a 'path' and a "
-            "'placement'"
+            f"{path.name}: 'logo' must be a table with a 'path' and a 'placement'"
         )
     if logo.get("placement") not in LOGO_PLACEMENTS:
         raise GenerationError(
@@ -527,8 +547,7 @@ def _run_viewer_list(flag: str, char_id: str) -> list[str]:
         detail = result.stderr.strip()
         detail = f": {detail[-500:]}" if detail else ""
         raise GenerationError(
-            f"{VIEWER} {flag} for {char_id!r} failed (exit "
-            f"{result.returncode}){detail}"
+            f"{VIEWER} {flag} for {char_id!r} failed (exit {result.returncode}){detail}"
         )
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
@@ -588,9 +607,7 @@ def reel_animations(char_id: str) -> list[str]:
     match."""
     _variants, available = _character_lists(char_id)
     return [
-        animation
-        for animation in PROFILE_REEL_ANIMATIONS
-        if animation in available
+        animation for animation in PROFILE_REEL_ANIMATIONS if animation in available
     ][:PROFILE_REEL_COUNT]
 
 
@@ -677,13 +694,13 @@ def _background_path(expansion: Expansion, key: str) -> Path:
 def _logo_path(expansion: Expansion) -> Path:
     path = (expansion.path.parent / expansion.logo_path).resolve()
     if not path.is_file():
-        raise GenerationError(f"{expansion.name}: logo not found: {expansion.logo_path}")
+        raise GenerationError(
+            f"{expansion.name}: logo not found: {expansion.logo_path}"
+        )
     return path
 
 
-def front_source_digest(
-    expansion: Expansion, logo: Path, template: Path
-) -> str:
+def front_source_digest(expansion: Expansion, logo: Path, template: Path) -> str:
     """A hash of an expansion front's *inputs* — everything the composed
     front depends on: the expansion's file, the featured characters it
     lists (their ids, ``x`` nudges and per-character ``animation``/
@@ -878,13 +895,9 @@ def _render_featured_frame(featured: Featured) -> Image.Image:
     frame_bytes = width * height * 4
 
     animation_args = (
-        ["--animation", featured.animation]
-        if featured.animation is not None
-        else []
+        ["--animation", featured.animation] if featured.animation is not None else []
     )
-    zoom_args = (
-        ["--zoom", str(featured.zoom)] if featured.zoom is not None else []
-    )
+    zoom_args = ["--zoom", str(featured.zoom)] if featured.zoom is not None else []
     viewer = subprocess.Popen(
         [
             VIEWER,

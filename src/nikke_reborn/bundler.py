@@ -86,7 +86,9 @@ def compress_texture(image: Image.Image) -> tuple[int, bytes]:
     Texture2DConverter, so the bytes are identical to what
     ``Texture2D.set_image`` would write for the same image."""
     width, height = image.size
-    fmt = TEXTURE_FORMAT if (width % 4 == 0 and height % 4 == 0) else TextureFormat.RGBA32
+    fmt = (
+        TEXTURE_FORMAT if (width % 4 == 0 and height % 4 == 0) else TextureFormat.RGBA32
+    )
     data, _ = Texture2DConverter.image_to_texture2d(image, fmt)
     return int(fmt), data
 
@@ -217,8 +219,7 @@ class Bundle:
         assert isinstance(bundle_file, BundleFile)
         self._bundle_file = bundle_file
         self._sf: SerializedFile = next(
-            f for f in self._bundle_file.files.values()
-            if isinstance(f, SerializedFile)
+            f for f in self._bundle_file.files.values() if isinstance(f, SerializedFile)
         )
         self._protos = self._extract_prototypes()
         self._manifest = self._find(lambda o: o.type.name == "AssetBundle")
@@ -273,12 +274,16 @@ class Bundle:
         child_object = next(o for o in objects if len(o.read().m_Component) == 3)
         root_object = next(o for o in objects if len(o.read().m_Component) == 1)
         child_transform = self._find(
-            lambda o: o.type.name == "Transform"
-            and o.read().m_GameObject.m_PathID == child_object.path_id
+            lambda o: (
+                o.type.name == "Transform"
+                and o.read().m_GameObject.m_PathID == child_object.path_id
+            )
         )
         root_transform = self._find(
-            lambda o: o.type.name == "Transform"
-            and o.read().m_GameObject.m_PathID == root_object.path_id
+            lambda o: (
+                o.type.name == "Transform"
+                and o.read().m_GameObject.m_PathID == root_object.path_id
+            )
         )
         return Prototypes(
             texture,
@@ -647,7 +652,9 @@ def build(
             f"assets/{set_name}/{asset.relative_to(assets_dir).as_posix()}".lower()
         )
 
-        texture = bundle.add_raw_texture(asset.stem, texture_format, width, height, data)
+        texture = bundle.add_raw_texture(
+            asset.stem, texture_format, width, height, data
+        )
         bundle.register(container, texture, [texture])
 
         if asset.stem.endswith(MATERIAL_SUFFIX):

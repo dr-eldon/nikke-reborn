@@ -108,9 +108,7 @@ def _presentation_flags(presentation: expansion.Presentation) -> list[str]:
     return flags
 
 
-def _viewer_args(
-    size: tuple[int, int], char_id: str, *flags: str
-) -> list[str]:
+def _viewer_args(size: tuple[int, int], char_id: str, *flags: str) -> list[str]:
     """The viewer's command for one stream: the *flags* (the framing and
     the presentation's terms), the run's size and the character's id —
     the viewer's ``--stdout`` emits raw RGBA frames at that size."""
@@ -173,7 +171,7 @@ def _render_and_finish(
     viewer_args = _viewer_args(
         size,
         presentation.card.id,
-        *([ "--half-body"] if half_body else []),
+        *(["--half-body"] if half_body else []),
         *_presentation_flags(presentation),
     )
     try:
@@ -357,9 +355,7 @@ def _write_final_card(
                     f"{VIEWER} produced no frame for {presentation.label}"
                 )
             encode_started = time.perf_counter()
-            _save_atomic(
-                first_frame[0].convert("RGB"), out_path, source_hash
-            )
+            _save_atomic(first_frame[0].convert("RGB"), out_path, source_hash)
             encode_time = time.perf_counter() - encode_started
     finally:
         # Stop consuming; the compositor's finally reaps the viewer(s)
@@ -419,9 +415,7 @@ def _face_offset(
     default framing — the body stream's — with its variant and
     animation)."""
     width, height = size
-    body = _first_frame(
-        size, presentation.card.id, *_presentation_flags(presentation)
-    )
+    body = _first_frame(size, presentation.card.id, *_presentation_flags(presentation))
     alpha = body.getchannel("A").point(lambda v: 255 if v > 32 else 0)
     centre_y = int(height * PROFILE_FACE_CENTER_Y)
     half = int(height * PROFILE_FACE_CENTER_Y * PROFILE_FACE_ZOOM) // 2

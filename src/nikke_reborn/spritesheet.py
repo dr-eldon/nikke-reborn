@@ -191,9 +191,7 @@ def _build(name: str, out_dir: Path, force: bool) -> tuple[Path, int, int, bool]
     exp = expansion.load_expansion(expansion.resolve_expansion_path(name))
     rows, columns, cells = _card_grid(exp)
     if not rows:
-        raise GenerationError(
-            f"{exp.name}: the expansion's roster is empty"
-        )
+        raise GenerationError(f"{exp.name}: the expansion's roster is empty")
     card_dir = out_dir / exp.name
     paths = {
         (prefix, column): card_dir / f"{prefix}_{column}.png"
@@ -547,9 +545,7 @@ def _compose(
 
     # --- the header's logo, the way the pack's and box's fronts render --
     # it (see expansion._composite_logo for the treatment).
-    glow_color = expansion._background_glow_color(
-        expansion._image_average(canvas)
-    )
+    glow_color = expansion._background_glow_color(expansion._image_average(canvas))
     logo_x = (width - logo.width) // 2
     halo, pad = expansion._logo_glow_layer(
         logo,

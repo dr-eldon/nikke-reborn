@@ -292,9 +292,7 @@ def _process_box_material(
     preset's set folder with the template and the front's inputs
     embedded (the side's and top's inputs are subsets of the front's),
     like a finished card; returns ``(out_path, skipped)``."""
-    source_hash = _material_hash(
-        BOX_TEMPLATE, front_source=front_source, preset=preset
-    )
+    source_hash = _material_hash(BOX_TEMPLATE, front_source=front_source, preset=preset)
     out_path = preset.set_path(exp.name) / BOX_MATERIAL_NAME
     if not force and out_path.is_file() and _stored_hash(out_path) == source_hash:
         return out_path, True

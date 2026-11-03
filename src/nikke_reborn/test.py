@@ -49,9 +49,7 @@ def run() -> None:
         expansion_path = expansion.resolve_expansion_path(args.paths[0])
         exp = expansion.load_expansion(expansion_path)
         ids = args.paths[1:]
-        entries = [
-            entry for entry in exp.cards if not ids or entry.id in ids
-        ]
+        entries = [entry for entry in exp.cards if not ids or entry.id in ids]
         if ids:
             known = {entry.id for entry in exp.cards}
             unknown = [char_id for char_id in ids if char_id not in known]
@@ -160,9 +158,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _generate(
-    expansion_path: Path, ids: list[str], preset: Preset
-) -> None:
+def _generate(expansion_path: Path, ids: list[str], preset: Preset) -> None:
     """The forced, single-worker generate run behind the check (see the
     module docstring): the byte protocol — the same code, inputs and
     worker count produce the same bytes."""
@@ -213,9 +209,7 @@ def _baseline_path(set_name: str, card_name: str, preset: Preset) -> Path:
     """The recorded baseline: ``tests/baselines/<set>/<name>.<preset>.sha256``
     (the character's, or the expansion's pack and box with *card_name*
     ``expansion``)."""
-    return (
-        BASELINES_DIR / set_name / f"{card_name}.{preset.value}.sha256"
-    )
+    return BASELINES_DIR / set_name / f"{card_name}.{preset.value}.sha256"
 
 
 def _sha256(path: Path) -> str:

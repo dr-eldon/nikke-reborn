@@ -135,16 +135,16 @@ def _load_expansion(expansion_path: Path) -> tuple[dict, dict, str]:
     tuning (what ``generate`` would write to ``output/<set>.json``), and
     the set's name."""
     if not expansion_path.is_file():
-        available = ", ".join(
-            sorted(path.stem for path in CARDS_DIR.glob("*.toml"))
-        )
+        available = ", ".join(sorted(path.stem for path in CARDS_DIR.glob("*.toml")))
         raise GenerationError(
             f"unknown expansion {expansion_path.name!r} (available: {available})"
         )
     exp = expansion.load_expansion(expansion_path)
     cards = metadata.cards(exp)
     if not cards:
-        raise GenerationError(f"no cards under {expansion_path.relative_to(REPO_ROOT)}/")
+        raise GenerationError(
+            f"no cards under {expansion_path.relative_to(REPO_ROOT)}/"
+        )
     return (
         metadata.expansion(exp.name, cards, exp.rarities),
         metadata.pack(exp.name, exp.rarities),

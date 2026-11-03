@@ -108,7 +108,7 @@ def _stored_hash(out_path: Path) -> str | None:
             text=True,
             timeout=60,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     if result.returncode != 0:
         return None

@@ -92,7 +92,9 @@ def _manufacturer_logo(card_id: str) -> Image.Image | None:
     return Image.open(path).convert("RGBA")
 
 
-def presentation_source_hash(presentation: expansion.Presentation, preset: Preset) -> str:
+def presentation_source_hash(
+    presentation: expansion.Presentation, preset: Preset
+) -> str:
     """The SHA-256 of a presentation's inputs — everything the finished
     card depends on: the expansion's file, the card's stem, the
     presentation's name and its viewer terms (in canonical form), the
@@ -122,7 +124,9 @@ def presentation_source_hash(presentation: expansion.Presentation, preset: Prese
     else:
         hash_term(
             digest,
-            expansion._background_path(presentation.expansion, presentation.background).read_bytes(),
+            expansion._background_path(
+                presentation.expansion, presentation.background
+            ).read_bytes(),
         )
     if presentation.mask == "standard":
         hash_term(digest, STANDARD_MASK_PATH.read_bytes())
@@ -172,7 +176,9 @@ def build_selection(
     its reel's animation) before the run starts, so a character that cannot
     render a presentation fails before anything is rendered."""
     if ids:
-        known: dict[str, set[str]] = {e.name: {c.id for c in e.cards} for e in expansions}
+        known: dict[str, set[str]] = {
+            e.name: {c.id for c in e.cards} for e in expansions
+        }
         for expansion_name, roster in known.items():
             unknown = [char_id for char_id in ids if char_id not in roster]
             if unknown:

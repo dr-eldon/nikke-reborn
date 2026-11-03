@@ -19,7 +19,8 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 
 ## Conventions
 
-- `uvx ruff check src/` must be clean.
+- `uvx ruff check src/` and `uvx ruff format --check src/` must be
+  clean.
 - Only commit or push when explicitly asked.
 - For quick iteration, `generate` a single character (`--ids`) with the
   default settings; avoid `--ultra` (`generate` and `test`) until the very

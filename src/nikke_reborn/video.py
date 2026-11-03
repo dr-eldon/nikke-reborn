@@ -92,7 +92,7 @@ class _PipeDrain:
                     self._buf.extend(chunk)
                     if len(self._buf) > self._cap:
                         del self._buf[: len(self._buf) - self._cap]
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass
 
     def text(self) -> str:
