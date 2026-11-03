@@ -45,7 +45,8 @@ animation:
   ``Special`` and ``Exotic`` presentations (the classic pose, the
   ``idle`` loop, the ``cover`` and ``aim`` variants, the special animation
   and the ``action`` loop) and the ``Goddess`` presentation (the ``sc``
-  variant): the classic, idle, special and exotic are half-body frames and
+  variant, its ``main`` animation): the classic, idle, special and exotic
+  are half-body frames and
   the cover, aim and goddess are full-body, no mask, each on its own
   background (the ``base``, ``battle`` or ``special`` — a solid black for
   the goddess) fitted to the card's own aspect and left as-is (no fade, no

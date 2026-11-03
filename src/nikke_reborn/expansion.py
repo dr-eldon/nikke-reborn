@@ -143,7 +143,8 @@ BACKGROUND_KEYS = ("base", "special", "battle")
 #: name (the output's suffix, e.g. ``ClassicStandard``), its tier
 #: (``standard`` | ``profile`` | ``full``), the viewer's ``--variant``
 #: (None — the viewer's default ``fb``), the ``--animation`` (None — the
-#: viewer's default; REEL — the reel's pick, resolved at selection time),
+#: viewer's default; REEL — the reel's pick, resolved at selection time; the
+#: goddess's ``sc`` variant renders its ``main`` animation),
 #: the ``--time`` (0 — a still, None — the loop), the ``--half-body``
 #: framing (the standard's and the full-art's single stream), the
 #: background's key (or ``black`` — the solid black the goddess
@@ -195,7 +196,7 @@ PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
     ("Aim", "full", "aim", None, None, False, "battle", None, False),
     ("Special", "full", None, REEL, 0.0, True, "special", None, False),
     ("Exotic", "full", None, "action", None, True, "base", None, False),
-    ("Goddess", "full", "sc", None, None, False, "black", None, False),
+    ("Goddess", "full", "sc", "main", None, False, "black", None, False),
 )
 
 #: The tiers a run's passes render (the ``--no-<tier>`` flags).
