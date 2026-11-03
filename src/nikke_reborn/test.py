@@ -184,12 +184,26 @@ def _expected_outputs(
         animated = presentation.animated
         suffix = "mp4" if animated else "png"
         outs.append(
-            card.output_path(exp.name, entry.stem, presentation.name, suffix, preset)
+            card.output_path(
+                exp.name,
+                entry.stem,
+                presentation.name,
+                presentation.rarity_index,
+                suffix,
+                preset,
+            )
         )
         if animated:
             # The animation's first frame is kept alongside it.
             outs.append(
-                card.output_path(exp.name, entry.stem, presentation.name, "png", preset)
+                card.output_path(
+                    exp.name,
+                    entry.stem,
+                    presentation.name,
+                    presentation.rarity_index,
+                    "png",
+                    preset,
+                )
             )
     return outs
 

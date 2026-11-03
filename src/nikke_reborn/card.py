@@ -57,13 +57,18 @@ def output_path(
     set_name: str,
     card_stem: str,
     presentation: str,
+    rarity_index: int,
     suffix: str,
     preset: Preset,
 ) -> Path:
     """A card's finished output path:
-    ``<card's stem>_<presentation>.<suffix>`` under the output preset's
-    set folder."""
-    return preset.set_path(set_name) / f"{card_stem}_{presentation}.{suffix}"
+    ``<card's stem>_<rarity index>_<presentation>.<suffix>`` under the
+    output preset's set folder (the rarity index the presentation's
+    1-based position in the set's ``rarities``)."""
+    return (
+        preset.set_path(set_name)
+        / f"{card_stem}_{rarity_index:02d}_{presentation}.{suffix}"
+    )
 
 
 def _manufacturer_logo_path(card_id: str) -> Path | None:

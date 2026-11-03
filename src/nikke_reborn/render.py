@@ -310,6 +310,7 @@ def _write_final_card(
         presentation.expansion.name,
         presentation.card.stem,
         presentation.name,
+        presentation.rarity_index,
         "mp4" if animated else "png",
         preset,
     )
@@ -322,6 +323,7 @@ def _write_final_card(
                     presentation.expansion.name,
                     presentation.card.stem,
                     presentation.name,
+                    presentation.rarity_index,
                     "png",
                     preset,
                 ),
@@ -834,7 +836,12 @@ def _process_full_art(
     # first frame (png); one with a `time` renders a single frame (png).
     animated = presentation.animated and not no_video
     out_path = card.output_path(
-        exp.name, entry.stem, presentation.name, "mp4" if animated else "png", preset
+        exp.name,
+        entry.stem,
+        presentation.name,
+        presentation.rarity_index,
+        "mp4" if animated else "png",
+        preset,
     )
     source_hash = card.presentation_source_hash(presentation, preset)
     if not force:
@@ -843,7 +850,12 @@ def _process_full_art(
             # The animation's first frame is kept alongside it; a missing or
             # stale copy forces the card to be re-rendered.
             first_frame_path = card.output_path(
-                exp.name, entry.stem, presentation.name, "png", preset
+                exp.name,
+                entry.stem,
+                presentation.name,
+                presentation.rarity_index,
+                "png",
+                preset,
             )
             up_to_date = (
                 first_frame_path.is_file()
@@ -951,14 +963,24 @@ def _process_profile_card(
 
     animated = presentation.animated and not no_video
     out_path = card.output_path(
-        exp.name, entry.stem, presentation.name, "mp4" if animated else "png", preset
+        exp.name,
+        entry.stem,
+        presentation.name,
+        presentation.rarity_index,
+        "mp4" if animated else "png",
+        preset,
     )
     source_hash = card.presentation_source_hash(presentation, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             first_frame_path = card.output_path(
-                exp.name, entry.stem, presentation.name, "png", preset
+                exp.name,
+                entry.stem,
+                presentation.name,
+                presentation.rarity_index,
+                "png",
+                preset,
             )
             up_to_date = (
                 first_frame_path.is_file()
@@ -1066,14 +1088,24 @@ def _process_standard_card(
 
     animated = presentation.animated and not no_video
     out_path = card.output_path(
-        exp.name, entry.stem, presentation.name, "mp4" if animated else "png", preset
+        exp.name,
+        entry.stem,
+        presentation.name,
+        presentation.rarity_index,
+        "mp4" if animated else "png",
+        preset,
     )
     source_hash = card.presentation_source_hash(presentation, preset)
     if not force:
         up_to_date = out_path.is_file() and _stored_hash(out_path) == source_hash
         if up_to_date and animated:
             first_frame_path = card.output_path(
-                exp.name, entry.stem, presentation.name, "png", preset
+                exp.name,
+                entry.stem,
+                presentation.name,
+                presentation.rarity_index,
+                "png",
+                preset,
             )
             up_to_date = (
                 first_frame_path.is_file()

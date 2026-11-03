@@ -186,14 +186,15 @@ TIERS = ("standard", "profile", "full")
 class CardEntry:
     """One card of an expansion: its viewer id, its 1-based position
     in the expansion's ``cards`` (the card's number), the card's stem
-    (``<number>_<name>[_<subtitle>]``, the compact — whitespace-free —
-    name), the name it renders (the title, and the subtitle when the
-    character is a skin), the rarity and manufacturer the game's data
-    carry (the base character's when the id is suffixed; the event's
-    fixed rarity and none for an event — an id that is not a
-    character), and the per-presentation viewer framing overrides its
-    ``cards`` table names (each a presentation's ``x``/``y``/``zoom``,
-    plumbed to the viewer's ``--x``/``--y``/``--zoom``)."""
+    (``<number>_<id>_<name>``, the 1-based number, the viewer id and
+    the compact — whitespace-free — name), the name it renders (the
+    title, and the subtitle when the character is a skin), the rarity
+    and manufacturer the game's data carry (the base character's when
+    the id is suffixed; the event's fixed rarity and none for an event
+    — an id that is not a character), and the per-presentation viewer
+    framing overrides its ``cards`` table names (each a presentation's
+    ``x``/``y``/``zoom``, plumbed to the viewer's ``--x``/``--y``/
+    ``--zoom``)."""
 
     id: str
     number: int
@@ -283,6 +284,12 @@ class Presentation:
         """The presentation's name in the run's messages (and errors):
         ``<card's stem> (<presentation>)``."""
         return f"{self.card.stem} ({self.name})"
+
+    @property
+    def rarity_index(self) -> int:
+        """The presentation's 1-based position in the set's ``rarities``
+        (its index in the set's rarity order, the output's prefix)."""
+        return self.expansion.rarities.index(self.name) + 1
 
 
 @dataclass(frozen=True)
@@ -589,12 +596,10 @@ def _card_entry(
         rarity = str(record.get("rarity") or "R")
         manufacturer = record.get("manufacturer")
     name_part = "".join(title.split())
-    if subtitle:
-        name_part += f"_{''.join(subtitle.split())}"
     return CardEntry(
         id=char_id,
         number=number,
-        stem=f"{number:04d}_{name_part}",
+        stem=f"{number:04d}_{char_id}_{name_part}",
         title=title,
         subtitle=subtitle,
         rarity=rarity,
