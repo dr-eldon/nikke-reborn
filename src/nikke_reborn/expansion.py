@@ -732,9 +732,9 @@ def _logo_path(expansion: Expansion) -> Path:
 
 def front_source_digest(expansion: Expansion, logo: Path, template: Path) -> str:
     """A hash of an expansion front's *inputs* — everything the composed
-    front depends on: the expansion's file, the featured characters it
-    lists (their ids, ``x`` nudges and per-character ``animation``/
-    ``time``/``zoom`` overrides), its ``background.base``, its ``logo``, the
+    front depends on: the featured characters it lists (their ids, ``x``
+    nudges and per-character ``animation``/``time``/``zoom`` overrides),
+    its ``background.base``, its ``logo`` (and its ``placement``), the
     white NIKKE logo placed on the front (*logo*), and the material template
     that sizes it (*template*). It is computed without rendering the front,
     so the finished material can be skipped (and the front's render
@@ -743,7 +743,7 @@ def front_source_digest(expansion: Expansion, logo: Path, template: Path) -> str
     *template* (see :func:`nikke_reborn.pack.front_source_hash` /
     :func:`nikke_reborn.box.front_source_hash`)."""
     digest = hashlib.sha256()
-    hash_term(digest, expansion.path.read_bytes())
+    hash_term(digest, expansion.logo_placement.encode())
     for featured in expansion.pack:
         hash_term(digest, featured.id.encode())
         hash_term(digest, f"x:{featured.x}".encode())

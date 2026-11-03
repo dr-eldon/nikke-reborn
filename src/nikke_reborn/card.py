@@ -96,7 +96,7 @@ def presentation_source_hash(
     presentation: expansion.Presentation, preset: Preset
 ) -> str:
     """The SHA-256 of a presentation's inputs — everything the finished
-    card depends on: the expansion's file, the card's stem, the
+    card depends on: the card's id and stem, the
     presentation's name and its viewer terms (in canonical form, plus the
     framing overrides when the TOML names them), the background's bytes
     (the solid black's marker for the goddess
@@ -108,7 +108,7 @@ def presentation_source_hash(
     canonical one)."""
     digest = hashlib.sha256()
     card = presentation.card
-    hash_term(digest, presentation.expansion.path.read_bytes())
+    hash_term(digest, card.id.encode())
     hash_term(digest, card.stem.encode())
     hash_term(digest, presentation.name.encode())
     flags = "|".join(
