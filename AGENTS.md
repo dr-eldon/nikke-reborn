@@ -22,6 +22,8 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 - `uvx ruff check src/` and `uvx ruff format --check src/` must be
   clean.
 - Only commit or push when explicitly asked.
+- Commit messages carry no co-author trailers (`Co-Authored-By: …` or
+  similar).
 - For quick iteration, `generate` a single character (`--ids`) with the
   default settings; avoid `--ultra` (`generate`) until the very
   end — it renders at native resolution and is much slower.
