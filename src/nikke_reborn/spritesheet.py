@@ -345,8 +345,8 @@ def _split_camel(text: str) -> str:
 
 def _column_label(column: str) -> str:
     """The column's header label: the rarity's name with whitespace
-    between each capital letter (``ClassicProfile`` reads as
-    ``Classic Profile``)."""
+    between each capital letter (``CoverProfile`` reads as
+    ``Cover Profile``)."""
     return _split_camel(column)
 
 

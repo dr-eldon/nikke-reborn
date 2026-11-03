@@ -160,11 +160,11 @@ def pack(set, rarities) -> dict:
         classified = classified * full_art_factor
 
         weights = {
-            "ClassicStandard": 100
+            "Standard": 100
             - (classic + special + idle + cover + aim + exotic + goddess + classified)
             - (special_standard + exotic_standard)
             - (classic_profile + idle_profile + cover_profile + aim_profile),
-            "ClassicProfile": classic_profile,
+            "Profile": classic_profile,
             "SpecialStandard": special_standard,
             "IdleProfile": idle_profile,
             "CoverProfile": cover_profile,
@@ -272,9 +272,9 @@ def _card(name, variant, rarity, sprite) -> dict:
     BORDERS = ["Base", "FirstEdition", "Silver", "Gold", "EX", "FullArt"]
 
     VARIANT_BORDER = {
-        "ClassicStandard": 0,
+        "Standard": 0,
         "SpecialStandard": 0,
-        "ClassicProfile": 0,
+        "Profile": 0,
         "IdleProfile": 2,
         "CoverProfile": 1,
         "AimProfile": 1,

@@ -85,10 +85,10 @@ Viewer flags for `nikke-viewer <id>` (flags precede the id; `--width/--height`
 
 | Presentation | Output stem suffix | Framing flags | Variant | Animation | Time | Background | Mask |
 |---|---|---|---|---|---|---|---|
-| Classic standard | `_ClassicStandard` | `--half-body` | fb | default | `0` | `base` | standard |
+| Standard | `_Standard` | `--half-body` | fb | default | `0` | `base` | standard |
 | Special standard | `_SpecialStandard` | `--half-body` | fb | reel pick | `0` | `special` | standard |
 | Exotic standard | `_ExoticStandard` | `--half-body` | fb | `action` | loop | `base` | standard |
-| Classic profile | `_ClassicProfile` | face + body | fb | default | `0` | `base` | profile |
+| Profile | `_Profile` | face + body | fb | default | `0` | `base` | profile |
 | Idle profile | `_IdleProfile` | face + body | fb | `idle` | loop | `base` | profile |
 | Cover profile | `_CoverProfile` | face + body | `--variant cover` | default | loop | `battle` | profile |
 | Aim profile | `_AimProfile` | face + body | `--variant aim` | default | loop | `battle` | profile |
@@ -171,7 +171,7 @@ stem              = f"{number:04d}_{stem_name}"          e.g. "0001_Rapi"
 - Numbering is always positional: TETRA and MISSILIS have no TOMLs yet
   (their legacy card content was partial leftovers), so their stems number
   from 1 and differ from the legacy filenames (section 7).
-- Profile/standard suffixes are unchanged: `<stem>_ClassicProfile`,
+- Profile/standard suffixes are unchanged: `<stem>_Profile`,
   `<stem>_ExoticStandard`, …; full art is bare `<stem>_<Variant>`.
 - Output paths: `preset.set_path(<set>) / f"{stem}_{presentation}.{ext}"`
   (e.g. `output/ELYSION/0001_Rapi_Exotic.mp4`,

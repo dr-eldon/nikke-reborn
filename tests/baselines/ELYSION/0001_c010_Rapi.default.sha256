@@ -5,8 +5,8 @@
 # recorded by: test --new-baseline (generate --force --jobs 1)
 # verify from the repo root: sha256sum -c tests/baselines/ELYSION/0001_c010_Rapi.default.sha256
 
-c688fbd24412da5fd7568e8c10c7c49bea00e823fe5de6c22facce5864c802f8  output/ELYSION/0001_c010_Rapi_01_ClassicStandard.png
-083a2a53c6611a7175b41a0cdb7913d66b82724ddcadc63fca0fd7e6da80bb7f  output/ELYSION/0001_c010_Rapi_02_ClassicProfile.png
+372eb3ed90ade9a8ca689af158744df854a0057495fe48c922d22d021b104b64  output/ELYSION/0001_c010_Rapi_01_Standard.png
+22a73e94e20784f94e162996d376307f5b2fa2dbefc1e2cd0079ed95b94934de  output/ELYSION/0001_c010_Rapi_02_Profile.png
 05e26be4fd6a50abf1f0b6b1f58333373d7304866d9589f1144a595296597897  output/ELYSION/0001_c010_Rapi_03_SpecialStandard.png
 36e0fa7ea22d8ed0eb39e8d4c5b1b514a3dd2a21a01f24c72beec3e7f2509ed7  output/ELYSION/0001_c010_Rapi_04_CoverProfile.mp4
 efb0bb3b59736e576730d1c729731bc6b961a59da25c0b2e38dda8856339889b  output/ELYSION/0001_c010_Rapi_04_CoverProfile.png

@@ -135,7 +135,7 @@ _PresentationSpec = tuple[
 ]
 
 PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
-    ("ClassicStandard", "standard", None, None, 0.0, True, "base", "standard", False),
+    ("Standard", "standard", None, None, 0.0, True, "base", "standard", False),
     (
         "SpecialStandard",
         "standard",
@@ -158,7 +158,7 @@ PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
         "standard",
         False,
     ),
-    ("ClassicProfile", "profile", None, None, 0.0, False, "base", "profile", True),
+    ("Profile", "profile", None, None, 0.0, False, "base", "profile", True),
     ("IdleProfile", "profile", None, "idle", None, False, "base", "profile", True),
     ("CoverProfile", "profile", "cover", None, None, False, "battle", "profile", True),
     ("AimProfile", "profile", "aim", None, None, False, "battle", "profile", True),
