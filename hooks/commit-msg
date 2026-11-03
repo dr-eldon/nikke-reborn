@@ -1,0 +1,8 @@
+#!/bin/sh
+# Deny co-author trailers: a message line starting with Co-Authored/
+# Co-Author (case-insensitive). Install per clone:
+# ln -s ../../hooks/commit-msg .git/hooks/commit-msg
+if grep -qiE '^co-?auth' "$1"; then
+    echo "error: commit messages carry no co-author trailers" >&2
+    exit 1
+fi
