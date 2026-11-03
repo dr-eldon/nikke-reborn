@@ -8,11 +8,13 @@
     "cn": "拉毗",
     "de": "Rapi",
     "th": "ราพี",
-    "fr": "Rapi"
+    "fr": "Rapi",
+    "date": "2022-11-04"
   },
   {
     "name": "Rapi_old",
-    "id": "c010_01"
+    "id": "c010_01",
+    "date": "2022-11-04"
   },
   {
     "name": "Rapi White Promise",
@@ -23,7 +25,8 @@
     "cn": "拉毗 白色诺言",
     "de": "Rapi Weißes Versprechen",
     "th": "ราพี คำสัตย์บริสุทธิ์",
-    "fr": "Rapi Promesse blanche"
+    "fr": "Rapi Promesse blanche",
+    "date": "2022-11-04"
   },
   {
     "name": "Rapi Classic Vacation",
@@ -34,7 +37,8 @@
     "cn": "拉毗 经典假期",
     "de": "Rapi Sonniger Urlaub",
     "th": "ราพี วันหยุดสุดคลาสสิก",
-    "fr": "Rapi Vacances classiques"
+    "fr": "Rapi Vacances classiques",
+    "date": "2023-07-06"
   },
   {
     "name": "Neon",
@@ -45,7 +49,8 @@
     "cn": "尼恩",
     "de": "Neon",
     "th": "นีออน",
-    "fr": "Neon"
+    "fr": "Neon",
+    "date": "2022-11-04"
   },
   {
     "name": "Neon Bling Bullet",
@@ -56,7 +61,8 @@
     "cn": "尼恩 闪亮子弹",
     "de": "Neon Bling-Patrone",
     "th": "นีออน กระสุนระยิบระยับ",
-    "fr": "Neon Balle tape-à-l'œil"
+    "fr": "Neon Balle tape-à-l'œil",
+    "date": "2022-11-04"
   },
   {
     "name": "Anis",
@@ -67,7 +73,8 @@
     "cn": "阿妮斯",
     "de": "Anis",
     "th": "แอนิส",
-    "fr": "Anis"
+    "fr": "Anis",
+    "date": "2022-11-04"
   },
   {
     "name": "Marian",
@@ -78,7 +85,8 @@
     "cn": "玛丽安",
     "de": "Marian",
     "th": "แมเรียน",
-    "fr": "Marian"
+    "fr": "Marian",
+    "date": "2022-11-04"
   },
   {
     "name": "Neon: Blue Ocean",
@@ -89,7 +97,8 @@
     "cn": "尼恩：蓝色海洋",
     "de": "Neon: Blauer Ozean",
     "th": "นีออน: บลูโอเชี่ยน",
-    "fr": "Neon : Océan bleu"
+    "fr": "Neon : Océan bleu",
+    "date": "2023-06-22"
   },
   {
     "name": "Anis: Sparkling Summer",
@@ -100,7 +109,8 @@
     "cn": "阿妮斯：闪耀夏日",
     "de": "Anis: Funkelsommer",
     "th": "แอนิส: ซัมเมอร์ซาบซ่า",
-    "fr": "Anis : Chaleur chatoyante"
+    "fr": "Anis : Chaleur chatoyante",
+    "date": "2023-08-03"
   },
   {
     "name": "Rapi: Red Hood",
@@ -111,7 +121,8 @@
     "cn": "拉毗：小红帽",
     "de": "Rapi: Rotkäppchen",
     "th": "ราพี: หมวกแดง",
-    "fr": "Rapi : Carmine"
+    "fr": "Rapi : Carmine",
+    "date": "2025-01-01"
   },
   {
     "name": "Rapi: Red Hood Red Flavor",
@@ -122,7 +133,8 @@
     "cn": "拉毗：小红帽 红色风情",
     "de": "Rapi: Rotkäppchen Roter Geschmack",
     "th": "ราพี: หมวกแดง รสชาติแดงเดือด",
-    "fr": "Rapi : Carmine Saveur écarlate"
+    "fr": "Rapi : Carmine Saveur écarlate",
+    "date": "2025-01-01"
   },
   {
     "name": "Rapi: Red Hood Cherished Red",
@@ -133,7 +145,8 @@
     "cn": "拉毗：小红帽 挚爱之红",
     "de": "Rapi: Rotkäppchen Geschätztes Rot",
     "th": "ราพี: หมวกแดง รักแรงแดงฉ่ำ",
-    "fr": "Rapi : Carmine Rouge chéri"
+    "fr": "Rapi : Carmine Rouge chéri",
+    "date": "2025-01-01"
   },
   {
     "name": "Rapi: Red Hood Shining Light",
@@ -144,7 +157,8 @@
     "cn": "拉毗：小红帽 耀光",
     "de": "Rapi: Rotkäppchen Strahlendes Licht",
     "th": "ราพี: หมวกแดง แสงสว่างเรืองรอง",
-    "fr": "Rapi : Carmine Luminance"
+    "fr": "Rapi : Carmine Luminance",
+    "date": "2025-01-01"
   },
   {
     "name": "Anis: Star",
@@ -155,7 +169,8 @@
     "cn": "阿妮斯：超级巨星",
     "de": "Anis: Star",
     "th": "แอนิส: ดาวเปล่งประกาย",
-    "fr": "Anis : Star"
+    "fr": "Anis : Star",
+    "date": "2026-04-23"
   },
   {
     "name": "Anis: Star Starlight",
@@ -166,7 +181,8 @@
     "cn": "阿妮斯：超级巨星 星光",
     "de": "Anis: Star Sternenlicht",
     "th": "แอนิส: ดาวเปล่งประกาย แสงดาวพราวพร่าง",
-    "fr": "Anis : Star Star - Éclat céleste"
+    "fr": "Anis : Star Star - Éclat céleste",
+    "date": "2026-04-23"
   },
   {
     "name": "Anis: Star T.T. STAR",
@@ -177,7 +193,8 @@
     "cn": "阿妮斯：超级巨星 T.T. STAR",
     "de": "Anis: Star T.T. STAR",
     "th": "แอนิส: ดาวเปล่งประกาย T.T. STAR",
-    "fr": "Anis : Star T.T. STAR"
+    "fr": "Anis : Star T.T. STAR",
+    "date": "2026-04-23"
   },
   {
     "name": "Neon: Vision Eye",
@@ -188,7 +205,8 @@
     "cn": "尼恩：透视之眼",
     "de": "Neon: Vision Eye",
     "th": "นีออน: เนตรวิชั่น",
-    "fr": "Neon : Œil bionique"
+    "fr": "Neon : Œil bionique",
+    "date": "2026-04-30"
   },
   {
     "name": "Delta",
@@ -199,7 +217,8 @@
     "cn": "德尔塔",
     "de": "Delta",
     "th": "เดลต้า",
-    "fr": "Delta"
+    "fr": "Delta",
+    "date": "2022-11-04"
   },
   {
     "name": "Signal",
@@ -210,7 +229,8 @@
     "cn": "西格娜",
     "de": "Signal",
     "th": "ซิกนัล",
-    "fr": "Signal"
+    "fr": "Signal",
+    "date": "2022-11-04"
   },
   {
     "name": "Signal Dramatic Chocolate",
@@ -221,7 +241,8 @@
     "cn": "西格娜 甜蜜宅配员",
     "de": "Signal Dramatische Schokolade",
     "th": "ซิกนัล ช็อกโกแลตในละคร",
-    "fr": "Signal Chocolat dramatique"
+    "fr": "Signal Chocolat dramatique",
+    "date": "2023-02-01"
   },
   {
     "name": "Delta: Ninja Thief",
@@ -232,7 +253,8 @@
     "cn": "德尔塔：怪盗忍者",
     "de": "Delta: Ninja-Dieb",
     "th": "เดลต้า: จอมโจรนินจา",
-    "fr": "Delta : Voleur ninja"
+    "fr": "Delta : Voleur ninja",
+    "date": "2025-10-16"
   },
   {
     "name": "Poli",
@@ -243,7 +265,8 @@
     "cn": "波莉",
     "de": "Poli",
     "th": "โพลี่",
-    "fr": "Poli"
+    "fr": "Poli",
+    "date": "2022-11-04"
   },
   {
     "name": "Poli Sweet Holic",
@@ -254,7 +277,8 @@
     "cn": "波莉 甜美控",
     "de": "Poli Süße Holic",
     "th": "โพลี่ คลั่งของหวาน",
-    "fr": "Poli Accrosucré"
+    "fr": "Poli Accrosucré",
+    "date": "2022-11-04"
   },
   {
     "name": "Poli Cheer Up Police",
@@ -265,7 +289,8 @@
     "cn": "波莉 警察加油",
     "de": "Poli Gute-Laune-Polizei",
     "th": "โพลี่ ตำรวจเชียร์สุดใจ",
-    "fr": "Poli Police de la bonne humeur"
+    "fr": "Poli Police de la bonne humeur",
+    "date": "2024-04-01"
   },
   {
     "name": "Miranda",
@@ -276,7 +301,8 @@
     "cn": "米兰达",
     "de": "Miranda",
     "th": "มิแรนด้า",
-    "fr": "Miranda"
+    "fr": "Miranda",
+    "date": "2022-11-04"
   },
   {
     "name": "Miranda Thief of Justice",
@@ -287,7 +313,8 @@
     "cn": "米兰达 正义怪盗",
     "de": "Miranda Diebin der Gerechtigkeit",
     "th": "มิแรนด้า โจรคุณธรรม",
-    "fr": "Miranda Robin des bois"
+    "fr": "Miranda Robin des bois",
+    "date": "2024-09-19"
   },
   {
     "name": "Quiry",
@@ -298,7 +325,8 @@
     "cn": "基里",
     "de": "Quiry",
     "th": "คิริ",
-    "fr": "Quiry"
+    "fr": "Quiry",
+    "date": "2023-10-19"
   },
   {
     "name": "D",
@@ -309,7 +337,8 @@
     "cn": "D",
     "de": "D",
     "th": "D",
-    "fr": "D"
+    "fr": "D",
+    "date": "2023-04-13"
   },
   {
     "name": "K",
@@ -320,7 +349,8 @@
     "cn": "K",
     "de": "K",
     "th": "K",
-    "fr": "K"
+    "fr": "K",
+    "date": "2025-05-29"
   },
   {
     "name": "K Undercover",
@@ -331,7 +361,8 @@
     "cn": "K 秘密行动",
     "de": "K Verdeckt",
     "th": "K ปฏิบัติการลับ",
-    "fr": "K Sous couverture"
+    "fr": "K Sous couverture",
+    "date": "2025-10-01"
   },
   {
     "name": "D: Killer Wife",
@@ -342,7 +373,8 @@
     "cn": "D：杀手妻子",
     "de": "D: Killer-Braut",
     "th": "D: ยอดรักนักฆ่า",
-    "fr": "D : Potiche assassine"
+    "fr": "D : Potiche assassine",
+    "date": "2024-03-07"
   },
   {
     "name": "D: Killer Wife Secret Party Cleaner",
@@ -353,7 +385,8 @@
     "cn": "D：杀手妻子 秘密派对清洁工",
     "de": "D: Killer-Braut Partygirl",
     "th": "D: ยอดรักนักฆ่า กวาดล้างกลางงานเลี้ยง",
-    "fr": "D : Potiche assassine Épongeuse de fête secrète"
+    "fr": "D : Potiche assassine Épongeuse de fête secrète",
+    "date": "2024-03-07"
   },
   {
     "name": "D: Killer Wife Secret Police",
@@ -364,7 +397,8 @@
     "cn": "D：杀手妻子 秘密警探",
     "de": "D: Killer-Braut Secret Police",
     "th": "D: ยอดรักนักฆ่า คุณตำรวจสายลับ",
-    "fr": "D : Potiche assassine Police secrète"
+    "fr": "D : Potiche assassine Police secrète",
+    "date": "2024-03-07"
   },
   {
     "name": "Belorta",
@@ -375,7 +409,8 @@
     "cn": "贝洛塔",
     "de": "Belorta",
     "th": "เบลอร์ต้า",
-    "fr": "Bella"
+    "fr": "Bella",
+    "date": "2022-11-04"
   },
   {
     "name": "Mica",
@@ -386,7 +421,8 @@
     "cn": "米卡",
     "de": "Mica",
     "th": "ไมก้า",
-    "fr": "Mica"
+    "fr": "Mica",
+    "date": "2022-11-04"
   },
   {
     "name": "Mica: Snow Buddy",
@@ -397,7 +433,8 @@
     "cn": "米卡：雪地伙伴",
     "de": "Mica: Schneezofe",
     "th": "ไมก้า: สโนว์บัดดี้",
-    "fr": "Mica : Camarade des neiges"
+    "fr": "Mica : Camarade des neiges",
+    "date": "2023-12-14"
   },
   {
     "name": "Brid",
@@ -408,7 +445,8 @@
     "cn": "布丽德",
     "de": "Brid",
     "th": "บริด",
-    "fr": "Breda"
+    "fr": "Breda",
+    "date": "2022-11-04"
   },
   {
     "name": "Brid Model Worker",
@@ -419,7 +457,8 @@
     "cn": "布丽德 古典工作服",
     "de": "Brid Modellarbeiterin",
     "th": "บริด พนักงานต้นแบบ",
-    "fr": "Breda Travailleuse modèle"
+    "fr": "Breda Travailleuse modèle",
+    "date": "2022-11-04"
   },
   {
     "name": "Brid Black Moon",
@@ -430,7 +469,8 @@
     "cn": "布丽德 黑月",
     "de": "Brid Schwarzer Mond",
     "th": "บริด จันทร์สีนิล",
-    "fr": "Breda Lune noire"
+    "fr": "Breda Lune noire",
+    "date": "2023-09-01"
   },
   {
     "name": "Soline",
@@ -441,7 +481,8 @@
     "cn": "索林",
     "de": "Soline",
     "th": "โซลีน",
-    "fr": "Soline"
+    "fr": "Soline",
+    "date": "2022-11-04"
   },
   {
     "name": "Diesel",
@@ -452,7 +493,8 @@
     "cn": "迪塞尔",
     "de": "Diesel",
     "th": "ดีเซล",
-    "fr": "Diesel"
+    "fr": "Diesel",
+    "date": "2022-11-04"
   },
   {
     "name": "Diesel Black Sunday",
@@ -463,7 +505,8 @@
     "cn": "迪塞尔 黑色假日",
     "de": "Diesel Schwarzer Sonntag",
     "th": "ดีเซล วันอาทิตย์สีดำ",
-    "fr": "Diesel Dimanche noir"
+    "fr": "Diesel Dimanche noir",
+    "date": "2022-11-04"
   },
   {
     "name": "Diesel Strawberry Flower",
@@ -474,7 +517,8 @@
     "cn": "迪塞尔 草莓花朵",
     "de": "Diesel Erdbeerblüte",
     "th": "ดีเซล สตรอว์เบอร์รีผลิดอก",
-    "fr": "Diesel Fleur de fraisier"
+    "fr": "Diesel Fleur de fraisier",
+    "date": "2023-10-05"
   },
   {
     "name": "Diesel Midnight Strawberry",
@@ -485,7 +529,8 @@
     "cn": "迪塞尔 午夜草莓",
     "de": "Diesel Mitternachtserdbeere",
     "th": "ดีเซล มิดไนท์สตรอว์เบอร์รี",
-    "fr": "Diesel Fraise de minuit"
+    "fr": "Diesel Fraise de minuit",
+    "date": "2024-04-25"
   },
   {
     "name": "Brid: Silent Track",
@@ -496,7 +541,8 @@
     "cn": "布丽德：静默轨道",
     "de": "Brid: Stille Spur",
     "th": "บริด: รางรถไฟไร้เสียง",
-    "fr": "Breda : Piste Silencieuse"
+    "fr": "Breda : Piste Silencieuse",
+    "date": "2025-12-11"
   },
   {
     "name": "Soline: Frost Ticket",
@@ -507,7 +553,8 @@
     "cn": "索林：霜之旅票",
     "de": "Soline: Frost-Ticket",
     "th": "โซลีน: รถด่วนขบวนเหมันต์",
-    "fr": "Soline : Ticket de givre"
+    "fr": "Soline : Ticket de givre",
+    "date": "2025-11-20"
   },
   {
     "name": "Diesel: Winter Sweets",
@@ -518,7 +565,8 @@
     "cn": "迪塞尔：冬日甜心",
     "de": "Diesel: Winterliche Süßigkeiten",
     "th": "ดีเซล: ฤดูหนาวแสนหวาน",
-    "fr": "Diesel : Douceurs d’hiver"
+    "fr": "Diesel : Douceurs d’hiver",
+    "date": "2025-12-04"
   },
   {
     "name": "Centi",
@@ -529,7 +577,8 @@
     "cn": "桑迪",
     "de": "Centi",
     "th": "เซนตี้",
-    "fr": "Centi"
+    "fr": "Centi",
+    "date": "2022-11-04"
   },
   {
     "name": "Centi Supreme Holiday",
@@ -540,7 +589,8 @@
     "cn": "桑迪 非凡假日",
     "de": "Centi Fabelhafte Ferien",
     "th": "เซนตี้ สุพรีมฮอลิเดย์",
-    "fr": "Centi Vacances suprêmes"
+    "fr": "Centi Vacances suprêmes",
+    "date": "2023-03-15"
   },
   {
     "name": "Centi Ocean Repair",
@@ -551,7 +601,8 @@
     "cn": "桑迪 海洋维修",
     "de": "Centi Ozean-Mechanikerin",
     "th": "เซนตี้ งานซ่อมริมสมุทร",
-    "fr": "Centi Rafistolage marin"
+    "fr": "Centi Rafistolage marin",
+    "date": "2025-06-12"
   },
   {
     "name": "Liter",
@@ -562,7 +613,8 @@
     "cn": "丽塔",
     "de": "Litera",
     "th": "ลิเตอร์",
-    "fr": "Litra"
+    "fr": "Litra",
+    "date": "2022-11-04"
   },
   {
     "name": "Liter Guardfish",
@@ -573,7 +625,8 @@
     "cn": "丽塔 菲什加德",
     "de": "Litera Seeteufel",
     "th": "ลิเตอร์ การ์ดปลาน้อย",
-    "fr": "Litra Orphie"
+    "fr": "Litra Orphie",
+    "date": "2023-08-03"
   },
   {
     "name": "Liter Cute Sunflower",
@@ -584,11 +637,13 @@
     "cn": "丽塔 可爱向日葵",
     "de": "Litera Sonnenblumenpracht",
     "th": "ลิเตอร์ ทานตะวันบานฉ่ำ",
-    "fr": "Litra Joli tournesol"
+    "fr": "Litra Joli tournesol",
+    "date": "2023-12-28"
   },
   {
     "name": "Liter (CN)",
-    "id": "c082_80"
+    "id": "c082_80",
+    "date": "2025-05-29"
   },
   {
     "name": "Emma",
@@ -599,7 +654,8 @@
     "cn": "艾玛",
     "de": "Emma",
     "th": "เอ็มม่า",
-    "fr": "Emma"
+    "fr": "Emma",
+    "date": "2022-11-04"
   },
   {
     "name": "Emma Color me Red",
@@ -610,7 +666,8 @@
     "cn": "艾玛 宝贝红",
     "de": "Emma Rosenrot",
     "th": "เอ็มม่า ชุดแดงแรงอารมณ์",
-    "fr": "Emma La vie en rouge"
+    "fr": "Emma La vie en rouge",
+    "date": "2022-12-08"
   },
   {
     "name": "Emma Office Therapy",
@@ -621,7 +678,8 @@
     "cn": "艾玛 办公室疗法",
     "de": "Emma Bürotherapie",
     "th": "เอ็มม่า ออฟฟิศบำบัด",
-    "fr": "Emma Thérapie de bureau"
+    "fr": "Emma Thérapie de bureau",
+    "date": "2023-06-01"
   },
   {
     "name": "Vesti",
@@ -632,7 +690,8 @@
     "cn": "贝斯蒂",
     "de": "Vesti",
     "th": "เวสตี้",
-    "fr": "Vesti"
+    "fr": "Vesti",
+    "date": "2022-11-04"
   },
   {
     "name": "Vesti Ark Mage",
@@ -643,7 +702,8 @@
     "cn": "贝斯蒂 方舟魔法师",
     "de": "Vesti Magierin der Arche",
     "th": "เวสตี้ อาร์คเมจ",
-    "fr": "Vesti Mage de l'Arche"
+    "fr": "Vesti Mage de l'Arche",
+    "date": "2024-12-05"
   },
   {
     "name": "Eunhwa",
@@ -654,7 +714,8 @@
     "cn": "银华",
     "de": "Eunhwa",
     "th": "อึนฮวา",
-    "fr": "Eunhwa"
+    "fr": "Eunhwa",
+    "date": "2022-11-04"
   },
   {
     "name": "Emma: Tactical Upgrade",
@@ -665,7 +726,8 @@
     "cn": "艾玛：战术升级",
     "de": "Emma: Taktisches Upgrade",
     "th": "เอ็มม่า: แทคทิคอลอัปเกรด",
-    "fr": "Emma : Amélioration tactique"
+    "fr": "Emma : Amélioration tactique",
+    "date": "2025-08-07"
   },
   {
     "name": "Emma: Tactical Upgrade Secret Therapy",
@@ -676,7 +738,8 @@
     "cn": "艾玛：战术升级 秘密疗法",
     "de": "Emma: Taktisches Upgrade Heimliche Therapie",
     "th": "เอ็มม่า: แทคทิคอลอัปเกรด บำบัดสูตรลับ",
-    "fr": "Emma : Amélioration tactique Thérapie secrète"
+    "fr": "Emma : Amélioration tactique Thérapie secrète",
+    "date": "2025-08-07"
   },
   {
     "name": "Vesti: Tactical Upgrade",
@@ -687,7 +750,8 @@
     "cn": "贝斯蒂：战术升级",
     "de": "Vesti: Taktisches Upgrade",
     "th": "เวสตี้: แทคทิคอลอัปเกรด",
-    "fr": "Vesti : Amélioration tactique"
+    "fr": "Vesti : Amélioration tactique",
+    "date": "2025-08-21"
   },
   {
     "name": "Vesti: Tactical Upgrade Pure Beginner",
@@ -698,7 +762,8 @@
     "cn": "贝斯蒂：战术升级 青涩新生",
     "de": "Vesti: Taktisches Upgrade Purer Anfänger",
     "th": "เวสตี้: แทคทิคอลอัปเกรด น้องใหม่ใสบริสุทธิ์",
-    "fr": "Vesti : Amélioration tactique Pur débutant"
+    "fr": "Vesti : Amélioration tactique Pur débutant",
+    "date": "2025-08-21"
   },
   {
     "name": "Eunhwa: Tactical Upgrade",
@@ -709,7 +774,8 @@
     "cn": "银华：战术升级",
     "de": "Eunhwa: Taktisches Upgrade",
     "th": "อึนฮวา: แทคทิคอลอัปเกรด",
-    "fr": "Eunhwa : Amélioration tactique"
+    "fr": "Eunhwa : Amélioration tactique",
+    "date": "2025-08-14"
   },
   {
     "name": "Eunhwa: Tactical Upgrade Day Off",
@@ -720,7 +786,8 @@
     "cn": "银华：战术升级 休假日",
     "de": "Eunhwa: Taktisches Upgrade Freizeit",
     "th": "อึนฮวา: แทคทิคอลอัปเกรด ชุดวันหยุด",
-    "fr": "Eunhwa : Amélioration tactique Jour de repos"
+    "fr": "Eunhwa : Amélioration tactique Jour de repos",
+    "date": "2025-08-14"
   },
   {
     "name": "Laplace",
@@ -731,7 +798,8 @@
     "cn": "拉普拉斯",
     "de": "Laplace",
     "th": "ลาปลาซ",
-    "fr": "Laplace"
+    "fr": "Laplace",
+    "date": "2022-11-24"
   },
   {
     "name": "Drake",
@@ -742,7 +810,8 @@
     "cn": "德雷克",
     "de": "Draka",
     "th": "เดรค",
-    "fr": "Drake"
+    "fr": "Drake",
+    "date": "2022-11-04"
   },
   {
     "name": "Drake Villain Racer",
@@ -753,7 +822,8 @@
     "cn": "德雷克 反派赛车手",
     "de": "Draka Schnelle Schurkin",
     "th": "เดรค วายร้ายนักแข่งรถ",
-    "fr": "Drake Méchanceté adverse"
+    "fr": "Drake Méchanceté adverse",
+    "date": "2023-07-06"
   },
   {
     "name": "Drake Maid For Villain",
@@ -764,7 +834,8 @@
     "cn": "德雷克 反派专属女仆",
     "de": "Draka Schurken-Maid",
     "th": "เดรค เมดจอมวายร้าย",
-    "fr": "Drake Soubrette diabolique"
+    "fr": "Drake Soubrette diabolique",
+    "date": "2024-02-05"
   },
   {
     "name": "Maxwell",
@@ -775,7 +846,8 @@
     "cn": "麦斯威尔",
     "de": "Maxwell",
     "th": "แม็กซ์เวลล์",
-    "fr": "Maxie"
+    "fr": "Maxie",
+    "date": "2022-11-04"
   },
   {
     "name": "Maxwell Mechanic White",
@@ -786,7 +858,8 @@
     "cn": "麦斯威尔 机械白",
     "de": "Maxwell Mechanikerweiß",
     "th": "แม็กซ์เวลล์ ช่างกลชุดขาว",
-    "fr": "Maxie Blanc de mécano"
+    "fr": "Maxie Blanc de mécano",
+    "date": "2025-12-30"
   },
   {
     "name": "Laplace: Ultimate Hero",
@@ -797,7 +870,8 @@
     "cn": "拉普拉斯：究极英雄",
     "de": "Laplace: Ultimative Heldin",
     "th": "ลาปลาซ: สุดยอดฮีโร่",
-    "fr": "Laplace : Héroïne ultime"
+    "fr": "Laplace : Héroïne ultime",
+    "date": "2026-07-23"
   },
   {
     "name": "Laplace: Ultimate Hero Prototype Hero",
@@ -808,7 +882,8 @@
     "cn": "拉普拉斯：究极英雄 原型英雄",
     "de": "Laplace: Ultimative Heldin Prototyp-Heldin",
     "th": "ลาปลาซ: สุดยอดฮีโร่ ฮีโร่ต้นแบบ",
-    "fr": "Laplace : Héroïne ultime Héroïne prototype"
+    "fr": "Laplace : Héroïne ultime Héroïne prototype",
+    "date": "2026-07-23"
   },
   {
     "name": "Drake: Great Villain",
@@ -819,7 +894,8 @@
     "cn": "德雷克：终极反派",
     "de": "Draka: Große Schurkin",
     "th": "เดรค: มหาวายร้าย",
-    "fr": "Drake : Grande méchante"
+    "fr": "Drake : Grande méchante",
+    "date": "2026-09-03"
   },
   {
     "name": "Maxwell: Ordinary Mechanic",
@@ -830,7 +906,8 @@
     "cn": "麦斯威尔：平凡技师",
     "de": "Maxwell: Gewöhnlicher Mechaniker",
     "th": "แม็กซ์เวลล์: ออดิแนรีเมคานิค",
-    "fr": "Maxie : Mécano ordinaire"
+    "fr": "Maxie : Mécano ordinaire",
+    "date": "2026-07-30"
   },
   {
     "name": "Maxwell: Ordinary Mechanic Chief Researcher",
@@ -841,7 +918,8 @@
     "cn": "麦斯威尔：平凡技师 首席研究员",
     "de": "Maxwell: Gewöhnlicher Mechaniker Chefforscher",
     "th": "แม็กซ์เวลล์: ออดิแนรีเมคานิค หัวหน้านักวิจัย",
-    "fr": "Maxie : Mécano ordinaire Chercheuse en chef"
+    "fr": "Maxie : Mécano ordinaire Chercheuse en chef",
+    "date": "2026-07-30"
   },
   {
     "name": "Crow",
@@ -852,7 +930,8 @@
     "cn": "克拉乌",
     "de": "Crow",
     "th": "โครว์",
-    "fr": "Crow"
+    "fr": "Crow",
+    "date": "2022-11-04"
   },
   {
     "name": "Jackal",
@@ -863,7 +942,8 @@
     "cn": "豺狼",
     "de": "Schakal",
     "th": "แจ็กคัล",
-    "fr": "Chacal"
+    "fr": "Chacal",
+    "date": "2023-01-12"
   },
   {
     "name": "Jackal Class Troublemaker",
@@ -874,7 +954,8 @@
     "cn": "豺狼 獠牙同窗",
     "de": "Schakal Klasse Unruhestifter",
     "th": "แจ็กคัล ตัวป่วนประจำชั้น",
-    "fr": "Chacal Trublionne de la classe"
+    "fr": "Chacal Trublionne de la classe",
+    "date": "2025-11-20"
   },
   {
     "name": "Viper",
@@ -885,7 +966,8 @@
     "cn": "毒蛇",
     "de": "Viper",
     "th": "ไวเปอร์",
-    "fr": "Viper"
+    "fr": "Viper",
+    "date": "2023-01-19"
   },
   {
     "name": "Viper Toxic Rabbit",
@@ -896,7 +978,8 @@
     "cn": "毒蛇 毒兔",
     "de": "Viper Gifthäschen",
     "th": "ไวเปอร์ กระต่ายท็อกซิก",
-    "fr": "Viper Lapin toxique"
+    "fr": "Viper Lapin toxique",
+    "date": "2023-01-19"
   },
   {
     "name": "Viper Shine of Love",
@@ -907,7 +990,8 @@
     "cn": "毒蛇 爱情光芒",
     "de": "Viper Morgenkuss",
     "th": "ไวเปอร์ ประกายแห่งรัก",
-    "fr": "Viper Éclat d'amour"
+    "fr": "Viper Éclat d'amour",
+    "date": "2024-07-04"
   },
   {
     "name": "Viper Punky Street",
@@ -918,7 +1002,8 @@
     "cn": "毒蛇 街头朋克",
     "de": "Viper Punk-Vibes",
     "th": "ไวเปอร์ พังกี้สตรีท",
-    "fr": "Viper Punk urbain"
+    "fr": "Viper Punk urbain",
+    "date": "2026-03-19"
   },
   {
     "name": "E.H.",
@@ -929,7 +1014,8 @@
     "cn": "E.H.",
     "de": "E.H.",
     "th": "E.H.",
-    "fr": "H.E."
+    "fr": "H.E.",
+    "date": "2026-03-05"
   },
   {
     "name": "E.H. Junkyard Vanguard",
@@ -940,7 +1026,8 @@
     "cn": "E.H. 极道先锋",
     "de": "E.H. Schrottplatz-Vorhut",
     "th": "E.H. ทัพหน้าลานขยะ",
-    "fr": "H.E. Avant-garde de la décharge"
+    "fr": "H.E. Avant-garde de la décharge",
+    "date": "2026-06-11"
   },
   {
     "name": "N102",
@@ -951,7 +1038,8 @@
     "cn": "N102",
     "de": "N102",
     "th": "N102",
-    "fr": "N102"
+    "fr": "N102",
+    "date": "2022-11-04"
   },
   {
     "name": "Anne: Miracle Fairy",
@@ -962,7 +1050,8 @@
     "cn": "安妮：奇迹仙女",
     "de": "Anne: Gute Fee",
     "th": "แอนน์: นางฟ้าปาฏิหาริย์",
-    "fr": "Anne : La fée miracle"
+    "fr": "Anne : La fée miracle",
+    "date": "2022-12-15"
   },
   {
     "name": "Mary",
@@ -973,7 +1062,8 @@
     "cn": "梅里",
     "de": "Mary",
     "th": "แมรี่",
-    "fr": "Mary"
+    "fr": "Mary",
+    "date": "2022-11-04"
   },
   {
     "name": "Mary Medical Rabbit",
@@ -984,7 +1074,8 @@
     "cn": "梅里 医疗兔",
     "de": "Mary Arzt-Häschen",
     "th": "แมรี่ กระต่ายคุณหมอ",
-    "fr": "Mary Lapine médicale"
+    "fr": "Mary Lapine médicale",
+    "date": "2025-09-04"
   },
   {
     "name": "Pepper",
@@ -995,7 +1086,8 @@
     "cn": "佩珀",
     "de": "Pepper",
     "th": "เปปเปอร์",
-    "fr": "Pepper"
+    "fr": "Pepper",
+    "date": "2022-11-04"
   },
   {
     "name": "Pepper Ocean Vitamin",
@@ -1006,7 +1098,8 @@
     "cn": "佩珀 海洋维他命",
     "de": "Pepper Ozeanvitamin",
     "th": "เปปเปอร์ โอเชี่ยนวิตามิน",
-    "fr": "Pepper Vitamine océanique"
+    "fr": "Pepper Vitamine océanique",
+    "date": "2023-06-15"
   },
   {
     "name": "Mary: Bay Goddess",
@@ -1017,7 +1110,8 @@
     "cn": "梅里：海湾女神",
     "de": "Mary: Göttin der Bucht",
     "th": "แมรี่: เทพธิดาชายหาด",
-    "fr": "Mary : Déesse de la baie"
+    "fr": "Mary : Déesse de la baie",
+    "date": "2023-06-15"
   },
   {
     "name": "Sugar",
@@ -1028,7 +1122,8 @@
     "cn": "舒格",
     "de": "Sugar",
     "th": "ชูการ์",
-    "fr": "Sugar"
+    "fr": "Sugar",
+    "date": "2022-11-04"
   },
   {
     "name": "Sugar Hard-Boiled",
@@ -1039,7 +1134,8 @@
     "cn": "舒格 叫我冷硬派",
     "de": "Sugar Hartgekocht",
     "th": "ชูการ์ หัวใจเย็นชา",
-    "fr": "Sugar Dur, dur"
+    "fr": "Sugar Dur, dur",
+    "date": "2022-12-28"
   },
   {
     "name": "Sugar Wild Backyard",
@@ -1050,7 +1146,8 @@
     "cn": "舒格 狂野后花园",
     "de": "Sugar Drachenbändigerin",
     "th": "ชูการ์ นักเลงลายมังกร",
-    "fr": "Sugar Jardin sauvage"
+    "fr": "Sugar Jardin sauvage",
+    "date": "2024-01-25"
   },
   {
     "id": "c140_03",
@@ -1061,7 +1158,8 @@
     "cn": "舒格 杀手兔女郎",
     "de": "Sugar Killerhäschen",
     "th": "ชูการ์ กระต่ายมือปืน",
-    "fr": "Sugar Lapine tueuse"
+    "fr": "Sugar Lapine tueuse",
+    "date": "2026-09-17"
   },
   {
     "name": "Milk",
@@ -1072,7 +1170,8 @@
     "cn": "米尔克",
     "de": "Milk",
     "th": "มิลค์",
-    "fr": "Lactée"
+    "fr": "Lactée",
+    "date": "2022-11-04"
   },
   {
     "name": "Milk Extreme Fighter",
@@ -1083,7 +1182,8 @@
     "cn": "米尔克 极限战士",
     "de": "Milk Kampfkünstlerin",
     "th": "มิลค์ เอ็กซ์ตรีมไฟท์เตอร์",
-    "fr": "Lactée Combattante de l'extrême"
+    "fr": "Lactée Combattante de l'extrême",
+    "date": "2022-11-04"
   },
   {
     "name": "Frima",
@@ -1094,7 +1194,8 @@
     "cn": "普琳玛",
     "de": "Frima",
     "th": "ฟริมา",
-    "fr": "Frima"
+    "fr": "Frima",
+    "date": "2022-11-04"
   },
   {
     "name": "Frima Sea of Sloth",
@@ -1105,7 +1206,8 @@
     "cn": "普琳玛 慵懒海滩",
     "de": "Frima Meer der Faulheit",
     "th": "ฟริมา ขี้เซาริมทะเล",
-    "fr": "Frima Mer de paresse"
+    "fr": "Frima Mer de paresse",
+    "date": "2023-06-15"
   },
   {
     "name": "Milk: Blooming Bunny",
@@ -1116,7 +1218,8 @@
     "cn": "米尔克：花漾兔女郎",
     "de": "Milk: Blühendes Häschen",
     "th": "มิลค์: กระต่ายเบ่งบาน",
-    "fr": "Lactée : Lapin florissant"
+    "fr": "Lactée : Lapin florissant",
+    "date": "2025-09-11"
   },
   {
     "name": "Julia",
@@ -1127,7 +1230,8 @@
     "cn": "尤莉亚",
     "de": "Julia",
     "th": "จูเลีย",
-    "fr": "Julia"
+    "fr": "Julia",
+    "date": "2022-11-04"
   },
   {
     "name": "Julia Mild Nocturne",
@@ -1138,7 +1242,8 @@
     "cn": "尤莉亚 温柔夜曲",
     "de": "Julia Nachtigall",
     "th": "จูเลีย บทเพลงชวนฝัน",
-    "fr": "Julia Nocturne doux"
+    "fr": "Julia Nocturne doux",
+    "date": "2022-12-28"
   },
   {
     "name": "Julia Summer Romance",
@@ -1149,7 +1254,8 @@
     "cn": "尤莉亚 夏日浪漫",
     "de": "Julia Sommer-Romantik",
     "th": "จูเลีย ฤดูร้อนรวยรัก",
-    "fr": "Julia Romance estivale"
+    "fr": "Julia Romance estivale",
+    "date": "2025-07-17"
   },
   {
     "name": "Yuni",
@@ -1160,7 +1266,8 @@
     "cn": "尤妮",
     "de": "Yuni",
     "th": "ยูนิ",
-    "fr": "Yuni"
+    "fr": "Yuni",
+    "date": "2022-11-04"
   },
   {
     "name": "Yuni Pretty in Pink",
@@ -1171,7 +1278,8 @@
     "cn": "尤妮 可爱粉色",
     "de": "Yuni Hübsch in Rosa",
     "th": "ยูนิ สาวน้อยชุดชมพู",
-    "fr": "Yuni Jolie en rose"
+    "fr": "Yuni Jolie en rose",
+    "date": "2023-03-30"
   },
   {
     "name": "Mihara",
@@ -1182,7 +1290,8 @@
     "cn": "米哈拉",
     "de": "Mihara",
     "th": "มิฮาร่า",
-    "fr": "Mihara"
+    "fr": "Mihara",
+    "date": "2022-11-04"
   },
   {
     "name": "Mihara: Bonding Chain",
@@ -1193,7 +1302,8 @@
     "cn": "米哈拉：羁绊锁链",
     "de": "Mihara: „Ketten der Bindung“",
     "th": "มิฮาร่า: บ่วงโซ่สายใย",
-    "fr": "Mihara : Très attachée"
+    "fr": "Mihara : Très attachée",
+    "date": "2025-04-24"
   },
   {
     "name": "Mihara: Bonding Chain Pain Eater",
@@ -1204,7 +1314,8 @@
     "cn": "米哈拉：羁绊锁链 痛苦吞食者",
     "de": "Mihara: „Ketten der Bindung“ Schmerzvertilgerin",
     "th": "มิฮาร่า: บ่วงโซ่สายใย เสพสมซ่านทรวง",
-    "fr": "Mihara : Très attachée Douleur dînatoire"
+    "fr": "Mihara : Très attachée Douleur dînatoire",
+    "date": "2025-04-24"
   },
   {
     "name": "Privaty",
@@ -1215,7 +1326,8 @@
     "cn": "普丽瓦蒂",
     "de": "Privatia",
     "th": "ไพรเวตี้",
-    "fr": "Privatia"
+    "fr": "Privatia",
+    "date": "2022-11-04"
   },
   {
     "name": "Privaty Government Grunt",
@@ -1226,7 +1338,8 @@
     "cn": "普丽瓦蒂 行政正装",
     "de": "Privatia Staatliche Beamtin",
     "th": "ไพรเวตี้ ลิ่วล้อรัฐบาล",
-    "fr": "Privatia Sbire du gouvernement"
+    "fr": "Privatia Sbire du gouvernement",
+    "date": "2022-11-04"
   },
   {
     "name": "Privaty Banquet Princess",
@@ -1237,7 +1350,8 @@
     "cn": "普丽瓦蒂 宴会公主",
     "de": "Privatia Bankettprinzessin",
     "th": "ไพรเวตี้ องค์หญิงแห่งงานเลี้ยง",
-    "fr": "Privatia Princesse du banquet"
+    "fr": "Privatia Princesse du banquet",
+    "date": "2023-10-19"
   },
   {
     "name": "Privaty Destined in Blue",
@@ -1248,7 +1362,8 @@
     "cn": "普丽瓦蒂 青之羁绊",
     "de": "Privatia Blaue Pracht",
     "th": "ไพรเวตี้ ลิขิตชะตาสีคราม",
-    "fr": "Privatia Destin d'azur"
+    "fr": "Privatia Destin d'azur",
+    "date": "2025-07-03"
   },
   {
     "name": "Privaty Sharp Lesson",
@@ -1259,7 +1374,8 @@
     "cn": "普丽瓦蒂 严厉教诲",
     "de": "Privatia Scharfe Lehrstunde",
     "th": "ไพรเวตี้ ติวเข้มคมเฉียบ",
-    "fr": "Privatia Cours acéré"
+    "fr": "Privatia Cours acéré",
+    "date": "2026-03-19"
   },
   {
     "name": "Yulha",
@@ -1270,7 +1386,8 @@
     "cn": "尤尔夏",
     "de": "Yulhea",
     "th": "ยูลฮา",
-    "fr": "Yulha"
+    "fr": "Yulha",
+    "date": "2022-11-04"
   },
   {
     "name": "Admi",
@@ -1281,7 +1398,8 @@
     "cn": "艾德米",
     "de": "Admi",
     "th": "แอดมี่",
-    "fr": "Admi"
+    "fr": "Admi",
+    "date": "2022-11-04"
   },
   {
     "name": "Guillotine",
@@ -1292,7 +1410,8 @@
     "cn": "吉萝婷",
     "de": "Guillotine",
     "th": "กิโยติน",
-    "fr": "Guillotine"
+    "fr": "Guillotine",
+    "date": "2022-11-04"
   },
   {
     "name": "Guillotine Dark Tracer",
@@ -1303,7 +1422,8 @@
     "cn": "吉萝婷 黑暗追踪者",
     "de": "Guillotine Dunkler Ronin",
     "th": "กิโยติน รังสรรค์อันธการ",
-    "fr": "Guillotine Pisteur sombre"
+    "fr": "Guillotine Pisteur sombre",
+    "date": "2023-12-28"
   },
   {
     "name": "Maiden",
@@ -1314,7 +1434,8 @@
     "cn": "梅登",
     "de": "Maiden",
     "th": "เมเดน",
-    "fr": "Maiden"
+    "fr": "Maiden",
+    "date": "2022-11-04"
   },
   {
     "name": "Guillotine: Winter Slayer",
@@ -1325,7 +1446,8 @@
     "cn": "吉萝婷：寒冬杀手",
     "de": "Guillotine: Eiskalt",
     "th": "กิโยติน: ผู้พิชิตเหมันต์",
-    "fr": "Guillotine : Chasseuse d'hiver"
+    "fr": "Guillotine : Chasseuse d'hiver",
+    "date": "2024-12-12"
   },
   {
     "name": "Maiden: Ice Rose",
@@ -1336,7 +1458,8 @@
     "cn": "梅登：冰玫瑰",
     "de": "Maiden: Eisrose",
     "th": "เมเดน: ไอซ์โรส",
-    "fr": "Maiden : Rose des glaces"
+    "fr": "Maiden : Rose des glaces",
+    "date": "2024-12-05"
   },
   {
     "name": "Maiden Covert Nurse",
@@ -1347,7 +1470,8 @@
     "cn": "梅登 秘密护士",
     "de": "Maiden Heimliche Krankenschwester",
     "th": "เมเดน พยาบาลแฝงตัว",
-    "fr": "Maiden Infirmière clandestine"
+    "fr": "Maiden Infirmière clandestine",
+    "date": "2022-11-04"
   },
   {
     "name": "Maiden Under The Sun",
@@ -1358,7 +1482,8 @@
     "cn": "梅登 艳阳之下",
     "de": "Maiden Hitzegefühle",
     "th": "เมเดน ใต้ดวงตะวัน",
-    "fr": "Maiden Sous le soleil"
+    "fr": "Maiden Sous le soleil",
+    "date": "2024-06-20"
   },
   {
     "name": "Ludmilla",
@@ -1369,7 +1494,8 @@
     "cn": "鲁德米拉",
     "de": "Ludmilla",
     "th": "ลุดมิลล่า",
-    "fr": "Ludmilla"
+    "fr": "Ludmilla",
+    "date": "2022-11-04"
   },
   {
     "name": "Alice",
@@ -1380,7 +1506,8 @@
     "cn": "爱丽丝",
     "de": "Alice",
     "th": "อลิซ",
-    "fr": "Alice"
+    "fr": "Alice",
+    "date": "2022-11-04"
   },
   {
     "name": "Alice Sweet Home",
@@ -1391,7 +1518,8 @@
     "cn": "爱丽丝 甜蜜之家",
     "de": "Alice Trautes Heim",
     "th": "อลิซ สวีทโฮม",
-    "fr": "Alice Chez-soi chaleureux"
+    "fr": "Alice Chez-soi chaleureux",
+    "date": "2023-04-27"
   },
   {
     "name": "Alice Märchen Dream",
@@ -1402,7 +1530,8 @@
     "cn": "爱丽丝 童话幻梦",
     "de": "Alice Märchentraum",
     "th": "อลิซ ขับขานนิทานฝัน",
-    "fr": "Alice Rêve chimérique"
+    "fr": "Alice Rêve chimérique",
+    "date": "2025-12-30"
   },
   {
     "name": "Tove",
@@ -1413,7 +1542,8 @@
     "cn": "托比",
     "de": "Tove",
     "th": "โทฟ",
-    "fr": "Tove"
+    "fr": "Tove",
+    "date": "2023-11-23"
   },
   {
     "name": "Tove Baseball Fan",
@@ -1424,7 +1554,8 @@
     "cn": "托比 我爱棒球",
     "de": "Tove Baseball-Fan",
     "th": "โทฟ แฟนเบสบอล",
-    "fr": "Tove Fan de baseball"
+    "fr": "Tove Fan de baseball",
+    "date": "2024-10-03"
   },
   {
     "name": "Tove Sunblaze",
@@ -1435,7 +1566,8 @@
     "cn": "托比 烈阳",
     "de": "Tove Sunblaze",
     "th": "โทฟ เปลวตะวัน",
-    "fr": "Tove Bain de soleil"
+    "fr": "Tove Bain de soleil",
+    "date": "2025-07-17"
   },
   {
     "name": "Neve",
@@ -1446,7 +1578,8 @@
     "cn": "尼夫",
     "de": "Neve",
     "th": "เนเว่",
-    "fr": "Neve"
+    "fr": "Neve",
+    "date": "2022-12-08"
   },
   {
     "name": "Ludmilla: Winter Owner",
@@ -1457,7 +1590,8 @@
     "cn": "鲁德米拉：冬日之主",
     "de": "Ludmilla: Winterwirtin",
     "th": "ลุดมิลล่า: ราชินีน้ำพุร้อน",
-    "fr": "Ludmilla : Propriétaire hivernale"
+    "fr": "Ludmilla : Propriétaire hivernale",
+    "date": "2023-12-07"
   },
   {
     "name": "Alice: Wonderland Bunny",
@@ -1468,7 +1602,8 @@
     "cn": "爱丽丝：仙境兔女郎",
     "de": "Alice: Wunderland-Häschen",
     "th": "อลิซ: กระต่ายแดนมหัศจรรย์",
-    "fr": "Alice : Lapine des merveilles"
+    "fr": "Alice : Lapine des merveilles",
+    "date": "2024-06-06"
   },
   {
     "name": "Rupee",
@@ -1479,7 +1614,8 @@
     "cn": "露菲",
     "de": "Rupee",
     "th": "รูปี",
-    "fr": "Rupee"
+    "fr": "Rupee",
+    "date": "2022-11-04"
   },
   {
     "name": "Rupee Rabbit Deluxe",
@@ -1490,7 +1626,8 @@
     "cn": "露菲 奢侈兔",
     "de": "Rupee Deluxe Häschen",
     "th": "รูปี กระต่ายเดอลุกซ์",
-    "fr": "Rupee Lapine Deluxe"
+    "fr": "Rupee Lapine Deluxe",
+    "date": "2023-05-18"
   },
   {
     "name": "Yan",
@@ -1501,7 +1638,8 @@
     "cn": "杨",
     "de": "Yan",
     "th": "เหยียน",
-    "fr": "Yan"
+    "fr": "Yan",
+    "date": "2022-11-04"
   },
   {
     "name": "Yan Sunrise Market",
@@ -1512,7 +1650,8 @@
     "cn": "杨 黎明超市",
     "de": "Yan Sonnenaufgangsmarkt",
     "th": "เหยียน ตลาดรุ่งอรุณ",
-    "fr": "Yan Marché de l'aube"
+    "fr": "Yan Marché de l'aube",
+    "date": "2023-07-20"
   },
   {
     "name": "Dolla",
@@ -1523,7 +1662,8 @@
     "cn": "朵拉",
     "de": "Dolla",
     "th": "ดอลล่า",
-    "fr": "Dolla"
+    "fr": "Dolla",
+    "date": "2022-11-04"
   },
   {
     "name": "Dolla Dark Rose",
@@ -1534,7 +1674,8 @@
     "cn": "朵拉 黑玫瑰",
     "de": "Dolla Dunkle Rose",
     "th": "ดอลล่า ดาร์กโรส",
-    "fr": "Dolla Rose sombre"
+    "fr": "Dolla Rose sombre",
+    "date": "2023-02-22"
   },
   {
     "name": "Rupee: Winter Shopper",
@@ -1545,7 +1686,8 @@
     "cn": "露菲：冬日购物狂",
     "de": "Rupee: Wintershopperin",
     "th": "รูปี: นักช้อปฤดูหนาว",
-    "fr": "Rupee : Courses hivernales"
+    "fr": "Rupee : Courses hivernales",
+    "date": "2022-12-08"
   },
   {
     "name": "Exia",
@@ -1556,7 +1698,8 @@
     "cn": "艾可希雅",
     "de": "Exia",
     "th": "เอ็กเซีย",
-    "fr": "Exia"
+    "fr": "Exia",
+    "date": "2022-11-04"
   },
   {
     "name": "Exia Joy to the Nerds",
@@ -1567,7 +1710,8 @@
     "cn": "艾可希雅 书呆子日快乐",
     "de": "Exia Streber-Weihnachten",
     "th": "เอ็กเซีย จอยทูเดอะเนิร์ด",
-    "fr": "Exia Joie des intellos"
+    "fr": "Exia Joie des intellos",
+    "date": "2022-11-24"
   },
   {
     "name": "Exia Gamer",
@@ -1578,7 +1722,8 @@
     "cn": "艾可希雅 游戏玩家",
     "de": "Exia Gamerin",
     "th": "เอ็กเซีย เกมเมอร์ชั้นเซียน",
-    "fr": "Exia Joueur"
+    "fr": "Exia Joueur",
+    "date": "2024-02-22"
   },
   {
     "name": "Exia Hacker Rabbit",
@@ -1589,7 +1734,8 @@
     "cn": "艾可希雅 黑客兔",
     "de": "Exia Hacker-Häschen",
     "th": "เอ็กเซีย กระต่ายแฮ็กเกอร์",
-    "fr": "Exia Hackeuse de garenne"
+    "fr": "Exia Hackeuse de garenne",
+    "date": "2025-09-01"
   },
   {
     "name": "Novel",
@@ -1600,7 +1746,8 @@
     "cn": "诺薇儿",
     "de": "Novel",
     "th": "โนเวล",
-    "fr": "Novel"
+    "fr": "Novel",
+    "date": "2022-11-04"
   },
   {
     "name": "Novel Penguin Holmes",
@@ -1611,7 +1758,8 @@
     "cn": "诺薇儿 企鹅福尔摩斯",
     "de": "Novel Pinguin Holmes",
     "th": "โนเวล โฮล์มเพนกวิน",
-    "fr": "Novel Maison du pingouin"
+    "fr": "Novel Maison du pingouin",
+    "date": "2023-03-30"
   },
   {
     "name": "Novel Detective Nurse",
@@ -1622,7 +1770,8 @@
     "cn": "诺薇儿 侦探护士",
     "de": "Novel Detektivkrankenschwester",
     "th": "โนเวล พยาบาลนักสืบ",
-    "fr": "Novel Infirmière détective"
+    "fr": "Novel Infirmière détective",
+    "date": "2023-09-21"
   },
   {
     "name": "Snow White",
@@ -1633,7 +1782,8 @@
     "cn": "白雪公主",
     "de": "Schneewittchen",
     "th": "สโนว์ไวท์",
-    "fr": "Blanche-Neige"
+    "fr": "Blanche-Neige",
+    "date": "2022-11-04"
   },
   {
     "name": "Snow White White Knight",
@@ -1644,7 +1794,8 @@
     "cn": "白雪公主 白色骑士",
     "de": "Schneewittchen Weißer Ritter",
     "th": "สโนว์ไวท์ อัศวินขาว",
-    "fr": "Blanche-Neige Cavalière blanche"
+    "fr": "Blanche-Neige Cavalière blanche",
+    "date": "2023-08-24"
   },
   {
     "name": "Rapunzel",
@@ -1655,7 +1806,8 @@
     "cn": "长发公主",
     "de": "Rapunzel",
     "th": "ราพันเซล",
-    "fr": "Doucette"
+    "fr": "Doucette",
+    "date": "2022-11-04"
   },
   {
     "name": "Scarlet",
@@ -1666,7 +1818,8 @@
     "cn": "红莲",
     "de": "Scarlet",
     "th": "สการ์เล็ต",
-    "fr": "Scarlette"
+    "fr": "Scarlette",
+    "date": "2022-11-04"
   },
   {
     "name": "Scarlet Racer's High",
@@ -1677,7 +1830,8 @@
     "cn": "红莲 狂飙车手",
     "de": "Scarlet Auf der Überholspur",
     "th": "สการ์เล็ต ถนนนักแข่ง",
-    "fr": "Scarlette Euphorie du pilote"
+    "fr": "Scarlette Euphorie du pilote",
+    "date": "2025-06-12"
   },
   {
     "name": "Nayuta",
@@ -1688,7 +1842,8 @@
     "cn": "娜由塔",
     "de": "Nayuta",
     "th": "นายูตะ",
-    "fr": "Nayuta"
+    "fr": "Nayuta",
+    "date": "2025-10-30"
   },
   {
     "name": "Nayuta Wu Wei",
@@ -1699,7 +1854,8 @@
     "cn": "娜由塔 无为",
     "de": "Nayuta Wu Wei",
     "th": "นายูตะ ล่องกระแสจักรวาล",
-    "fr": "Nayuta Wu Wei"
+    "fr": "Nayuta Wu Wei",
+    "date": "2025-10-30"
   },
   {
     "name": "Snow White: Innocent Days",
@@ -1710,7 +1866,8 @@
     "cn": "白雪公主：纯真年代",
     "de": "Schneewittchen: Tage der Unschuld",
     "th": "สโนว์ไวท์: วัยไร้เดียงสา",
-    "fr": "Blanche-Neige : Innocence"
+    "fr": "Blanche-Neige : Innocence",
+    "date": "2023-11-02"
   },
   {
     "name": "Scarlet: Black Shadow",
@@ -1721,7 +1878,8 @@
     "cn": "红莲：暗影",
     "de": "Scarlet: Schwarzer Schatten",
     "th": "สการ์เล็ต: เงาดำพิฆาต",
-    "fr": "Scarlette : Ombre noire"
+    "fr": "Scarlette : Ombre noire",
+    "date": "2024-01-01"
   },
   {
     "name": "Scarlet: Black Shadow Longing Flower",
@@ -1732,7 +1890,8 @@
     "cn": "红莲：暗影 莲花",
     "de": "Scarlet: Schwarzer Schatten Sehnsüchtige Blume",
     "th": "สการ์เล็ต: เงาดำพิฆาต มาลาอาลัย",
-    "fr": "Scarlette : Ombre noire Fleur de désir"
+    "fr": "Scarlette : Ombre noire Fleur de désir",
+    "date": "2024-01-01"
   },
   {
     "name": "Rapunzel: Pure Grace",
@@ -1743,7 +1902,8 @@
     "cn": "长发公主：纯洁恩典",
     "de": "Rapunzel: Wahre Eleganz",
     "th": "ราพันเซล: สิริวิสุทธิ์",
-    "fr": "Doucette : Beauté gracile"
+    "fr": "Doucette : Beauté gracile",
+    "date": "2024-10-31"
   },
   {
     "name": "Pinocchio",
@@ -1754,7 +1914,8 @@
     "cn": "匹诺曹",
     "de": "Pinocchio",
     "th": "พิน็อกคิโอ",
-    "fr": "Pinocchio"
+    "fr": "Pinocchio",
+    "date": "2025-08-07"
   },
   {
     "name": "Harran",
@@ -1765,7 +1926,8 @@
     "cn": "哈兰",
     "de": "Harran",
     "th": "ฮาร์ราน",
-    "fr": "Harran"
+    "fr": "Harran",
+    "date": "2022-11-04"
   },
   {
     "name": "Harran Banquet Witch",
@@ -1776,7 +1938,8 @@
     "cn": "哈兰 宴会的魔女",
     "de": "Harran Banketthexe",
     "th": "ฮาร์ราน แม่มดงานราตรี",
-    "fr": "Harran Sorcière du banquet"
+    "fr": "Harran Sorcière du banquet",
+    "date": "2023-11-02"
   },
   {
     "name": "Isabel",
@@ -1787,7 +1950,8 @@
     "cn": "伊莎贝尔",
     "de": "Isabel",
     "th": "อิซาเบล",
-    "fr": "Isabel"
+    "fr": "Isabel",
+    "date": "2022-11-04"
   },
   {
     "name": "Isabel Honeymoon Party",
@@ -1798,7 +1962,8 @@
     "cn": "伊莎贝尔 蜜月派对",
     "de": "Isabel Flitterwochen-Party",
     "th": "อิซาเบล ปาร์ตี้ฮันนีมูน",
-    "fr": "Isabel Lune de miel en folie"
+    "fr": "Isabel Lune de miel en folie",
+    "date": "2024-10-31"
   },
   {
     "name": "Noah",
@@ -1809,7 +1974,8 @@
     "cn": "诺雅",
     "de": "Noa",
     "th": "โนอาห์",
-    "fr": "Noah"
+    "fr": "Noah",
+    "date": "2022-11-04"
   },
   {
     "name": "Dorothy",
@@ -1820,7 +1986,8 @@
     "cn": "桃乐丝",
     "de": "Dorothy",
     "th": "โดโรธี",
-    "fr": "Dorothy"
+    "fr": "Dorothy",
+    "date": "2023-04-27"
   },
   {
     "name": "Dorothy: Serendipity",
@@ -1831,7 +1998,8 @@
     "cn": "桃乐丝：机缘巧遇",
     "de": "Dorothy: Serendipity",
     "th": "โดโรธี: พรหมลิขิตดลบันดาล",
-    "fr": "Dorothy : Sérendipité"
+    "fr": "Dorothy : Sérendipité",
+    "date": "2025-07-17"
   },
   {
     "name": "Dorothy Nostalgia",
@@ -1842,7 +2010,8 @@
     "cn": "桃乐丝 怀旧",
     "de": "Dorothy Nostalgie",
     "th": "โดโรธี ถวิลหาวันวาน",
-    "fr": "Dorothy Nostalgie"
+    "fr": "Dorothy Nostalgie",
+    "date": "2023-11-02"
   },
   {
     "name": "Dorothy Luna Light",
@@ -1853,11 +2022,13 @@
     "cn": "桃乐丝 月光",
     "de": "Dorothy Mondlicht",
     "th": "โดโรธี รัศมีจันทรา",
-    "fr": "Dorothy Lumière lunaire"
+    "fr": "Dorothy Lumière lunaire",
+    "date": "2026-04-23"
   },
   {
     "name": "Dorothy (CN)",
-    "id": "c233_80"
+    "id": "c233_80",
+    "date": "2025-06-20"
   },
   {
     "name": "Rumani",
@@ -1868,7 +2039,8 @@
     "cn": "鲁玛妮",
     "de": "Ramani",
     "th": "รุมานิ",
-    "fr": "Rumani"
+    "fr": "Rumani",
+    "date": "2024-10-17"
   },
   {
     "name": "Epinel",
@@ -1879,7 +2051,8 @@
     "cn": "艾菲涅尔",
     "de": "Epinel",
     "th": "เอพิเนล",
-    "fr": "Epinel"
+    "fr": "Epinel",
+    "date": "2022-11-04"
   },
   {
     "name": "Folkwang",
@@ -1890,7 +2063,8 @@
     "cn": "富克旺",
     "de": "Diagora",
     "th": "โฟล์กวัง",
-    "fr": "Folkie"
+    "fr": "Folkie",
+    "date": "2022-11-04"
   },
   {
     "name": "Folkwang Moist Rabbit",
@@ -1901,31 +2075,38 @@
     "cn": "富克旺 湿润兔",
     "de": "Diagora Leichtes Häschen",
     "th": "โฟล์กวัง กระต่ายชื้นแฉะ",
-    "fr": "Folkie Lapine transpirante"
+    "fr": "Folkie Lapine transpirante",
+    "date": "2025-09-04"
   },
   {
     "name": "Mass Produced Red",
-    "id": "c250"
+    "id": "c250",
+    "date": "2023-11-02"
   },
   {
     "name": "Mass Produced Blue",
-    "id": "c251"
+    "id": "c251",
+    "date": "2023-11-02"
   },
   {
     "name": "Mass Produced Orange",
-    "id": "c252"
+    "id": "c252",
+    "date": "2023-11-02"
   },
   {
     "name": "Mass Produced Green",
-    "id": "c253"
+    "id": "c253",
+    "date": "2023-11-02"
   },
   {
     "name": "Mass Produced Purple",
-    "id": "c254"
+    "id": "c254",
+    "date": "2023-11-02"
   },
   {
     "name": "Mass Produced White",
-    "id": "c255"
+    "id": "c255",
+    "date": "2023-11-02"
   },
   {
     "name": "Modernia",
@@ -1936,7 +2117,8 @@
     "cn": "神罚",
     "de": "Modernia",
     "th": "โมเดอร์เนีย",
-    "fr": "Modernia"
+    "fr": "Modernia",
+    "date": "2023-01-01"
   },
   {
     "name": "Modernia First Affection",
@@ -1947,7 +2129,8 @@
     "cn": "神罚 初次的爱恋",
     "de": "Modernia Erste Zuneigung",
     "th": "โมเดอร์เนีย รักแรก",
-    "fr": "Modernia Coup de cœur"
+    "fr": "Modernia Coup de cœur",
+    "date": "2023-08-24"
   },
   {
     "name": "Modernia Second Affection",
@@ -1958,11 +2141,13 @@
     "cn": "神罚 第二种情感",
     "de": "Modernia Zweite Zuneigung",
     "th": "โมเดอร์เนีย รักครั้งที่สอง",
-    "fr": "Modernia Deuxième affection"
+    "fr": "Modernia Deuxième affection",
+    "date": "2023-01-01"
   },
   {
     "name": "Modernia (CN)",
-    "id": "c260_80"
+    "id": "c260_80",
+    "date": "2025-06-20"
   },
   {
     "name": "Nihilister",
@@ -1973,7 +2158,8 @@
     "cn": "尼希利斯塔",
     "de": "Nihilister",
     "th": "นิฮิลิสเตอร์",
-    "fr": "Nihiliste"
+    "fr": "Nihiliste",
+    "date": "2023-03-30"
   },
   {
     "name": "Liberalio",
@@ -1984,7 +2170,8 @@
     "cn": "莉贝雷利奥",
     "de": "Liberalio",
     "th": "ลิเบอราลิโอ",
-    "fr": "Liberalio"
+    "fr": "Liberalio",
+    "date": "2025-11-06"
   },
   {
     "name": "Liberalio Dreaming Lake",
@@ -1995,11 +2182,13 @@
     "cn": "莉贝雷利奥 梦境湖",
     "de": "Liberalio Traumsee",
     "th": "ลิเบอราลิโอ นิทราชลาศัย",
-    "fr": "Liberalio Lac des songes"
+    "fr": "Liberalio Lac des songes",
+    "date": "2025-11-06"
   },
   {
     "name": "Indivilia",
-    "id": "c263"
+    "id": "c263",
+    "date": "2023-07-20"
   },
   {
     "name": "Blanc",
@@ -2010,7 +2199,8 @@
     "cn": "布兰儿",
     "de": "Blanche",
     "th": "บล็อง",
-    "fr": "Bianca"
+    "fr": "Bianca",
+    "date": "2023-05-18"
   },
   {
     "name": "Blanc White Rabbit",
@@ -2021,7 +2211,8 @@
     "cn": "布兰儿 白兔",
     "de": "Blanche Weißes Häschen",
     "th": "บล็อง กระต่ายขาว",
-    "fr": "Bianca Lapin blanc"
+    "fr": "Bianca Lapin blanc",
+    "date": "2023-12-07"
   },
   {
     "name": "Blanc No. 77 Batter",
@@ -2032,7 +2223,8 @@
     "cn": "布兰儿 77号击球员",
     "de": "Blanche Schläger (Nr. 77)",
     "th": "บล็อง นักตีหมายเลข 77",
-    "fr": "Bianca Batteuse n° 77"
+    "fr": "Bianca Batteuse n° 77",
+    "date": "2025-05-29"
   },
   {
     "name": "Blanc Fortune Express",
@@ -2043,7 +2235,8 @@
     "cn": "布兰儿 幸运特快车",
     "de": "Blanche Glücks-Express",
     "th": "บล็อง รถไฟสายนำโชค",
-    "fr": "Bianca Bonheur et Chance"
+    "fr": "Bianca Bonheur et Chance",
+    "date": "2025-12-04"
   },
   {
     "name": "Noir",
@@ -2054,7 +2247,8 @@
     "cn": "诺亚尔",
     "de": "Noire",
     "th": "นัวร์",
-    "fr": "Nera"
+    "fr": "Nera",
+    "date": "2023-05-25"
   },
   {
     "name": "Noir Black Rabbit",
@@ -2065,7 +2259,8 @@
     "cn": "诺亚尔 黑兔",
     "de": "Noire Schwarzes Häschen",
     "th": "นัวร์ กระต่ายดำ",
-    "fr": "Nera Lapin noir"
+    "fr": "Nera Lapin noir",
+    "date": "2023-11-23"
   },
   {
     "name": "Noir Baseball Cheerleader",
@@ -2076,7 +2271,8 @@
     "cn": "诺亚尔 棒球啦啦队",
     "de": "Noire Baseball-Cheerleader",
     "th": "นัวร์ เชียร์ลีดเดอร์เบสบอล",
-    "fr": "Nera Groupie de première base"
+    "fr": "Nera Groupie de première base",
+    "date": "2025-05-29"
   },
   {
     "name": "Rouge",
@@ -2087,7 +2283,8 @@
     "cn": "露姬",
     "de": "Rouge",
     "th": "รูจ",
-    "fr": "Rouge"
+    "fr": "Rouge",
+    "date": "2024-09-19"
   },
   {
     "name": "Rouge Unlucky Rabbit",
@@ -2098,7 +2295,8 @@
     "cn": "露姬 倒霉兔",
     "de": "Rouge Ungeschicktes Häschen",
     "th": "รูจ กระต่ายอับโชค",
-    "fr": "Rouge Lapin malchanceux"
+    "fr": "Rouge Lapin malchanceux",
+    "date": "2025-09-04"
   },
   {
     "name": "Rosanna",
@@ -2109,7 +2307,8 @@
     "cn": "罗珊娜",
     "de": "Rosanna",
     "th": "โรซานน่า",
-    "fr": "Rosanna"
+    "fr": "Rosanna",
+    "date": "2023-06-01"
   },
   {
     "name": "Rosanna Ms. Dangerous",
@@ -2120,7 +2319,8 @@
     "cn": "罗珊娜 危险小姐",
     "de": "Rosanna Gefährliche Dame",
     "th": "โรซานน่า คุณนายขาโหด",
-    "fr": "Rosanna Mme Dangereuse"
+    "fr": "Rosanna Mme Dangereuse",
+    "date": "2024-03-21"
   },
   {
     "name": "Moran",
@@ -2131,7 +2331,8 @@
     "cn": "牡丹",
     "de": "Moran",
     "th": "โมรัน",
-    "fr": "Moran"
+    "fr": "Moran",
+    "date": "2024-01-25"
   },
   {
     "name": "Moran Off-Duty Queen",
@@ -2142,7 +2343,8 @@
     "cn": "牡丹 休假女王",
     "de": "Moran Königin im Feierabend",
     "th": "โมรัน ราชินีวันหยุด",
-    "fr": "Moran Reine en détente"
+    "fr": "Moran Reine en détente",
+    "date": "2024-01-25"
   },
   {
     "name": "Moran King of Flowers",
@@ -2153,7 +2355,8 @@
     "cn": "牡丹 百花之王",
     "de": "Moran Königin der Blumen",
     "th": "โมรัน ดอกโบตั๋น",
-    "fr": "Moran Roi des fleurs"
+    "fr": "Moran Roi des fleurs",
+    "date": "2026-06-11"
   },
   {
     "name": "Sakura",
@@ -2164,7 +2367,8 @@
     "cn": "樱花",
     "de": "Sakura",
     "th": "ซากุระ",
-    "fr": "Sakura"
+    "fr": "Sakura",
+    "date": "2023-03-30"
   },
   {
     "name": "Sakura Midnight Stealth",
@@ -2175,7 +2379,8 @@
     "cn": "樱花 黑夜潜行",
     "de": "Sakura Mitternachtsstille",
     "th": "ซากุระ ราตรีลอบเร้น",
-    "fr": "Sakura Camouflage de minuit"
+    "fr": "Sakura Camouflage de minuit",
+    "date": "2023-06-01"
   },
   {
     "name": "Rosanna: Chic Ocean",
@@ -2186,7 +2391,8 @@
     "cn": "罗珊娜：高雅海洋",
     "de": "Rosanna: Ozean der Mode",
     "th": "โรซานน่า: ชิคโอเชี่ยน",
-    "fr": "Rosanna : Chic océanique"
+    "fr": "Rosanna : Chic océanique",
+    "date": "2024-07-11"
   },
   {
     "name": "Sakura: Bloom in Summer",
@@ -2197,7 +2403,8 @@
     "cn": "樱花：夏日绽放",
     "de": "Sakura: Sommerblüten",
     "th": "ซากุระ: คิมหันต์แย้มกลีบ",
-    "fr": "Sakura : Floraison estivale"
+    "fr": "Sakura : Floraison estivale",
+    "date": "2024-07-04"
   },
   {
     "name": "Mana",
@@ -2208,7 +2415,8 @@
     "cn": "玛娜",
     "de": "Mana",
     "th": "มานา",
-    "fr": "Mana"
+    "fr": "Mana",
+    "date": "2025-01-16"
   },
   {
     "id": "c290_01",
@@ -2219,7 +2427,8 @@
     "cn": "玛娜 醉酒兔女郎",
     "de": "Mana Beschwipstes Häschen",
     "th": "มานา กระต่ายขี้เมา",
-    "fr": "Mana Lapine ivre"
+    "fr": "Mana Lapine ivre",
+    "date": "2026-09-17"
   },
   {
     "name": "Ether",
@@ -2230,7 +2439,8 @@
     "cn": "艾瑟儿",
     "de": "Ethera",
     "th": "เอเธอร์",
-    "fr": "Ether"
+    "fr": "Ether",
+    "date": "2022-11-04"
   },
   {
     "name": "Soldier EG",
@@ -2241,7 +2451,8 @@
     "cn": "士兵E.G.",
     "de": "Soldatin EG",
     "th": "ทหาร EG",
-    "fr": "Soldat EG"
+    "fr": "Soldat EG",
+    "date": "2022-11-04"
   },
   {
     "name": "Soldier FA",
@@ -2252,7 +2463,8 @@
     "cn": "士兵F.A.",
     "de": "Soldatin FA",
     "th": "ทหาร FA",
-    "fr": "Soldat FA"
+    "fr": "Soldat FA",
+    "date": "2022-11-04"
   },
   {
     "name": "Product 08",
@@ -2263,7 +2475,8 @@
     "cn": "产品08",
     "de": "Produkt 08",
     "th": "ผลิตภัณฑ์ 08",
-    "fr": "Produit 08"
+    "fr": "Produit 08",
+    "date": "2022-11-04"
   },
   {
     "name": "Product 12",
@@ -2274,7 +2487,8 @@
     "cn": "产品12",
     "de": "Produkt 12",
     "th": "ผลิตภัณฑ์ 12",
-    "fr": "Produit 12"
+    "fr": "Produit 12",
+    "date": "2022-11-04"
   },
   {
     "name": "iDoll Flower",
@@ -2285,7 +2499,8 @@
     "cn": "iDoll花",
     "de": "iDoll Blume",
     "th": "ไอดอลล์ ฟลาวเวอร์",
-    "fr": "iDoll Fleur"
+    "fr": "iDoll Fleur",
+    "date": "2022-11-04"
   },
   {
     "name": "iDoll Ocean",
@@ -2296,7 +2511,8 @@
     "cn": "iDoll海",
     "de": "iDoll Meer",
     "th": "ไอดอลล์ โอเชี่ยน",
-    "fr": "iDoll Océan"
+    "fr": "iDoll Océan",
+    "date": "2022-11-04"
   },
   {
     "name": "Soldier OW",
@@ -2307,7 +2523,8 @@
     "cn": "士兵O.W.",
     "de": "Soldatin OW",
     "th": "ทหาร OW",
-    "fr": "Soldat OW"
+    "fr": "Soldat OW",
+    "date": "2022-11-04"
   },
   {
     "name": "Product 23",
@@ -2318,7 +2535,8 @@
     "cn": "产品23",
     "de": "Produkt 23",
     "th": "ผลิตภัณฑ์ 23",
-    "fr": "Produit 23"
+    "fr": "Produit 23",
+    "date": "2022-11-04"
   },
   {
     "name": "iDoll Sun",
@@ -2329,7 +2547,8 @@
     "cn": "iDoll太阳",
     "de": "iDoll Sonne",
     "th": "ไอดอลล์ ซัน",
-    "fr": "iDoll Soleil"
+    "fr": "iDoll Soleil",
+    "date": "2022-11-04"
   },
   {
     "name": "Ade",
@@ -2340,7 +2559,8 @@
     "cn": "爱德",
     "de": "Ade",
     "th": "เอด",
-    "fr": "Ade"
+    "fr": "Ade",
+    "date": "2024-02-15"
   },
   {
     "name": "Ade Maid In Spring",
@@ -2351,7 +2571,8 @@
     "cn": "爱德 春日之作",
     "de": "Ade Frühlingsmaid",
     "th": "เอด เมดใบไม้ผลิ",
-    "fr": "Ade Tablier de printemps"
+    "fr": "Ade Tablier de printemps",
+    "date": "2025-03-27"
   },
   {
     "name": "Cocoa",
@@ -2362,7 +2583,8 @@
     "cn": "可可",
     "de": "Coco",
     "th": "โกโก้",
-    "fr": "Coco"
+    "fr": "Coco",
+    "date": "2023-02-01"
   },
   {
     "name": "Soda",
@@ -2373,7 +2595,8 @@
     "cn": "索达",
     "de": "Soda",
     "th": "โซดา",
-    "fr": "Soda"
+    "fr": "Soda",
+    "date": "2023-02-01"
   },
   {
     "name": "Privaty: Unkind Maid",
@@ -2384,7 +2607,8 @@
     "cn": "普丽瓦蒂：不友善的女仆",
     "de": "Privatia: Unfreundliche Maid",
     "th": "ไพรเวตี้: เมดใจร้าย",
-    "fr": "Privatia : Soubrette peu aimable"
+    "fr": "Privatia : Soubrette peu aimable",
+    "date": "2024-02-05"
   },
   {
     "name": "Soda: Twinkling Bunny",
@@ -2395,7 +2619,8 @@
     "cn": "索达：闪亮兔女郎",
     "de": "Soda: Glitzerhäschen",
     "th": "โซดา: กระต่ายวิบวับ",
-    "fr": "Soda : Lapine scintillante"
+    "fr": "Soda : Lapine scintillante",
+    "date": "2024-05-30"
   },
   {
     "name": "Ade: Agent Bunny",
@@ -2406,7 +2631,8 @@
     "cn": "爱德：特工兔女郎",
     "de": "Ade: Agent Bunny",
     "th": "เอด: กระต่ายสายลับ",
-    "fr": "Ade : Agent Lapin"
+    "fr": "Ade : Agent Lapin",
+    "date": "2025-09-04"
   },
   {
     "name": "Velvet",
@@ -2417,7 +2643,8 @@
     "cn": "薇尔维特",
     "de": "Velvet",
     "th": "เวลเว็ต",
-    "fr": "Velvet"
+    "fr": "Velvet",
+    "date": "2026-01-29"
   },
   {
     "name": "Velvet Sensual Rabbit",
@@ -2428,7 +2655,8 @@
     "cn": "薇尔维特 魅惑兔",
     "de": "Velvet Sinnliches Häschen",
     "th": "เวลเว็ต กระต่ายกระชากใจ",
-    "fr": "Velvet Lapine sensuelle"
+    "fr": "Velvet Lapine sensuelle",
+    "date": "2026-01-29"
   },
   {
     "name": "Marciana",
@@ -2439,7 +2667,8 @@
     "cn": "玛律恰那",
     "de": "Marciana",
     "th": "มาร์เซียน่า",
-    "fr": "Marciana"
+    "fr": "Marciana",
+    "date": "2023-09-21"
   },
   {
     "name": "Marciana School Days",
@@ -2450,7 +2679,8 @@
     "cn": "玛律恰那 学生时代",
     "de": "Marciana Schulzeiten",
     "th": "มาร์เซียน่า ย้อนวัยสมัยเรียน",
-    "fr": "Marciana Retour à l'école"
+    "fr": "Marciana Retour à l'école",
+    "date": "2024-08-08"
   },
   {
     "name": "Marciana: Marine Study",
@@ -2461,7 +2691,8 @@
     "cn": "玛律恰那：海洋进修",
     "de": "Marciana: Meeresstudie",
     "th": "มาร์เซียน่า: หวานใจไลฟ์การ์ด",
-    "fr": "Marciana : Étude marine"
+    "fr": "Marciana : Étude marine",
+    "date": "2026-07-09"
   },
   {
     "name": "Crown",
@@ -2472,7 +2703,8 @@
     "cn": "皇冠",
     "de": "Crown",
     "th": "คราวน์",
-    "fr": "Couronne"
+    "fr": "Couronne",
+    "date": "2024-04-25"
   },
   {
     "name": "Crown Naked King",
@@ -2483,7 +2715,8 @@
     "cn": "皇冠 国王的新衣",
     "de": "Crown Majestätisch",
     "th": "คราวน์ ราชาไร้อาภรณ์",
-    "fr": "Couronne Roi nu"
+    "fr": "Couronne Roi nu",
+    "date": "2024-04-25"
   },
   {
     "name": "Crown Glorious Flower",
@@ -2494,7 +2727,8 @@
     "cn": "皇冠 荣耀之花",
     "de": "Crown Glorreiche Blume",
     "th": "คราวน์ บุปผาประกาศิต",
-    "fr": "Couronne Fleur glorieuse"
+    "fr": "Couronne Fleur glorieuse",
+    "date": "2025-10-30"
   },
   {
     "name": "Chime",
@@ -2505,7 +2739,8 @@
     "cn": "钟鸣",
     "de": "Chime",
     "th": "ไชม์",
-    "fr": "Carillon"
+    "fr": "Carillon",
+    "date": "2025-10-30"
   },
   {
     "name": "Mast",
@@ -2516,7 +2751,8 @@
     "cn": "马斯特",
     "de": "Mast",
     "th": "แมสต์",
-    "fr": "Artimon"
+    "fr": "Artimon",
+    "date": "2023-07-20"
   },
   {
     "name": "Mast A Pirate's Heart",
@@ -2527,7 +2763,8 @@
     "cn": "马斯特 海盗之心",
     "de": "Mast Piratenherz",
     "th": "แมสต์ ฤทัยโจรสลัด",
-    "fr": "Artimon Cœur de pirate"
+    "fr": "Artimon Cœur de pirate",
+    "date": "2023-08-03"
   },
   {
     "name": "Mast Mast the Diver",
@@ -2538,11 +2775,13 @@
     "cn": "马斯特 潜水员马斯特",
     "de": "Mast Mast, Taucherin",
     "th": "แมสต์ แมสต์เดอะไดเวอร์",
-    "fr": "Artimon Artimon : La plongeuse"
+    "fr": "Artimon Artimon : La plongeuse",
+    "date": "2024-07-04"
   },
   {
     "name": "Mast_old",
-    "id": "c350_old"
+    "id": "c350_old",
+    "date": "2023-07-20"
   },
   {
     "name": "Anchor",
@@ -2553,7 +2792,8 @@
     "cn": "安克",
     "de": "Anchor",
     "th": "แองเคอร์",
-    "fr": "Ancre"
+    "fr": "Ancre",
+    "date": "2023-08-03"
   },
   {
     "name": "Anchor Anchor the Diver",
@@ -2564,7 +2804,8 @@
     "cn": "安克 潜水员安克",
     "de": "Anchor Anchor, Taucherin",
     "th": "แองเคอร์ แองเคอร์เดอะไดเวอร์",
-    "fr": "Ancre Ancre : La plongeuse"
+    "fr": "Ancre Ancre : La plongeuse",
+    "date": "2024-07-04"
   },
   {
     "name": "Helm",
@@ -2575,7 +2816,8 @@
     "cn": "海伦",
     "de": "Helm",
     "th": "เฮล์ม",
-    "fr": "Gouverne"
+    "fr": "Gouverne",
+    "date": "2022-11-10"
   },
   {
     "name": "Helm Chandelier",
@@ -2586,7 +2828,8 @@
     "cn": "海伦 水晶派对",
     "de": "Helm Kronleuchter",
     "th": "เฮล์ม แชนเดอเลียร์",
-    "fr": "Gouverne Chandelier"
+    "fr": "Gouverne Chandelier",
+    "date": "2022-12-28"
   },
   {
     "name": "Helm Post-Shower Moment",
@@ -2597,7 +2840,8 @@
     "cn": "海伦 浴后",
     "de": "Helm „Frisch geduscht“-Gefühl",
     "th": "เฮล์ม ไอรักหลังอาบน้ำ",
-    "fr": "Gouverne Après la douche"
+    "fr": "Gouverne Après la douche",
+    "date": "2025-02-20"
   },
   {
     "name": "Helm: Aquamarine",
@@ -2608,7 +2852,8 @@
     "cn": "海伦：海蓝宝石",
     "de": "Helm: Gebieterin der Meere",
     "th": "เฮล์ม: อะความารีน",
-    "fr": "Gouverne : Aigue-marine"
+    "fr": "Gouverne : Aigue-marine",
+    "date": "2023-08-03"
   },
   {
     "name": "Mast: Romantic Maid",
@@ -2619,7 +2864,8 @@
     "cn": "马斯特：浪漫的女仆",
     "de": "Mast: Romantische Maid",
     "th": "แมสต์: เมดเปี่ยมรัก",
-    "fr": "Artimon : Soubrette sentimentale"
+    "fr": "Artimon : Soubrette sentimentale",
+    "date": "2025-01-30"
   },
   {
     "name": "Mast: Romantic Maid Tea Service",
@@ -2630,7 +2876,8 @@
     "cn": "马斯特：浪漫的女仆 茶饮服务",
     "de": "Mast: Romantische Maid Teeservice",
     "th": "แมสต์: เมดเปี่ยมรัก สาวใช้ร้านน้ำชา",
-    "fr": "Artimon : Soubrette sentimentale Thé douceur"
+    "fr": "Artimon : Soubrette sentimentale Thé douceur",
+    "date": "2025-01-30"
   },
   {
     "name": "Anchor: Innocent Maid",
@@ -2641,7 +2888,8 @@
     "cn": "安克：天真的女仆",
     "de": "Anchor: Unschuldige Maid",
     "th": "แองเคอร์: เมดใสซื่อ",
-    "fr": "Ancre : Soubrette candide"
+    "fr": "Ancre : Soubrette candide",
+    "date": "2025-02-06"
   },
   {
     "name": "Kilo",
@@ -2652,7 +2900,8 @@
     "cn": "吉洛",
     "de": "Kilo",
     "th": "กิโล",
-    "fr": "Kilo"
+    "fr": "Kilo",
+    "date": "2024-04-25"
   },
   {
     "name": "Eternity",
@@ -2663,7 +2912,8 @@
     "cn": "伊特妮缇",
     "de": "Ewigkeit",
     "th": "อีเทอร์นิตี้",
-    "fr": "Éternité"
+    "fr": "Éternité",
+    "date": "2025-08-07"
   },
   {
     "name": "Endless",
@@ -2674,7 +2924,8 @@
     "cn": "恩德莉丝",
     "de": "Endless",
     "th": "เอนด์เลส",
-    "fr": "Infini"
+    "fr": "Infini",
+    "date": "2025-08-07"
   },
   {
     "name": "Nero",
@@ -2685,7 +2936,8 @@
     "cn": "尼罗",
     "de": "Nero",
     "th": "เนโร",
-    "fr": "Néron"
+    "fr": "Néron",
+    "date": "2023-07-06"
   },
   {
     "name": "Biscuit",
@@ -2696,7 +2948,8 @@
     "cn": "饼干",
     "de": "Biscuit",
     "th": "บิสกิต",
-    "fr": "Biscuit"
+    "fr": "Biscuit",
+    "date": "2023-03-15"
   },
   {
     "name": "Biscuit Spring Puppy",
@@ -2707,7 +2960,8 @@
     "cn": "饼干 春日幼犬",
     "de": "Biscuit Frühlingswelpe",
     "th": "บิสกิต หมาน้อยกลางวสันต์",
-    "fr": "Biscuit Chiot printanier"
+    "fr": "Biscuit Chiot printanier",
+    "date": "2025-02-20"
   },
   {
     "name": "Leona",
@@ -2718,7 +2972,8 @@
     "cn": "莱昂纳",
     "de": "Leona",
     "th": "ลีโอน่า",
-    "fr": "Leona"
+    "fr": "Leona",
+    "date": "2024-01-11"
   },
   {
     "name": "Leona Zoo Keeper",
@@ -2729,7 +2984,8 @@
     "cn": "莱昂纳 动物饲养员",
     "de": "Leona Zoowärterin",
     "th": "ลีโอน่า ผู้ดูแลสวนสัตว์",
-    "fr": "Leona Gardienne de zoo"
+    "fr": "Leona Gardienne de zoo",
+    "date": "2024-01-11"
   },
   {
     "name": "Zwei",
@@ -2740,7 +2996,8 @@
     "cn": "茨瓦伊",
     "de": "Zwei",
     "th": "ซไว",
-    "fr": "Zwei"
+    "fr": "Zwei",
+    "date": "2024-08-08"
   },
   {
     "name": "Zwei First Festa",
@@ -2751,7 +3008,8 @@
     "cn": "茨瓦伊 第一次庆典",
     "de": "Zwei Erstes Festa",
     "th": "ซไว งานเทศกาลแรก",
-    "fr": "Zwei Premier festival"
+    "fr": "Zwei Premier festival",
+    "date": "2024-12-26"
   },
   {
     "name": "Zwei Spring Stroll",
@@ -2762,7 +3020,8 @@
     "cn": "茨瓦伊 春日漫步",
     "de": "Zwei Frühlingsspaziergang",
     "th": "ซไว เดินรับใบไม้ผลิ",
-    "fr": "Zwei Promenade printanière"
+    "fr": "Zwei Promenade printanière",
+    "date": "2026-03-01"
   },
   {
     "name": "Ein",
@@ -2773,7 +3032,8 @@
     "cn": "爱因",
     "de": "Ein",
     "th": "ไอน์",
-    "fr": "Ein"
+    "fr": "Ein",
+    "date": "2024-07-25"
   },
   {
     "name": "Ein Handmade Festa",
@@ -2784,7 +3044,8 @@
     "cn": "爱因 手作庆典",
     "de": "Ein Handgemachtes Festa",
     "th": "ไอน์ เทศกาลงานฝีมือ",
-    "fr": "Ein Festival sur mesure"
+    "fr": "Ein Festival sur mesure",
+    "date": "2024-12-26"
   },
   {
     "name": "Rei",
@@ -2795,7 +3056,8 @@
     "cn": "莱伊",
     "de": "Rei",
     "th": "ไร",
-    "fr": "Rei"
+    "fr": "Rei",
+    "date": "2023-04-27"
   },
   {
     "name": "Guilty",
@@ -2806,7 +3068,8 @@
     "cn": "吉尔提",
     "de": "Guilty",
     "th": "กิลตี้",
-    "fr": "Guilty"
+    "fr": "Guilty",
+    "date": "2023-01-12"
   },
   {
     "name": "Guilty Wave of Disbelief",
@@ -2817,7 +3080,8 @@
     "cn": "吉尔提 多疑浪潮",
     "de": "Guilty Zweifelwelle",
     "th": "กิลตี้ คลื่นแคลงใจ",
-    "fr": "Guilty Vague de défiance"
+    "fr": "Guilty Vague de défiance",
+    "date": "2024-07-04"
   },
   {
     "name": "Sin",
@@ -2828,7 +3092,8 @@
     "cn": "森",
     "de": "Sin",
     "th": "ซิน",
-    "fr": "Sin"
+    "fr": "Sin",
+    "date": "2023-01-12"
   },
   {
     "name": "Sin Backstreet Dream",
@@ -2839,7 +3104,8 @@
     "cn": "森 后街的梦想",
     "de": "Sin Hinterhoftraum",
     "th": "ซิน ฝันร้ายสาวเกเร",
-    "fr": "Sin Rêve d'une banlieusarde"
+    "fr": "Sin Rêve d'une banlieusarde",
+    "date": "2025-01-30"
   },
   {
     "name": "Quency",
@@ -2850,7 +3116,8 @@
     "cn": "坎西",
     "de": "Quency",
     "th": "เควนซี่",
-    "fr": "Quency"
+    "fr": "Quency",
+    "date": "2023-01-12"
   },
   {
     "name": "Quency: Escape Queen",
@@ -2861,7 +3128,8 @@
     "cn": "坎西：逃生女王",
     "de": "Quency: Fluchtkönigin",
     "th": "เควนซี่: ราชินีหนีคุก",
-    "fr": "Quency : Reine de l'évasion"
+    "fr": "Quency : Reine de l'évasion",
+    "date": "2024-10-03"
   },
   {
     "name": "Quency: Escape Queen Masquerade Swan",
@@ -2872,7 +3140,8 @@
     "cn": "坎西：逃生女王 变装天鹅",
     "de": "Quency: Fluchtkönigin Schwan der Maskerade",
     "th": "เควนซี่: ราชินีหนีคุก หน้ากากหงส์เริงระบำ",
-    "fr": "Quency : Reine de l'évasion Danseuse cycnéenne"
+    "fr": "Quency : Reine de l'évasion Danseuse cycnéenne",
+    "date": "2024-10-03"
   },
   {
     "id": "c404",
@@ -2883,7 +3152,8 @@
     "cn": "吉尔提：神力兔女郎",
     "de": "Guilty: Mächtiges Häschen",
     "th": "กิลตี้: กระต่ายจอมพลัง",
-    "fr": "Guilty : Super lapine"
+    "fr": "Guilty : Super lapine",
+    "date": "2026-09-17"
   },
   {
     "id": "c405",
@@ -2894,7 +3164,8 @@
     "cn": "森：疾速兔女郎",
     "de": "Sin: Flinkes Häschen",
     "th": "ซิน: กระต่ายลมกรด",
-    "fr": "Sin : Lapine véloce"
+    "fr": "Sin : Lapine véloce",
+    "date": "2026-09-24"
   },
   {
     "name": "Flora",
@@ -2905,7 +3176,8 @@
     "cn": "芙罗拉",
     "de": "Flora",
     "th": "ฟลอร่า",
-    "fr": "Flora"
+    "fr": "Flora",
+    "date": "2024-11-21"
   },
   {
     "name": "Flora Fairy Rabbit",
@@ -2916,7 +3188,8 @@
     "cn": "芙罗拉 妖精兔",
     "de": "Flora Feenhäschen",
     "th": "ฟลอร่า กระต่ายนางฟ้า",
-    "fr": "Flora Lapine féérique"
+    "fr": "Flora Lapine féérique",
+    "date": "2026-08-12"
   },
   {
     "name": "Trina",
@@ -2927,7 +3200,8 @@
     "cn": "特蕾娜",
     "de": "Trina",
     "th": "ทรีน่า",
-    "fr": "Trina"
+    "fr": "Trina",
+    "date": "2025-03-13"
   },
   {
     "name": "Trina Natural White",
@@ -2938,7 +3212,8 @@
     "cn": "特蕾娜 纯粹洁白",
     "de": "Trina Natürliches Weiß",
     "th": "ทรีน่า ขาวธรรมชาติ",
-    "fr": "Trina Blanc naturel"
+    "fr": "Trina Blanc naturel",
+    "date": "2026-05-28"
   },
   {
     "name": "Noise",
@@ -2949,7 +3224,8 @@
     "cn": "诺伊斯",
     "de": "Noise",
     "th": "นอยส์",
-    "fr": "Noise"
+    "fr": "Noise",
+    "date": "2022-11-04"
   },
   {
     "name": "Noise Cherry Blossom Stage",
@@ -2960,7 +3236,8 @@
     "cn": "诺伊斯 樱花舞台",
     "de": "Noise Kirschblütenbühne",
     "th": "นอยส์ เวทีซากุระ",
-    "fr": "Noise Cerisiers en fleur"
+    "fr": "Noise Cerisiers en fleur",
+    "date": "2023-03-30"
   },
   {
     "name": "Noise Classic Diva",
@@ -2971,7 +3248,8 @@
     "cn": "诺伊斯 经典天后",
     "de": "Noise Klassische Diva",
     "th": "นอยส์ คลาสสิกดีว่า",
-    "fr": "Noise Diva classique"
+    "fr": "Noise Diva classique",
+    "date": "2023-12-28"
   },
   {
     "name": "Volume",
@@ -2982,7 +3260,8 @@
     "cn": "沃纶姆",
     "de": "Volume",
     "th": "โวลุ่ม",
-    "fr": "Volume"
+    "fr": "Volume",
+    "date": "2022-11-04"
   },
   {
     "name": "Volume Beat the Gun",
@@ -2993,7 +3272,8 @@
     "cn": "沃纶姆 抢跑",
     "de": "Volume Seeräuberin",
     "th": "โวลุ่ม รัวจังหวะปืน",
-    "fr": "Volume Plus vite que la musique"
+    "fr": "Volume Plus vite que la musique",
+    "date": "2024-11-21"
   },
   {
     "name": "Aria",
@@ -3004,7 +3284,8 @@
     "cn": "阿莉亚",
     "de": "Aria",
     "th": "อาเรีย",
-    "fr": "Aria"
+    "fr": "Aria",
+    "date": "2022-11-04"
   },
   {
     "name": "Eyeri",
@@ -3015,7 +3296,8 @@
     "cn": "爱莉",
     "de": "Eyeri",
     "th": "อายริ",
-    "fr": "Eyeri"
+    "fr": "Eyeri",
+    "date": "2025-02-20"
   },
   {
     "name": "Avistar",
@@ -3026,7 +3308,8 @@
     "cn": "阿维斯塔",
     "de": "Avistar",
     "th": "อวิสต้า",
-    "fr": "Avistar"
+    "fr": "Avistar",
+    "date": "2026-04-23"
   },
   {
     "name": "Naga",
@@ -3037,7 +3320,8 @@
     "cn": "娜嘉",
     "de": "Naga",
     "th": "นากะ",
-    "fr": "Naga"
+    "fr": "Naga",
+    "date": "2023-10-05"
   },
   {
     "name": "Naga Elegant Date",
@@ -3048,7 +3332,8 @@
     "cn": "娜嘉 优雅约会",
     "de": "Naga Elegantes Date",
     "th": "นากะ เดตแสนสง่างาม",
-    "fr": "Naga Rendez-vous élégant"
+    "fr": "Naga Rendez-vous élégant",
+    "date": "2024-07-25"
   },
   {
     "name": "Naga Last Girlhood",
@@ -3059,7 +3344,8 @@
     "cn": "娜嘉 最后的少女时代",
     "de": "Naga Letzte Mädchenjahre",
     "th": "นากะ ส่งท้ายวัยเรียน",
-    "fr": "Naga Années jeunesse"
+    "fr": "Naga Années jeunesse",
+    "date": "2024-12-26"
   },
   {
     "name": "Naga Ring Ensemble",
@@ -3070,7 +3356,8 @@
     "cn": "娜嘉 金环恋曲",
     "de": "Naga Ring-Ensemble",
     "th": "นากะ ประสานเสียงกังวาน",
-    "fr": "Naga Parure de bracelets"
+    "fr": "Naga Parure de bracelets",
+    "date": "2026-07-01"
   },
   {
     "name": "Tia",
@@ -3081,7 +3368,8 @@
     "cn": "蒂亚",
     "de": "Tia",
     "th": "เทีย",
-    "fr": "Tia"
+    "fr": "Tia",
+    "date": "2023-10-12"
   },
   {
     "name": "Tia Lovely Date",
@@ -3092,7 +3380,8 @@
     "cn": "蒂亚 美妙约会",
     "de": "Tia Liebreizendes Date",
     "th": "เทีย เดตสุดน่ารัก",
-    "fr": "Tia Rendez-vous charmant"
+    "fr": "Tia Rendez-vous charmant",
+    "date": "2024-07-25"
   },
   {
     "name": "Tia Sweet Chef",
@@ -3103,7 +3392,8 @@
     "cn": "蒂亚 甜美主厨",
     "de": "Tia Süße Chefköchin",
     "th": "เทีย เชฟขนมหวาน",
-    "fr": "Tia Cheffe en sucre"
+    "fr": "Tia Cheffe en sucre",
+    "date": "2025-03-27"
   },
   {
     "name": "Tia Sea Lizzie",
@@ -3114,7 +3404,8 @@
     "cn": "蒂亚 海岸甜心",
     "de": "Tia Strand-Lizzle",
     "th": "เทีย ซีลิซซี่",
-    "fr": "Tia Lézard marin"
+    "fr": "Tia Lézard marin",
+    "date": "2026-07-02"
   },
   {
     "name": "Red Hood",
@@ -3125,7 +3416,8 @@
     "cn": "小红帽",
     "de": "Rotkäppchen",
     "th": "หมวกแดง",
-    "fr": "Carmine"
+    "fr": "Carmine",
+    "date": "2023-11-02"
   },
   {
     "name": "Red Hood Nonsense Red",
@@ -3136,7 +3428,8 @@
     "cn": "小红帽 荒诞红",
     "de": "Rotkäppchen Nonsense Red",
     "th": "หมวกแดง สีแดงแรงฤทธิ์",
-    "fr": "Carmine Rouge burlesque"
+    "fr": "Carmine Rouge burlesque",
+    "date": "2023-11-02"
   },
   {
     "name": "Red Hood Retro Days",
@@ -3147,7 +3440,8 @@
     "cn": "小红帽 怀旧时光",
     "de": "Rotkäppchen Retro-Tage",
     "th": "หมวกแดง ย้อนวันวาน",
-    "fr": "Carmine Jours rétro"
+    "fr": "Carmine Jours rétro",
+    "date": "2023-11-02"
   },
   {
     "name": "Snow White: Heavy Arms",
@@ -3158,15 +3452,18 @@
     "cn": "白雪公主：重型武装",
     "de": "Schneewittchen: Schwere Arme",
     "th": "สโนว์ไวท์: เฮฟวี่อาร์มส์",
-    "fr": "Blanche-Neige : Armes lourdes"
+    "fr": "Blanche-Neige : Armes lourdes",
+    "date": "2026-01-01"
   },
   {
     "name": "Scarlet",
-    "id": "c472"
+    "id": "c472",
+    "date": "2022-11-04"
   },
   {
     "name": "Rapunzel",
-    "id": "c473"
+    "id": "c473",
+    "date": "2022-11-04"
   },
   {
     "name": "Liveryn",
@@ -3177,7 +3474,8 @@
     "cn": "利弗林",
     "de": "Liveryn",
     "th": "ลิเวอริน",
-    "fr": "Livrette"
+    "fr": "Livrette",
+    "date": "2024-02-22"
   },
   {
     "name": "Fragile",
@@ -3188,11 +3486,13 @@
     "cn": "芙拉吉尔",
     "de": "Zärti",
     "th": "แฟรไจล์",
-    "fr": "Fragile"
+    "fr": "Fragile",
+    "date": "2024-04-25"
   },
   {
     "name": "#000000 - Logey",
-    "id": "c482"
+    "id": "c482",
+    "date": "2025-10-30"
   },
   {
     "name": "Hammering",
@@ -3203,7 +3503,8 @@
     "cn": "哈梅林",
     "de": "Hammering",
     "th": "แฮมเมอริ่ง",
-    "fr": "Martelle"
+    "fr": "Martelle",
+    "date": "2024-02-22"
   },
   {
     "name": "Drilley",
@@ -3214,7 +3515,8 @@
     "cn": "德里尔林",
     "de": "Bohri",
     "th": "ดริลลี่",
-    "fr": "Perceuse"
+    "fr": "Perceuse",
+    "date": "2024-04-25"
   },
   {
     "name": "Elegg",
@@ -3225,7 +3527,8 @@
     "cn": "伊莱格",
     "de": "Elegg",
     "th": "อิเล็กก์",
-    "fr": "Électre"
+    "fr": "Électre",
+    "date": "2024-02-22"
   },
   {
     "name": "Trony",
@@ -3236,7 +3539,8 @@
     "cn": "特罗尼",
     "de": "Trony",
     "th": "โทรนี่",
-    "fr": "Trony"
+    "fr": "Trony",
+    "date": "2024-05-16"
   },
   {
     "name": "Trony Sweet Step",
@@ -3247,7 +3551,8 @@
     "cn": "特罗尼 甜蜜舞步",
     "de": "Trony Süßer Schritt",
     "th": "โทรนี่ ย่างก้าวเข้าสายหวาน",
-    "fr": "Trony Pas de velours"
+    "fr": "Trony Pas de velours",
+    "date": "2025-01-30"
   },
   {
     "name": "Elegg: Boom and Shock",
@@ -3258,7 +3563,8 @@
     "cn": "伊莱格：BOOM与惊吓",
     "de": "Elegg: Boom und Schock",
     "th": "อิเล็กก์: บูมแอนด์ช็อก",
-    "fr": "Électre : Bzzzzt boom"
+    "fr": "Électre : Bzzzzt boom",
+    "date": "2025-07-24"
   },
   {
     "name": "Grave",
@@ -3269,7 +3575,8 @@
     "cn": "格拉维",
     "de": "Grave",
     "th": "เกรฟ",
-    "fr": "Sépulcre"
+    "fr": "Sépulcre",
+    "date": "2024-11-07"
   },
   {
     "name": "Cinderella",
@@ -3280,7 +3587,8 @@
     "cn": "灰姑娘",
     "de": "Aschenputtel",
     "th": "ซินเดอเรลล่า",
-    "fr": "Cendrillon"
+    "fr": "Cendrillon",
+    "date": "2024-10-31"
   },
   {
     "name": "Cinderella Glass Princess",
@@ -3291,7 +3599,8 @@
     "cn": "灰姑娘 水晶公主",
     "de": "Aschenputtel Kristallprinzessin",
     "th": "ซินเดอเรลล่า เจ้าหญิงรองเท้าแก้ว",
-    "fr": "Cendrillon Princesse de verre"
+    "fr": "Cendrillon Princesse de verre",
+    "date": "2024-10-31"
   },
   {
     "name": "Cinderella Beautiful Me",
@@ -3302,7 +3611,8 @@
     "cn": "灰姑娘 美丽的我",
     "de": "Aschenputtel Wunderschönes Ich",
     "th": "ซินเดอเรลล่า ฉันผู้งดงาม",
-    "fr": "Cendrillon Ma beauté"
+    "fr": "Cendrillon Ma beauté",
+    "date": "2025-04-24"
   },
   {
     "name": "Little Mermaid",
@@ -3313,7 +3623,8 @@
     "cn": "小美人鱼",
     "de": "Kleine Meerjungfrau",
     "th": "ลิตเติลเมอร์เมด",
-    "fr": "Petite sirène"
+    "fr": "Petite sirène",
+    "date": "2025-04-24"
   },
   {
     "name": "Little Mermaid Abyss Flower",
@@ -3324,7 +3635,8 @@
     "cn": "小美人鱼 深渊之花",
     "de": "Kleine Meerjungfrau Blume aus der Tiefe",
     "th": "ลิตเติลเมอร์เมด บุหงันผันสมุทร",
-    "fr": "Petite sirène Fleur abyssale"
+    "fr": "Petite sirène Fleur abyssale",
+    "date": "2025-04-24"
   },
   {
     "name": "Little Mermaid Beautiful Bubble",
@@ -3335,7 +3647,8 @@
     "cn": "小美人鱼 绚丽泡泡",
     "de": "Kleine Meerjungfrau Schöne Blase",
     "th": "ลิตเติลเมอร์เมด ฟองแสนงดงาม",
-    "fr": "Petite sirène Bulle de magnificence"
+    "fr": "Petite sirène Bulle de magnificence",
+    "date": "2025-11-01"
   },
   {
     "name": "Little Mermaid Shell Princess",
@@ -3346,7 +3659,8 @@
     "cn": "小美人鱼 珍珠贝公主",
     "de": "Kleine Meerjungfrau Muschelprinzessin",
     "th": "ลิตเติลเมอร์เมด องค์หญิงหอยมุก",
-    "fr": "Petite sirène Princesse coquillage"
+    "fr": "Petite sirène Princesse coquillage",
+    "date": "2025-04-24"
   },
   {
     "name": "Grave",
@@ -3357,7 +3671,8 @@
     "cn": "格拉维",
     "de": "Grave",
     "th": "เกรฟ",
-    "fr": "Sépulcre"
+    "fr": "Sépulcre",
+    "date": "2024-11-07"
   },
   {
     "name": "Cinderella: Crystal Wave",
@@ -3368,7 +3683,8 @@
     "cn": "灰姑娘：琉璃波光",
     "de": "Aschenputtel: Kristallwelle",
     "th": "ซินเดอเรลล่า: คริสตัลเวฟ",
-    "fr": "Cendrillon : Vague de cristal"
+    "fr": "Cendrillon : Vague de cristal",
+    "date": "2026-07-02"
   },
   {
     "name": "Grave Beautiful You",
@@ -3379,7 +3695,8 @@
     "cn": "格拉维 美丽的你",
     "de": "Grave Wunderschönes Du",
     "th": "เกรฟ เธอผู้งดงาม",
-    "fr": "Sépulcre Ta beauté"
+    "fr": "Sépulcre Ta beauté",
+    "date": "2025-04-24"
   },
   {
     "name": "Bready",
@@ -3390,7 +3707,8 @@
     "cn": "布蕾德",
     "de": "Knusprig",
     "th": "เบรดี้",
-    "fr": "Bready"
+    "fr": "Bready",
+    "date": "2025-03-27"
   },
   {
     "name": "Bready Frosty Bite",
@@ -3401,7 +3719,8 @@
     "cn": "布蕾德 糖霜咬咬",
     "de": "Knusprig Frostiger Biss",
     "th": "เบรดี้ หนึ่งคำฉ่ำลิ้น",
-    "fr": "Bready Morsure glacée"
+    "fr": "Bready Morsure glacée",
+    "date": "2025-12-04"
   },
   {
     "name": "Crust",
@@ -3412,7 +3731,8 @@
     "cn": "克劳斯特",
     "de": "Kross",
     "th": "ครัสต์",
-    "fr": "Crust"
+    "fr": "Crust",
+    "date": "2025-04-10"
   },
   {
     "id": "c521_01",
@@ -3423,7 +3743,8 @@
     "cn": "克劳斯特 捣蛋甜心主厨",
     "de": "Kross Naschexpertin",
     "th": "ครัสต์ เชฟของหวาน",
-    "fr": "Crust Cheffe farceuse"
+    "fr": "Crust Cheffe farceuse",
+    "date": "2026-09-17"
   },
   {
     "name": "Sky",
@@ -3434,7 +3755,8 @@
     "cn": "思凯",
     "de": "Sky",
     "th": "สกาย",
-    "fr": "Sky"
+    "fr": "Sky",
+    "date": "2025-07-03"
   },
   {
     "name": "Cielo",
@@ -3445,7 +3767,8 @@
     "cn": "西埃洛",
     "de": "Cielo",
     "th": "เชโล่",
-    "fr": "Cielo"
+    "fr": "Cielo",
+    "date": "2025-07-03"
   },
   {
     "name": "Sora",
@@ -3456,7 +3779,8 @@
     "cn": "索拉",
     "de": "Sora",
     "th": "โซระ",
-    "fr": "Sora"
+    "fr": "Sora",
+    "date": "2025-07-03"
   },
   {
     "name": "Sora Spring Flight",
@@ -3467,7 +3791,8 @@
     "cn": "索拉 春日飞行",
     "de": "Sora Frühlingsflug",
     "th": "โซระ เที่ยวบินยามวสันต์",
-    "fr": "Sora Envol printanier"
+    "fr": "Sora Envol printanier",
+    "date": "2026-03-19"
   },
   {
     "name": "Bay",
@@ -3478,7 +3803,8 @@
     "cn": "贝伊",
     "de": "Bay",
     "th": "เบย์",
-    "fr": "Baie"
+    "fr": "Baie",
+    "date": "2024-04-11"
   },
   {
     "name": "Bay Radiant Rabbit",
@@ -3489,7 +3815,8 @@
     "cn": "贝伊 闪耀兔",
     "de": "Bay Strahlendes Häschen",
     "th": "เบย์ กระต่ายเจิดจรัส",
-    "fr": "Baie Lapin radieux"
+    "fr": "Baie Lapin radieux",
+    "date": "2025-09-04"
   },
   {
     "name": "Clay",
@@ -3500,7 +3827,8 @@
     "cn": "克雷伊",
     "de": "Clay",
     "th": "เคลย์",
-    "fr": "Clay"
+    "fr": "Clay",
+    "date": "2024-06-20"
   },
   {
     "name": "Clay Cheer Up Training",
@@ -3511,7 +3839,8 @@
     "cn": "克雷伊 啦啦队训练服",
     "de": "Clay Aufmunterungstraining",
     "th": "เคลย์ เทรนนิ่งปลุกใจ",
-    "fr": "Clay Entraînement de remontée de moral"
+    "fr": "Clay Entraînement de remontée de moral",
+    "date": "2026-03-19"
   },
   {
     "name": "Behemoth",
@@ -3522,7 +3851,8 @@
     "cn": "贝西摩斯",
     "de": "Behemoth",
     "th": "บีฮีมอธ",
-    "fr": "Béhémoth"
+    "fr": "Béhémoth",
+    "date": "2024-07-25"
   },
   {
     "name": "Ziz",
@@ -3533,7 +3863,8 @@
     "cn": "席兹",
     "de": "Ziz",
     "th": "ซิซ",
-    "fr": "Ziz"
+    "fr": "Ziz",
+    "date": "2025-04-24"
   },
   {
     "name": "Leviathan",
@@ -3544,7 +3875,8 @@
     "cn": "利维坦",
     "de": "Leviathan",
     "th": "เลวีอาธาน",
-    "fr": "Léviathan"
+    "fr": "Léviathan",
+    "date": "2024-10-31"
   },
   {
     "name": "Bahamut",
@@ -3555,7 +3887,8 @@
     "cn": "巴哈姆特",
     "de": "Bahamut",
     "th": "บาฮามุต",
-    "fr": "Bahamut"
+    "fr": "Bahamut",
+    "date": "2025-10-30"
   },
   {
     "name": "Ark Ranger Black",
@@ -3566,12 +3899,14 @@
     "cn": "方舟黑色游侠",
     "de": "Schwarzer Ark Ranger",
     "th": "แบล็กอาร์คเรนเจอร์",
-    "fr": "Ranger noir de l'Arche"
+    "fr": "Ranger noir de l'Arche",
+    "date": "2026-06-11"
   },
   {
     "name": "Ark Ranger Black",
     "id": "c570_99",
-    "f": "c570_99"
+    "f": "c570_99",
+    "date": "2024-05-16"
   },
   {
     "name": "Ark Ranger Red",
@@ -3582,7 +3917,8 @@
     "cn": "方舟红色游侠",
     "de": "Roter Ark Ranger",
     "th": "เร้ดอาร์คเรนเจอร์",
-    "fr": "Ranger rouge de l'Arche"
+    "fr": "Ranger rouge de l'Arche",
+    "date": "2026-06-11"
   },
   {
     "name": "Ark Ranger Blue",
@@ -3593,7 +3929,8 @@
     "cn": "方舟蓝色游侠",
     "de": "Blauer Ark Ranger",
     "th": "บลูอาร์คเรนเจอร์",
-    "fr": "Ranger bleu de l'Arche"
+    "fr": "Ranger bleu de l'Arche",
+    "date": "2026-06-11"
   },
   {
     "name": "Phantom",
@@ -3604,7 +3941,8 @@
     "cn": "潘托姆",
     "de": "Phantom",
     "th": "แฟนธ่อม",
-    "fr": "Phantom"
+    "fr": "Phantom",
+    "date": "2024-10-10"
   },
   {
     "name": "Phantom Saint Thief",
@@ -3615,7 +3953,8 @@
     "cn": "潘托姆 圣洁怪盗",
     "de": "Phantom Heilige Diebin",
     "th": "แฟนธ่อม จอมโจรนักบุญ",
-    "fr": "Phantom Sainte voleuse"
+    "fr": "Phantom Sainte voleuse",
+    "date": "2026-08-12"
   },
   {
     "name": "Arcana",
@@ -3626,7 +3965,8 @@
     "cn": "阿尔卡娜",
     "de": "Arcana",
     "th": "อาร์คานา",
-    "fr": "Arcana"
+    "fr": "Arcana",
+    "date": "2025-05-15"
   },
   {
     "name": "Label",
@@ -3637,7 +3977,8 @@
     "cn": "蕾贝儿",
     "de": "Label",
     "th": "เลเบิล",
-    "fr": "Label"
+    "fr": "Label",
+    "date": "2026-01-15"
   },
   {
     "name": "Arcana: Fortune Mate",
@@ -3648,7 +3989,8 @@
     "cn": "阿尔卡娜：命运伴侣",
     "de": "Arcana: Glücksbringer",
     "th": "อาร์คานา: เพื่อนสาวพยากรณ์",
-    "fr": "Arcana : Compagnon de Fortune"
+    "fr": "Arcana : Compagnon de Fortune",
+    "date": "2026-03-19"
   },
   {
     "name": "Mori",
@@ -3659,7 +4001,8 @@
     "cn": "莫莉",
     "de": "Mori",
     "th": "โมริ",
-    "fr": "Mori"
+    "fr": "Mori",
+    "date": "2025-04-24"
   },
   {
     "name": "Mint",
@@ -3670,7 +4013,8 @@
     "cn": "敏特",
     "de": "Mint",
     "th": "มินต์",
-    "fr": "Mint"
+    "fr": "Mint",
+    "date": "2026-05-14"
   },
   {
     "name": "Mint Fresh Mint",
@@ -3681,11 +4025,13 @@
     "cn": "敏特 清新薄荷",
     "de": "Mint Frische Minz",
     "th": "มินต์ เฟรชมินต์",
-    "fr": "Mint Fraîcheur d'été"
+    "fr": "Mint Fraîcheur d'été",
+    "date": "2026-05-14"
   },
   {
     "name": "Mint",
-    "id": "c600_02"
+    "id": "c600_02",
+    "date": "2026-05-14"
   },
   {
     "name": "Prika",
@@ -3696,7 +4042,8 @@
     "cn": "普莉卡",
     "de": "Prika",
     "th": "พริก้า",
-    "fr": "Prika"
+    "fr": "Prika",
+    "date": "2026-05-28"
   },
   {
     "name": "Prika Cool Paprika",
@@ -3707,11 +4054,13 @@
     "cn": "普莉卡 酷冷辣椒",
     "de": "Prika Coole Paprika",
     "th": "พริก้า คูลปาปริก้า",
-    "fr": "Prika Paprika cool"
+    "fr": "Prika Paprika cool",
+    "date": "2026-05-28"
   },
   {
     "name": "Prika",
-    "id": "c601_02"
+    "id": "c601_02",
+    "date": "2026-05-28"
   },
   {
     "name": "Mekami Shifty",
@@ -3722,7 +4071,8 @@
     "cn": "机甲神谢芙蒂",
     "de": "Mekami-Shifty",
     "th": "เมกามิ ชิฟตี้",
-    "fr": "Mekami Futée"
+    "fr": "Mekami Futée",
+    "date": "2026-04-01"
   },
   {
     "name": "Snow Crane",
@@ -3733,7 +4083,8 @@
     "cn": "白鹤",
     "de": "Schneekranich",
     "th": "สโนว์เครน",
-    "fr": "Snow Crane"
+    "fr": "Snow Crane",
+    "date": "2026-04-09"
   },
   {
     "name": "Makima",
@@ -3744,7 +4095,8 @@
     "cn": "玛奇玛",
     "de": "Makima",
     "th": "มาคิมะ",
-    "fr": "Makima"
+    "fr": "Makima",
+    "date": "2023-02-22"
   },
   {
     "name": "Makima Coat Off",
@@ -3755,7 +4107,8 @@
     "cn": "玛奇玛 脱下外套",
     "de": "Makima Ohne Mantel",
     "th": "มาคิมะ ถอดเสื้อโคต",
-    "fr": "Makima Sans le manteau"
+    "fr": "Makima Sans le manteau",
+    "date": "2023-02-22"
   },
   {
     "name": "Power",
@@ -3766,7 +4119,8 @@
     "cn": "帕瓦",
     "de": "Power",
     "th": "พาวเวอร์",
-    "fr": "Power"
+    "fr": "Power",
+    "date": "2023-02-22"
   },
   {
     "name": "Himeno",
@@ -3777,19 +4131,23 @@
     "cn": "姬野",
     "de": "Himeno",
     "th": "ฮิเมโนะ",
-    "fr": "Himeno"
+    "fr": "Himeno",
+    "date": "2023-02-22"
   },
   {
     "name": "Denji",
-    "id": "c803"
+    "id": "c803",
+    "date": "2023-02-22"
   },
   {
     "name": "Denji Chainsaw Man",
-    "id": "c803_01"
+    "id": "c803_01",
+    "date": "2023-02-22"
   },
   {
     "name": "Aki Hayakawa",
-    "id": "c804"
+    "id": "c804",
+    "date": "2023-02-22"
   },
   {
     "name": "2B",
@@ -3800,7 +4158,8 @@
     "cn": "2B",
     "de": "2B",
     "th": "2B",
-    "fr": "2B"
+    "fr": "2B",
+    "date": "2023-09-01"
   },
   {
     "name": "2B Metamorphic Damage",
@@ -3811,7 +4170,8 @@
     "cn": "2B 战损状态",
     "de": "2B Metamorphischer Schaden",
     "th": "2B เสียหายแปรสภาพ",
-    "fr": "2B Dégâts métamorphiques"
+    "fr": "2B Dégâts métamorphiques",
+    "date": "2023-09-01"
   },
   {
     "name": "2B YoRHa Uniform 1",
@@ -3822,7 +4182,8 @@
     "cn": "2B 寄叶制服1",
     "de": "2B YoRHa-Uniform 1",
     "th": "2B เครื่องแบบ YoRHa 1",
-    "fr": "2B Uniforme YoRHa 1"
+    "fr": "2B Uniforme YoRHa 1",
+    "date": "2023-09-01"
   },
   {
     "name": "2B YoRHa Unofficial Waterfront Gear I",
@@ -3833,7 +4194,8 @@
     "cn": "2B 寄叶非官方水上活动服1",
     "de": "2B YoRHa – Inoffizielle Promenade-Ausrüstung I",
     "th": "2B เกียร์วอเตอร์ฟรอนต์ (ไม่ทางการ) YoRHa I",
-    "fr": "2B Équipement aquatique non officiel de YoRHa I"
+    "fr": "2B Équipement aquatique non officiel de YoRHa I",
+    "date": "2025-07-03"
   },
   {
     "name": "A2",
@@ -3844,7 +4206,8 @@
     "cn": "A2",
     "de": "A2",
     "th": "A2",
-    "fr": "A2"
+    "fr": "A2",
+    "date": "2023-09-08"
   },
   {
     "name": "A2 Metamorphic Damage",
@@ -3855,7 +4218,8 @@
     "cn": "A2 战损状态",
     "de": "A2 Metamorphischer Schaden",
     "th": "A2 เสียหายแปรสภาพ",
-    "fr": "A2 Dégâts métamorphiques"
+    "fr": "A2 Dégâts métamorphiques",
+    "date": "2023-09-08"
   },
   {
     "name": "A2 YoRHa Uniform Prototype",
@@ -3866,7 +4230,8 @@
     "cn": "A2 寄叶制服原型",
     "de": "A2 YoRHa-Uniform (Prototyp)",
     "th": "A2 เครื่องแบบ YoRHa ต้นแบบ",
-    "fr": "A2 Prototype Uniforme YoRHa"
+    "fr": "A2 Prototype Uniforme YoRHa",
+    "date": "2023-09-08"
   },
   {
     "name": "A2 YoRHa Unofficial Waterfront Gear Prototype",
@@ -3877,7 +4242,8 @@
     "cn": "A2 寄叶非官方水上活动服原型",
     "de": "A2 YoRHa – Inoffizielle Promenade-Ausrüstung (Prototyp)",
     "th": "A2 ต้นแบบเกียร์วอเตอร์ฟรอนต์ (ไม่ทางการ) YoRHa",
-    "fr": "A2 Prototype d'équipement aquatique non officiel de YoRHa"
+    "fr": "A2 Prototype d'équipement aquatique non officiel de YoRHa",
+    "date": "2025-07-03"
   },
   {
     "name": "Pascal",
@@ -3888,11 +4254,13 @@
     "cn": "帕斯卡",
     "de": "Pascal",
     "th": "ปาสคาล",
-    "fr": "Pascal"
+    "fr": "Pascal",
+    "date": "2023-09-01"
   },
   {
     "name": "9S",
-    "id": "c813"
+    "id": "c813",
+    "date": "2023-09-01"
   },
   {
     "name": "Rem",
@@ -3903,7 +4271,8 @@
     "cn": "雷姆",
     "de": "Rem",
     "th": "เรม",
-    "fr": "Rem"
+    "fr": "Rem",
+    "date": "2024-03-28"
   },
   {
     "name": "Rem Handy Maid",
@@ -3914,7 +4283,8 @@
     "cn": "雷姆 俐落女仆",
     "de": "Rem Maid für alles",
     "th": "เรม เมดผู้คล่องแคล่ว",
-    "fr": "Rem Soubrette serviable"
+    "fr": "Rem Soubrette serviable",
+    "date": "2024-03-28"
   },
   {
     "name": "Rem Pure Blossom",
@@ -3925,7 +4295,8 @@
     "cn": "雷姆 纯净之花",
     "de": "Rem Reine Blüte",
     "th": "เรม บุปผาบริสุทธิ์",
-    "fr": "Rem Fleur pure"
+    "fr": "Rem Fleur pure",
+    "date": "2024-03-21"
   },
   {
     "name": "Emilia",
@@ -3936,7 +4307,8 @@
     "cn": "爱蜜莉雅",
     "de": "Emilia",
     "th": "เอมิเลีย",
-    "fr": "Emilia"
+    "fr": "Emilia",
+    "date": "2024-03-21"
   },
   {
     "name": "Emilia Clumsy Maid",
@@ -3947,7 +4319,8 @@
     "cn": "爱蜜莉雅 生涩女仆",
     "de": "Emilia Ungeschickte Maid",
     "th": "เอมิเลีย เมดจอมซุ่มซ่าม",
-    "fr": "Emilia Soubrette maladroite"
+    "fr": "Emilia Soubrette maladroite",
+    "date": "2024-03-21"
   },
   {
     "name": "Emilia Spring Breeze",
@@ -3958,7 +4331,8 @@
     "cn": "爱蜜莉雅 春日微风",
     "de": "Emilia Frühlingsbrise",
     "th": "เอมิเลีย สายลมใบไม้ผลิ",
-    "fr": "Emilia Brise de printemps"
+    "fr": "Emilia Brise de printemps",
+    "date": "2024-03-21"
   },
   {
     "name": "Ram",
@@ -3969,7 +4343,8 @@
     "cn": "拉姆",
     "de": "Ram",
     "th": "แรม",
-    "fr": "Ram"
+    "fr": "Ram",
+    "date": "2024-03-21"
   },
   {
     "name": "Asuka",
@@ -3980,7 +4355,8 @@
     "cn": "明日香",
     "de": "Asuka",
     "th": "อาสึกะ",
-    "fr": "Asuka"
+    "fr": "Asuka",
+    "date": "2024-08-22"
   },
   {
     "name": "Asuka Asuka's School Uniform",
@@ -3991,7 +4367,8 @@
     "cn": "明日香 明日香的校服",
     "de": "Asuka Asukas Schuluniform",
     "th": "อาสึกะ อาสึกะชุดนักเรียน",
-    "fr": "Asuka Uniforme scolaire d'Asuka"
+    "fr": "Asuka Uniforme scolaire d'Asuka",
+    "date": "2025-02-20"
   },
   {
     "name": "Asuka Cynical Street",
@@ -4002,7 +4379,8 @@
     "cn": "明日香 自私街",
     "de": "Asuka Zynische Straße",
     "th": "อาสึกะ สาวปากร้ายสายสตรีท",
-    "fr": "Asuka Cynisme urbain"
+    "fr": "Asuka Cynisme urbain",
+    "date": "2024-08-22"
   },
   {
     "name": "Asuka Test Plugsuit",
@@ -4013,7 +4391,8 @@
     "cn": "明日香 测试用作战服",
     "de": "Asuka Test-Plugsuit",
     "th": "อาสึกะ ปลั๊กสูทรุ่นทดสอบ",
-    "fr": "Asuka Plugsuit expérimentale"
+    "fr": "Asuka Plugsuit expérimentale",
+    "date": "2024-08-21"
   },
   {
     "name": "Rei",
@@ -4024,7 +4403,8 @@
     "cn": "零",
     "de": "Rei",
     "th": "เรย์",
-    "fr": "Rei"
+    "fr": "Rei",
+    "date": "2024-08-29"
   },
   {
     "name": "Rei Rei's School Uniform",
@@ -4035,7 +4415,8 @@
     "cn": "零 零的校服",
     "de": "Rei Reis Schuluniform",
     "th": "เรย์ เรย์ชุดนักเรียน",
-    "fr": "Rei Uniforme scolaire de Rei"
+    "fr": "Rei Uniforme scolaire de Rei",
+    "date": "2025-02-20"
   },
   {
     "name": "Rei Peaceful Vacation",
@@ -4046,7 +4427,8 @@
     "cn": "零 宁静渡假",
     "de": "Rei Friedlicher Urlaub",
     "th": "เรย์ วันหยุดแสนสงบ",
-    "fr": "Rei Vacances paisibles"
+    "fr": "Rei Vacances paisibles",
+    "date": "2024-08-29"
   },
   {
     "name": "Mari",
@@ -4057,7 +4439,8 @@
     "cn": "真理",
     "de": "Mari",
     "th": "มาริ",
-    "fr": "Mari"
+    "fr": "Mari",
+    "date": "2024-09-05"
   },
   {
     "name": "Mari Mari's School Uniform",
@@ -4068,7 +4451,8 @@
     "cn": "真理 真理的校服",
     "de": "Mari Maris Schuluniform",
     "th": "มาริ มาริชุดนักเรียน",
-    "fr": "Mari Uniforme scolaire de Mari"
+    "fr": "Mari Uniforme scolaire de Mari",
+    "date": "2025-02-20"
   },
   {
     "name": "Mari Leisure Travel",
@@ -4079,7 +4463,8 @@
     "cn": "真理 休闲之旅",
     "de": "Mari Freizeitreisen",
     "th": "มาริ ท่องเที่ยวผ่อนคลาย",
-    "fr": "Mari Voyage de plaisance"
+    "fr": "Mari Voyage de plaisance",
+    "date": "2024-09-05"
   },
   {
     "name": "Mari Final Battle: Mari",
@@ -4090,7 +4475,8 @@
     "cn": "真理 最终决战：真理",
     "de": "Mari Mari: Letzte Schlacht",
     "th": "มาริ ศึกสุดท้าย: มาริ",
-    "fr": "Mari Mari : Combat final"
+    "fr": "Mari Mari : Combat final",
+    "date": "2025-02-20"
   },
   {
     "name": "Mari Mystery Muse",
@@ -4101,7 +4487,8 @@
     "cn": "真理 神秘缪斯",
     "de": "Mari Mysteriöse Muse",
     "th": "มาริ มิวส์ผู้ลึกลับ",
-    "fr": "Mari Muse mystérieuse"
+    "fr": "Mari Muse mystérieuse",
+    "date": "2025-02-20"
   },
   {
     "name": "Misato",
@@ -4112,7 +4499,8 @@
     "cn": "美里",
     "de": "Misato",
     "th": "มิซาโตะ",
-    "fr": "Misato"
+    "fr": "Misato",
+    "date": "2024-08-22"
   },
   {
     "name": "Rei (Tentative Name)",
@@ -4123,7 +4511,8 @@
     "cn": "零（暂称）",
     "de": "Rei (vorläufiger Name)",
     "th": "เรย์ (ชื่อชั่วคราว)",
-    "fr": "Rei (nom provisoire)"
+    "fr": "Rei (nom provisoire)",
+    "date": "2025-02-27"
   },
   {
     "name": "Rei (Tentative Name) Miss Lookalike from Village-3",
@@ -4134,7 +4523,8 @@
     "cn": "零（暂称） 第三村的长得像小姐",
     "de": "Rei (vorläufiger Name) Frau Doppelgängerin aus Dorf-3",
     "th": "เรย์ (ชื่อชั่วคราว) คนหน้าเหมือนจากหมู่บ้าน 3",
-    "fr": "Rei (nom provisoire) Rei Q du Village-3"
+    "fr": "Rei (nom provisoire) Rei Q du Village-3",
+    "date": "2025-02-27"
   },
   {
     "name": "Rei (Tentative Name) Soul Connect",
@@ -4145,7 +4535,8 @@
     "cn": "零（暂称） 灵魂连接",
     "de": "Rei (vorläufiger Name) Seelenverbindung",
     "th": "เรย์ (ชื่อชั่วคราว) เชื่อมโยงกระแสจิต",
-    "fr": "Rei (nom provisoire) Union d'âme"
+    "fr": "Rei (nom provisoire) Union d'âme",
+    "date": "2025-02-27"
   },
   {
     "name": "Asuka: WILLE",
@@ -4156,7 +4547,8 @@
     "cn": "明日香：WILLE",
     "de": "Asuka: WILLE",
     "th": "อาสึกะ: WILLE",
-    "fr": "Asuka : WILLE"
+    "fr": "Asuka : WILLE",
+    "date": "2025-02-20"
   },
   {
     "name": "Asuka: WILLE Final Battle: Asuka",
@@ -4167,7 +4559,8 @@
     "cn": "明日香：WILLE 最终决战：明日香",
     "de": "Asuka: WILLE Asuka: Letzte Schlacht",
     "th": "อาสึกะ: WILLE ศึกสุดท้าย: อาสึกะ",
-    "fr": "Asuka : WILLE Asuka : Combat final"
+    "fr": "Asuka : WILLE Asuka : Combat final",
+    "date": "2025-02-20"
   },
   {
     "name": "Asuka: WILLE Ocean's Lament",
@@ -4178,7 +4571,8 @@
     "cn": "明日香：WILLE 孤海乐章",
     "de": "Asuka: WILLE Klagelied des Meeres",
     "th": "อาสึกะ: WILLE ห้วงสมุทรคร่ำครวญ",
-    "fr": "Asuka : WILLE Lamentation de l'océan"
+    "fr": "Asuka : WILLE Lamentation de l'océan",
+    "date": "2025-02-20"
   },
   {
     "name": "Sakura",
@@ -4189,7 +4583,8 @@
     "cn": "樱",
     "de": "Sakura",
     "th": "ซากุระ",
-    "fr": "Sakura"
+    "fr": "Sakura",
+    "date": "2023-03-30"
   },
   {
     "name": "Ada",
@@ -4200,7 +4595,8 @@
     "cn": "艾达",
     "de": "Ada",
     "th": "เอด้า",
-    "fr": "Ada"
+    "fr": "Ada",
+    "date": "2025-09-24"
   },
   {
     "name": "Ada Separate Ways",
@@ -4211,7 +4607,8 @@
     "cn": "艾达 SEPARATE WAYS",
     "de": "Ada SEPARATE WAYS",
     "th": "เอด้า SEPARATE WAYS",
-    "fr": "Ada SEPARATE WAYS"
+    "fr": "Ada SEPARATE WAYS",
+    "date": "2025-09-24"
   },
   {
     "name": "Ada Dress",
@@ -4222,7 +4619,8 @@
     "cn": "艾达 DRESS",
     "de": "Ada DRESS",
     "th": "เอด้า DRESS",
-    "fr": "Ada DRESS"
+    "fr": "Ada DRESS",
+    "date": "2025-09-24"
   },
   {
     "name": "Jill",
@@ -4233,7 +4631,8 @@
     "cn": "吉儿",
     "de": "Jill",
     "th": "จิล",
-    "fr": "Jill"
+    "fr": "Jill",
+    "date": "2025-10-02"
   },
   {
     "name": "Jill Classic",
@@ -4244,7 +4643,8 @@
     "cn": "吉儿 CLASSIC",
     "de": "Jill CLASSIC",
     "th": "จิล CLASSIC",
-    "fr": "Jill CLASSIC"
+    "fr": "Jill CLASSIC",
+    "date": "2025-10-02"
   },
   {
     "name": "Jill Battle Suit",
@@ -4255,7 +4655,8 @@
     "cn": "吉儿 BATTLE SUIT",
     "de": "Jill BATTLE SUIT",
     "th": "จิล BATTLE SUIT",
-    "fr": "Jill BATTLE SUIT"
+    "fr": "Jill BATTLE SUIT",
+    "date": "2025-10-02"
   },
   {
     "name": "Claire",
@@ -4266,7 +4667,8 @@
     "cn": "克莱尔",
     "de": "Claire",
     "th": "แคลร์",
-    "fr": "Claire"
+    "fr": "Claire",
+    "date": "2025-09-24"
   },
   {
     "name": "EVE",
@@ -4277,7 +4679,8 @@
     "cn": "伊芙",
     "de": "EVE",
     "th": "อีฟ",
-    "fr": "EVE"
+    "fr": "EVE",
+    "date": "2025-06-12"
   },
   {
     "name": "EVE Keyhole Dress",
@@ -4288,7 +4691,8 @@
     "cn": "伊芙 镂空裙装",
     "de": "EVE Kleid mit Tropfenausschnitt",
     "th": "อีฟ คีย์โฮลเดรส",
-    "fr": "EVE Tenue ouverte"
+    "fr": "EVE Tenue ouverte",
+    "date": "2025-06-19"
   },
   {
     "name": "EVE Neurolink Suit",
@@ -4299,7 +4703,8 @@
     "cn": "伊芙 神经元链接套装",
     "de": "EVE Neurolink-Suit",
     "th": "อีฟ นิวโรลิงก์สูท",
-    "fr": "EVE Combinaison neurolien"
+    "fr": "EVE Combinaison neurolien",
+    "date": "2025-06-12"
   },
   {
     "name": "EVE Skin Suit",
@@ -4310,7 +4715,8 @@
     "cn": "伊芙 活肤紧身服",
     "de": "EVE Skin-Suit",
     "th": "อีฟ สกินสูท",
-    "fr": "EVE Seconde peau"
+    "fr": "EVE Seconde peau",
+    "date": "2025-06-19"
   },
   {
     "name": "Raven",
@@ -4321,7 +4727,8 @@
     "cn": "渡鸦",
     "de": "Raven",
     "th": "เรเวน",
-    "fr": "Raven"
+    "fr": "Raven",
+    "date": "2025-06-19"
   },
   {
     "name": "Raven Planet Diving Suit (6th) V2",
@@ -4332,7 +4739,8 @@
     "cn": "渡鸦 星球空降服（第6小队）第2版",
     "de": "Raven Planetarischer Diving-Suit (6.) Ver. 2",
     "th": "เรเวน แพลเน็ตไดฟ์วิงสูท (หน่วยที่ 6) V2",
-    "fr": "Raven Combinaison de plongée planétaire (6) V2"
+    "fr": "Raven Combinaison de plongée planétaire (6) V2",
+    "date": "2025-06-19"
   },
   {
     "name": "Raven Midsummer Alice",
@@ -4343,7 +4751,8 @@
     "cn": "渡鸦 盛夏爱丽丝",
     "de": "Raven Hochsommer-Alice",
     "th": "เรเวน อลิซกลางฤดูร้อน",
-    "fr": "Raven Alice ensoleillée"
+    "fr": "Raven Alice ensoleillée",
+    "date": "2025-06-19"
   },
   {
     "name": "Lily",
@@ -4354,11 +4763,13 @@
     "cn": "百合",
     "de": "Lily",
     "th": "ลิลี",
-    "fr": "Lily"
+    "fr": "Lily",
+    "date": "2025-06-12"
   },
   {
     "name": "Adam",
-    "id": "c853"
+    "id": "c853",
+    "date": "2025-06-12"
   },
   {
     "name": "Chisato",
@@ -4369,7 +4780,8 @@
     "cn": "千束",
     "de": "Chisato",
     "th": "จิซาโตะ",
-    "fr": "Chisato"
+    "fr": "Chisato",
+    "date": "2026-02-12"
   },
   {
     "name": "Chisato DA Training Wear (First)",
@@ -4380,7 +4792,8 @@
     "cn": "千束 DA训练服（第一套）",
     "de": "Chisato DA-Trainingskleidung (erste)",
     "th": "จิซาโตะ ชุดฝึก DA (รุ่นแรก)",
-    "fr": "Chisato Tenue d'entraînement DA (Première)"
+    "fr": "Chisato Tenue d'entraînement DA (Première)",
+    "date": "2026-02-12"
   },
   {
     "name": "Chisato Red Spark Guitar",
@@ -4391,7 +4804,8 @@
     "cn": "千束 赤红火花吉他",
     "de": "Chisato Rote Funken-Gitarre",
     "th": "จิซาโตะ กีตาร์ประกายเดือด",
-    "fr": "Chisato Guitare rouge étincelante"
+    "fr": "Chisato Guitare rouge étincelante",
+    "date": "2026-02-12"
   },
   {
     "name": "Takina",
@@ -4402,7 +4816,8 @@
     "cn": "泷奈",
     "de": "Takina",
     "th": "ทากินะ",
-    "fr": "Takina"
+    "fr": "Takina",
+    "date": "2026-02-19"
   },
   {
     "name": "Takina DA Training Wear (Second)",
@@ -4413,7 +4828,8 @@
     "cn": "泷奈 DA训练服（第二套）",
     "de": "Takina DA Trainingskleidung (Zweit)",
     "th": "ทากินะ ชุดฝึก DA (รุ่นสอง)",
-    "fr": "Takina Tenue d'entraînement DA (Seconde)"
+    "fr": "Takina Tenue d'entraînement DA (Seconde)",
+    "date": "2026-02-19"
   },
   {
     "name": "Takina Blue Pulse Bass",
@@ -4424,7 +4840,8 @@
     "cn": "泷奈 湛蓝律动贝斯",
     "de": "Takina Blauer Impulsbass",
     "th": "ทากินะ เบสครามกระหึ่ม",
-    "fr": "Takina Basse à impulsion bleue"
+    "fr": "Takina Basse à impulsion bleue",
+    "date": "2026-02-19"
   },
   {
     "name": "Kurumi",
@@ -4435,7 +4852,8 @@
     "cn": "胡桃",
     "de": "Kurumi",
     "th": "คุรุมิ",
-    "fr": "Kurumi"
+    "fr": "Kurumi",
+    "date": "2026-02-12"
   },
   {
     "name": "Queen (Makoto)",
@@ -4446,7 +4864,8 @@
     "cn": "QUEEN（真）",
     "de": "Queen (Makoto)",
     "th": "ควีน (มาโกโตะ)",
-    "fr": "Queen (Makoto)"
+    "fr": "Queen (Makoto)",
+    "date": "2026-08-13"
   },
   {
     "name": "Queen (Makoto) Shujin Academy Student Council President",
@@ -4457,7 +4876,8 @@
     "cn": "QUEEN（真） 秀尽学园学生会长",
     "de": "Queen (Makoto) Schülersprecherin der Shujin-Akademie",
     "th": "ควีน (มาโกโตะ) ประธานนักเรียนโรงเรียนชูจิน",
-    "fr": "Queen (Makoto) Présidente du conseil étudiant de Shujin Academy"
+    "fr": "Queen (Makoto) Présidente du conseil étudiant de Shujin Academy",
+    "date": "2026-08-13"
   },
   {
     "name": "Queen (Makoto) Queen's Pajamas (Ver. NIKKE Collabo)",
@@ -4468,7 +4888,8 @@
     "cn": "QUEEN（真） 女王睡衣（Ver. NIKKE Collabo）",
     "de": "Queen (Makoto) Queens Pyjama (Ver. NIKKE Collabo)",
     "th": "ควีน (มาโกโตะ) ชุดนอนของควีน (Ver. NIKKE Collabo)",
-    "fr": "Queen (Makoto) Pyjama royal (Ver. NIKKE Collabo)"
+    "fr": "Queen (Makoto) Pyjama royal (Ver. NIKKE Collabo)",
+    "date": "2026-08-13"
   },
   {
     "name": "Yukiko",
@@ -4479,7 +4900,8 @@
     "cn": "雪子",
     "de": "Yukiko",
     "th": "ยูกิโกะ",
-    "fr": "Yukiko"
+    "fr": "Yukiko",
+    "date": "2026-08-20"
   },
   {
     "name": "Yukiko Amagi Inn Kimono",
@@ -4490,7 +4912,8 @@
     "cn": "雪子 天城屋旅馆和服",
     "de": "Yukiko Amagi-Inn-Kimono",
     "th": "ยูกิโกะ ชุดกิโมโนเรียวกังอามากิ",
-    "fr": "Yukiko Kimono de l'auberge Amagi"
+    "fr": "Yukiko Kimono de l'auberge Amagi",
+    "date": "2026-08-20"
   },
   {
     "name": "Yukiko Winter Roomwear (Ver. NIKKE Collabo)",
@@ -4501,7 +4924,8 @@
     "cn": "雪子 冬日雅居（Ver. NIKKE Collabo）",
     "de": "Yukiko Winter-Hauskleidung (Ver. NIKKE Collabo)",
     "th": "ยูกิโกะ ชุดลำลองฤดูหนาว (Ver. NIKKE Collabo)",
-    "fr": "Yukiko Tenue d'intérieur hivernale (Ver. NIKKE Collabo)"
+    "fr": "Yukiko Tenue d'intérieur hivernale (Ver. NIKKE Collabo)",
+    "date": "2026-08-20"
   },
   {
     "name": "Aigis",
@@ -4512,7 +4936,8 @@
     "cn": "埃癸斯",
     "de": "Aigis",
     "th": "ไอกิส",
-    "fr": "Aigis"
+    "fr": "Aigis",
+    "date": "2026-08-13"
   },
   {
     "name": "Ingrid",
@@ -4523,7 +4948,8 @@
     "cn": "英格丽",
     "de": "Ingrid",
     "th": "อิงกริด",
-    "fr": "Ingrid"
+    "fr": "Ingrid",
+    "date": "2022-11-04"
   },
   {
     "name": "Syuen",
@@ -4534,7 +4960,8 @@
     "cn": "舒恩",
     "de": "Syuen",
     "th": "ซูเอิน",
-    "fr": "Syuen"
+    "fr": "Syuen",
+    "date": "2024-04-01"
   },
   {
     "name": "Mustang",
@@ -4545,7 +4972,8 @@
     "cn": "马士丁",
     "de": "Mustang",
     "th": "มัสแตง",
-    "fr": "Mustang"
+    "fr": "Mustang",
+    "date": "2022-11-04"
   },
   {
     "name": "Mustang (CN)",
@@ -4556,7 +4984,8 @@
     "cn": "马士丁 (CN)",
     "de": "Mustang (CN)",
     "th": "มัสแตง (CN)",
-    "fr": "Mustang (CN)"
+    "fr": "Mustang (CN)",
+    "date": "2025-04-01"
   },
   {
     "name": "Andersen",
@@ -4567,7 +4996,8 @@
     "cn": "安德森",
     "de": "Andersen",
     "th": "แอนเดอร์เซน",
-    "fr": "Andersen"
+    "fr": "Andersen",
+    "date": "2022-11-04"
   },
   {
     "name": "Andersen Soaked",
@@ -4578,7 +5008,8 @@
     "cn": "安德森",
     "de": "Andersen",
     "th": "แอนเดอร์เซน",
-    "fr": "Andersen"
+    "fr": "Andersen",
+    "date": "2023-04-01"
   },
   {
     "name": "Enikk",
@@ -4589,7 +5020,8 @@
     "cn": "阿尼克",
     "de": "Enikk",
     "th": "เอนิค",
-    "fr": "Enikk"
+    "fr": "Enikk",
+    "date": "2022-11-04"
   },
   {
     "name": "Rian",
@@ -4600,7 +5032,8 @@
     "cn": "莉安",
     "de": "Rian",
     "th": "ริแอน",
-    "fr": "Rian"
+    "fr": "Rian",
+    "date": "2022-11-04"
   },
   {
     "name": "Shifty",
@@ -4611,7 +5044,8 @@
     "cn": "谢芙蒂",
     "de": "Shifty",
     "th": "ชิฟตี้",
-    "fr": "Futée"
+    "fr": "Futée",
+    "date": "2023-04-01"
   },
   {
     "name": "Shifty_old",
@@ -4622,7 +5056,8 @@
     "cn": "谢芙蒂 old",
     "de": "Shifty old",
     "th": "ชิฟตี้ old",
-    "fr": "Futée old"
+    "fr": "Futée old",
+    "date": "2023-04-01"
   },
   {
     "id": "c908",
@@ -4633,7 +5068,8 @@
     "cn": "芭比珑",
     "de": "Papillon",
     "th": "ปาปิยอง",
-    "fr": "Papillon"
+    "fr": "Papillon",
+    "date": "2023-01-12"
   },
   {
     "name": "Hologram",
@@ -4644,63 +5080,78 @@
     "cn": "全息影像",
     "de": "Hologramm",
     "th": "โฮโลแกรม",
-    "fr": "Hologramme"
+    "fr": "Hologramme",
+    "date": "2023-02-01"
   },
   {
     "name": "Sweet Johnny",
-    "id": "c910_01"
+    "id": "c910_01",
+    "date": "2023-02-01"
   },
   {
     "name": "Faceless Man",
-    "id": "c911"
+    "id": "c911",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless Woman",
-    "id": "c912"
+    "id": "c912",
+    "date": "2022-11-04"
   },
   {
     "name": "Burningum",
-    "id": "c914"
+    "id": "c914",
+    "date": "2022-11-04"
   },
   {
     "name": "Raptillion",
-    "id": "c915"
+    "id": "c915",
+    "date": "2024-02-22"
   },
   {
     "name": "Faceless NPC 1",
-    "id": "c916"
+    "id": "c916",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 2",
-    "id": "c917"
+    "id": "c917",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 3",
-    "id": "c918"
+    "id": "c918",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 4",
-    "id": "c919"
+    "id": "c919",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 5",
-    "id": "c920"
+    "id": "c920",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 6",
-    "id": "c921"
+    "id": "c921",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 7",
-    "id": "c922"
+    "id": "c922",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 8",
-    "id": "c923"
+    "id": "c923",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 9",
-    "id": "c924"
+    "id": "c924",
+    "date": "2022-11-04"
   },
   {
     "name": "Johan",
@@ -4711,7 +5162,8 @@
     "cn": "约翰",
     "de": "Johan",
     "th": "โจฮัน",
-    "fr": "Johan"
+    "fr": "Johan",
+    "date": "2023-01-12"
   },
   {
     "name": "Einkk",
@@ -4722,7 +5174,8 @@
     "cn": "英克",
     "de": "Einkk",
     "th": "อิงค์",
-    "fr": "Einkk"
+    "fr": "Einkk",
+    "date": "2022-11-04"
   },
   {
     "name": "Cecil",
@@ -4733,47 +5186,58 @@
     "cn": "塞西尔",
     "de": "Cecilia",
     "th": "เซซิล",
-    "fr": "Cecil"
+    "fr": "Cecil",
+    "date": "2023-01-12"
   },
   {
     "name": "Beatrice",
-    "id": "c930"
+    "id": "c930",
+    "date": "2023-04-27"
   },
   {
     "name": "Collection Robot",
-    "id": "c931"
+    "id": "c931",
+    "date": "2022-11-04"
   },
   {
     "name": "Com",
-    "id": "c931_01"
+    "id": "c931_01",
+    "date": "2025-06-12"
   },
   {
     "name": "Bolt Junior",
-    "id": "c932"
+    "id": "c932",
+    "date": "2023-03-15"
   },
   {
     "name": "Bolt",
-    "id": "c933"
+    "id": "c933",
+    "date": "2023-03-15"
   },
   {
     "name": "Angelina",
-    "id": "c934"
+    "id": "c934",
+    "date": "2022-12-08"
   },
   {
     "name": "Joseph",
-    "id": "c935"
+    "id": "c935",
+    "date": "2023-01-12"
   },
   {
     "name": "Max",
-    "id": "c936"
+    "id": "c936",
+    "date": "2023-03-15"
   },
   {
     "name": "Booboo",
-    "id": "c937"
+    "id": "c937",
+    "date": "2023-03-15"
   },
   {
     "name": "Doban",
-    "id": "c939"
+    "id": "c939",
+    "date": "2023-07-20"
   },
   {
     "name": "E.H.",
@@ -4784,83 +5248,103 @@
     "cn": "E.H.",
     "de": "E.H.",
     "th": "E.H.",
-    "fr": "H.E."
+    "fr": "H.E.",
+    "date": "2026-03-05"
   },
   {
     "name": "Pinne",
-    "id": "c941"
+    "id": "c941",
+    "date": "2023-04-27"
   },
   {
     "name": "Commander (GODDESS)",
-    "id": "c942"
+    "id": "c942",
+    "date": "2023-04-27"
   },
   {
     "name": "Liliweiss",
-    "id": "c943"
+    "id": "c943",
+    "date": "2023-04-27"
   },
   {
     "name": "Katie",
-    "id": "c945"
+    "id": "c945",
+    "date": "2023-04-27"
   },
   {
     "name": "Ruru",
-    "id": "c946"
+    "id": "c946",
+    "date": "2023-07-06"
   },
   {
     "name": "Faceless NPC 10",
-    "id": "c947"
+    "id": "c947",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 11",
-    "id": "c948"
+    "id": "c948",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 12",
-    "id": "c951"
+    "id": "c951",
+    "date": "2022-11-04"
   },
   {
     "name": "Faceless NPC 13",
-    "id": "c952"
+    "id": "c952",
+    "date": "2022-11-04"
   },
   {
     "name": "Freesia",
-    "id": "c960"
+    "id": "c960",
+    "date": "2026-04-09"
   },
   {
     "name": "Oswald",
-    "id": "c961"
+    "id": "c961",
+    "date": "2023-04-27"
   },
   {
     "name": "Oswald",
-    "id": "c961_01"
+    "id": "c961_01",
+    "date": "2023-04-27"
   },
   {
     "name": "Product 12: B-0006",
-    "id": "c962"
+    "id": "c962",
+    "date": "2022-11-04"
   },
   {
     "name": "Product 12: C-1002",
-    "id": "c963"
+    "id": "c963",
+    "date": "2022-11-04"
   },
   {
     "name": "Product 12: 6000-D",
-    "id": "c964"
+    "id": "c964",
+    "date": "2022-11-04"
   },
   {
     "name": "Ghost - Lumi",
-    "id": "c967"
+    "id": "c967",
+    "date": "2023-12-08"
   },
   {
     "name": "Ghost - Lua",
-    "id": "c968"
+    "id": "c968",
+    "date": "2023-12-08"
   },
   {
     "name": "Ghost - Lena",
-    "id": "c969"
+    "id": "c969",
+    "date": "2023-12-08"
   },
   {
     "name": "Lumi",
-    "id": "c970"
+    "id": "c970",
+    "date": "2023-12-08"
   },
   {
     "name": "Rose",
@@ -4871,31 +5355,38 @@
     "cn": "蔷花",
     "de": "Rosie",
     "th": "โรส",
-    "fr": "Rose"
+    "fr": "Rose",
+    "date": "2023-12-28"
   },
   {
     "name": "Rose - Mirror",
-    "id": "c971_01"
+    "id": "c971_01",
+    "date": "2025-10-30"
   },
   {
     "name": "Jien",
-    "id": "c973"
+    "id": "c973",
+    "date": "2025-01-16"
   },
   {
     "name": "Mass Produced Melee",
-    "id": "c974"
+    "id": "c974",
+    "date": "2023-12-28"
   },
   {
     "name": "Mass Produced Melee 2",
-    "id": "c974_01"
+    "id": "c974_01",
+    "date": "2023-12-28"
   },
   {
     "name": "Timi",
-    "id": "c975"
+    "id": "c975",
+    "date": "2023-07-06"
   },
   {
     "name": "T.Rony",
-    "id": "c976"
+    "id": "c976",
+    "date": "2024-05-16"
   },
   {
     "name": "Kilo",
@@ -4906,27 +5397,33 @@
     "cn": "吉洛",
     "de": "Kilo",
     "th": "กิโล",
-    "fr": "Kilo"
+    "fr": "Kilo",
+    "date": "2024-04-25"
   },
   {
     "name": "Abe",
-    "id": "c979"
+    "id": "c979",
+    "date": "2024-10-31"
   },
   {
     "name": "Hansel",
-    "id": "c980"
+    "id": "c980",
+    "date": "2024-10-31"
   },
   {
     "name": "Gretel",
-    "id": "c981"
+    "id": "c981",
+    "date": "2024-10-31"
   },
   {
     "name": "Red Shoes",
-    "id": "c982"
+    "id": "c982",
+    "date": "2024-10-31"
   },
   {
     "name": "Nadia",
-    "id": "c983"
+    "id": "c983",
+    "date": "2024-10-17"
   },
   {
     "name": "Yuni",
@@ -4937,11 +5434,13 @@
     "cn": "尤妮",
     "de": "Yuni",
     "th": "ยูนิ",
-    "fr": "Yuni"
+    "fr": "Yuni",
+    "date": "2022-11-04"
   },
   {
     "name": "Chloe - Village Guardian",
-    "id": "c988"
+    "id": "c988",
+    "date": "2024-12-05"
   },
   {
     "name": "Rapi",
@@ -4952,7 +5451,8 @@
     "cn": "拉毗",
     "de": "Rapi",
     "th": "ราพี",
-    "fr": "Rapi"
+    "fr": "Rapi",
+    "date": "2022-11-04"
   },
   {
     "name": "Rapi",
@@ -4963,11 +5463,13 @@
     "cn": "拉毗",
     "de": "Rapi",
     "th": "ราพี",
-    "fr": "Rapi"
+    "fr": "Rapi",
+    "date": "2022-11-04"
   },
   {
     "name": "D.E.E.P.",
-    "id": "c991"
+    "id": "c991",
+    "date": "2023-04-13"
   },
   {
     "name": "Rapi",
@@ -4978,7 +5480,8 @@
     "cn": "拉毗",
     "de": "Rapi",
     "th": "ราพี",
-    "fr": "Rapi"
+    "fr": "Rapi",
+    "date": "2022-11-04"
   },
   {
     "name": "Mecha Shifty",
@@ -4989,7 +5492,8 @@
     "tw": "機甲謝芙蒂",
     "de": "Mecha-Shifty",
     "th": "เมกะชิฟตี้",
-    "fr": "Mecha Futée"
+    "fr": "Mecha Futée",
+    "date": "2025-04-01"
   },
   {
     "name": "Rapi",
@@ -5000,7 +5504,8 @@
     "cn": "拉毗",
     "de": "Rapi",
     "th": "ราพี",
-    "fr": "Rapi"
+    "fr": "Rapi",
+    "date": "2022-11-04"
   },
   {
     "name": "Leviathan",
@@ -5011,83 +5516,103 @@
     "cn": "利维坦",
     "de": "Leviathan",
     "th": "เลวีอาธาน",
-    "fr": "Léviathan"
+    "fr": "Léviathan",
+    "date": "2024-10-31"
   },
   {
     "name": "Ying Ning (婴宁) (CN)",
-    "id": "c8004"
+    "id": "c8004",
+    "date": "2025-10-28"
   },
   {
     "name": "Hua Pi (画皮) (CN)",
-    "id": "c8005"
+    "id": "c8005",
+    "date": "2025-10-28"
   },
   {
     "name": "Ying Ning (婴宁) (CN)",
-    "id": "c8006"
+    "id": "c8006",
+    "date": "2025-10-28"
   },
   {
     "name": "Only One",
-    "id": "c997"
+    "id": "c997",
+    "date": "2025-10-30"
   },
   {
     "name": "Hermin",
-    "id": "c998"
+    "id": "c998",
+    "date": "2025-06-12"
   },
   {
     "name": "Ghost - Alfred",
-    "id": "c9000"
+    "id": "c9000",
+    "date": "2025-07-17"
   },
   {
     "name": "Ghost - Neaty",
-    "id": "c9000_01"
+    "id": "c9000_01",
+    "date": "2025-07-17"
   },
   {
     "name": "Ghost - Sizzly",
-    "id": "c9000_02"
+    "id": "c9000_02",
+    "date": "2025-07-17"
   },
   {
     "name": "Ghost - Fixy",
-    "id": "c9000_03"
+    "id": "c9000_03",
+    "date": "2025-07-17"
   },
   {
     "name": "Ghost - Detaily",
-    "id": "c9000_05"
+    "id": "c9000_05",
+    "date": "2025-07-17"
   },
   {
     "name": "Ghost - Sellsy",
-    "id": "c9000_06"
+    "id": "c9000_06",
+    "date": "2025-07-17"
   },
   {
     "name": "Ghost",
-    "id": "c9000_07"
+    "id": "c9000_07",
+    "date": "2025-07-17"
   },
   {
     "name": "Ghost - Pinne",
-    "id": "c9001"
+    "id": "c9001",
+    "date": "2025-07-17"
   },
   {
     "name": "Nora",
-    "id": "c9002"
+    "id": "c9002",
+    "date": "2025-05-29"
   },
   {
     "name": "Mrs. Miss",
-    "id": "c9003"
+    "id": "c9003",
+    "date": "2025-08-07"
   },
   {
     "name": "Rapture",
-    "id": "c9005"
+    "id": "c9005",
+    "date": "2025-08-07"
   },
   {
     "name": "Rapture",
-    "id": "c9005_01"
+    "id": "c9005_01",
+    "date": "2025-08-07"
   },
   {
     "name": "Deipara",
-    "id": "c9006"
+    "id": "c9006",
+    "date": "2025-09-24"
   },
   {
     "name": "Nayuta",
-    "id": "c9008"
+    "id": "c9008",
+    "date": "2025-08-07"
   },
   {
     "name": "Nihilister",
@@ -5098,47 +5623,58 @@
     "cn": "尼希利斯塔",
     "de": "Nihilister",
     "th": "นิฮิลิสเตอร์",
-    "fr": "Nihiliste"
+    "fr": "Nihiliste",
+    "date": "2023-03-30"
   },
   {
     "name": "Jane",
-    "id": "c9010"
+    "id": "c9010",
+    "date": "2026-02-12"
   },
   {
     "name": "Rain",
-    "id": "c9011"
+    "id": "c9011",
+    "date": "2026-02-12"
   },
   {
     "name": "Mass Produced Heretic",
-    "id": "c9014"
+    "id": "c9014",
+    "date": "2026-02-12"
   },
   {
     "name": "Central Government Platoon Leader",
-    "id": "c9015"
+    "id": "c9015",
+    "date": "2026-02-12"
   },
   {
     "name": "V.T.C. Priestess",
-    "id": "c9016"
+    "id": "c9016",
+    "date": "2026-02-12"
   },
   {
     "name": "Altruia",
-    "id": "c9017"
+    "id": "c9017",
+    "date": "2026-02-12"
   },
   {
     "name": "Princess",
-    "id": "c9018"
+    "id": "c9018",
+    "date": "2026-02-12"
   },
   {
     "name": "Stall III",
-    "id": "c9019"
+    "id": "c9019",
+    "date": "2026-02-12"
   },
   {
     "name": "Freesia",
-    "id": "c9020"
+    "id": "c9020",
+    "date": "2026-04-09"
   },
   {
     "name": "Freesia",
-    "id": "c9020_01"
+    "id": "c9020_01",
+    "date": "2026-04-09"
   },
   {
     "name": "Anis",
@@ -5149,7 +5685,8 @@
     "cn": "阿妮斯",
     "de": "Anis",
     "th": "แอนิส",
-    "fr": "Anis"
+    "fr": "Anis",
+    "date": "2026-04-23"
   },
   {
     "name": "Anis",
@@ -5160,7 +5697,8 @@
     "cn": "阿妮斯",
     "de": "Anis",
     "th": "แอนิส",
-    "fr": "Anis"
+    "fr": "Anis",
+    "date": "2026-04-23"
   },
   {
     "name": "Mustang",
@@ -5171,27 +5709,33 @@
     "cn": "马士丁",
     "de": "Mustang",
     "th": "มัสแตง",
-    "fr": "Mustang"
+    "fr": "Mustang",
+    "date": "2026-04-23"
   },
   {
     "name": "Hanson",
-    "id": "c9023"
+    "id": "c9023",
+    "date": "2024-02-22"
   },
   {
     "name": "Yoyo",
-    "id": "c9024"
+    "id": "c9024",
+    "date": "2026-04-23"
   },
   {
     "name": "Egovista",
-    "id": "c9025"
+    "id": "c9025",
+    "date": "2026-04-23"
   },
   {
     "name": "Amy",
-    "id": "c9026"
+    "id": "c9026",
+    "date": "2026-03-19"
   },
   {
     "name": "Hope",
-    "id": "c9028"
+    "id": "c9028",
+    "date": "2026-06-11"
   },
   {
     "name": "Laplace",
@@ -5202,11 +5746,13 @@
     "cn": "拉普拉斯",
     "de": "Laplace",
     "th": "ลาปลาซ",
-    "fr": "Laplace"
+    "fr": "Laplace",
+    "date": "2026-07-23"
   },
   {
     "name": "Enme",
-    "id": "c9030"
+    "id": "c9030",
+    "date": "2026-07-23"
   },
   {
     "name": "Syuen",
@@ -5217,820 +5763,1014 @@
     "cn": "舒恩",
     "de": "Syuen",
     "th": "ซูเอิน",
-    "fr": "Syuen"
+    "fr": "Syuen",
+    "date": "2026-07-23"
   },
   {
     "name": "Jien",
-    "id": "c9032"
+    "id": "c9032",
+    "date": "2025-01-16"
   },
   {
     "name": "Penguin",
-    "id": "c9034"
+    "id": "c9034",
+    "date": "2026-07-02"
   },
   {
     "name": "Penguin",
-    "id": "c9035"
+    "id": "c9035",
+    "date": "2026-07-02"
   },
   {
     "name": "Penguin",
-    "id": "c9036"
+    "id": "c9036",
+    "date": "2026-07-02"
   },
   {
     "name": "Penguin",
-    "id": "c9037"
+    "id": "c9037",
+    "date": "2026-07-02"
   },
   {
     "name": "Teddie",
-    "id": "c9038"
+    "id": "c9038",
+    "date": "2026-08-12"
   },
   {
     "name": "Morgana",
-    "id": "c9039"
+    "id": "c9039",
+    "date": "2026-08-12"
   },
   {
     "name": "Morgana",
-    "id": "c9040"
+    "id": "c9040",
+    "date": "2026-08-12"
   },
   {
     "name": "Blue Water Island",
-    "id": "bluewaterisland"
+    "id": "bluewaterisland",
+    "date": "2023-06-15"
   },
   {
     "name": "Bow Wow Paradise",
-    "id": "bowwowparadise"
+    "id": "bowwowparadise",
+    "date": "2023-03-15"
   },
   {
     "name": "White Memory 1",
-    "id": "whitememory1"
+    "id": "whitememory1",
+    "date": "2023-04-27"
   },
   {
     "name": "White Memory 2",
-    "id": "whitememory2"
+    "id": "whitememory2",
+    "date": "2023-04-27"
   },
   {
     "name": "777",
-    "id": "777"
+    "id": "777",
+    "date": "2023-05-18"
   },
   {
     "name": "Cherry Blossom",
-    "id": "cherryblossom"
+    "id": "cherryblossom",
+    "date": "2023-03-30"
   },
   {
     "name": "License to Kill",
-    "id": "ltk"
+    "id": "ltk",
+    "date": "2023-04-13"
   },
   {
     "name": "Maid in Valentine",
-    "id": "maidinvalentine"
+    "id": "maidinvalentine",
+    "date": "2023-02-01"
   },
   {
     "name": "Queen's Order",
-    "id": "queensorder"
+    "id": "queensorder",
+    "date": "2023-06-01"
   },
   {
     "name": "Nya Nya Paradise",
-    "id": "nyanyaparadise"
+    "id": "nyanyaparadise",
+    "date": "2023-07-06"
   },
   {
     "name": "Golden Ship",
-    "id": "goldenship"
+    "id": "goldenship",
+    "date": "2023-07-20"
   },
   {
     "name": "Sea You Again",
-    "id": "seayouagain"
+    "id": "seayouagain",
+    "date": "2023-08-03"
   },
   {
     "name": "Outer Automata",
-    "id": "outerautomata"
+    "id": "outerautomata",
+    "date": "2023-09-01"
   },
   {
     "name": "No Caller ID",
-    "id": "nocallerid"
+    "id": "nocallerid",
+    "date": "2022-11-10"
   },
   {
     "name": "School Of Lock",
-    "id": "schooloflock"
+    "id": "schooloflock",
+    "date": "2023-09-21"
   },
   {
     "name": "Dazzling Cupid: Tia",
-    "id": "dazzlingcupid_tia"
+    "id": "dazzlingcupid_tia",
+    "date": "2023-10-05"
   },
   {
     "name": "Dazzling Cupid: Naga",
-    "id": "dazzlingcupid_naga"
+    "id": "dazzlingcupid_naga",
+    "date": "2023-10-05"
   },
   {
     "name": "ACPU FREEZE",
-    "id": "acpufreeze"
+    "id": "acpufreeze",
+    "date": "2023-10-19"
   },
   {
     "name": "RED ASH 1",
-    "id": "redash1"
+    "id": "redash1",
+    "date": "2023-11-02"
   },
   {
     "name": "RED ASH 2",
-    "id": "redash2"
+    "id": "redash2",
+    "date": "2023-11-02"
   },
   {
     "name": "Alone Survivor",
-    "id": "alonesurvivor"
+    "id": "alonesurvivor",
+    "date": "2023-11-23"
   },
   {
     "name": "Miracle Snow",
-    "id": "miraclesnow"
+    "id": "miraclesnow",
+    "date": "2022-12-08"
   },
   {
     "name": "Neverland",
-    "id": "neverland"
+    "id": "neverland",
+    "date": "2023-12-07"
   },
   {
     "name": "New Year New Sword",
-    "id": "newyearnewsword"
+    "id": "newyearnewsword",
+    "date": "2023-12-28"
   },
   {
     "name": "Lion Heart",
-    "id": "lionheart"
+    "id": "lionheart",
+    "date": "2024-01-11"
   },
   {
     "name": "D Outsider",
-    "id": "doutsider"
+    "id": "doutsider",
+    "date": "2023-01-12"
   },
   {
     "name": "Dirty Backyard",
-    "id": "dirtybackyard"
+    "id": "dirtybackyard",
+    "date": "2024-01-25"
   },
   {
     "name": "Perfect Maid",
-    "id": "perfectmaid"
+    "id": "perfectmaid",
+    "date": "2024-02-05"
   },
   {
     "name": "BOOM's DAY",
-    "id": "boomsday"
+    "id": "boomsday",
+    "date": "2024-02-22"
   },
   {
     "name": "Kill The Lord",
-    "id": "killthelord"
+    "id": "killthelord",
+    "date": "2024-03-07"
   },
   {
     "name": "Re: Cipe For You",
-    "id": "recipeforyou"
+    "id": "recipeforyou",
+    "date": "2024-03-21"
   },
   {
     "name": "One More Time",
-    "id": "onemoretime"
+    "id": "onemoretime",
+    "date": "2024-04-11"
   },
   {
     "name": "Brand New Year",
-    "id": "brandnewyear"
+    "id": "brandnewyear",
+    "date": "2022-12-28"
   },
   {
     "name": "Last Kingdom",
-    "id": "lastkingdom"
+    "id": "lastkingdom",
+    "date": "2024-04-25"
   },
   {
     "name": "D.ARK HERO",
-    "id": "darkhero"
+    "id": "darkhero",
+    "date": "2024-05-16"
   },
   {
     "name": "High Tech Toy",
-    "id": "hightechtoy"
+    "id": "hightechtoy",
+    "date": "2022-11-24"
   },
   {
     "name": "Golden Coin Rush",
-    "id": "goldencoinrush"
+    "id": "goldencoinrush",
+    "date": "2024-05-30"
   },
   {
     "name": "Claymore",
-    "id": "claymore"
+    "id": "claymore",
+    "date": "2024-06-20"
   },
   {
     "name": "Aegis the Diver",
-    "id": "aegisthediver"
+    "id": "aegisthediver",
+    "date": "2024-07-04"
   },
   {
     "name": "Beauty Full Shot",
-    "id": "beautyfullshot"
+    "id": "beautyfullshot",
+    "date": "2024-07-04"
   },
   {
     "name": "Juvenile Days",
-    "id": "juveniledays"
+    "id": "juveniledays",
+    "date": "2024-07-25"
   },
   {
     "name": "Colorless",
-    "id": "colorless"
+    "id": "colorless",
+    "date": "2024-08-08"
   },
   {
     "name": "Evangelion",
-    "id": "evangelion"
+    "id": "evangelion",
+    "date": "2024-08-21"
   },
   {
     "name": "Jinx Player",
-    "id": "jinxplayer"
+    "id": "jinxplayer",
+    "date": "2024-09-19"
   },
   {
     "name": "Phantom Thief",
-    "id": "phantomthief"
+    "id": "phantomthief",
+    "date": "2024-10-03"
   },
   {
     "name": "Life Again",
-    "id": "lifeagain"
+    "id": "lifeagain",
+    "date": "2024-10-17"
   },
   {
     "name": "Old Tales",
-    "id": "oldtales"
+    "id": "oldtales",
+    "date": "2024-10-31"
   },
   {
     "name": "Secret Garden",
-    "id": "secretgarden"
+    "id": "secretgarden",
+    "date": "2024-11-21"
   },
   {
     "name": "Ice Dragon Saga",
-    "id": "icedragonsaga"
+    "id": "icedragonsaga",
+    "date": "2024-12-05"
   },
   {
     "name": "Footstep Walk Run",
-    "id": "footstepwalkrun"
+    "id": "footstepwalkrun",
+    "date": "2024-12-26"
   },
   {
     "name": "Wisdom Spring",
-    "id": "wisdomspring"
+    "id": "wisdomspring",
+    "date": "2025-01-16"
   },
   {
     "name": "Romantic Valentine",
-    "id": "romanticvalentine"
+    "id": "romanticvalentine",
+    "date": "2025-01-30"
   },
   {
     "name": "Second Quest",
-    "id": "secondquest1"
+    "id": "secondquest1",
+    "date": "2025-02-20"
   },
   {
     "name": "Second Quest",
-    "id": "secondquest2"
+    "id": "secondquest2",
+    "date": "2025-02-20"
   },
   {
     "name": "For Rest",
-    "id": "forrest"
+    "id": "forrest",
+    "date": "2025-03-13"
   },
   {
     "name": "New Flavor",
-    "id": "newflavor"
+    "id": "newflavor",
+    "date": "2025-03-27"
   },
   {
     "name": "True Flavor",
-    "id": "trueflavor"
+    "id": "trueflavor",
+    "date": "2025-04-10"
   },
   {
     "name": "Unbreakable Sphere",
-    "id": "unbreakablesphere"
+    "id": "unbreakablesphere",
+    "date": "2025-04-24"
   },
   {
     "name": "Arcane Archive",
-    "id": "arcanearchive"
+    "id": "arcanearchive",
+    "date": "2025-05-15"
   },
   {
     "name": "Lord For Justice",
-    "id": "lordforjustice"
+    "id": "lordforjustice",
+    "date": "2025-05-29"
   },
   {
     "name": "Memories Teller 1",
-    "id": "memoriesteller_1"
+    "id": "memoriesteller_1",
+    "date": "2025-06-12"
   },
   {
     "name": "Memories Teller 2",
-    "id": "memoriesteller_2"
+    "id": "memoriesteller_2",
+    "date": "2025-06-12"
   },
   {
     "name": "Over the Horizon",
-    "id": "overthehorizon"
+    "id": "overthehorizon",
+    "date": "2025-07-03"
   },
   {
     "name": "Boom the Ghost",
-    "id": "boomtheghost"
+    "id": "boomtheghost",
+    "date": "2025-07-17"
   },
   {
     "name": "Absolute",
-    "id": "absolute"
+    "id": "absolute",
+    "date": "2025-08-07"
   },
   {
     "name": "Coins In Rush",
-    "id": "coinsinrush"
+    "id": "coinsinrush",
+    "date": "2025-09-04"
   },
   {
     "name": "Reborn Evil",
-    "id": "rebornevil"
+    "id": "rebornevil",
+    "date": "2025-09-24"
   },
   {
     "name": "Go! Ninja Thief",
-    "id": "goninjathief"
+    "id": "goninjathief",
+    "date": "2025-10-16"
   },
   {
     "name": "Blank Ticket",
-    "id": "blankticket"
+    "id": "blankticket",
+    "date": "2025-11-20"
   },
   {
     "name": "Terminus Ticket",
     "id": "terminusticket",
-    "f": "EventScene_terminusticket_01"
+    "f": "EventScene_terminusticket_01",
+    "date": "2025-12-04"
   },
   {
     "name": "Ark Guardian",
-    "id": "arkguardian"
+    "id": "arkguardian",
+    "date": "2025-12-30"
   },
   {
     "name": "Sin Editor",
     "id": "sineditor",
-    "f": "EventScene_sineditor_01"
+    "f": "EventScene_sineditor_01",
+    "date": "2026-01-15"
   },
   {
     "name": "Fatal Maid",
     "id": "fatalmaid",
-    "f": "EventScene_fatalmaid_01"
+    "f": "EventScene_fatalmaid_01",
+    "date": "2026-01-29"
   },
   {
     "name": "Lie Cause Recoil",
     "id": "liecauserecoil",
-    "f": "EventTitle_ce008_01"
+    "f": "EventTitle_ce008_01",
+    "date": "2026-02-12"
   },
   {
     "name": "Enter Heaven",
     "id": "enterheaven",
-    "f": "EventScene_enterheaven_01"
+    "f": "EventScene_enterheaven_01",
+    "date": "2026-03-05"
   },
   {
     "name": "2x2 LOVE 1",
     "id": "twoxtwo1",
-    "f": "EventScene_twoxtwolove_01"
+    "f": "EventScene_twoxtwolove_01",
+    "date": "2026-03-19"
   },
   {
     "name": "2x2 LOVE 2",
     "id": "twoxtwo2",
-    "f": "EventScene_twoxtwolove2_hidden_01_2"
+    "f": "EventScene_twoxtwolove2_hidden_01_2",
+    "date": "2026-03-19"
   },
   {
     "name": "Good World",
     "id": "goodworld",
-    "f": "EventScene_goodworld_01"
+    "f": "EventScene_goodworld_01",
+    "date": "2026-04-09"
   },
   {
     "name": "Star Anis",
     "id": "staranis",
-    "f": "EventScene_staranis_03"
+    "f": "EventScene_staranis_03",
+    "date": "2026-04-23"
   },
   {
     "name": "B Side Idol",
     "id": "bsideidol",
-    "f": "EventScene_bsideidol_01"
+    "f": "EventScene_bsideidol_01",
+    "date": "2026-05-14"
   },
   {
     "name": "Bitter Spice",
     "id": "bitterspice",
-    "f": "EventScene_bitterspice_01"
+    "f": "EventScene_bitterspice_01",
+    "date": "2026-05-28"
   },
   {
     "name": "Ark Ranger",
     "id": "arkranger",
-    "f": "EventScene_arkranger_03"
+    "f": "EventScene_arkranger_03",
+    "date": "2026-06-11"
   },
   {
     "name": "Project Matis",
     "id": "projectmatis",
-    "f": "EventScene_projectmatis_02"
+    "f": "EventScene_projectmatis_02",
+    "date": "2026-07-23"
   },
   {
     "name": "Great Villain Union",
     "id": "greatvillainunion",
-    "f": "EventScene_greatvillainunion_01"
+    "f": "EventScene_greatvillainunion_01",
+    "date": "2026-09-03"
   },
   {
     "name": "Coin Rush Showdown",
     "id": "coinrushshowdown",
-    "f": "EventScene_coinrushshowdown_02"
+    "f": "EventScene_coinrushshowdown_02",
+    "date": "2026-09-17"
   },
   {
     "name": "Smol Ade",
-    "id": "smol_ade"
+    "id": "smol_ade",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Anchor",
-    "id": "smol_anchor"
+    "id": "smol_anchor",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Anchor Pirate",
-    "id": "smol_anchor_pirate"
+    "id": "smol_anchor_pirate",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Bolt",
-    "id": "smol_bolt"
+    "id": "smol_bolt",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Frima",
-    "id": "smol_frima"
+    "id": "smol_frima",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Helm",
-    "id": "smol_helm"
+    "id": "smol_helm",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Liter",
-    "id": "smol_liter"
+    "id": "smol_liter",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Mary",
-    "id": "smol_mary"
+    "id": "smol_mary",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Mast",
-    "id": "smol_mast"
+    "id": "smol_mast",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Mast Pirate",
-    "id": "smol_mast_pirate"
+    "id": "smol_mast_pirate",
+    "date": "2025-01-30"
   },
   {
     "name": "Pirate Cafe",
-    "id": "piratecafe"
+    "id": "piratecafe",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Pepper",
-    "id": "smol_pepper"
+    "id": "smol_pepper",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Maid Privaty",
-    "id": "smol_mpriv"
+    "id": "smol_mpriv",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Sin Pirate",
-    "id": "smol_sin_pirate"
+    "id": "smol_sin_pirate",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Rapi",
-    "id": "smol_rapi"
+    "id": "smol_rapi",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Yan",
-    "id": "smol_yan"
+    "id": "smol_yan",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Rem",
-    "id": "smol_rem"
+    "id": "smol_rem",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Ram",
-    "id": "smol_ram"
+    "id": "smol_ram",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Emilia",
-    "id": "smol_emilia"
+    "id": "smol_emilia",
+    "date": "2025-01-30"
   },
   {
     "name": "Smol Anis TTS",
     "id": "smol_anis",
-    "f": "tts_c017_02"
+    "f": "tts_c017_02",
+    "date": "2026-04-23"
   },
   {
     "name": "Smol Mint TTS",
     "id": "smol_mint",
-    "f": "tts_c600_00"
+    "f": "tts_c600_00",
+    "date": "2026-04-23"
   },
   {
     "name": "Smol Prika TTS",
     "id": "smol_prika",
-    "f": "tts_c601_00"
+    "f": "tts_c601_00",
+    "date": "2026-04-23"
   },
   {
     "name": "Smol Marciana TTS",
     "id": "smol_marciana",
-    "f": "tts_c322_00"
+    "f": "tts_c322_00",
+    "date": "2026-07-23"
   },
   {
     "name": "Smol Naga TTS",
     "id": "smol_naga",
-    "f": "tts_c450_03"
+    "f": "tts_c450_03",
+    "date": "2026-07-23"
   },
   {
     "name": "Smol Tia TTS",
     "id": "smol_tia",
-    "f": "tts_c451_03"
+    "f": "tts_c451_03",
+    "date": "2026-07-23"
   },
   {
     "name": "Smol Queen (Makoto)",
     "id": "ce009_char_01",
-    "f": "ce009_char_01"
+    "f": "ce009_char_01",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Yukiko",
     "id": "ce009_char_02",
-    "f": "ce009_char_02"
+    "f": "ce009_char_02",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Aigis",
     "id": "ce009_char_03",
-    "f": "ce009_char_03"
+    "f": "ce009_char_03",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Ade",
     "id": "ce009_enemy_ade",
-    "f": "ce009_enemy_ade"
+    "f": "ce009_enemy_ade",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Delta",
     "id": "ce009_enemy_delta",
-    "f": "ce009_enemy_delta"
+    "f": "ce009_enemy_delta",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Miranda",
     "id": "ce009_enemy_miranda",
-    "f": "ce009_enemy_miranda"
+    "f": "ce009_enemy_miranda",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Phantom",
     "id": "ce009_enemy_phantom",
-    "f": "ce009_enemy_phantom"
+    "f": "ce009_enemy_phantom",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Poli",
     "id": "ce009_enemy_poli",
-    "f": "ce009_enemy_poli"
+    "f": "ce009_enemy_poli",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Quency",
     "id": "ce009_enemy_quency",
-    "f": "ce009_enemy_quency"
+    "f": "ce009_enemy_quency",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Johanna",
     "id": "ce009_skill_01",
-    "f": "ce009_skill_01"
+    "f": "ce009_skill_01",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Amaterasu",
     "id": "ce009_skill_02",
-    "f": "ce009_skill_02"
+    "f": "ce009_skill_02",
+    "date": "2026-08-12"
   },
   {
     "name": "Smol Athena",
     "id": "ce009_skill_03",
-    "f": "ce009_skill_03"
+    "f": "ce009_skill_03",
+    "date": "2026-08-12"
   },
   {
     "name": "AZX Service Time 1",
     "id": "azxservicetime_1",
-    "f": "terminusticket_cutscene_01"
+    "f": "terminusticket_cutscene_01",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 2",
     "id": "azxservicetime_2",
-    "f": "terminusticket_cutscene_02"
+    "f": "terminusticket_cutscene_02",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 3",
     "id": "azxservicetime_3",
-    "f": "terminusticket_cutscene_03"
+    "f": "terminusticket_cutscene_03",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 4",
     "id": "azxservicetime_4",
-    "f": "terminusticket_cutscene_04"
+    "f": "terminusticket_cutscene_04",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 5",
     "id": "azxservicetime_5",
-    "f": "terminusticket_cutscene_05"
+    "f": "terminusticket_cutscene_05",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 6",
     "id": "azxservicetime_6",
-    "f": "terminusticket_cutscene_06"
+    "f": "terminusticket_cutscene_06",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 7",
     "id": "azxservicetime_7",
-    "f": "terminusticket_cutscene_07"
+    "f": "terminusticket_cutscene_07",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 8",
     "id": "azxservicetime_8",
-    "f": "terminusticket_cutscene_08"
+    "f": "terminusticket_cutscene_08",
+    "date": "2025-12-04"
   },
   {
     "name": "AZX Service Time 9",
     "id": "azxservicetime_9",
-    "f": "terminusticket_cutscene_09"
+    "f": "terminusticket_cutscene_09",
+    "date": "2025-12-04"
   },
   {
     "name": "Boss: Mother Whale",
-    "id": "bba001"
+    "id": "bba001",
+    "date": "2023-04-27"
   },
   {
     "name": "Boss: Harvester",
-    "id": "bbg001"
+    "id": "bbg001",
+    "date": "2022-11-04"
   },
   {
     "name": "Boss: Chatterbox",
-    "id": "bbg002"
+    "id": "bbg002",
+    "date": "2022-11-04"
   },
   {
     "name": "Boss: Blacksmith",
-    "id": "bbg003"
+    "id": "bbg003",
+    "date": "2022-11-04"
   },
   {
     "name": "Boss: Storm Bringer",
-    "id": "eba001"
+    "id": "eba001",
+    "date": "2022-11-24"
   },
   {
     "name": "Boss: Gatekeeper Blue",
-    "id": "eba003"
+    "id": "eba003",
+    "date": "2023-02-22"
   },
   {
     "name": "Boss: Gatekeeper Green",
-    "id": "eba003_green"
+    "id": "eba003_green",
+    "date": "2023-02-22"
   },
   {
     "name": "Boss: Gatekeeper Red",
-    "id": "eba003_hsta"
+    "id": "eba003_hsta",
+    "date": "2023-02-22"
   },
   {
     "name": "Boss: Land Eater",
-    "id": "ebg001"
+    "id": "ebg001",
+    "date": "2022-11-04"
   },
   {
     "name": "Boss: Material H",
-    "id": "ebg002"
+    "id": "ebg002",
+    "date": "2022-11-04"
   },
   {
     "name": "Boss: Nihilister",
-    "id": "mba002"
+    "id": "mba002",
+    "date": "2023-01-12"
   },
   {
     "name": "Boss: Alteisen",
-    "id": "mbg001"
+    "id": "mbg001",
+    "date": "2023-10-19"
   },
   {
     "name": "Boss: Grave Digger",
-    "id": "mbg002"
+    "id": "mbg002",
+    "date": "2022-11-04"
   },
   {
     "name": "Boss: Modernia",
-    "id": "mbg004"
+    "id": "mbg004",
+    "date": "2022-11-04"
   },
   {
     "name": "Boss: Modernia Intro",
-    "id": "mbg004_appearance"
+    "id": "mbg004_appearance",
+    "date": "2022-11-04"
   },
   {
     "name": "Favorite: Poli",
-    "id": "favorite_c030"
+    "id": "favorite_c030",
+    "date": "2025-07-17"
   },
   {
     "name": "Favorite: Miranda",
-    "id": "favorite_c032"
+    "id": "favorite_c032",
+    "date": "2025-01-16"
   },
   {
     "name": "Favorite: Diesel",
-    "id": "favorite_c072"
+    "id": "favorite_c072",
+    "date": "2024-05-30"
   },
   {
     "name": "Favorite: Laplace",
-    "id": "favorite_c100"
+    "id": "favorite_c100",
+    "date": "2024-05-30"
   },
   {
     "name": "Favorite: Drake",
-    "id": "favorite_c101"
+    "id": "favorite_c101",
+    "date": "2025-01-16"
   },
   {
     "name": "Favorite: Viper",
-    "id": "favorite_c112"
+    "id": "favorite_c112",
+    "date": "2024-07-04"
   },
   {
     "name": "Favorite: Milk",
-    "id": "favorite_c141"
+    "id": "favorite_c141",
+    "date": "2025-01-16"
   },
   {
     "name": "Favorite: Frima",
-    "id": "favorite_c142"
+    "id": "favorite_c142",
+    "date": "2024-05-30"
   },
   {
     "name": "Favorite: Julia",
-    "id": "favorite_c150"
+    "id": "favorite_c150",
+    "date": "2025-07-17"
   },
   {
     "name": "Favorite: Tove",
-    "id": "favorite_c192"
+    "id": "favorite_c192",
+    "date": "2025-07-17"
   },
   {
     "name": "Favorite: Exia",
-    "id": "favorite_c210"
+    "id": "favorite_c210",
+    "date": "2024-05-30"
   },
   {
     "name": "Favorite: Helm",
-    "id": "favorite_c352"
+    "id": "favorite_c352",
+    "date": "2025-01-16"
   },
   {
     "name": "Favorite: Bay",
-    "id": "favorite_c550"
+    "id": "favorite_c550",
+    "date": "2025-07-17"
   },
   {
     "name": "Story 00-01",
-    "id": "story0001"
+    "id": "story0001",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 00-01 no filter",
-    "id": "story0001_2"
+    "id": "story0001_2",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 00-02",
-    "id": "story0002"
+    "id": "story0002",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 00-02 no filter",
-    "id": "story0002_2"
+    "id": "story0002_2",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 00-03",
-    "id": "story0003"
+    "id": "story0003",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 02-01",
-    "id": "story0201"
+    "id": "story0201",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 04-01",
-    "id": "story0401"
+    "id": "story0401",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 04-02",
-    "id": "story0401_2"
+    "id": "story0401_2",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 04-02 (CN)",
-    "id": "story0401_3"
+    "id": "story0401_3",
+    "date": "2025-04-01"
   },
   {
     "name": "Story 04-05",
-    "id": "story0405"
+    "id": "story0405",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 07-02",
-    "id": "story0702"
+    "id": "story0702",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 12-01",
-    "id": "story1201"
+    "id": "story1201",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 13-02",
-    "id": "story1302"
+    "id": "story1302",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 13-03",
-    "id": "story1303"
+    "id": "story1303",
+    "date": "2022-11-04"
   },
   {
     "name": "Story 14-01",
-    "id": "story1401"
+    "id": "story1401",
+    "date": "2023-01-12"
   },
   {
     "name": "Story 14-03",
-    "id": "story1403"
+    "id": "story1403",
+    "date": "2023-01-12"
   },
   {
     "name": "Story 14-05",
-    "id": "story1405"
+    "id": "story1405",
+    "date": "2023-01-12"
   },
   {
     "name": "Story 15-01",
-    "id": "story1501"
+    "id": "story1501",
+    "date": "2023-01-12"
   },
   {
     "name": "Story 19-01",
-    "id": "story1902"
+    "id": "story1902",
+    "date": "2023-01-12"
   },
   {
     "name": "Story 20-01",
-    "id": "story2002"
+    "id": "story2002",
+    "date": "2023-01-12"
   },
   {
     "name": "Story 21-01",
-    "id": "story2101"
+    "id": "story2101",
+    "date": "2023-04-27"
   },
   {
     "name": "Story 22-01",
-    "id": "story2201"
+    "id": "story2201",
+    "date": "2023-04-27"
   },
   {
     "name": "Story 22-02",
-    "id": "story2202"
+    "id": "story2202",
+    "date": "2023-04-27"
   },
   {
     "name": "Story 22-06",
-    "id": "story2206"
+    "id": "story2206",
+    "date": "2023-04-27"
   },
   {
     "name": "Story 25-01",
-    "id": "story2501"
+    "id": "story2501",
+    "date": "2023-11-02"
   },
   {
     "name": "Story 26-02",
-    "id": "story2602"
+    "id": "story2602",
+    "date": "2023-11-02"
   }
 ]
