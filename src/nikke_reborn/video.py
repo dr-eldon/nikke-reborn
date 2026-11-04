@@ -35,7 +35,7 @@ PIPE_BUFSIZE = 1 << 20
 
 #: Brightness scale for the monochrome face: below 1.0 it sits quieter
 #: against the tinted background.
-PROFILE_FACE_BRIGHTNESS = 0.7
+PROFILE_FACE_BRIGHTNESS = 0.5
 
 #: The H.264 quality settings for the MP4 output. The x264 preset is
 #: chosen per run (:mod:`nikke_reborn.preset`); the frames arrive at the

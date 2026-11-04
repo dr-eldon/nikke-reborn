@@ -104,6 +104,8 @@ def _presentation_flags(presentation: expansion.Presentation) -> list[str]:
         flags += ["--animation", presentation.animation]
     if presentation.time is not None:
         flags += ["--time", str(presentation.time)]
+    if presentation.half_body:
+        flags += ["--half-body"]
     return flags
 
 
@@ -171,7 +173,6 @@ def _render_and_finish(
     composite_workers: int,
     preset: Preset,
     source_hash: str,
-    half_body: bool = False,
 ) -> tuple[Path, dict[str, float | None]]:
     """Render the presentation via the viewer's ``--stdout`` raw stream
     and write the final PNG, or the MP4 alongside its first frame as a
@@ -207,7 +208,6 @@ def _render_and_finish(
     viewer_args = _viewer_args(
         size,
         presentation.card.id,
-        *(["--half-body"] if half_body else []),
         *_presentation_flags(presentation),
         *_framing_overrides(presentation),
         *_framerate_flags(presentation, framerate),
@@ -767,7 +767,6 @@ def _render_standard(
     viewer_args = _viewer_args(
         size,
         presentation.card.id,
-        "--half-body",
         *_presentation_flags(presentation),
         *_framing_overrides(presentation),
         *_framerate_flags(presentation, framerate),
@@ -901,6 +900,13 @@ def _process_full_art(
         base = Image.new("RGBA", size, (0, 0, 0, 255))
     else:
         background = expansion.load_background(exp, presentation.background)
+
+        background = ImageOps.autocontrast(
+            background.convert("RGB"),
+            cutoff=(5, 0),
+            preserve_tone=True,
+        ).convert("RGBA")
+
         base = _fit_background(background, size)
 
     # The GPU is shared, so a render error, a truncated frame stream or an
@@ -922,7 +928,6 @@ def _process_full_art(
                 composite_workers,
                 preset,
                 source_hash,
-                half_body=presentation.half_body,
             )
             timings["total"] = time.perf_counter() - total_started
             return finished, False, timings

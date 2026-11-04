@@ -20,7 +20,7 @@ STANDARD_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask_Standard.png"
 #: The dominant-tint wash's top-edge opacity (partial, so the
 #: background dilutes toward its own tint and the face settles into the
 #: card's palette).
-PROFILE_TINT_TOP_OPACITY = 0.3
+PROFILE_TINT_TOP_OPACITY = 0.0
 #: The dominant-tint wash's bottom-edge opacity: the darker bottom
 #: anchors more firmly than the top.
 PROFILE_TINT_BOTTOM_OPACITY = 0.5
