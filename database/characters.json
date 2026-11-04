@@ -1297,31 +1297,31 @@
   },
   {
     "id": "c830",
-    "name": "Asuka Shikinami Langley",
+    "name": "Asuka",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
   {
     "id": "c831",
-    "name": "Rei Ayanami",
+    "name": "Rei",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
   {
     "id": "c832",
-    "name": "Mari Makinami Illustrious",
+    "name": "Mari",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
   {
     "id": "c833",
-    "name": "Misato Katsuragi",
+    "name": "Misato",
     "manufacturer": "ABNORMAL",
     "rarity": "SR"
   },
   {
     "id": "c834",
-    "name": "Rei Ayanami (Tentative Name)",
+    "name": "Rei (Tentative Name)",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
@@ -1339,19 +1339,19 @@
   },
   {
     "id": "c840",
-    "name": "Ada Wong",
+    "name": "Ada",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
   {
     "id": "c841",
-    "name": "Jill Valentine",
+    "name": "Jill",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
   {
     "id": "c842",
-    "name": "Claire Redfield",
+    "name": "Claire",
     "manufacturer": "ABNORMAL",
     "rarity": "SR"
   },
@@ -1381,13 +1381,13 @@
   },
   {
     "id": "c860",
-    "name": "Chisato Nishikigi",
+    "name": "Chisato",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
   {
     "id": "c861",
-    "name": "Takina Inoue",
+    "name": "Takina",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
@@ -1399,13 +1399,13 @@
   },
   {
     "id": "c870",
-    "name": "Queen (Makoto Niijima)",
+    "name": "Queen (Makoto)",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
   {
     "id": "c871",
-    "name": "Yukiko Amagi",
+    "name": "Yukiko",
     "manufacturer": "ABNORMAL",
     "rarity": "SSR"
   },
@@ -1470,6 +1470,12 @@
     "rarity": null
   },
   {
+    "id": "c910_01",
+    "name": "Sweet Johnny",
+    "manufacturer": null,
+    "rarity": null
+  },
+  {
     "id": "c911",
     "name": "Faceless Man",
     "manufacturer": null,
@@ -1489,7 +1495,7 @@
   },
   {
     "id": "c915",
-    "name": "Raptilion",
+    "name": "Raptillion",
     "manufacturer": null,
     "rarity": null
   },
@@ -1574,6 +1580,12 @@
   {
     "id": "c931",
     "name": "Collection Robot",
+    "manufacturer": null,
+    "rarity": null
+  },
+  {
+    "id": "c931_01",
+    "name": "Com",
     "manufacturer": null,
     "rarity": null
   },
@@ -1759,7 +1771,7 @@
   },
   {
     "id": "c976",
-    "name": "Trony",
+    "name": "T.Rony",
     "manufacturer": "MISSILIS",
     "rarity": "SSR"
   },
@@ -1825,7 +1837,7 @@
   },
   {
     "id": "c991",
-    "name": "D",
+    "name": "D.E.E.P.",
     "manufacturer": "ELYSION",
     "rarity": "SSR"
   },
