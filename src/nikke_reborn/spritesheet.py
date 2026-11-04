@@ -12,17 +12,23 @@ when the roster carries it). The animated cards (an ``.mp4`` next to
 their first frame) are marked with a white ▶ in a black circle, and
 the cards' copyright line sits at the bottom left.
 
+The grid is windowed into images of at most :data:`SHEET_ROWS` rows
+each — ``<set>_{n}.png``, 1-based (``draft/<set>_{n}.png`` for
+``--draft``) — each self-contained (its own header and copyright) and
+carrying the same geometry: the label column is sized from the full
+roster's labels, so the images are equally wide and the grid keeps
+its column positions across them.
+
 The cells are the first frames only — the PNGs the pipeline writes
 for every card; no video is read or decoded. Every cell must already
 be on disk, so the sheet is composed after ``generate`` (missing
 cards are rendered as placeholders, named).
 
-Like the finished cards, the sheet embeds the SHA-256 of its inputs
-under the source-hash key, and a sheet whose stored hash matches the
-current inputs is skipped instead of re-composed. The rows' first
-frames are decoded and resized in parallel threads; the canvas is
-assembled on the main thread. ``--draft`` reads the first frames from
-``draft/`` and writes ``draft/<set>.png``; ``--force`` skips the
+Like the finished cards, every sheet image embeds the SHA-256 of its
+inputs under the source-hash key, and an image whose stored hash
+matches the current inputs is skipped instead of re-composed. The
+rows' first frames are decoded and resized in parallel threads; the
+canvas is assembled on the main thread. ``--force`` skips the
 up-to-date check.
 """
 
@@ -34,6 +40,7 @@ import itertools
 import os
 import re
 import sys
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -89,6 +96,11 @@ LABEL_FONT_SIZES = (48, 44, 40, 36, 32, 28, 24, 20)
 #: The height of every grid row (px): the cell's width is derived from
 #: it, by the card's aspect.
 ROW_HEIGHT = 160
+#: The rows per sheet image (the last one shorter): the grid is
+#: windowed into ``<set>_{n}.png`` (1-based) images, each self-
+#: contained (its own header and copyright) and equally wide (the
+#: label column is sized from the full roster's labels).
+SHEET_ROWS = 20
 #: The gutter between the label column and the grid.
 LABEL_GAP = 32
 #: The gutter between the grid's cells.
@@ -131,28 +143,30 @@ MISSING_TEXT = "MISSING!"
 MISSING_FONT_SIZES = (28, 24, 20, 18, 16, 14, 12, 10)
 
 
+_Part = tuple[Path, int, int, tuple[int, int] | None, bool]
+
+
 def run() -> None:
     """Compose the selected expansion's sprite sheet (the ``spritesheet``
     command)."""
     args = _parse_args()
     preset = Preset.DRAFT if args.draft else Preset.DEFAULT
     try:
-        out_path, rows, columns, skipped = _build(args.expansion, preset, args.force)
+        parts = _build(args.expansion, preset, args.force)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
-    if skipped:
-        print(
-            f"{out_path.relative_to(REPO_ROOT)}: up to date; "
-            f"skipping (use --force to rebuild)"
-        )
-        return
-    with Image.open(out_path) as sheet:
-        size = sheet.size
-    print(
-        f"Done. Wrote {out_path.relative_to(REPO_ROOT)} "
-        f"({size[0]}x{size[1]}, {rows} row(s) x {columns} column(s))"
-    )
+    for out_path, rows, columns, size, skipped in parts:
+        if skipped:
+            print(
+                f"{out_path.relative_to(REPO_ROOT)}: up to date; "
+                f"skipping (use --force to rebuild)"
+            )
+        else:
+            print(
+                f"Done. Wrote {out_path.relative_to(REPO_ROOT)} "
+                f"({size[0]}x{size[1]}, {rows} row(s) x {columns} column(s))"
+            )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -160,7 +174,8 @@ def _parse_args() -> argparse.Namespace:
         description=(
             "Compose an expansion's sprite sheet (a grid of its rendered "
             "first frames, fitted to its content: the expansion's logo "
-            "on top, one row per character, one column per presentation)"
+            "on top, one row per character, one column per presentation, "
+            f"windowed into {SHEET_ROWS}-row images)"
         )
     )
     parser.add_argument(
@@ -173,22 +188,24 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--draft",
         action="store_true",
-        help="read the first frames from draft/ and write draft/<set>.png",
+        help="read the first frames from draft/ and write draft/<set>_{n}.png",
     )
     parser.add_argument(
         "--force",
         action="store_true",
-        help="rebuild the sheet even when the one on disk is up to date",
+        help="rebuild the sheet images even when the ones on disk are up to date",
     )
     return parser.parse_args()
 
 
-def _build(name: str, preset: Preset, force: bool) -> tuple[Path, int, int, bool]:
-    """Compose ``<name>.png`` in the preset's output root for the
-    expansion *name*.
+def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
+    """Compose the expansion *name*'s sheet images (``<name>_{n}.png`` in
+    the preset's output root, one per :data:`SHEET_ROWS` rows of the
+    grid, 1-based).
 
-    Returns the sheet's path, its grid's row and column counts and whether
-    the sheet was skipped (up to date)."""
+    Returns one entry per image: its path, its grid's row and column
+    counts, its canvas size (None when the image was skipped) and
+    whether it was skipped (up to date)."""
     exp = expansion.load_expansion(expansion.resolve_expansion_path(name))
     rows, columns, cells = _card_grid(exp)
     if not rows:
@@ -215,25 +232,44 @@ def _build(name: str, preset: Preset, force: bool) -> tuple[Path, int, int, bool
             f"'{MISSING_TEXT}' placeholder: {shown}{more}",
             file=sys.stderr,
         )
-    out_path = preset.base / f"{exp.name}.png"
     background, background_path = _expansion_background(exp)
     logo, logo_path = _expansion_logo(exp)
-    source_hash = _source_hash(exp, logo_path, background_path, paths)
-    if not force and _stored_hash(out_path) == source_hash:
-        return out_path, len(rows), len(columns), True
-    _compose(
-        exp.cards,
-        columns,
-        cells,
-        paths,
-        logo,
-        background,
-        out_path,
-        source_hash,
-        missing,
-        _card_aspect(),
+    aspect = _card_aspect()
+    # The label column is sized from the full roster's labels, so every
+    # image carries the same geometry (the same width, the same font)
+    # and the grid keeps its positions across the images.
+    labels = _row_labels(exp.cards)
+    cell_w = round(ROW_HEIGHT * aspect)
+    font, label_w = _label_font(
+        labels, len(columns) * cell_w + (len(columns) - 1) * CELL_GAP
     )
-    return out_path, len(rows), len(columns), False
+    parts: list[_Part] = []
+    for n, start in enumerate(range(0, len(rows), SHEET_ROWS), 1):
+        part_rows = rows[start : start + SHEET_ROWS]
+        part_cells = {key for key in cells if key[0] in part_rows}
+        part_paths = {key: paths[key] for key in part_cells}
+        out_path = preset.base / f"{exp.name}_{n}.png"
+        source_hash = _source_hash(exp, logo_path, background_path, rows, part_paths)
+        if not force and _stored_hash(out_path) == source_hash:
+            parts.append((out_path, len(part_rows), len(columns), None, True))
+            continue
+        size = _compose(
+            exp.cards[start : start + SHEET_ROWS],
+            columns,
+            part_cells,
+            part_paths,
+            logo,
+            background,
+            out_path,
+            source_hash,
+            missing & part_cells,
+            aspect,
+            labels[start : start + SHEET_ROWS],
+            font,
+            label_w,
+        )
+        parts.append((out_path, len(part_rows), len(columns), size, False))
+    return parts
 
 
 def _card_grid(
@@ -305,18 +341,23 @@ def _source_hash(
     exp: expansion.Expansion,
     logo_path: Path,
     background_path: Path,
+    rows: list[str],
     paths: dict[tuple[str, str], Path],
 ) -> str:
-    """SHA-256 of the sheet's inputs: the expansion's name, its logo, its
-    background, every first frame it composites (a missing card hashes a
-    sentinel, so the sheet re-composes when it appears) and each cell's
-    animated state (an ``.mp4`` next to the first frame; it drives the ▶
-    markers) — embedded under :data:`nikke_reborn.SOURCE_HASH_KEY` so an
-    unchanged sheet is skipped instead of re-composed."""
+    """SHA-256 of the sheet image's inputs: the expansion's name, its logo,
+    its background, the full roster's stems (the image's label column is
+    sized from them, so a roster change re-composes every image) and the
+    image's own first frames (a missing card hashes a sentinel, so the
+    image re-composes when it appears) and each cell's animated state (an
+    ``.mp4`` next to the first frame; it drives the ▶ markers) — embedded
+    under :data:`nikke_reborn.SOURCE_HASH_KEY` so an unchanged image is
+    skipped instead of re-composed."""
     digest = hashlib.sha256()
     digest.update(exp.name.encode())
     digest.update(logo_path.read_bytes())
     digest.update(background_path.read_bytes())
+    for stem in rows:
+        digest.update(stem.encode())
     for key in sorted(paths):
         path = paths[key]
         digest.update(path.name.encode())
@@ -365,7 +406,7 @@ def _row_label(entry: expansion.CardEntry, width: int) -> str:
     return label
 
 
-def _row_labels(entries: list[expansion.CardEntry]) -> list[str]:
+def _row_labels(entries: Sequence[expansion.CardEntry]) -> list[str]:
     """The row labels for *entries* (:func:`_row_label`, the numbers padded
     to the longest number's digit count, so the column aligns)."""
     width = max(len(str(entry.number)) for entry in entries)
@@ -444,7 +485,7 @@ def _row_cards(
 
 
 def _compose(
-    entries: list[expansion.CardEntry],
+    entries: Sequence[expansion.CardEntry],
     columns: list[str],
     cells: set[tuple[str, str]],
     paths: dict[tuple[str, str], Path],
@@ -454,10 +495,13 @@ def _compose(
     source_hash: str,
     missing: set[tuple[str, str]],
     aspect: float,
-) -> None:
-    """Draw the sheet — the logo header (the logo with the pack's and
-    box's glow and trail treatment), the column labels, the label
-    column and the grid of first frames (the animated cards' cells
+    labels: list[str],
+    font: ImageFont.FreeTypeFont,
+    label_w: int,
+) -> tuple[int, int]:
+    """Draw one sheet image — the logo header (the logo with the pack's
+    and box's glow and trail treatment), the column labels, the label
+    column and the rows of first frames (the animated cards' cells
     marked with a white ▶ in a black circle, a black *MISSING_TEXT*
     placeholder box for the cells in *missing*, and a legend — the
     badge and ``= Animated`` — in the top-right corner) — over the
@@ -465,10 +509,13 @@ def _compose(
     deformation, bottom edges aligned, and dimmed toward black), on a
     canvas fitted to its content, the cards' copyright line (a bit
     smaller) in white at the bottom left, and write it to *out_path*
-    (atomically, the *source_hash* embedded). The rows' first frames
-    are decoded and resized in parallel threads; the finished canvas is
-    assembled on the main thread. *entries* is the expansion's roster
-    (the rows, in the roster's order)."""
+    (atomically, the *source_hash* embedded). *entries* is the image's
+    rows (a window of the expansion's roster, in the roster's order)
+    and *labels* their labels, in the same order (*font* and *label_w*
+    being the label font and column width sized from the full roster,
+    so the images align); the rows' first frames are decoded and
+    resized in parallel threads; the finished canvas is assembled on
+    the main thread. Returns the canvas's size."""
     rows = [entry.stem for entry in entries]
     row_count = len(rows)
     col_count = len(columns)
@@ -479,8 +526,6 @@ def _compose(
     cell_h = ROW_HEIGHT
     grid_h = row_count * cell_h + (row_count - 1) * CELL_GAP
     card_w = col_count * cell_w + gutter_total
-    labels = _row_labels(entries)
-    font, label_w = _label_font(labels, card_w)
     width = label_w + LABEL_GAP + card_w + 2 * MARGIN
 
     # --- the header: the expansion's logo, centered ---------------------
@@ -672,3 +717,4 @@ def _compose(
     )
 
     _save_atomic(canvas, out_path, source_hash)
+    return canvas.size
