@@ -146,7 +146,6 @@ def pack(set, rarities) -> dict:
         full_art_factor=0,
     ) -> dict:
         special_standard = special * standard_factor
-        exotic_standard = exotic * standard_factor / 18
 
         classic_profile = classic * profile_factor
         idle_profile = idle * profile_factor
@@ -164,7 +163,7 @@ def pack(set, rarities) -> dict:
         weights = {
             "Standard": 100
             - (classic + special + idle + cover + aim + exotic + goddess + classified)
-            - (special_standard + exotic_standard)
+            - (special_standard)
             - (classic_profile + idle_profile + cover_profile + aim_profile),
             "Profile": classic_profile,
             "SpecialStandard": special_standard,
@@ -176,7 +175,6 @@ def pack(set, rarities) -> dict:
             "Idle": idle,
             "Cover": cover,
             "Aim": aim,
-            "ExoticStandard": exotic_standard,
             "Exotic": exotic,
             "Goddess": goddess,
             "Classified": classified,
@@ -285,7 +283,6 @@ def _card(name, variant, rarity, sprite) -> dict:
         "Idle": 2,
         "Cover": 2,
         "Aim": 2,
-        "ExoticStandard": 2,
         "Exotic": 3,
         "Goddess": 4,
         "Classified": 5,
@@ -318,7 +315,7 @@ def _card(name, variant, rarity, sprite) -> dict:
         "Sprite": sprite,
         "IsFoil": variant
         in [
-            "ExoticStandard",
+            "Special",
             "Exotic",
             "Goddess",
             "Classified",

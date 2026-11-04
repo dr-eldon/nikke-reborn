@@ -1017,7 +1017,15 @@ def _process_profile_card(
     # mask), prepared once ahead of the render (a failure re-renders from
     # scratch).
     background = expansion.load_background(exp, presentation.background)
+
+    background = ImageOps.autocontrast(
+        background.convert("RGB"),
+        cutoff=(5, 0),
+        preserve_tone=True,
+    ).convert("RGBA")
+
     base, tint, mask, tint_rgb = _profile_layers(background, size)
+
     for attempt in range(1, RENDER_ATTEMPTS + 1):
         try:
             finished, timings = _render_profile(

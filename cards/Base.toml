@@ -5,7 +5,6 @@ rarities = [
     "CoverProfile",
     "AimProfile",
     "Special",
-    "ExoticStandard",
     "Exotic",
     "Goddess",
     "Classified",
@@ -112,5 +111,5 @@ placement = "bottom"
 
 [background]
 base = "../assets/images/backgrounds/sky-night.png"
-special = "../assets/images/backgrounds/sky-sunset.png"
-battle = "../assets/images/backgrounds/smoke-pink.png"
+special = "../assets/images/backgrounds/smoke-pink.png"
+battle = "../assets/images/backgrounds/bubble-maker.png"
