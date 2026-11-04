@@ -116,10 +116,10 @@ def expansion(set, cards, rarities) -> dict:
         "CardPriceStrategy": "RarityDriven",
         "DefaultBorderMultiplierBase": 3.15,
         "DefaultFoilMultiplier": 10.0,
-        "RarityDrivenFloor": 0.1,
-        "RarityDrivenStepSize": 0.5,
-        "RarityDrivenBorderMultiplierBase": 3.0,
-        "RarityDrivenFoilMultiplier": 10.0,
+        "RarityDrivenFloor": 0.03,
+        "RarityDrivenStepSize": 0.2,
+        "RarityDrivenBorderMultiplierBase": 5.0,
+        "RarityDrivenFoilMultiplier": 2.0,
         "PlayCardMaterials": [],  # TODO
     }
 
