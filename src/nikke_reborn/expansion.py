@@ -36,6 +36,7 @@ import io
 import json
 import subprocess
 import tomllib
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -186,14 +187,17 @@ class CardEntry:
     """One card of an expansion: its viewer id, its 1-based position
     in the expansion's ``cards`` (the card's number), the card's stem
     (``<number>_<id>_<name>``, the 1-based number, the viewer id and
-    the compact — whitespace-free — name), the name it renders (the
+    the compact — whitespace-free and filename-safe — name), the name it renders (the
     title, and the subtitle when the character is a skin), the rarity
     and manufacturer the game's data carry (the base character's when
     the id is suffixed; the event's fixed rarity and none for an event
-    — an id that is not a character), and the per-presentation viewer
-    framing overrides its ``cards`` table names (each a presentation's
-    ``x``/``y``/``zoom``, plumbed to the viewer's ``--x``/``--y``/
-    ``--zoom``)."""
+    — an id that is not a character), the per-presentation viewer
+    overrides its ``cards`` table names (each a presentation's
+    ``x``/``y``/``zoom`` framing, plumbed to the viewer's
+    ``--x``/``--y``/``--zoom``, and its ``animation``, the viewer's
+    ``--animation``) and the presentations its ``cards`` table drops
+    (its ``false`` entries — never rendered for the card, whatever the
+    set's rarities carry)."""
 
     id: str
     number: int
@@ -202,7 +206,8 @@ class CardEntry:
     subtitle: str
     rarity: str
     manufacturer: str | None
-    framings: dict[str, dict[str, int | float]] = field(default_factory=dict)
+    overrides: dict[str, dict[str, int | float | str]] = field(default_factory=dict)
+    excluded: frozenset[str] = field(default_factory=frozenset)
 
     @property
     def name(self) -> str:
@@ -251,11 +256,12 @@ class Expansion:
 @dataclass(frozen=True)
 class Presentation:
     """One presentation of one card (a row of the run's work): what the
-    viewer renders (the variant, the animation, the time, and the
-    presentation's *x*/*y*/*zoom* framing overrides when the TOML names
-    them), how the frame composites (the background's key, the mask, the
-    framing — the half-body flag or the two-stream profile) and where its
-    output goes (the presentation's name, the output's suffix)."""
+    viewer renders (the variant, the animation — the spec's or the
+    TOML's override —, the time, and the presentation's *x*/*y*/*zoom*
+    framing overrides when the TOML names them), how the frame composites
+    (the background's key, the mask, the framing — the half-body flag or
+    the two-stream profile) and where its output goes (the
+    presentation's name, the output's suffix)."""
 
     expansion: Expansion
     card: CardEntry
@@ -352,7 +358,12 @@ def load_expansion(path: Path) -> Expansion:
     (the subtitle is the model's name minus the character's) and the
     ``rarities`` entries must be names of the fixed presentations (no
     duplicates; the event-only ones among them render only for the
-    event)."""
+    event). Each ``cards`` entry's non-``id`` keys must be names of the
+    character's presentations (their values ``false`` — the
+    presentation is dropped for the card — or a table of the
+    presentation's viewer terms), and an event's entry may carry only
+    its top-level override terms (``x``/``y``/``zoom``/``animation``).
+    """
     path = path.resolve()
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -485,9 +496,9 @@ def load_expansion(path: Path) -> Expansion:
                 path.name,
                 number,
                 entry["id"],
-                _event_framings(entry, top)
+                _event_terms(path.name, entry, entry["id"], top)
                 if is_event(entry["id"])
-                else _card_framings(entry),
+                else _character_terms(path.name, entry, entry["id"]),
                 EVENT_RARITY,
             )
             for number, entry in enumerate(cards_data, 1)
@@ -504,12 +515,32 @@ def is_event(char_id: str) -> bool:
     return not char_id.startswith("c")
 
 
-def _event_framings(entry: dict, name: str) -> dict[str, dict[str, int | float]]:
-    """The event's framing override (its top-level ``x``/``y``/``zoom``,
-    its single presentation's), keyed by the presentation's name (the
-    set's highest)."""
-    framing = {key: entry[key] for key in ("x", "y", "zoom") if key in entry}
-    return {name: framing} if framing else {}
+def _event_terms(
+    file_name: str, entry: dict, char_id: str, name: str
+) -> tuple[dict[str, dict[str, int | float | str]], frozenset[str]]:
+    """The event's override (its top-level ``x``/``y``/``zoom``/
+    ``animation``, its single presentation's), keyed by the
+    presentation's name (the set's highest), and its drops (always
+    none: an event's one presentation cannot be dropped)."""
+    unknown = [key for key in entry if key not in ("id", "x", "y", "zoom", "animation")]
+    if unknown:
+        raise GenerationError(
+            f"{file_name}: 'cards' entry for {char_id!r} carries unknown key(s) "
+            f"outside id/x/y/zoom/animation: {', '.join(unknown)}"
+        )
+    terms = {key: entry[key] for key in ("x", "y", "zoom", "animation") if key in entry}
+    return (
+        (
+            {
+                name: _override_terms(
+                    file_name, char_id, f"'cards' entry for {char_id!r}", terms
+                )
+            }
+            if terms
+            else {}
+        ),
+        frozenset(),
+    )
 
 
 def _spec_background(presentation: str) -> str:
@@ -532,23 +563,81 @@ def _spec_background(presentation: str) -> str:
     raise GenerationError(f"no presentation spec for {presentation!r}")
 
 
-def _card_framings(entry: dict) -> dict[str, dict[str, int | float]]:
-    """The character's per-presentation framing overrides: each non-``id``
-    key of its ``cards`` table is a presentation name mapped to its viewer
-    framing terms (``x``/``y``/``zoom``), plumbed raw to the viewer's
-    ``--x``/``--y``/``--zoom``."""
-    return {
-        name: dict(table)
-        for name, table in entry.items()
-        if name != "id" and isinstance(table, dict)
-    }
+def _character_terms(
+    file_name: str, entry: dict, char_id: str
+) -> tuple[dict[str, dict[str, int | float | str]], frozenset[str]]:
+    """The character's per-presentation overrides and drops: each
+    non-``id`` key of its ``cards`` entry is a presentation name (one of
+    the character's — the event-only ones never print for a character)
+    whose value is ``false`` (the presentation is dropped for the card)
+    or a table of the presentation's viewer terms."""
+    known = [name for name, *_ in PRESENTATION_SPECS]
+    overrides: dict[str, dict[str, int | float | str]] = {}
+    excluded: set[str] = set()
+    for name, value in entry.items():
+        if name == "id":
+            continue
+        if name not in known:
+            raise GenerationError(
+                f"{file_name}: 'cards' entry for {char_id!r} names an unknown "
+                f"presentation {name!r} (the character's: {', '.join(known)})"
+            )
+        if value is False:
+            excluded.add(name)
+            continue
+        if not isinstance(value, dict):
+            raise GenerationError(
+                f"{file_name}: 'cards' entry for {char_id!r} carries an invalid "
+                f"override for {name!r} (false or a table of viewer terms): "
+                f"{value!r}"
+            )
+        overrides[name] = _override_terms(
+            file_name, char_id, f"'cards' entry for {char_id!r} ({name})", value
+        )
+    return overrides, frozenset(excluded)
+
+
+def _override_terms(
+    file_name: str, char_id: str, where: str, terms: dict
+) -> dict[str, int | float | str]:
+    """One presentation's viewer terms: its ``x``/``y``/``zoom`` framing
+    (numeric, plumbed raw to the viewer's ``--x``/``--y``/``--zoom``)
+    and its ``animation`` (a string, the viewer's ``--animation``)."""
+    out: dict[str, int | float | str] = {}
+    for key, value in terms.items():
+        if key == "animation":
+            if not isinstance(value, str):
+                raise GenerationError(
+                    f"{file_name}: {where} carries a non-string 'animation': {value!r}"
+                )
+        elif key in ("x", "y", "zoom"):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise GenerationError(
+                    f"{file_name}: {where} carries a non-numeric {key!r}: {value!r}"
+                )
+        else:
+            raise GenerationError(
+                f"{file_name}: {where} carries an unknown term {key!r}: {value!r}"
+            )
+        out[key] = value
+    return out
+
+
+def _compact_name(name: str) -> str:
+    """The compact (filename-safe) form of *name* — the stem's name part:
+    the non-ASCII letters are folded to ASCII (``Märchen`` — ``Marchen``)
+    and everything but letters, digits and hyphens is dropped — the stem
+    lands in file names, where a ``:`` (legal on Linux) breaks a Windows
+    path."""
+    folded = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    return "".join(ch for ch in folded if ch.isalnum() or ch == "-")
 
 
 def _card_entry(
     file_name: str,
     number: int,
     char_id: str,
-    framings: dict[str, dict[str, int | float]],
+    terms: tuple[dict[str, dict[str, int | float | str]], frozenset[str]],
     highest_rarity: str,
 ) -> CardEntry:
     """The card's identity derived from *char_id*'s position and the
@@ -597,7 +686,8 @@ def _card_entry(
             )
         rarity = str(record.get("rarity") or "R")
         manufacturer = record.get("manufacturer")
-    name_part = "".join(title.split())
+    name_part = _compact_name(title)
+    overrides, excluded = terms
     return CardEntry(
         id=char_id,
         number=number,
@@ -606,7 +696,8 @@ def _card_entry(
         subtitle=subtitle,
         rarity=rarity,
         manufacturer=manufacturer,
-        framings=framings,
+        overrides=overrides,
+        excluded=excluded,
     )
 
 
@@ -722,20 +813,22 @@ def presentations_for(
     expansion: Expansion, entry: CardEntry, info: CharacterInfo
 ) -> list[Presentation]:
     """The character's presentations (the expansion's ``rarities``
-    subset of :data:`PRESENTATION_SPECS`, the ``Goddess`` presentation
-    dropped when the character carries no ``sc`` variant, the
-    ``CoverProfile`` and ``AimProfile`` presentations dropped when the
-    character lacks the corresponding variant, the two ``Special``
+    subset of :data:`PRESENTATION_SPECS`, minus the presentations its
+    ``cards`` entry drops — its ``false`` entries — the ``Goddess``
+    presentation dropped when the character carries no ``sc`` variant,
+    the ``CoverProfile`` and ``AimProfile`` presentations dropped when
+    the character lacks the corresponding variant, the two ``Special``
     presentations dropped when the character has no reel animation and
     the two ``Exotic`` presentations dropped when the character has no
     ``action`` animation), the ``Special`` presentations' animation
-    resolved to the reel's pick. An event (an id that is not a character) is a single
-    full-art presentation at the set's highest presentation: its
-    ``models.json`` name, that presentation's background and its
-    top-level framing."""
+    resolved to the reel's pick and the character's per-presentation
+    ``animation`` override applied on top. An event (an id that is not a
+    character) is a single full-art presentation at the set's highest
+    presentation: its ``models.json`` name, that presentation's
+    background and its top-level override (its framing and animation)."""
     if is_event(entry.id):
         top = expansion.rarities[-1]
-        framing = entry.framings.get(top) or {}
+        overrides = entry.overrides.get(top) or {}
         return [
             Presentation(
                 expansion=expansion,
@@ -743,15 +836,15 @@ def presentations_for(
                 name=top,
                 tier="full",
                 variant=None,
-                animation=None,
+                animation=overrides.get("animation"),
                 time=None,
                 half_body=False,
                 background=_spec_background(top),
                 mask=None,
                 face=False,
-                x=framing.get("x"),
-                y=framing.get("y"),
-                zoom=framing.get("zoom"),
+                x=overrides.get("x"),
+                y=overrides.get("y"),
+                zoom=overrides.get("zoom"),
             )
         ]
     allowed = set(expansion.rarities)
@@ -760,6 +853,8 @@ def presentations_for(
         name, tier, variant, animation, time, half_body, background, mask, face = spec
         if name not in allowed:
             continue  # the expansion's rarities do not carry the presentation
+        if name in entry.excluded:
+            continue  # the card's entry drops the presentation
         if name == "Goddess" and "sc" not in info.variants:
             continue
         if variant in ("cover", "aim") and variant not in info.variants:
@@ -770,7 +865,7 @@ def presentations_for(
             if info.reel is None:
                 continue  # no reel: the Special presentation is skipped
             animation = info.reel
-        framing = entry.framings.get(name) or {}
+        overrides = entry.overrides.get(name) or {}
         presentations.append(
             Presentation(
                 expansion=expansion,
@@ -778,15 +873,15 @@ def presentations_for(
                 name=name,
                 tier=tier,
                 variant=variant,
-                animation=animation,
+                animation=overrides.get("animation", animation),
                 time=time,
                 half_body=half_body,
                 background=background,
                 mask=mask,
                 face=face,
-                x=framing.get("x"),
-                y=framing.get("y"),
-                zoom=framing.get("zoom"),
+                x=overrides.get("x"),
+                y=overrides.get("y"),
+                zoom=overrides.get("zoom"),
             )
         )
     return presentations
