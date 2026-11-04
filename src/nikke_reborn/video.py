@@ -39,7 +39,8 @@ PROFILE_FACE_BRIGHTNESS = 0.5
 
 #: The H.264 quality settings for the MP4 output. The x264 preset is
 #: chosen per run (:mod:`nikke_reborn.preset`); the frames arrive at the
-#: run's output size, so the encoder never rescales.
+#: run's card size (the low preset's video is downscaled to its own
+#: size by the encode's filter, see :func:`_encode_mp4`).
 FFMPEG_QUALITY_ARGS = (
     "-crf",
     "16",
@@ -446,15 +447,17 @@ def _stream_dual_composited(
 def _encode_mp4(
     frames: Iterator[Image.Image],
     size: tuple[int, int],
+    video_size: tuple[int, int],
     framerate: int,
     out_path: Path,
     threads: int,
     x264_preset: str,
     source_hash: str | None = None,
 ) -> None:
-    """Encode an RGBA frame stream into an MP4 with ffmpeg: the frames
-    are already at the run's final size, so no rescaling filter is
-    applied."""
+    """Encode an RGBA frame stream (at *size*) into an MP4 with ffmpeg;
+    when the video's size differs from the frames', the frames are
+    downscaled to it with a lanczos filter (the low preset's
+    lower-resolution video) — the only resampling the encode applies."""
     width, height = size
     command = [
         ENCODER,
@@ -472,6 +475,9 @@ def _encode_mp4(
         "-i",
         "-",
     ]
+    if video_size != size:
+        video_width, video_height = video_size
+        command += ["-vf", f"scale={video_width}:{video_height}:flags=lanczos"]
     # ffmpeg replaces (rather than merges) repeated -movflags options,
     # so the flags go in one combined value.
     movflags = "+faststart"

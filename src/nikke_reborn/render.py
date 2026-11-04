@@ -365,6 +365,7 @@ def _write_final_card(
                 _encode_mp4(
                     feed(composited),
                     size,
+                    card.run_video_size(preset),
                     framerate,
                     tmp_path,
                     ffmpeg_threads,
@@ -855,10 +856,11 @@ def _process_full_art(
     margin = round(LOGO_PADDING_FACTOR * padding)
     framerate = preset.framerate
 
-    # The run's final size: the card's viewport at the run's scale (even
+    # The run's card size: the card's viewport at the run's scale (even
     # dims for the yuv420p encode). The whole pipeline — the viewer, the
-    # compositing and the finished card — runs at this size, so no frame
-    # is ever resampled on the way out.
+    # compositing and the finished card — runs at this size; the video
+    # is the only output that can leave it resampled (the low preset's
+    # lower-resolution video, scaled at the encode).
     size = card.run_size(preset)
 
     # A presentation without a `time` renders an animation (mp4) plus its

@@ -42,15 +42,25 @@ def padding(preset: Preset) -> int:
     return round(PADDING * preset.scale)
 
 
+def _viewport_at(scale: float) -> tuple[int, int]:
+    return (
+        round(CARD_VIEWPORT[0] * scale) & ~1,
+        round(CARD_VIEWPORT[1] * scale) & ~1,
+    )
+
+
 def run_size(preset: Preset) -> tuple[int, int]:
-    """The run's final size: the viewer's default viewport
+    """The run's card size: the viewer's default viewport
     (:data:`nikke_reborn.CARD_VIEWPORT`) at the run's scale, each
     dimension rounded and forced even (the video's encoder requires even
     dimensions)."""
-    return (
-        round(CARD_VIEWPORT[0] * preset.scale) & ~1,
-        round(CARD_VIEWPORT[1] * preset.scale) & ~1,
-    )
+    return _viewport_at(preset.scale)
+
+
+def run_video_size(preset: Preset) -> tuple[int, int]:
+    """The run's video size: the card's size, at the lower video scale
+    when the preset renders its video smaller (the low preset)."""
+    return _viewport_at(preset.video_scale)
 
 
 def output_path(
@@ -110,9 +120,10 @@ def presentation_source_hash(
     (``characters.json`` and ``models.json``) and the fonts the lettering
     stamps — plus the run's scale (mixed in only when it deviates from
     1.0, the full-resolution default, so an ultra card's hash is the
-    canonical one) and the run's framerate (mixed in only when it
-    deviates from the default's, so a default run's hash is the
-    canonical one)."""
+    canonical one), the video's scale (mixed in only when it differs
+    from the run's — the low preset's lower-resolution video) and the
+    run's framerate (mixed in only when it deviates from the default's,
+    so a default run's hash is the canonical one)."""
     digest = hashlib.sha256()
     card = presentation.card
     hash_term(digest, card.id.encode())
@@ -159,6 +170,9 @@ def presentation_source_hash(
     scale = preset.scale
     if scale != 1.0:
         hash_term(digest, f"{scale:g}".encode())
+    video_scale = preset.video_scale
+    if video_scale != scale:
+        hash_term(digest, f"{video_scale:g}".encode())
     framerate = preset.framerate
     if framerate != DEFAULT_FRAMERATE:
         hash_term(digest, str(framerate).encode())

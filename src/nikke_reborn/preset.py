@@ -2,8 +2,8 @@
 the video's encoding settings of one run. A run renders at one preset —
 the default scale, the native resolution (ultra), a draft (the
 default's scale, a faster encode, the ``draft/`` output root) or low
-(the default's settings at a lower framerate, the ``<set> (Low)`` set
-folders) — and the preset carries
+(the default's cards at a lower framerate and a lower-resolution
+video, the ``<set> (Low)`` set folders) — and the preset carries
 everything that depends on the mode, so the pipeline threads one value
 instead of a triple."""
 
@@ -12,13 +12,18 @@ from __future__ import annotations
 from enum import Enum
 from pathlib import Path
 
-from nikke_reborn.config import DRAFT_DIR, OUTPUT_DIR
+from nikke_reborn.config import CARD_VIEWPORT, DRAFT_DIR, OUTPUT_DIR
 
 #: The default preset's scale (a draft renders at it).
 DEFAULT_SCALE = 0.5
 
 #: The ultra preset's scale: the native resolution.
 ULTRA_SCALE = 2.0 * DEFAULT_SCALE
+
+#: The low preset's video scale: the 720p target (576x720), derived
+#: from the viewport's height — the width-true fraction would leave
+#: the rounded height odd, which the even-rounding then floors.
+LOW_VIDEO_SCALE = 720 / CARD_VIEWPORT[1]
 
 #: The ultra run's set-folder name suffix.
 ULTRA_SUFFIX = " (Ultra)"
@@ -48,6 +53,10 @@ class Preset(Enum):
     @property
     def scale(self) -> float:
         return ULTRA_SCALE if self is Preset.ULTRA else DEFAULT_SCALE
+
+    @property
+    def video_scale(self) -> float:
+        return LOW_VIDEO_SCALE if self is Preset.LOW else self.scale
 
     @property
     def x264_preset(self) -> str:
