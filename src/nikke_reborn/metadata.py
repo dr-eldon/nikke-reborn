@@ -117,9 +117,9 @@ def expansion(set, cards, rarities) -> dict:
         "DefaultBorderMultiplierBase": 3.15,
         "DefaultFoilMultiplier": 10.0,
         "RarityDrivenFloor": 0.1,
-        "RarityDrivenStepSize": 0.2,
+        "RarityDrivenStepSize": 0.5,
         "RarityDrivenBorderMultiplierBase": 3.0,
-        "RarityDrivenFoilMultiplier": 20.0,
+        "RarityDrivenFoilMultiplier": 10.0,
         "PlayCardMaterials": [],  # TODO
     }
 
@@ -133,76 +133,50 @@ def pack(set, rarities) -> dict:
     allowed = frozenset(rarities)
 
     def slot(
-        classic,
-        special=0,
-        idle=0,
+        profile=0,
+        rare=0,
         cover=0,
         aim=0,
+        special=0,
         exotic=0,
         goddess=0,
         classified=0,
-        standard_factor=20,
-        profile_factor=4,
-        full_art_factor=0,
     ) -> dict:
-        special_standard = special * standard_factor
-
-        classic_profile = classic * profile_factor
-        idle_profile = idle * profile_factor
-        cover_profile = cover * profile_factor
-        aim_profile = aim * profile_factor
-
-        classic = classic * full_art_factor
-        special = special * full_art_factor
-        idle = idle * full_art_factor
-        cover = cover * full_art_factor
-        aim = aim * full_art_factor
-        exotic = exotic * full_art_factor
-        classified = classified * full_art_factor
-
         weights = {
             "Standard": 100
-            - (classic + special + idle + cover + aim + exotic + goddess + classified)
-            - (special_standard)
-            - (classic_profile + idle_profile + cover_profile + aim_profile),
-            "Profile": classic_profile,
-            "SpecialStandard": special_standard,
-            "IdleProfile": idle_profile,
-            "CoverProfile": cover_profile,
-            "AimProfile": aim_profile,
-            "Classic": classic,
-            "Special": special,
-            "Idle": idle,
+            - (profile + rare + cover + aim + special + exotic + goddess + classified),
+            "Profile": profile,
+            "Rare": rare,
             "Cover": cover,
             "Aim": aim,
+            "Special": special,
             "Exotic": exotic,
             "Goddess": goddess,
             "Classified": classified,
         }
-        # Keep only the rarities the set generates in the slot's table.
+
         return {
             rarity: weight for rarity, weight in weights.items() if rarity in allowed
         }
 
-    common = slot(classic=1, special=0.025)
+    common = slot(profile=2, rare=0.5)
     uncommon = slot(
-        classic=2,
-        special=0.05,
-        aim=0.05,
-        cover=0.05,
-        full_art_factor=0.5,
+        profile=6,
+        rare=2,
+        cover=1,
+        aim=1,
+        special=0.50,
+        exotic=0.1,
     )
 
     rare = slot(
-        classic=1,
-        special=0.4,
-        idle=0.5,
-        aim=0.5,
-        cover=0.5,
-        exotic=0.5,
+        rare=4,
+        cover=3,
+        aim=3,
+        special=1.5,
+        exotic=1,
         goddess=0.2,
-        classified=0.05,
-        full_art_factor=1,
+        classified=0.1,
     )
 
     slot_weights = {
@@ -273,16 +247,11 @@ def _card(name, variant, rarity, sprite) -> dict:
 
     VARIANT_BORDER = {
         "Standard": 0,
-        "SpecialStandard": 0,
         "Profile": 0,
-        "IdleProfile": 2,
-        "CoverProfile": 1,
-        "AimProfile": 1,
-        "Classic": 2,
+        "Rare": 0,
+        "Cover": 1,
+        "Aim": 1,
         "Special": 2,
-        "Idle": 2,
-        "Cover": 2,
-        "Aim": 2,
         "Exotic": 3,
         "Goddess": 4,
         "Classified": 5,

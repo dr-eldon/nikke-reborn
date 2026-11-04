@@ -139,7 +139,7 @@ _PresentationSpec = tuple[
 PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
     ("Standard", "standard", None, None, 0.0, True, "base", "standard", False),
     (
-        "SpecialStandard",
+        "Rare",
         "standard",
         None,
         REEL,
@@ -150,9 +150,8 @@ PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
         False,
     ),
     ("Profile", "profile", None, None, 0.0, False, "base", "profile", True),
-    ("IdleProfile", "profile", None, "idle", None, False, "base", "profile", True),
     (
-        "CoverProfile",
+        "Cover",
         "standard",
         "cover",
         None,
@@ -162,11 +161,8 @@ PRESENTATION_SPECS: tuple[_PresentationSpec, ...] = (
         "standard",
         False,
     ),
-    ("AimProfile", "standard", "aim", None, 0.0, False, "battle", "standard", False),
+    ("Aim", "standard", "aim", None, 0.0, False, "battle", "standard", False),
     ("Classic", "full", None, None, 0.0, True, "base", None, False),
-    ("Idle", "full", None, "idle", None, True, "base", None, False),
-    ("Cover", "full", "cover", None, None, False, "battle", None, False),
-    ("Aim", "full", "aim", None, None, False, "battle", None, False),
     ("Special", "full", None, REEL, 0.0, True, "special", None, False),
     ("Exotic", "full", None, "action", None, True, "base", None, False),
     ("Goddess", "full", "sc", "main", None, False, "black", None, False),

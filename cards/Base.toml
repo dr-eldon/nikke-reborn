@@ -1,9 +1,9 @@
 rarities = [
     "Standard",
     "Profile",
-    "SpecialStandard",
-    "CoverProfile",
-    "AimProfile",
+    "Rare",
+    "Cover",
+    "Aim",
     "Special",
     "Exotic",
     "Goddess",
