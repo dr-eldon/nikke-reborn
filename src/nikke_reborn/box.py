@@ -231,15 +231,29 @@ def front_source_hash(exp: expansion.Expansion) -> str:
 
 def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The box front: the shared front composition with the box's
-    background fit, white NIKKE logo (omitted when the expansion's logo
-    is the NIKKE logo itself), expansion-logo sizing and character
-    sizing (see the ``BOX_*`` constants), in memory (the material's
-    blue rectangle, never written to disk)."""
+    background fit, white NIKKE logo, expansion-logo sizing and
+    character sizing (see the ``BOX_*`` constants), in memory (the
+    material's blue rectangle, never written to disk). When the
+    expansion's logo is the NIKKE logo itself, the stamp is omitted and
+    the expansion's logo sits in its slot (the top-left corner, the
+    stamp's size and inset) instead."""
+    if expansion.is_nikke_logo(exp):
+        return compose_front(
+            exp,
+            size,
+            fit="cover-bottom",
+            place_logo=None,
+            expansion_logo_height=BOX_LOGO_HEIGHT,
+            expansion_logo_corner_inset=BOX_LOGO_MARGIN,
+            hero_height=BOX_HERO_HEIGHT,
+            back_height=BOX_BACK_HEIGHT,
+            back_offset_x=BOX_BACK_OFFSET_X,
+        )
     return compose_front(
         exp,
         size,
         fit="cover-bottom",
-        place_logo=None if expansion.is_nikke_logo(exp) else place_logo,
+        place_logo=place_logo,
         expansion_logo_height=BOX_EXPANSION_LOGO_HEIGHT,
         hero_height=BOX_HERO_HEIGHT,
         back_height=BOX_BACK_HEIGHT,

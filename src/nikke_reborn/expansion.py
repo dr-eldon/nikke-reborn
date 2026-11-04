@@ -1103,6 +1103,7 @@ def compose_front(
     place_logo: Callable[[Image.Image, tuple[int, int, int, int]], None] | None = None,
     expansion_logo_height: float | None = None,
     expansion_logo_placement: str | None = None,
+    expansion_logo_corner_inset: float | None = None,
     hero_height: float | None = None,
     back_height: float | None = None,
     back_offset_x: float | None = None,
@@ -1123,11 +1124,16 @@ def compose_front(
     when given (the pack's front, when the expansion's logo is the NIKKE
     logo itself), overrides the expansion's ``logo.placement``: the mark
     then sits in the NIKKE logo's slot (the top), where the redundant
-    stamp would have been. *hero_height*, *back_height* and
-    *back_offset_x*, when given (the box's front), override the shared
-    :data:`HERO_HEIGHT`, :data:`BACK_HEIGHT` and :data:`BACK_OFFSET_X`
-    sizing — the box's landscape front wants bigger characters and the
-    group a bit closer to the hero."""
+    stamp would have been. *expansion_logo_corner_inset*, when given
+    (the box's front, when the expansion's logo is the NIKKE logo
+    itself), places the mark's top-left corner inset by that fraction of
+    the front's height from the top and from the left — the NIKKE
+    logo's slot — instead of at its ``logo.placement``, sized by
+    *expansion_logo_height*. *hero_height*,
+    *back_height* and *back_offset_x*, when given (the box's front),
+    override the shared :data:`HERO_HEIGHT`, :data:`BACK_HEIGHT` and
+    :data:`BACK_OFFSET_X` sizing — the box's landscape front wants
+    bigger characters and the group a bit closer to the hero."""
     width, height = size
 
     background = load_background(expansion, "base")
@@ -1184,6 +1190,7 @@ def compose_front(
         placement,
         glow_color,
         mark_height=expansion_logo_height,
+        corner_inset=expansion_logo_corner_inset,
     )
     if place_logo is not None:
         place_logo(canvas, (0, 0, width, height))
@@ -1336,6 +1343,7 @@ def _composite_logo(
     glow_color: tuple[int, int, int],
     mark_height: float | None = None,
     width_fraction: float | None = None,
+    corner_inset: float | None = None,
 ) -> None:
     """Composite the expansion's *logo* over *canvas* at *placement*
     with a glow: the halo (tinted *glow_color*) is screen-blended for a
@@ -1348,7 +1356,12 @@ def _composite_logo(
     to that fraction of the face's width, its height proportional) and
     centered horizontally; top/bottom placements inset it
     :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the
-    front. Modifies *canvas* in place."""
+    front. When *corner_inset* is given (the box's front, when the
+    expansion's logo is the NIKKE logo itself: its slot is the NIKKE
+    logo's corner), the mark's top-left corner instead sits inset by
+    that fraction of the face's height from the top and from the left,
+    and the *placement*'s position rule is ignored. Modifies *canvas*
+    in place."""
     width, height = size
     if mark_height is None:
         logo_w = round(
@@ -1368,20 +1381,25 @@ def _composite_logo(
             (round(logo_h * logo.width / logo.height), logo_h),
             Image.Resampling.LANCZOS,
         )
-    cx = width // 2
-    if placement == "top":
-        cy = round(LOGO_MARGIN * height) + logo.height // 2
-    elif placement == "bottom":
-        cy = round(height - LOGO_MARGIN * height) - logo.height // 2
-    elif placement == "center":
-        cy = height // 2
+    if corner_inset is not None:
+        margin = round(corner_inset * height)
+        x = margin
+        y = margin
     else:
-        raise GenerationError(
-            f"unknown logo placement {placement!r}; "
-            f"expected one of {', '.join(LOGO_PLACEMENTS)}"
-        )
-    x = cx - logo.width // 2
-    y = cy - logo.height // 2
+        cx = width // 2
+        if placement == "top":
+            cy = round(LOGO_MARGIN * height) + logo.height // 2
+        elif placement == "bottom":
+            cy = round(height - LOGO_MARGIN * height) - logo.height // 2
+        elif placement == "center":
+            cy = height // 2
+        else:
+            raise GenerationError(
+                f"unknown logo placement {placement!r}; "
+                f"expected one of {', '.join(LOGO_PLACEMENTS)}"
+            )
+        x = cx - logo.width // 2
+        y = cy - logo.height // 2
     halo, pad = _logo_glow_layer(
         logo, round(LOGO_GLOW_RADIUS * height), glow_color, LOGO_GLOW_INTENSITY
     )
