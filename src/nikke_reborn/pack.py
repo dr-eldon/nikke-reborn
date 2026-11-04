@@ -124,15 +124,19 @@ def back_source_hash(exp: expansion.Expansion) -> str:
 
 def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The pack front: the shared front composition with the pack's
-    background fit and white NIKKE logo (omitted when the expansion's
-    logo is the NIKKE logo itself), in memory (the material's
-    right rectangle, never written to disk)."""
-    return compose_front(
-        exp,
-        size,
-        fit="crop",
-        place_logo=None if expansion.is_nikke_logo(exp) else place_logo,
-    )
+    background fit and white NIKKE logo — or, when the expansion's logo
+    is the NIKKE logo itself, the expansion's logo at the top (the NIKKE
+    logo's slot), in memory (the material's right rectangle, never
+    written to disk)."""
+    if expansion.is_nikke_logo(exp):
+        return compose_front(
+            exp,
+            size,
+            fit="crop",
+            place_logo=None,
+            expansion_logo_placement="top",
+        )
+    return compose_front(exp, size, fit="crop", place_logo=place_logo)
 
 
 def build_back(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:

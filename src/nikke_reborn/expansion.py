@@ -1099,6 +1099,7 @@ def compose_front(
     fit: str,
     place_logo: Callable[[Image.Image, tuple[int, int, int, int]], None] | None = None,
     expansion_logo_height: float | None = None,
+    expansion_logo_placement: str | None = None,
     hero_height: float | None = None,
     back_height: float | None = None,
     back_offset_x: float | None = None,
@@ -1115,11 +1116,15 @@ def compose_front(
     *fit* selects the background's fit (``"crop"`` — the pack's front;
     ``"cover-bottom"`` — the box's front). *expansion_logo_height*, when
     given (the box's front), sizes the expansion's logo by height
-    instead of by width (:data:`LOGO_WIDTH`). *hero_height*,
-    *back_height* and *back_offset_x*, when given (the box's front),
-    override the shared :data:`HERO_HEIGHT`, :data:`BACK_HEIGHT` and
-    :data:`BACK_OFFSET_X` sizing — the box's landscape front wants
-    bigger characters and the group a bit closer to the hero."""
+    instead of by width (:data:`LOGO_WIDTH`). *expansion_logo_placement*,
+    when given (the pack's front, when the expansion's logo is the NIKKE
+    logo itself), overrides the expansion's ``logo.placement``: the mark
+    then sits in the NIKKE logo's slot (the top), where the redundant
+    stamp would have been. *hero_height*, *back_height* and
+    *back_offset_x*, when given (the box's front), override the shared
+    :data:`HERO_HEIGHT`, :data:`BACK_HEIGHT` and :data:`BACK_OFFSET_X`
+    sizing — the box's landscape front wants bigger characters and the
+    group a bit closer to the hero."""
     width, height = size
 
     background = load_background(expansion, "base")
@@ -1167,6 +1172,8 @@ def compose_front(
     )
 
     mark, placement = load_logo(expansion)
+    if expansion_logo_placement is not None:
+        placement = expansion_logo_placement
     _composite_logo(
         canvas,
         mark,
