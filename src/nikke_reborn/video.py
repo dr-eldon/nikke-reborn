@@ -45,8 +45,6 @@ FFMPEG_QUALITY_ARGS = (
     "16",
     "-pix_fmt",
     "yuv420p",
-    "-movflags",
-    "+faststart",
 )
 
 
@@ -474,6 +472,13 @@ def _encode_mp4(
         "-i",
         "-",
     ]
+    # ffmpeg replaces (rather than merges) repeated -movflags options,
+    # so the flags go in one combined value.
+    movflags = "+faststart"
+    if source_hash is not None:
+        # use_metadata_tags lands the custom key in the container (read
+        # back via ffprobe's format tags).
+        movflags += "+use_metadata_tags"
     command += [
         "-c:v",
         "libx264",
@@ -482,16 +487,11 @@ def _encode_mp4(
         *FFMPEG_QUALITY_ARGS,
         "-threads",
         str(max(1, threads)),
+        "-movflags",
+        movflags,
     ]
     if source_hash is not None:
-        # use_metadata_tags lands the custom key in the container (read
-        # back via ffprobe's format tags).
-        command += [
-            "-movflags",
-            "use_metadata_tags",
-            "-metadata",
-            f"{SOURCE_HASH_KEY}={source_hash}",
-        ]
+        command += ["-metadata", f"{SOURCE_HASH_KEY}={source_hash}"]
     command += [
         "-f",
         "mp4",  # explicit format: the output name may carry a suffix
