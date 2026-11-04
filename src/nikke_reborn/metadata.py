@@ -210,8 +210,8 @@ def pack(set, rarities) -> dict:
         "MaterialList": [],
         "IsBigBox": True,
         "BigBoxHideTillUnlocked": False,
-        "LicensePrice": 50,  # TODO
-        "LicenseLevelRequirement": 1,  # TODO
+        "LicensePrice": 300,  # TODO
+        "LicenseLevelRequirement": 5,  # TODO
         "IgnoreDoubleImage": False,
         "HasSmallBox": True,
         "SmallBoxHideTillUnlocked": False,
@@ -315,13 +315,13 @@ def box(set) -> dict:
         "MaterialList": [],
         "IsBigBox": True,
         "BigBoxHideTillUnlocked": False,
-        "LicensePrice": 50,  # TODO
-        "LicenseLevelRequirement": 1,  # TODO
+        "LicensePrice": 500,  # TODO
+        "LicenseLevelRequirement": 8,  # TODO
         "IgnoreDoubleImage": False,
         "HasSmallBox": True,
         "SmallBoxHideTillUnlocked": False,
-        "SmallBoxLicensePrice": 50,  # TODO
-        "SmallBoxLicenseLevelRequirement": 1,  # TODO
+        "SmallBoxLicensePrice": 100,  # TODO
+        "SmallBoxLicenseLevelRequirement": 3,  # TODO
         "SmallBoxIgnoreDoubleImage": False,
         "IsBulkBox": False,
         "MinMarketPricePercent": 1,
