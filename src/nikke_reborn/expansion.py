@@ -46,7 +46,6 @@ from typing import Any, cast
 from PIL import Image, ImageChops, ImageFilter
 
 from nikke_reborn.config import (
-    CARD_VIEWPORT,
     CARDS_DIR,
     DATABASE_DIR,
     REPO_ROOT,
@@ -1142,7 +1141,7 @@ def compose_front(
     featured = expansion.pack
     if not featured:
         raise GenerationError(f"{expansion.name}: 'pack' carries no characters")
-    bodies = [_content_box(_render_featured_frame(entry)) for entry in featured]
+    bodies = [_content_box(_render_featured_frame(entry, size)) for entry in featured]
 
     # Backs first (behind the hero), left/right alternating, stepping
     # further out and shrinking per tier; each character's ``x`` nudge
@@ -1187,14 +1186,16 @@ def compose_front(
     return canvas
 
 
-def _render_featured_frame(featured: Featured) -> Image.Image:
+def _render_featured_frame(featured: Featured, size: tuple[int, int]) -> Image.Image:
     """Render the featured character's still frame via ``nikke-viewer
     --stdout`` (raw RGBA): the ``--time <time>`` still of its
     *animation* (the viewer's default when none is given), zoomed by
     *zoom* (the viewer's default when absent), framed with
-    ``--half-body``, at the viewer's default viewport, read straight off
-    the stream. The viewer exits once its single frame is written."""
-    width, height = CARD_VIEWPORT
+    ``--half-body`` at *size* — the material face's mask region, so the
+    half-body framing is not clipped to the viewer's default viewport's
+    aspect — read straight off the stream. The viewer exits once its
+    single frame is written."""
+    width, height = size
     frame_bytes = width * height * 4
 
     animation_args = (
@@ -1209,6 +1210,10 @@ def _render_featured_frame(featured: Featured) -> Image.Image:
             str(featured.time),
             *zoom_args,
             "--half-body",
+            "--width",
+            str(width),
+            "--height",
+            str(height),
             "--stdout",
             featured.id,
         ],

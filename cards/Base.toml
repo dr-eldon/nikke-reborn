@@ -13,7 +13,7 @@ rarities = [
 pack = [
     { id = "c010", animation = "action", time = 1.247, zoom = 0.9 },
     { id = "c011" },
-    { id = "c013" },
+    { id = "c013", animation = "action", time = 2 },
 ]
 
 cards = [
