@@ -100,7 +100,7 @@ COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
 #: under where the stamp lands — at and above which the stamp (the
 #: NIKKE logo, the copyright line) is drawn in black, below which in
 #: white.
-STAMP_LUMA_THRESHOLD = 80.0
+STAMP_LUMA_THRESHOLD = 200.0
 
 #: The stamps' two colors.
 STAMP_BLACK = (0, 0, 0, 255)
