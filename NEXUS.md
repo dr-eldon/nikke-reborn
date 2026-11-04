@@ -4,17 +4,24 @@ Inspired by [the amazing old modpack by daidangodan](https://www.nexusmods.com/t
 
 > **Disclaimer**
 > Heavily in development. Expect breaking changes!
-> I have just finished setting up most of the infrastructure to generate content for the mod, so expect updates often! If I can stop playing.
 >
-> Coming up next: the TETRA expansion!
+> Just released: the Base Set!
+> Coming up next: the first event-based expansion!
 
 ## New Content (for now)
-- ELYSION — an expansion featuring 19 NIKKEs from the original launch + 2 skins, with 16 different variants. Totaling 263 cards; many animated!
+- Base Set — an expansion featuring:
+    - 63 NIKKEs + 3 skins from the original launch
+    - 47 animated skill cuts
+    - 11 animated story CGs
+    - 9 story side-characters
+    - and more!
 
-![ELYSION Expansion](images/expansions/ELYSION.png)
+  Totaling 536 cards across 9 rarities — many animated!
+
+![Base Set](images/expansions/Base.png)
 
 ## Roadmap
-- +10 different expansions — featuring different NIKKEs, new skins, and events; ordered by release date.
+- +5 different expansions — featuring different NIKKEs, new skins, and events; ordered by release date.
 - Accessories — sleeves, deck boxes, playmats, comics, and more!
 - Figurines — the chibi plushies must come back.
 - Posters — plenty of content to generate many of them.
