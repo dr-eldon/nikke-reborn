@@ -7,7 +7,8 @@ rarities (``rarities`` — the subset of the presentations' names the set
 generates, in the order the set carries them), its pack/box materials
 (``pack`` — the featured characters, ``background`` — the
 base/special/battle backgrounds, ``logo``) and its card names (the title
-from ``characters.json``, the subtitle from ``models.json``). Every
+from ``characters.json`` — the model's name when the character has no
+record —, the subtitle — the skin — from the model's name). Every
 character renders the expansion's ``rarities`` subset of the fixed set
 of presentations (see :func:`presentations_for`): the standard tier,
 the profile tier and the full-art tier.
@@ -187,8 +188,9 @@ class CardEntry:
     """One card of an expansion: its viewer id, its 1-based position
     in the expansion's ``cards`` (the card's number), the card's stem
     (``<number>_<id>_<name>``, the 1-based number, the viewer id and
-    the compact — whitespace-free and filename-safe — name), the name it renders (the
-    title, and the subtitle when the character is a skin), the rarity
+    the compact — whitespace-free and filename-safe — name), the name it
+    renders (the title, and the subtitle — the skin — when the character
+    is a skin), the rarity
     and manufacturer the game's data carry (the base character's when
     the id is suffixed; the event's fixed rarity and none for an event
     — an id that is not a character), the per-presentation viewer
@@ -352,10 +354,12 @@ def load_expansion(path: Path) -> Expansion:
     """Parse and validate one expansion's TOML (its ``rarities``, its
     ``pack``, its ``cards``, its ``background`` table and its ``logo``),
     deriving each card's stem from its position and the game's data (see
-    :func:`_card_entry`). Every referenced file must exist; the
-    character ids must be in the game's data (the base character when
-    the id is suffixed), the models must be named after their character
-    (the subtitle is the model's name minus the character's) and the
+    :func:`_card_entry`). Every referenced file must exist; a
+    character's name derives from its record in the game's data (the
+    base character when the id is suffixed), falling back to the model's
+    name when it has none, and the models must be named after their
+    character (their name parts must agree — :func:`_name_subtitle` —
+    and the subtitle is the model's skin); the
     ``rarities`` entries must be names of the fixed presentations (no
     duplicates; the event-only ones among them render only for the
     event). Each ``cards`` entry's non-``id`` keys must be names of the
@@ -633,6 +637,54 @@ def _compact_name(name: str) -> str:
     return "".join(ch for ch in folded if ch.isalnum() or ch == "-")
 
 
+#: The display name's skin separators (a name, a separator, a skin — a
+#: bare ``-`` is not one: it occurs inside names and skins alike).
+_NAME_SEPARATORS = (": ", " - ", "_")
+
+
+def _name_parts(name: str) -> tuple[str, str | None]:
+    """*name* split at its first skin separator (the name/skin
+    separator — the one the display name's ``title: subtitle`` uses):
+    the name part and the skin (None when the name carries no skin)."""
+    cuts = {sep: name.index(sep) for sep in _NAME_SEPARATORS if sep in name}
+    if not cuts:
+        return name, None
+    sep = min(cuts, key=cuts.__getitem__)
+    return name[: cuts[sep]], name[cuts[sep] + len(sep) :]
+
+
+def _name_subtitle(
+    file_name: str, char_id: str, char_name: str, model_name: str
+) -> tuple[str, str]:
+    """The card's (title, subtitle) from the character's and the
+    model's display names: each splits at its skin separator
+    (:func:`_name_parts`) (a model may carry the skin where the
+    character's name does not — ``"Scarlet: Goddeath"`` for the
+    character ``"Scarlet"`` — and a second skin carries the chain, so
+    the subtitle is everything after the separator, not just the
+    increment over the character's name). The model's name part must
+    name the character; otherwise a model that carries the character's
+    name before a space names its skin after that space (a separator
+    may sit inside the skin — ``"Mari Final Battle: Mari"`` for the
+    character ``"Mari"``). The subtitle is the model's skin, the
+    character's when the two names agree, empty when the model is the
+    character itself."""
+    char_title, char_skin = _name_parts(char_name)
+    model_title, model_skin = _name_parts(model_name)
+    if model_name == char_name:
+        return char_title, char_skin or ""
+    if model_skin is not None and model_title == char_title:
+        return model_title, model_skin
+    if model_name.startswith(char_name + " "):
+        return char_name, model_name[len(char_name) + 1 :]
+    raise GenerationError(
+        f"{file_name}: {char_id!r}'s model name {model_name!r} does not "
+        f"name the character {char_name!r} (its name part — before its "
+        "': ', ' - ', '_', or ' ' skin — must match the character's); "
+        "cannot derive its subtitle"
+    )
+
+
 def _card_entry(
     file_name: str,
     number: int,
@@ -641,13 +693,16 @@ def _card_entry(
     highest_rarity: str,
 ) -> CardEntry:
     """The card's identity derived from *char_id*'s position and the
-    game's data (the event's from ``models.json`` alone): the title
-    (the character's name — the base character's when the id is suffixed;
-    the event's model's name), the subtitle (the model's name minus the
-    character's, empty when the model is the character itself or when the
-    card is an event), the stem (the 1-based number plus the compact name)
-    and the rarity/manufacturer (the character's own, the base's when the
-    id is suffixed; the event's fixed rarity and none for an event)."""
+    game's data (the event's from ``models.json`` alone): the title and
+    the subtitle (the character's and the model's display names split at
+    their skin separator — :func:`_name_subtitle` —; the model's name
+    alone, split the same way, when the character has no record; the
+    event's model's name whole, no subtitle; always capitalized — the
+    data's casing otherwise), the stem (the 1-based
+    number plus the compact name) and the rarity/manufacturer (the
+    character's own, the base's when the id is suffixed, the defaults
+    when it has no record; the event's fixed rarity and none for an
+    event)."""
     if is_event(char_id):
         title = _models_db().get(char_id)
         if title is None:
@@ -662,30 +717,24 @@ def _card_entry(
         characters = _characters_db()
         base_id = char_id.split("_", 1)[0]
         record = characters.get(char_id) or characters.get(base_id)
-        if record is None:
-            raise GenerationError(
-                f"{file_name}: no character {char_id!r} (or base {base_id!r}) "
-                "in characters.json; cannot derive its name"
-            )
-        title = str(record["name"])
         model_name = _models_db().get(char_id)
         if model_name is None:
             raise GenerationError(
                 f"{file_name}: no model {char_id!r} in models.json; cannot "
-                "derive its subtitle"
+                "derive its name"
             )
-        if model_name == title:
-            subtitle = ""
-        elif model_name.startswith(title + " "):
-            subtitle = model_name[len(title) + 1 :]
+        if record is None:
+            title, subtitle = _name_parts(model_name)
+            subtitle = subtitle or ""
+            rarity = "R"
+            manufacturer = None
         else:
-            raise GenerationError(
-                f"{file_name}: {char_id!r}'s model name {model_name!r} does "
-                f"not start with the character's name {title!r}; cannot "
-                "derive its subtitle"
+            title, subtitle = _name_subtitle(
+                file_name, char_id, str(record["name"]), model_name
             )
-        rarity = str(record.get("rarity") or "R")
-        manufacturer = record.get("manufacturer")
+            rarity = str(record.get("rarity") or "R")
+            manufacturer = record.get("manufacturer")
+    subtitle = subtitle[:1].upper() + subtitle[1:]
     name_part = _compact_name(title)
     overrides, excluded = terms
     return CardEntry(
