@@ -123,7 +123,11 @@ PROFILE_REEL_ANIMATIONS = (
     "surprise",
     "special_02",
     "special",
+    "etc",
     "angry",
+    "worry",
+    "pain",
+    "cry",
 )
 PROFILE_REEL_COUNT = 3
 
