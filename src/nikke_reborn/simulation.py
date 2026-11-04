@@ -9,6 +9,10 @@ card worth more than the ``--hit`` threshold), the expected value per
 pack (simulated and theoretical), the pack value distribution, the
 per-slot expected value and the top cards of the set.
 
+The report embeds the draws and the formula's values, so its price editor
+re-prices the pool on the fly and recomputes the price-dependent statistics
+in place (the packs themselves are never re-rolled).
+
 The expansion's bundle is rebuilt from ``cards/<expansion>.toml``,
 ``database/characters.json`` and the current
 :mod:`nikke_reborn.metadata` tuning (the same inputs ``generate``
@@ -26,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import math
 import random
 import statistics
@@ -701,12 +706,13 @@ def _packs(value: float | None) -> str:
     return f"{value:,.0f}"
 
 
-def _bar(label: str, count: int, share: float, maximum: float) -> str:
+def _bar(label: str, count: int, share: float, maximum: float, index: int) -> str:
     width = max(0.5, share / maximum * 100) if maximum > 0 else 0.5
     return (
         f'<div class="bar-row"><div class="bar-label">{html.escape(label)}</div>'
-        f'<div class="bar-track"><div class="bar" style="width: {width:.1f}%"></div></div>'
-        f'<div class="bar-count">{count:,} ({_pct(share)})</div></div>'
+        f'<div class="bar-track">'
+        f'<div class="bar" id="h{index}-bar" style="width: {width:.1f}%"></div></div>'
+        f'<div class="bar-count" id="h{index}-count">{count:,} ({_pct(share)})</div></div>'
     )
 
 
@@ -732,6 +738,14 @@ th:first-child, td:first-child { text-align: left; }
 tr:hover td { background: #141a24; }
 td.name { font-weight: 600; }
 .note { font-size: 12.5px; color: #8b93a7; margin-top: 8px; }
+.editor { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: #151a23; border: 1px solid #232a37; border-radius: 10px; padding: 12px 14px; margin-top: 12px; }
+.editor label { font-size: 12.5px; color: #9aa4b8; display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
+.editor input { width: 88px; background: #0e1116; color: #dde2ea; border: 1px solid #2a3242; border-radius: 6px; padding: 4px 8px; font: 13px/1.4 ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.editor input:focus { outline: 1px solid #4f8cff; }
+.editor input.bad { outline: 1px solid #e5534b; }
+.editor button { background: #1a2130; color: #c3cbdb; border: 1px solid #2a3242; border-radius: 6px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
+.editor button:hover { background: #232a37; }
+.editor .status { font-size: 12.5px; color: #e5534b; }
 .bar-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; }
 .bar-label { width: 140px; text-align: right; font-size: 12.5px; color: #9aa4b8; font-variant-numeric: tabular-nums; }
 .bar-track { flex: 1; background: #1a2130; border-radius: 4px; height: 16px; overflow: hidden; }
@@ -742,15 +756,460 @@ footer p { margin: 4px 0; }
 """
 
 
+def _interactive_data(
+    expansion: dict,
+    pack: dict,
+    cards: list[Card],
+    result: SimResult,
+    hit_threshold: float,
+) -> dict:
+    """The report's in-browser re-pricing inputs: the formula's values,
+    the pool, the draws and the slot tables. A draw's price only depends
+    on its rarity, border, own foil and the pack's god flag, so the packs
+    are stored as indices into *combos* (the distinct draw types), not as
+    cards. The report's script (:data:`_SCRIPT`) recomputes every
+    price-dependent statistic from this; the draws never change, so no
+    re-simulation is needed."""
+    rarity_index = {rarity: i for i, rarity in enumerate(expansion["Rarities"])}
+    border_index = {border: i for i, border in enumerate(BORDERS)}
+
+    combos: list[list[int]] = []
+    combo_of: dict[tuple[int, int, int, int], int] = {}
+
+    def combo(r: int, b: int, f: int, g: int) -> int:
+        key = (r, b, f, g)
+        if key not in combo_of:
+            combo_of[key] = len(combos)
+            combos.append([r, b, f, g])
+        return combo_of[key]
+
+    packs_rows: list[list[int]] = []
+    slot_combos = [Counter() for _ in range(7)]
+    for opened in result.packs:
+        row: list[int] = []
+        for i, drawn in enumerate(opened.cards):
+            if drawn is None:
+                continue
+            c = combo(
+                rarity_index[drawn.card.rarity],
+                border_index[drawn.card.border],
+                int(drawn.card.foil),
+                int(opened.god),
+            )
+            row.append(c)
+            slot_combos[i][c] += 1
+        packs_rows.append(row)
+
+    pools = _pools_by_rarity(cards)
+    n = len(result.packs)
+    expected = _expected_per_rarity(expansion, pack, pools, n)
+    card_expected: list[float | None] = []
+    for rarity in expansion["Rarities"]:
+        if rarity not in pools:
+            card_expected.append(None)
+            continue
+        per_pack = expected.get(rarity, 0.0) / n / len(pools[rarity])
+        card_expected.append(None if per_pack <= 0 else 1.0 / per_pack)
+
+    slot_tables = _slot_tables(pack)
+    god_tables = _god_tables(pack, slot_tables)
+
+    def table_vector(table: dict | None) -> list[float] | None:
+        if table is None:
+            return None
+        return [table.get(rarity, 0.0) for rarity in expansion["Rarities"]]
+
+    return {
+        "p": {
+            "floor": expansion["RarityDrivenFloor"],
+            "step": expansion["RarityDrivenStepSize"],
+            "base": expansion["RarityDrivenBorderMultiplierBase"],
+            "foil": expansion["RarityDrivenFoilMultiplier"],
+        },
+        "rarities": expansion["Rarities"],
+        "borders": BORDERS,
+        "pool": [
+            [rarity_index[c.rarity], border_index[c.border], int(c.foil)] for c in cards
+        ],
+        "names": [c.name for c in cards],
+        "combos": combos,
+        "packs": packs_rows,
+        "slotCombos": [
+            [[c, count] for c, count in sorted(counter.items())]
+            for counter in slot_combos
+        ],
+        "slots": [table_vector(t) for t in slot_tables],
+        "godSlots": [table_vector(t) for t in god_tables],
+        "godChance": _god_percentage(pack),
+        "n": n,
+        "hit": hit_threshold,
+        "thresholds": sorted({hit_threshold, *HIT_THRESHOLDS}),
+        "buckets": list(HIST_BUCKETS),
+        "cardExp": card_expected,
+    }
+
+
+_SCRIPT = r"""
+(function () {
+  "use strict";
+  const D = JSON.parse(document.getElementById("sim-data").textContent);
+  const N = D.n;
+  const G = D.godChance;
+  const R = D.rarities.length;
+  const EM = "\u2014";
+  const INIT = { floor: D.p.floor, step: D.p.step, base: D.p.base, foil: D.p.foil };
+  const P = Object.assign({}, INIT);
+  const els = {};
+  document.querySelectorAll("[id]").forEach((el) => { els[el.id] = el; });
+
+  // the pool's rarity population (what a rarity draw is worth on average)
+  const poolCount = new Array(R).fill(0);
+  for (const c of D.pool) poolCount[c[0]] += 1;
+  const poolTotal = poolCount.reduce((a, b) => a + b, 0);
+  const poolOrder = [];
+  {
+    const seen = new Array(R).fill(false);
+    for (const c of D.pool)
+      if (!seen[c[0]]) { seen[c[0]] = true; poolOrder.push(c[0]); }
+  }
+
+  // decimal formatting with the same semantics as the server's
+  // (correctly rounded, ties to even — e.g. 28.125 -> "28.12"), then
+  // thousands separators
+  function fixed(v, d) {
+    const s = 10 ** d;
+    const scaled = v * s;
+    const f = Math.floor(scaled);
+    // a tie (scaled exactly f + 0.5) happens only for exact binary
+    // fractions; round it to the even side
+    const n = scaled - f === 0.5 ? (f % 2 === 0 ? f : f + 1) : Math.round(scaled);
+    const neg = n < 0;
+    const a = Math.abs(n);
+    const int = Math.floor(a / s);
+    const frac = a - int * s;
+    return (neg ? "-" : "") + String(int) + (d ? "." + String(frac).padStart(d, "0") : "");
+  }
+  const commas = (s) => {
+    const neg = s.startsWith("-");
+    if (neg) s = s.slice(1);
+    const parts = s.split(".");
+    let i = parts[0];
+    const f = parts[1];
+    let g = "";
+    while (i.length > 3) {
+      g = "," + i.slice(-3) + g;
+      i = i.slice(0, -3);
+    }
+    return (neg ? "-" : "") + i + g + (f !== undefined ? "." + f : "");
+  };
+  const money = (v) => "$" + commas(fixed(v, v >= 10000 ? 0 : 2));
+  const pct = (p) => {
+    if (p <= 0) return "0%";
+    const x = p * 100;
+    return (x < 0.1 ? fixed(x, 3) : x < 1 ? fixed(x, 2) : fixed(x, 1)) + "%";
+  };
+  const packsFmt = (v) => (v === null ? EM : commas(fixed(v, v < 1000 ? 1 : 0)));
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const set = (id, text) => { els[id].textContent = text; };
+
+  // the formula: (floor + step * rarity index) * base ^ border index,
+  // times the foil multiplier when the card is foil
+  const price = (r, b, foil) => {
+    let p = (P.floor + P.step * r) * Math.pow(P.base, b);
+    if (foil) p *= P.foil;
+    return p;
+  };
+
+  // the probability of each rarity in one draw from a slot's table
+  // (a null table is uniform over the pool: proportional to the pool sizes)
+  function slotProb(table) {
+    const out = {};
+    if (table === null) {
+      if (poolTotal === 0) return out;
+      for (const r of poolOrder) out[r] = poolCount[r] / poolTotal;
+      return out;
+    }
+    let total = 0;
+    for (let r = 0; r < R; r++)
+      if (table[r] > 0 && poolCount[r] > 0) total += table[r];
+    if (total <= 0) return out;
+    for (let r = 0; r < R; r++)
+      if (table[r] > 0 && poolCount[r] > 0) out[r] = table[r] / total;
+    return out;
+  }
+
+  function slotExpected(table, means) {
+    const probs = slotProb(table);
+    let s = 0;
+    for (const r in probs) s += probs[r] * means[r];
+    return s;
+  }
+
+  function recompute() {
+    // re-price everything
+    const cp = D.combos.map((c) => price(c[0], c[1], c[2] || c[3]));
+    const pp = new Array(D.pool.length);
+    const gp = new Array(D.pool.length);
+    const rsum = new Array(R).fill(0);
+    const gsum = new Array(R).fill(0);
+    const rbot = new Array(R).fill(Infinity);
+    const rtop = new Array(R).fill(-Infinity);
+    for (let i = 0; i < D.pool.length; i++) {
+      const c = D.pool[i];
+      const n = price(c[0], c[1], c[2]);
+      const g = price(c[0], c[1], true);
+      pp[i] = n;
+      gp[i] = g;
+      rsum[c[0]] += n;
+      gsum[c[0]] += g;
+      if (n < rbot[c[0]]) rbot[c[0]] = n;
+      if (n > rtop[c[0]]) rtop[c[0]] = n;
+    }
+    const means = new Array(R);
+    const godMeans = new Array(R);
+    for (let r = 0; r < R; r++) {
+      means[r] = poolCount[r] ? rsum[r] / poolCount[r] : 0;
+      godMeans[r] = poolCount[r] ? gsum[r] / poolCount[r] : 0;
+    }
+
+    // theoretical EV per pack: the god blend in place per slot
+    const theo = D.slots.reduce(
+      (s, t, i) =>
+        s + slotExpected(t, means) * (1 - G) +
+        slotExpected(D.godSlots[i], godMeans) * G,
+      0
+    );
+
+    // the packs' values under the new prices (mx: the pack's best draw)
+    const pv = D.packs.map((list) => {
+      let s = 0, mx = null;
+      for (const ci of list) {
+        const p = cp[ci];
+        s += p;
+        if (mx === null || p > mx) mx = p;
+      }
+      return [s, mx];
+    });
+    const values = pv.map((v) => v[0]);
+    const sorted = values.slice().sort((a, b) => a - b);
+    let totalValue = 0;
+    for (const v of values) totalValue += v;
+    const ev = totalValue / N;
+    const mid = Math.floor(N / 2);
+    const median = N % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    const stdev = Math.sqrt(
+      values.reduce((s, x) => s + (x - ev) * (x - ev), 0) / N
+    );
+    const quantile = (q) => {
+      if (N === 1) return sorted[0];
+      const pos = (N - 1) * q;
+      const lo = Math.floor(pos);
+      const f = pos - lo;
+      return sorted[lo] * (1 - f) + sorted[lo + 1] * f;
+    };
+
+    // per-rarity and per-slot totals of the drawn prices
+    const rtot = new Array(R).fill(0);
+    for (const list of D.packs)
+      for (const ci of list) rtot[D.combos[ci][0]] += cp[ci];
+    const slotTot = new Array(7).fill(0);
+    const slotHits = new Array(7).fill(0);
+    D.slotCombos.forEach((map, i) => {
+      for (const [ci, count] of map) {
+        const p = cp[ci];
+        slotTot[i] += p * count;
+        if (p > D.hit) slotHits[i] += count;
+      }
+    });
+
+    // the observed and theoretical hit statistics at a threshold
+    const hitIdx = (thr) => {
+      const out = [];
+      for (let i = 0; i < N; i++)
+        if (pv[i][1] !== null && pv[i][1] > thr) out.push(i + 1);
+      return out;
+    };
+    const gapStats = (idx) => {
+      const g = [];
+      for (let i = 1; i < idx.length; i++) g.push(idx[i] - idx[i - 1]);
+      return g.length > 1 ? g.reduce((a, b) => a + b, 0) / g.length : null;
+    };
+    const fracAt = (thr) => {
+      const f = new Array(R).fill(0);
+      const gf = new Array(R).fill(0);
+      for (let i = 0; i < D.pool.length; i++) {
+        const c = D.pool[i];
+        if (pp[i] > thr) f[c[0]] += 1;
+        if (gp[i] > thr) gf[c[0]] += 1;
+      }
+      for (let r = 0; r < R; r++)
+        if (poolCount[r]) { f[r] /= poolCount[r]; gf[r] /= poolCount[r]; }
+      return [f, gf];
+    };
+    const hitProb = (thr) => {
+      const parts = fracAt(thr);
+      const f = parts[0], gf = parts[1];
+      let noHit = 1;
+      for (let i = 0; i < 7; i++) {
+        const pn = slotProb(D.slots[i]);
+        const pg = slotProb(D.godSlots[i]);
+        let s1 = 0, s2 = 0;
+        for (const r in pn) s1 += pn[r] * f[r];
+        for (const r in pg) s2 += pg[r] * gf[r];
+        noHit *= 1 - (s1 * (1 - G) + s2 * G);
+      }
+      return 1 - noHit;
+    };
+    const expPacks = (prob) => (prob > 0 ? 1 / prob : null);
+
+    // the summary
+    const delta = theo ? ((ev - theo) / theo) * 100 : 0;
+    set("sum-ev", money(ev));
+    set("sum-ev-sub",
+      "theoretical " + money(theo) + " (" + (delta < 0 ? "-" : "+") +
+      Math.abs(delta).toFixed(1) + "%)");
+    set("sum-median", money(median));
+    set("sum-total", money(totalValue));
+    const mainIdx = hitIdx(D.hit);
+    const mainProb = hitProb(D.hit);
+    set("sum-hits",
+      mainIdx.length.toLocaleString("en-US") + " / " + N.toLocaleString("en-US"));
+    set("sum-hits-sub", pct(mainIdx.length / N) + " of the packs");
+    set("sum-first", mainIdx.length ? String(mainIdx[0]) : EM);
+    set("sum-first-sub", "expected " + packsFmt(expPacks(mainProb)));
+    set("sum-gap", packsFmt(gapStats(mainIdx)));
+    set("sum-gap-sub", "expected " + packsFmt(expPacks(mainProb)));
+
+    // the rarity rows (only the rarities the pool carries have rows)
+    const rowOf = new Array(R).fill(-1);
+    {
+      let i = 0;
+      for (let r = 0; r < R; r++) if (poolCount[r]) rowOf[r] = i++;
+    }
+    for (let r = 0; r < R; r++) {
+      if (!poolCount[r]) continue;
+      const i = rowOf[r];
+      set("r" + i + "-bottom", money(rbot[r]));
+      set("r" + i + "-avg", money(means[r]));
+      set("r" + i + "-top", money(rtop[r]));
+      set("r" + i + "-tot", money(rtot[r]));
+      set("r" + i + "-vshare", pct(totalValue ? rtot[r] / totalValue : 0));
+    }
+
+    // the slot rows
+    for (let i = 0; i < 7; i++) {
+      set("s" + (i + 1) + "-obs", money(slotTot[i] / N));
+      set("s" + (i + 1) + "-exp", money(slotExpected(D.slots[i], means)));
+      set("s" + (i + 1) + "-hits", slotHits[i].toLocaleString("en-US"));
+    }
+
+    // the threshold rows
+    D.thresholds.forEach((t, i) => {
+      const idx = hitIdx(t);
+      const prob = hitProb(t);
+      set("t" + i + "-prob", pct(prob));
+      set("t" + i + "-exp", packsFmt(expPacks(prob)));
+      set("t" + i + "-count",
+        idx.length.toLocaleString("en-US") + " / " + N.toLocaleString("en-US"));
+      set("t" + i + "-first", idx.length ? String(idx[0]) : EM);
+      set("t" + i + "-gap", packsFmt(gapStats(idx)));
+    });
+
+    // the value distribution chips and histogram
+    const chips = {
+      min: sorted[0],
+      p25: quantile(0.25),
+      median: median,
+      mean: ev,
+      p75: quantile(0.75),
+      p90: quantile(0.9),
+      p95: quantile(0.95),
+      p99: quantile(0.99),
+      max: sorted[N - 1],
+      stdev: stdev,
+    };
+    for (const k in chips) set("chip-" + k, money(chips[k]));
+    const bounds = [0].concat(D.buckets, [Infinity]);
+    const counts = bounds.slice(0, -1).map((lo, i) => {
+      const hi = bounds[i + 1];
+      return values.reduce((a, v) => a + (lo <= v && v < hi ? 1 : 0), 0);
+    });
+    const maxShare = Math.max.apply(null, counts.map((c) => c / N));
+    counts.forEach((c, i) => {
+      const share = c / N;
+      set("h" + i + "-count", c.toLocaleString("en-US") + " (" + pct(share) + ")");
+      els["h" + i + "-bar"].style.width =
+        (maxShare > 0 ? Math.max(0.5, (share / maxShare) * 100) : 0.5).toFixed(1) + "%";
+    });
+
+    // the top cards, re-sorted by the new prices
+    const order = D.pool
+      .map((c, i) => [i, pp[i]])
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+    els["top-body"].innerHTML = order.map(([i]) => {
+      const c = D.pool[i];
+      return "<tr><td class=\"name\">" + esc(D.names[i]) + "</td><td>" +
+        esc(D.rarities[c[0]]) + "</td><td>" + esc(D.borders[c[1]]) + "</td><td>" +
+        (c[2] ? "yes" : "no") + "</td><td>" + money(pp[i]) + "</td><td>" +
+        packsFmt(D.cardExp[c[0]]) + "</td></tr>";
+    }).join("");
+
+    // the formula
+    els["formula"].textContent =
+      "price(rarity, border, foil) =\n" +
+      "  (" + P.floor.toFixed(2) + " + " + P.step.toFixed(2) +
+      " x rarity index in [" + D.rarities.map((r) => "'" + r + "'").join(", ") + "])\n" +
+      "  x " + P.base.toFixed(2) + " ^ border index [" +
+      D.borders.map((b, i) => b + "=" + i).join(", ") + "]\n" +
+      "  x " + P.foil.toFixed(2) + "   (when the card is foil)";
+  }
+
+  // the formula's value inputs: recompute on the fly, validate in place
+  const inputs = {
+    floor: els["p-floor"],
+    step: els["p-step"],
+    base: els["p-base"],
+    foil: els["p-foil"],
+  };
+  function update() {
+    let ok = true;
+    for (const k in inputs) {
+      const raw = inputs[k].value.trim();
+      const v = Number(raw);
+      const good = raw !== "" && Number.isFinite(v) &&
+        (k !== "base" || v > 0) && (k !== "foil" || v > 0);
+      inputs[k].classList.toggle("bad", !good);
+      if (good) P[k] = v;
+      ok = ok && good;
+    }
+    els["formula-status"].textContent = ok
+      ? ""
+      : "invalid: finite values; the base and foil multipliers must be positive";
+    if (ok) recompute();
+  }
+  for (const k in inputs) inputs[k].addEventListener("input", update);
+  els["formula-reset"].addEventListener("click", () => {
+    for (const k in inputs) inputs[k].value = String(INIT[k]);
+    update();
+  });
+})();
+"""
+
+
 def render_report(
     name: str,
     expansion: dict,
     pack: dict,
+    cards: list[Card],
     result: SimResult,
     stats: dict,
     hit_threshold: float = DEFAULT_HIT_THRESHOLD,
 ) -> str:
-    """The self-contained HTML report (no external assets, no scripts)."""
+    """The self-contained HTML report (no external assets). Its inline
+    script recomputes every price-dependent statistic from the embedded
+    draws (:func:`_interactive_data`), so the formula's values can be
+    edited in place and the prices updated on the fly."""
     e = html.escape
     n = stats["n_packs"]
     q = stats["quantiles"]
@@ -770,17 +1229,37 @@ def render_report(
         f"  ({expansion['RarityDrivenFloor']:.2f} + "
         f"{expansion['RarityDrivenStepSize']:.2f} x rarity index in {expansion['Rarities']})\n"
         f"  x {expansion['RarityDrivenBorderMultiplierBase']:.2f} ^ border index "
-        f"[{' , '.join(f'{b}={i}' for i, b in enumerate(BORDERS))}]\n"
+        f"[{', '.join(f'{b}={i}' for i, b in enumerate(BORDERS))}]\n"
         f"  x {expansion['RarityDrivenFoilMultiplier']:.2f}   (when the card is foil)"
     )
+
+    data = _interactive_data(expansion, pack, cards, result, hit_threshold)
+    data_json = json.dumps(data).replace("</", "<\\/")
+
+    editor_fields = "".join(
+        f"<label>{label} "
+        f'<input id="p-{key}" type="number" step="any" '
+        f'value="{expansion[param]!r}"></label>\n    '
+        for key, label, param in (
+            ("floor", "floor", "RarityDrivenFloor"),
+            ("step", "step", "RarityDrivenStepSize"),
+            ("base", "border multiplier base", "RarityDrivenBorderMultiplierBase"),
+            ("foil", "foil multiplier", "RarityDrivenFoilMultiplier"),
+        )
+    )
+    editor = f"""
+  <form class="editor" onsubmit="return false">
+    {editor_fields}<button id="formula-reset" type="button">reset</button>
+    <span class="status" id="formula-status"></span>
+  </form>"""
 
     summary = f"""
     <div class="cards">
       <div class="stat"><div class="label">Expected value per pack</div>
-        <div class="value">{_money(stats["simulated_ev"])}</div>
-        <div class="sub">theoretical {_money(stats["theoretical_ev"])} ({ev_delta:+.1f}%)</div></div>
+        <div class="value" id="sum-ev">{_money(stats["simulated_ev"])}</div>
+        <div class="sub" id="sum-ev-sub">theoretical {_money(stats["theoretical_ev"])} ({ev_delta:+.1f}%)</div></div>
       <div class="stat"><div class="label">Median pack value</div>
-        <div class="value">{_money(stats["median"])}</div>
+        <div class="value" id="sum-median">{_money(stats["median"])}</div>
         <div class="sub">of {n:,} packs</div></div>
       <div class="stat"><div class="label">Pack market price</div>
         <div class="value">{_money(price_min)} – {_money(price_max)}</div>
@@ -789,16 +1268,16 @@ def render_report(
         <div class="value">{_money(pack["LicensePrice"])}</div>
         <div class="sub">one-time unlock</div></div>
       <div class="stat"><div class="label">Hits over {_money(hit_threshold)}</div>
-        <div class="value">{stats["hit_count"]:,} / {n:,}</div>
-        <div class="sub">{_pct(stats["hit_share"])} of the packs</div></div>
+        <div class="value" id="sum-hits">{stats["hit_count"]:,} / {n:,}</div>
+        <div class="sub" id="sum-hits-sub">{_pct(stats["hit_share"])} of the packs</div></div>
       <div class="stat"><div class="label">Packs until first hit</div>
-        <div class="value">{stats["hit_first"] if stats["hit_first"] is not None else "—"}</div>
-        <div class="sub">expected {_packs(stats["hit_expected_packs"])}</div></div>
+        <div class="value" id="sum-first">{stats["hit_first"] if stats["hit_first"] is not None else "—"}</div>
+        <div class="sub" id="sum-first-sub">expected {_packs(stats["hit_expected_packs"])}</div></div>
       <div class="stat"><div class="label">Average packs per hit</div>
-        <div class="value">{_packs(stats["hit_mean_gap"])}</div>
-        <div class="sub">expected {_packs(stats["hit_expected_packs"])}</div></div>
+        <div class="value" id="sum-gap">{_packs(stats["hit_mean_gap"])}</div>
+        <div class="sub" id="sum-gap-sub">expected {_packs(stats["hit_expected_packs"])}</div></div>
       <div class="stat"><div class="label">Total value</div>
-        <div class="value">{_money(stats["total_value"])}</div>
+        <div class="value" id="sum-total">{_money(stats["total_value"])}</div>
         <div class="sub">{stats["total_cards"]:,} cards over {n:,} packs</div></div>
     </div>"""
 
@@ -809,23 +1288,23 @@ def render_report(
           <td>{row["count"]:,}</td>
           <td>{row["expected"]:,.1f}</td>
           <td>{_pct(row["observed_share"])}</td>
-          <td>{_money(row["bottom_price"])}</td>
-          <td>{_money(row["average_price"])}</td>
-          <td>{_money(row["max_price"])}</td>
-          <td>{_money(row["total_value"])}</td>
-          <td>{_pct(row["value_share"])}</td>
+          <td id="r{i}-bottom">{_money(row["bottom_price"])}</td>
+          <td id="r{i}-avg">{_money(row["average_price"])}</td>
+          <td id="r{i}-top">{_money(row["max_price"])}</td>
+          <td id="r{i}-tot">{_money(row["total_value"])}</td>
+          <td id="r{i}-vshare">{_pct(row["value_share"])}</td>
           <td>{row["first_pack"] if row["first_pack"] is not None else "—"}</td>
           <td>{_packs(row["expected_first_pack"])}</td>
         </tr>"""
-        for row in stats["rarity_rows"]
+        for i, row in enumerate(stats["rarity_rows"])
     )
 
     slot_rows = "".join(
         f"""<tr>
           <td>Slot {row["slot"]}</td>
-          <td>{_money(row["observed_value"])}</td>
-          <td>{_money(row["expected_value"])}</td>
-          <td>{row["hits"]:,}</td>
+          <td id="s{row["slot"]}-obs">{_money(row["observed_value"])}</td>
+          <td id="s{row["slot"]}-exp">{_money(row["expected_value"])}</td>
+          <td id="s{row["slot"]}-hits">{row["hits"]:,}</td>
           <td class="name">{e(row["top_rarity"] or "—")} ({_pct(row["top_probability"])})</td>
         </tr>"""
         for row in stats["slot_rows"]
@@ -834,13 +1313,13 @@ def render_report(
     threshold_rows = "".join(
         f"""<tr>
           <td>{_money(row["threshold"])}</td>
-          <td>{_pct(row["probability"])}</td>
-          <td>{_packs(row["expected_packs"])}</td>
-          <td>{row["count"]:,} / {n:,}</td>
-          <td>{row["first"] if row["first"] is not None else "—"}</td>
-          <td>{_packs(row["mean_gap"])}</td>
+          <td id="t{i}-prob">{_pct(row["probability"])}</td>
+          <td id="t{i}-exp">{_packs(row["expected_packs"])}</td>
+          <td id="t{i}-count">{row["count"]:,} / {n:,}</td>
+          <td id="t{i}-first">{row["first"] if row["first"] is not None else "—"}</td>
+          <td id="t{i}-gap">{_packs(row["mean_gap"])}</td>
         </tr>"""
-        for row in stats["threshold_rows"]
+        for i, row in enumerate(stats["threshold_rows"])
     )
 
     top_rows = "".join(
@@ -866,13 +1345,14 @@ def render_report(
             row["count"],
             row["share"],
             max(r["share"] for r in stats["histogram"]),
+            i,
         )
-        for row in stats["histogram"]
+        for i, row in enumerate(stats["histogram"])
     )
 
     chips = "".join(
         f"""<div class="stat"><div class="label">{label}</div>
-        <div class="value">{_money(value)}</div></div>"""
+        <div class="value" id="chip-{label}">{_money(value)}</div></div>"""
         for label, value in (
             ("min", stats["minimum"]),
             ("p25", q["p25"]),
@@ -930,7 +1410,12 @@ def render_report(
     <code>{e(expansion["CardPriceStrategy"])}</code> strategy,
     {len(expansion["Cards"]):,} cards in the pool
   </div>
-  <code class="formula">{e(formula)}</code>
+  {editor}
+  <div class="note">The inputs are the expansion's formula values. Edit them to
+  re-price the pool on the fly: every price-dependent number below
+  recomputes in place (the packs are not re-rolled). &ldquo;Reset&rdquo;
+  restores the recorded values.</div>
+  <code class="formula" id="formula">{e(formula)}</code>
 
   <h2>Summary</h2>
   {summary}
@@ -977,7 +1462,9 @@ def render_report(
   <table>
     <tr><th>Card</th><th>Rarity</th><th>Border</th><th>Foil</th><th>Price</th>
         <th>Exp. packs to first</th></tr>
+    <tbody id="top-body">
     {top_rows}
+    </tbody>
   </table>
 
   <footer>
@@ -995,6 +1482,8 @@ def render_report(
     reflects the current <code>metadata.py</code> tuning — a stale
     <code>output/{e(name)}.json</code> is never consulted.</p>
   </footer>
+  <script type="application/json" id="sim-data">{data_json}</script>
+  <script>{_SCRIPT}</script>
 </div>
 </body>
 </html>
@@ -1012,7 +1501,8 @@ def run() -> None:
             "fine-tuning the pack odds and card prices: cards per rarity, "
             "average price per rarity, average packs per hit (a hit is a "
             "card worth more than the --hit threshold), expected value "
-            "per pack, median value, and more."
+            "per pack, median value, and more. The report's price editor "
+            "re-prices the cards on the fly."
         ),
     )
     parser.add_argument(
@@ -1063,7 +1553,9 @@ def run() -> None:
         cards = _pool(expansion_data)
         result = run_simulation(expansion_data, pack, cards, args.packs, seed, args.hit)
         stats = compute_statistics(expansion_data, pack, cards, result, args.hit)
-        report = render_report(name, expansion_data, pack, result, stats, args.hit)
+        report = render_report(
+            name, expansion_data, pack, cards, result, stats, args.hit
+        )
 
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         out_path = OUTPUT_DIR / f"{name}.html"
