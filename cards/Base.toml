@@ -107,7 +107,7 @@ cards = [
 ]
 
 [logo]
-path = "../assets/images/logos/ELYSION.png"
+path = "../assets/images/Logo_White.png"
 placement = "bottom"
 
 [background]

@@ -87,6 +87,10 @@ LOGO_TRAIL = 0.008  # the solid trail: the mark's own silhouette in a
 # height — a tight drop-shadow that reads as a small trail
 LOGO_TRAIL_DARKEN = 0.7  # the trail's tint darkened relative to the glow's
 LOGO_PLACEMENTS = ("top", "center", "bottom")  # values for the `logo.placement` field
+#: The file names (without extension) of the logos that are the NIKKE
+#: logo itself (its white and black renditions): an expansion whose
+#: ``logo.path`` names one of them carries the NIKKE mark as its logo.
+NIKKE_LOGO_NAMES = ("Logo_White", "Logo_Black")
 
 #: The keys every expansion's ``background`` table must carry (relative
 #: paths, against the expansion's folder).
@@ -513,6 +517,15 @@ def is_event(char_id: str) -> bool:
     """True when the id is an event illustration CG (not a character: it
     does not start with ``c``)."""
     return not char_id.startswith("c")
+
+
+def is_nikke_logo(expansion: Expansion) -> bool:
+    """True when the expansion's ``logo.path`` names the NIKKE logo
+    itself (:data:`NIKKE_LOGO_NAMES`, matched on the file name, the
+    extension dropped): the expansion's logo is the NIKKE mark, so the
+    materials' own NIKKE logo stamp (the pack's and the box's fronts,
+    the box's side and top) is redundant and is omitted."""
+    return Path(expansion.logo_path).stem in NIKKE_LOGO_NAMES
 
 
 def _event_terms(
@@ -1084,7 +1097,7 @@ def compose_front(
     size: tuple[int, int],
     *,
     fit: str,
-    place_logo: Callable[[Image.Image, tuple[int, int, int, int]], None],
+    place_logo: Callable[[Image.Image, tuple[int, int, int, int]], None] | None = None,
     expansion_logo_height: float | None = None,
     hero_height: float | None = None,
     back_height: float | None = None,
@@ -1095,9 +1108,9 @@ def compose_front(
     each with its optional horizontal ``x`` nudge — the material's own
     pixels), and the expansion's logo with its glow on top, at its
     ``logo.placement``; the caller's white NIKKE logo is placed last
-    (*place_logo*, on the front's own bounds). The result is returned in
-    memory and never written to disk: the caller pastes it into its
-    material's front rectangle.
+    when given (*place_logo*, on the front's own bounds). The result is
+    returned in memory and never written to disk: the caller pastes it
+    into its material's front rectangle.
 
     *fit* selects the background's fit (``"crop"`` — the pack's front;
     ``"cover-bottom"`` — the box's front). *expansion_logo_height*, when
@@ -1162,7 +1175,8 @@ def compose_front(
         glow_color,
         mark_height=expansion_logo_height,
     )
-    place_logo(canvas, (0, 0, width, height))
+    if place_logo is not None:
+        place_logo(canvas, (0, 0, width, height))
     return canvas
 
 

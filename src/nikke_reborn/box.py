@@ -231,14 +231,15 @@ def front_source_hash(exp: expansion.Expansion) -> str:
 
 def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The box front: the shared front composition with the box's
-    background fit, white NIKKE logo, expansion-logo sizing and
-    character sizing (see the ``BOX_*`` constants), in memory (the
-    material's blue rectangle, never written to disk)."""
+    background fit, white NIKKE logo (omitted when the expansion's logo
+    is the NIKKE logo itself), expansion-logo sizing and character
+    sizing (see the ``BOX_*`` constants), in memory (the material's
+    blue rectangle, never written to disk)."""
     return compose_front(
         exp,
         size,
         fit="cover-bottom",
-        place_logo=place_logo,
+        place_logo=None if expansion.is_nikke_logo(exp) else place_logo,
         expansion_logo_height=BOX_EXPANSION_LOGO_HEIGHT,
         hero_height=BOX_HERO_HEIGHT,
         back_height=BOX_BACK_HEIGHT,
@@ -249,20 +250,23 @@ def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
 def build_side(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The box side: the expansion's background fitted to cover the
     side, with the expansion's logo center-center and the white NIKKE
-    logo bottom-center, in memory (the material's green rectangle,
-    never written to disk). Its inputs are a subset of the front's, so
-    the front's source hash covers it."""
+    logo bottom-center (omitted when the expansion's logo is the NIKKE
+    logo itself), in memory (the material's green rectangle, never
+    written to disk). Its inputs are a subset of the front's, so the
+    front's source hash covers it."""
     background = load_background(exp)
     side = _fit_cover(background, size)
     place_center_expansion_logo(side, exp)
-    place_side_logo(side)
+    if not expansion.is_nikke_logo(exp):
+        place_side_logo(side)
     return side
 
 
 def build_top(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The box top: the expansion's background fitted to cover the top
     (center-cropped), with the expansion's logo center-center and the
-    white NIKKE logo top-right, in memory (the material's red rectangle,
+    white NIKKE logo top-right (omitted when the expansion's logo is
+    the NIKKE logo itself), in memory (the material's red rectangle,
     never written to disk); it also serves the bottom face, which shares
     the red rectangle. Its inputs are a subset of the front's, so the
     front's source hash covers it."""
@@ -272,7 +276,8 @@ def build_top(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
         exp,
         width_fraction=BOX_TOP_EXPANSION_LOGO_WIDTH,
     )
-    place_top_logo(top)
+    if not expansion.is_nikke_logo(exp):
+        place_top_logo(top)
     return top
 
 
