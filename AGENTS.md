@@ -19,9 +19,10 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 
 ## Conventions
 
-- `uvx ruff check src/` and `uvx ruff format --check src/` must be
-  clean.
+- `uvx ruff check src/` and `uvx ruff format --check src/` must be clean.
 - Only commit or push when explicitly asked.
+- Commit subjects are short imperative lines (under ~50 chars); the
+  details go in the body.
 - For quick iteration, `generate` a single character (`--ids`) with the
   default settings; avoid `--ultra` (`generate`) until the very
   end — it renders at native resolution and is much slower.
@@ -31,15 +32,13 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
   narration, per-parameter docs). Write each fact once, at its defining
   site; reference it elsewhere.
 
-## Don't break (verify with `uv run test Base c010` before
-committing, not while iterating)
+## Verification
 
 - The byte protocol: a forced single-worker re-render is byte-for-byte
-  identical to the recorded baselines (`test`); the `nikke-reborn-source`
-  hash embedded in each output folds in the run's scale only when it
-  deviates from 1.0 (the native/ultra resolution), so an ultra card's hash
-  is the canonical one. Changing what goes into a hash requires
-  re-recording the baselines (`test --new-baseline`).
+  identical to the recorded baselines (`test`). Changing what goes into
+  a hash requires re-recording the baselines (`test --new-baseline`).
+- When touching `generate` code, `uv run test Base c010` must be run
+  before committing, not while iterating.
 - The GPU is shared: use `--jobs 1` for byte-protocol work, and retry
   transient `nikke-viewer` failures (truncated stream, crash).
 
