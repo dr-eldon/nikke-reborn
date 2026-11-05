@@ -19,6 +19,14 @@ carrying the same geometry: the label column is sized from the full
 roster's labels, so the images are equally wide and the grid keeps
 its column positions across them.
 
+Besides the pages, the run writes the summary grid — ``<set>.png``,
+:data:`SHEET_TARGET`: every first frame tiled across the whole canvas
+in the roster's order (each character's presentations in the
+expansion's rarity order), each card's corners rounded, the tiling's
+empty cells past the last card split between the first and the last row
+(both centered, so they carry the same empty space), and the
+expansion's logo at the sheet's center — no labels, no footer.
+
 The cells are the first frames only — the PNGs the pipeline writes
 for every card; no video is read or decoded. Every cell must already
 be on disk, so the sheet is composed after ``generate`` (missing
@@ -37,6 +45,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import itertools
+import math
 import os
 import re
 import sys
@@ -44,7 +53,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from nikke_reborn import card, expansion
 from nikke_reborn.config import (
@@ -57,7 +66,7 @@ from nikke_reborn.config import (
     SOURCE_HASH_KEY,
 )
 from nikke_reborn.error import GenerationError
-from nikke_reborn.file import _save_atomic
+from nikke_reborn.file import _save_atomic, hash_term
 from nikke_reborn.lettering import (
     COPYRIGHT_NOMINAL_SIZE,
     COPYRIGHT_SUPERSAMPLE,
@@ -101,6 +110,29 @@ ROW_HEIGHT = 160
 #: contained (its own header and copyright) and equally wide (the
 #: label column is sized from the full roster's labels).
 SHEET_ROWS = 20
+#: The summary grid's canvas (px): every first frame tiled
+#: across it, in the roster's order, the dimmed background
+#: showing between the cards.
+SHEET_TARGET = (3840, 2160)
+#: The spacing between the summary grid's cards (px): each card is
+#: inset by half of it on every side, so adjacent cards are this far
+#: apart — the dimmed background shows through the gaps.
+SUMMARY_CELL_GAP = 12
+#: The summary grid's cards' corner rounding: the radius is this
+#: fraction of the card's smaller side, so the rounding scales with
+#: the cards (the dimmed background shows through the corners).
+SUMMARY_CORNER_RADIUS_FRACTION = 0.05
+#: The summary grid's logo's height, as a fraction of the sheet's:
+#: the logo is composited over the grid, at the sheet's center, with
+#: the pack's and box's fronts' treatment (see
+#: ``expansion._composite_logo``).
+SUMMARY_LOGO_FRACTION = 1 / 3
+#: The summary grid's logo's drop shadow — a darkened, blurred copy of
+#: the mark, offset down-right, behind it: its blur radius and offset
+#: (sheet-height fractions) and its peak opacity.
+SUMMARY_LOGO_SHADOW_RADIUS = 0.01
+SUMMARY_LOGO_SHADOW_OFFSET = 0.005
+SUMMARY_LOGO_SHADOW_ALPHA = 0.9
 #: The gutter between the label column and the grid.
 LABEL_GAP = 32
 #: The gutter between the grid's cells.
@@ -172,10 +204,12 @@ def run() -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Compose an expansion's sprite sheet (a grid of its rendered "
-            "first frames, fitted to its content: the expansion's logo "
-            "on top, one row per character, one column per presentation, "
-            f"windowed into {SHEET_ROWS}-row images)"
+            "Compose an expansion's sprite sheet: the summary grid "
+            "(every first frame tiled across one "
+            f"{SHEET_TARGET[0]}x{SHEET_TARGET[1]} image) and the grid's "
+            "pages (the expansion's logo on top, one row per character, "
+            f"one column per presentation, windowed into {SHEET_ROWS}-row "
+            "images)"
         )
     )
     parser.add_argument(
@@ -188,7 +222,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--draft",
         action="store_true",
-        help="read the first frames from draft/ and write draft/<set>_{n}.png",
+        help=(
+            "read the first frames from draft/ and write draft/<set>.png "
+            "and draft/<set>_{n}.png"
+        ),
     )
     parser.add_argument(
         "--force",
@@ -199,9 +236,11 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
-    """Compose the expansion *name*'s sheet images (``<name>_{n}.png`` in
-    the preset's output root, one per :data:`SHEET_ROWS` rows of the
-    grid, 1-based).
+    """Compose the expansion *name*'s sheet images: the summary grid
+    (``<name>.png``, every first frame tiled across
+    :data:`SHEET_TARGET`) and its pages (``<name>_{n}.png`` in the
+    preset's output root, one per :data:`SHEET_ROWS` rows of the grid,
+    1-based).
 
     Returns one entry per image: its path, its grid's row and column
     counts, its canvas size (None when the image was skipped) and
@@ -244,6 +283,22 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
         labels, len(columns) * cell_w + (len(columns) - 1) * CELL_GAP
     )
     parts: list[_Part] = []
+    # The summary grid: the first frames tiled across SHEET_TARGET
+    # in the roster's order, the expansion's logo at the sheet's
+    # center — no labels or footer; the tiling's empty cells past
+    # the last card are split between the first and the last row
+    # (both centered).
+    ordered = _ordered_cells(exp.cards, columns, cells)
+    summary_rows, summary_cols = _summary_dimensions(len(ordered))
+    summary_path = preset.base / f"{exp.name}.png"
+    summary_hash = _summary_source_hash(exp, logo_path, background_path, ordered, paths)
+    if not force and _stored_hash(summary_path) == summary_hash:
+        parts.append((summary_path, summary_rows, summary_cols, None, True))
+    else:
+        size = _summary_grid(
+            ordered, paths, missing, background, logo, summary_path, summary_hash
+        )
+        parts.append((summary_path, summary_rows, summary_cols, size, False))
     for n, start in enumerate(range(0, len(rows), SHEET_ROWS), 1):
         part_rows = rows[start : start + SHEET_ROWS]
         part_cells = {key for key in cells if key[0] in part_rows}
@@ -296,6 +351,22 @@ def _card_grid(
             cells.add((entry.stem, presentation.name))
     columns = [name for name in exp.rarities if name in present]
     return rows, columns, cells
+
+
+def _ordered_cells(
+    entries: Sequence[expansion.CardEntry],
+    columns: list[str],
+    cells: set[tuple[str, str]],
+) -> list[tuple[str, str]]:
+    """The grid's cells as a flat sequence in the roster's order (each
+    character's presentations in the expansion's rarity order) — the
+    order the summary grid tiles them."""
+    return [
+        (stem, column)
+        for stem in (entry.stem for entry in entries)
+        for column in columns
+        if (stem, column) in cells
+    ]
 
 
 def _card_aspect() -> float:
@@ -366,6 +437,32 @@ def _source_hash(
         else:
             digest.update(b"missing")
         digest.update(b"1" if path.with_suffix(".mp4").is_file() else b"0")
+    return digest.hexdigest()
+
+
+def _summary_source_hash(
+    exp: expansion.Expansion,
+    logo_path: Path,
+    background_path: Path,
+    ordered: list[tuple[str, str]],
+    paths: dict[tuple[str, str], Path],
+) -> str:
+    """SHA-256 of the summary grid's inputs — everything it draws: the
+    expansion's name, its logo and background and the ordered cells'
+    first frames (a missing card hashes a sentinel, so the grid
+    re-composes when the card appears; the labels and the animated
+    state do not enter it — the grid draws neither). Embedded under
+    :data:`nikke_reborn.SOURCE_HASH_KEY` so an unchanged grid is
+    skipped instead of re-composed."""
+    digest = hashlib.sha256()
+    hash_term(digest, exp.name.encode())
+    hash_term(digest, logo_path.read_bytes())
+    hash_term(digest, background_path.read_bytes())
+    for stem, column in ordered:
+        hash_term(digest, stem.encode())
+        hash_term(digest, column.encode())
+        path = paths[(stem, column)]
+        hash_term(digest, path.read_bytes() if path.is_file() else b"missing")
     return digest.hexdigest()
 
 
@@ -484,6 +581,16 @@ def _row_cards(
     return prefix, cards
 
 
+def _dimmed_background(background: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """The expansion's *background* fitted to *size* and dimmed toward
+    black (the sheets' canvas, so the grid and the labels read against
+    it)."""
+    canvas = expansion._fit_cover(background, size)
+    return Image.blend(
+        canvas, Image.new("RGBA", canvas.size, (0, 0, 0, 255)), 1 - BACKGROUND_DIM
+    )
+
+
 def _compose(
     entries: Sequence[expansion.CardEntry],
     columns: list[str],
@@ -586,10 +693,7 @@ def _compose(
     }
 
     height = header + label_h + COLUMN_LABEL_GAP + grid_h + MARGIN
-    canvas = expansion._fit_cover(background, (width, height))
-    canvas = Image.blend(
-        canvas, Image.new("RGBA", canvas.size, (0, 0, 0, 255)), 1 - BACKGROUND_DIM
-    )
+    canvas = _dimmed_background(background, (width, height))
     draw = ImageDraw.Draw(canvas)
 
     # --- the header's logo, the way the pack's and box's fronts render --
@@ -716,5 +820,199 @@ def _compose(
         ),
     )
 
+    _save_atomic(canvas, out_path, source_hash)
+    return canvas.size
+
+
+def _summary_dimensions(n: int) -> tuple[int, int]:
+    """The summary grid's tiling (rows, columns) for *n* cards: the
+    cells' aspect matches the cards' (the grid's then matching the
+    canvas's), so the cover fit crops only a sliver off each card, and
+    the grid holds all *n* (the tiling's empty cells past the last card
+    are split between the first and the last row, both centered — see
+    :func:`_summary_box`)."""
+    W, H = SHEET_TARGET
+    card_w, card_h = CARD_VIEWPORT
+    cols = max(1, math.ceil(math.sqrt(W * card_h * n / (H * card_w))))
+    return max(1, math.ceil(n / cols)), cols
+
+
+def _summary_box(index: int, cols: int, rows: int, n: int) -> tuple[int, int, int, int]:
+    """The box (left, top, right, bottom) of the card *index* of the
+    *cols* x *rows* tiling of :data:`SHEET_TARGET` holding *n* cards.
+    The cells split the canvas by exact integer division (they tile it
+    without gaps or overlaps). The tiling's cells past the last card —
+    its empty space — are split between the first and the last row (as
+    evenly as they divide), and each of those rows is centered, so both
+    carry the same amount of empty space and the middle rows stay full;
+    a single row centers all the cards."""
+    W, H = SHEET_TARGET
+    if rows < 2:
+        row, col = 0, (cols - n) // 2 + index
+    else:
+        empty = rows * cols - n
+        first_empty = empty // 2
+        last_empty = empty - first_empty
+        first_cards = cols - first_empty
+        last_cards = cols - last_empty
+        if index < first_cards:
+            row, col = 0, first_empty // 2 + index
+        elif index >= n - last_cards:
+            row, col = rows - 1, last_empty // 2 + (index - (n - last_cards))
+        else:
+            mid = index - first_cards
+            row, col = 1 + mid // cols, mid % cols
+    top, bottom = row * H // rows, (row + 1) * H // rows
+    left, right = col * W // cols, (col + 1) * W // cols
+    return left, top, right, bottom
+
+
+def _cover_fit(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """*image* scaled to cover *size* and center-cropped to it (no
+    letterboxing: the cell is filled edge-to-edge)."""
+    w, h = size
+    scale = max(w / image.width, h / image.height)
+    if scale != 1.0:
+        image = image.resize(
+            (round(image.width * scale), round(image.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+    left = (image.width - w) // 2
+    top = (image.height - h) // 2
+    return image.crop((left, top, left + w, top + h))
+
+
+def _rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
+    """A rounded-rectangle alpha mask for *size* (255 inside, 0 at the
+    corners) with corner *radius*: the hard-edged
+    ``ImageDraw.rounded_rectangle`` is aliased at 1x, so it is drawn
+    supersampled and downscaled (the LANCZOS downscale anti-aliases the
+    corners, the way the pages' ▶ badge is drawn)."""
+    w, h = size
+    ss = 4
+    big = Image.new("L", (w * ss, h * ss), 0)
+    ImageDraw.Draw(big).rounded_rectangle(
+        (0, 0, w * ss - 1, h * ss - 1), radius=radius * ss, fill=255
+    )
+    return big.resize((w, h), Image.Resampling.LANCZOS)
+
+
+def _summary_frame(
+    index: int,
+    key: tuple[str, str],
+    paths: dict[tuple[str, str], Path],
+    missing: set[tuple[str, str]],
+    cols: int,
+    rows: int,
+    n: int,
+) -> tuple[Image.Image | None, int, int]:
+    """One cell of the summary grid: the first frame of *key* (the card
+    *index* of the *cols* x *rows* tiling of :data:`SHEET_TARGET`
+    holding *n* cards) cover-cropped to its box (:func:`_summary_box` —
+    the empty cells split between the first and the last row, both
+    centered) and inset by half of :data:`SUMMARY_CELL_GAP` on every
+    side, so the dimmed background shows as the spacing between the
+    cards, and rounded at the corners by
+    :data:`SUMMARY_CORNER_RADIUS_FRACTION` — with its top-left corner,
+    or (None, 0, 0) for a card in *missing*. Runs in a worker thread —
+    Pillow releases the GIL in the decode, the LANCZOS resize and the
+    crop — and only ever produces its own image, never touching the
+    shared canvas (Pillow images are not thread-safe)."""
+    if key in missing:
+        return None, 0, 0
+    left, top, right, bottom = _summary_box(index, cols, rows, n)
+    # Inset the card within its cell: the inset is clamped to a quarter
+    # of the cell so tiny cells still leave a positive card box.
+    g = min(SUMMARY_CELL_GAP // 2, (right - left) // 4, (bottom - top) // 4)
+    left += g
+    top += g
+    right -= g
+    bottom -= g
+    w, h = right - left, bottom - top
+    radius = round(SUMMARY_CORNER_RADIUS_FRACTION * min(w, h))
+    with Image.open(paths[key]) as card:
+        frame = _cover_fit(card.convert("RGBA"), (w, h))
+    # The cards' alpha is opaque: the rounded mask replaces it (the
+    # multiply keeps it if a card ever carries transparency).
+    frame.putalpha(
+        ImageChops.multiply(frame.getchannel("A"), _rounded_mask((w, h), radius))
+    )
+    return frame, left, top
+
+
+def _summary_grid(
+    ordered: list[tuple[str, str]],
+    paths: dict[tuple[str, str], Path],
+    missing: set[tuple[str, str]],
+    background: Image.Image,
+    logo: Image.Image,
+    out_path: Path,
+    source_hash: str,
+) -> tuple[int, int]:
+    """Draw the summary grid: the expansion's first frames tiled
+    across :data:`SHEET_TARGET` — *ordered* (the roster's order, see
+    :func:`_ordered_cells`), each cover-cropped to its cell (the cells'
+    aspect matching the cards', so the crop is a sliver) and inset
+    within it with its corners rounded, the tiling's empty cells split
+    between the first and the last row (both centered, so they carry
+    the same empty space) — over the dimmed *background* (fitted to the
+    canvas and dimmed toward black, showing between the cards, at the
+    corners and in the cells of *missing*), with *logo* over it, at
+    the sheet's center (at :data:`SUMMARY_LOGO_FRACTION` of the
+    sheet's height, the pack's and box's fronts' treatment — see
+    ``expansion._composite_logo`` — plus a soft drop shadow behind the
+    mark) — and write it to *out_path*
+    (atomically, the *source_hash* embedded). The cells' frames are
+    decoded and cropped in parallel threads; the finished canvas is
+    assembled on the main thread. Returns the canvas's size."""
+    rows, cols = _summary_dimensions(len(ordered))
+    canvas = _dimmed_background(background, SHEET_TARGET)
+    # The logo's glow color, derived from the dimmed canvas (before the
+    # cards), the way the pack's and box's fronts derive it.
+    glow_color = expansion._background_glow_color(expansion._image_average(canvas))
+    if ordered:
+        workers = min(len(ordered), os.cpu_count() or 1, MAX_STAGE_THREADS)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            rendered = pool.map(
+                _summary_frame,
+                range(len(ordered)),
+                ordered,
+                itertools.repeat(paths),
+                itertools.repeat(missing),
+                itertools.repeat(cols),
+                itertools.repeat(rows),
+                itertools.repeat(len(ordered)),
+            )
+            for frame, left, top in rendered:
+                if frame is not None:
+                    canvas.alpha_composite(frame, (left, top))
+    # The logo's drop shadow, behind the mark: a darkened, blurred
+    # copy offset down-right, drawn before the mark so the glow and the
+    # mark composite over it. The shadow uses the mark's box (the one
+    # expansion._composite_logo scales to for mark_height), so the mark
+    # is pre-scaled to it and _composite_logo's resize is a no-op.
+    logo_h = round(SUMMARY_LOGO_FRACTION * SHEET_TARGET[1])
+    mark = logo.resize(
+        (round(logo_h * logo.width / logo.height), logo_h),
+        Image.Resampling.LANCZOS,
+    )
+    shadow, pad = expansion._logo_glow_layer(
+        mark,
+        round(SUMMARY_LOGO_SHADOW_RADIUS * SHEET_TARGET[1]),
+        (0, 0, 0),
+        SUMMARY_LOGO_SHADOW_ALPHA,
+    )
+    offset = round(SUMMARY_LOGO_SHADOW_OFFSET * SHEET_TARGET[1])
+    x = SHEET_TARGET[0] // 2 - mark.width // 2
+    y = SHEET_TARGET[1] // 2 - mark.height // 2
+    canvas.alpha_composite(shadow, (x + offset - pad, y + offset - pad))
+    expansion._composite_logo(
+        canvas,
+        mark,
+        SHEET_TARGET,
+        "center",
+        glow_color,
+        mark_height=SUMMARY_LOGO_FRACTION,
+    )
     _save_atomic(canvas, out_path, source_hash)
     return canvas.size
