@@ -45,7 +45,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import itertools
-import math
 import os
 import re
 import sys
@@ -126,7 +125,7 @@ SUMMARY_CORNER_RADIUS_FRACTION = 0.05
 #: the logo is composited over the grid, at the sheet's center, with
 #: the pack's and box's fronts' treatment (see
 #: ``expansion._composite_logo``).
-SUMMARY_LOGO_FRACTION = 1 / 3
+SUMMARY_LOGO_FRACTION = 1 / 5
 #: The summary grid's logo's drop shadow — a darkened, blurred copy of
 #: the mark, offset down-right, behind it: its blur radius and offset
 #: (sheet-height fractions) and its peak opacity.
@@ -284,19 +283,34 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
     )
     parts: list[_Part] = []
     # The summary grid: the first frames tiled across SHEET_TARGET
-    # in the roster's order, the expansion's logo at the sheet's
-    # center — no labels or footer; the tiling's empty cells past
-    # the last card are split between the first and the last row
-    # (both centered).
+    # in the roster's order, the cards flowing around the logo's
+    # keep-out at the sheet's center — no labels or footer.
     ordered = _ordered_cells(exp.cards, columns, cells)
-    summary_rows, summary_cols = _summary_dimensions(len(ordered))
+    logo_box = _summary_logo_box(
+        SHEET_TARGET[0],
+        SHEET_TARGET[1],
+        logo.width / logo.height,
+        SUMMARY_LOGO_FRACTION,
+    )
+    keep_out = _summary_keep_out(SHEET_TARGET[1])
+    summary_rows, summary_cols = _summary_dimensions(len(ordered), logo_box, keep_out)
     summary_path = preset.base / f"{exp.name}.png"
     summary_hash = _summary_source_hash(exp, logo_path, background_path, ordered, paths)
     if not force and _stored_hash(summary_path) == summary_hash:
         parts.append((summary_path, summary_rows, summary_cols, None, True))
     else:
         size = _summary_grid(
-            ordered, paths, missing, background, logo, summary_path, summary_hash
+            ordered,
+            paths,
+            missing,
+            background,
+            logo,
+            summary_path,
+            summary_hash,
+            summary_rows,
+            summary_cols,
+            logo_box,
+            keep_out,
         )
         parts.append((summary_path, summary_rows, summary_cols, size, False))
     for n, start in enumerate(range(0, len(rows), SHEET_ROWS), 1):
@@ -824,44 +838,151 @@ def _compose(
     return canvas.size
 
 
-def _summary_dimensions(n: int) -> tuple[int, int]:
-    """The summary grid's tiling (rows, columns) for *n* cards: the
-    cells' aspect matches the cards' (the grid's then matching the
-    canvas's), so the cover fit crops only a sliver off each card, and
-    the grid holds all *n* (the tiling's empty cells past the last card
-    are split between the first and the last row, both centered — see
-    :func:`_summary_box`)."""
-    W, H = SHEET_TARGET
-    card_w, card_h = CARD_VIEWPORT
-    cols = max(1, math.ceil(math.sqrt(W * card_h * n / (H * card_w))))
-    return max(1, math.ceil(n / cols)), cols
+def _summary_logo_box(
+    W: int, H: int, logo_aspect: float, f: float
+) -> tuple[int, int, int, int]:
+    """The logo's box (x0, y0, x1, y1): *f* of the sheet's height tall, its
+    width proportional, centered — the box ``expansion._composite_logo``
+    scales the mark to for ``mark_height=f`` and centers, so the void lines
+    up with the mark that gets drawn."""
+    logo_h = round(f * H)
+    logo_w = round(logo_h * logo_aspect)
+    x0 = W // 2 - logo_w // 2
+    y0 = H // 2 - logo_h // 2
+    return x0, y0, x0 + logo_w, y0 + logo_h
 
 
-def _summary_box(index: int, cols: int, rows: int, n: int) -> tuple[int, int, int, int]:
-    """The box (left, top, right, bottom) of the card *index* of the
-    *cols* x *rows* tiling of :data:`SHEET_TARGET` holding *n* cards.
-    The cells split the canvas by exact integer division (they tile it
-    without gaps or overlaps). The tiling's cells past the last card —
-    its empty space — are split between the first and the last row (as
-    evenly as they divide), and each of those rows is centered, so both
-    carry the same amount of empty space and the middle rows stay full;
-    a single row centers all the cards."""
+def _summary_keep_out(H: int) -> int:
+    """The keep-out margin (px) around the logo's box: how far the mark's
+    screen-blended glow and its drop shadow reach past the box, so the void
+    leaves the mark and its bloom and shadow card-free. The shadow is offset
+    down-right, so its far (down-right) reach is the offset plus its blur's
+    three sigma; the glow is symmetric. The larger of the two bounds both."""
+    glow = 3 * round(expansion.LOGO_GLOW_RADIUS * H)
+    shadow = round(SUMMARY_LOGO_SHADOW_OFFSET * H) + 3 * round(
+        SUMMARY_LOGO_SHADOW_RADIUS * H
+    )
+    return max(glow, shadow)
+
+
+def _summary_void(
+    rows: int, cols: int, logo_box: tuple[int, int, int, int], keep_out: int
+) -> tuple[int, int, int, int] | None:
+    """The void's (row0, row1, col0, col1) inclusive range: the cells that
+    intersect the logo's box grown by *keep_out* px on every side. The grown
+    box is a rectangle and the cells tile the canvas, so the intersecting
+    cells form a rectangle too. None when the region touches no cell (a logo
+    smaller than a cell — not the case at the sheet's scale)."""
     W, H = SHEET_TARGET
+    x0, y0, x1, y1 = logo_box
+    x0 -= keep_out
+    x1 += keep_out
+    y0 -= keep_out
+    y1 += keep_out
+    cell_w = W / cols
+    cell_h = H / rows
+    c0 = max(0, int(x0 // cell_w))
+    c1 = min(cols - 1, int((x1 - 1e-9) // cell_w))
+    r0 = max(0, int(y0 // cell_h))
+    r1 = min(rows - 1, int((y1 - 1e-9) // cell_h))
+    if r0 > r1 or c0 > c1:
+        return None
+    return r0, r1, c0, c1
+
+
+def _summary_available(
+    rows: int, cols: int, void: tuple[int, int, int, int] | None
+) -> int:
+    """The tiling's card-holding cells: every cell but the void's."""
+    if void is None:
+        return rows * cols
+    r0, r1, c0, c1 = void
+    return rows * cols - (r1 - r0 + 1) * (c1 - c0 + 1)
+
+
+def _summary_dimensions(
+    n: int, logo_box: tuple[int, int, int, int], keep_out: int
+) -> tuple[int, int]:
+    """The summary grid's tiling (rows, columns) for *n* cards flowing
+    around the logo: the smallest rows*cols (largest cells) whose
+    card-holding cells — the tiling minus the void the logo's keep-out carves
+    out of its center — hold all *n*, with each cell's aspect matching the
+    cards' (so the cover fit crops only a sliver off each card)."""
+    W, H = SHEET_TARGET
+    card_aspect = CARD_VIEWPORT[0] / CARD_VIEWPORT[1]
+    best: tuple[int, int] | None = None
+    for cols in range(15, 70):
+        base = cols * H * card_aspect / W
+        for rows in (
+            max(1, round(base) - 1),
+            max(1, round(base)),
+            max(1, round(base) + 1),
+        ):
+            if abs((W / cols) / (H / rows) - card_aspect) / card_aspect > 0.06:
+                continue
+            void = _summary_void(rows, cols, logo_box, keep_out)
+            if _summary_available(rows, cols, void) < n:
+                continue
+            if best is None or rows * cols < best[0] * best[1]:
+                best = (rows, cols)
+    if best is None:
+        raise GenerationError(f"no summary tiling fits {n} cards around the logo")
+    return best
+
+
+def _summary_positions(
+    rows: int, cols: int, n: int, void: tuple[int, int, int, int] | None
+) -> list[tuple[int, int]]:
+    """The (row, col) of each of the *n* cards, in reading order: row by row,
+    left to right, skipping the void's cells, so the cards flow around the
+    logo. The leftover empty cells (the card-holding cells past the last
+    card) are split between the first and the last row, both centered — the
+    two rows sit outside the void, so they stay full-width and center the way
+    the full grid did. Returns exactly *n* positions."""
     if rows < 2:
-        row, col = 0, (cols - n) // 2 + index
-    else:
-        empty = rows * cols - n
-        first_empty = empty // 2
-        last_empty = empty - first_empty
-        first_cards = cols - first_empty
-        last_cards = cols - last_empty
-        if index < first_cards:
-            row, col = 0, first_empty // 2 + index
-        elif index >= n - last_cards:
-            row, col = rows - 1, last_empty // 2 + (index - (n - last_cards))
+        cols0 = _row_cols(0, cols, void)
+        k = min(n, len(cols0))
+        start = (len(cols0) - k) // 2
+        return [(0, cols0[i]) for i in range(start, start + k)]
+
+    def card_cols(r: int) -> list[int]:
+        return _row_cols(r, cols, void)
+
+    avail = sum(len(card_cols(r)) for r in range(rows))
+    leftover = avail - n
+    first_empty = leftover // 2
+    last_empty = leftover - first_empty
+    positions: list[tuple[int, int]] = []
+    for r in range(rows):
+        cc = card_cols(r)
+        if r == 0:
+            k = len(cc) - first_empty
+            start = (len(cc) - k) // 2
+            positions.extend((r, cc[i]) for i in range(start, start + k))
+        elif r == rows - 1:
+            k = len(cc) - last_empty
+            start = (len(cc) - k) // 2
+            positions.extend((r, cc[i]) for i in range(start, start + k))
         else:
-            mid = index - first_cards
-            row, col = 1 + mid // cols, mid % cols
+            positions.extend((r, c) for c in cc)
+    return positions[:n]
+
+
+def _row_cols(r: int, cols: int, void: tuple[int, int, int, int] | None) -> list[int]:
+    """The card-holding columns of row *r*: every column but the void's, when
+    the row crosses the void."""
+    if void is not None:
+        r0, r1, c0, c1 = void
+        if r0 <= r <= r1:
+            return [c for c in range(cols) if c < c0 or c > c1]
+    return list(range(cols))
+
+
+def _cell_box(row: int, col: int, rows: int, cols: int) -> tuple[int, int, int, int]:
+    """The box (left, top, right, bottom) of the cell (row, col) of the
+    rows x cols tiling of :data:`SHEET_TARGET`: the cells split the canvas by
+    exact integer division (they tile it without gaps or overlaps)."""
+    W, H = SHEET_TARGET
     top, bottom = row * H // rows, (row + 1) * H // rows
     left, right = col * W // cols, (col + 1) * W // cols
     return left, top, right, bottom
@@ -898,29 +1019,25 @@ def _rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
 
 
 def _summary_frame(
-    index: int,
+    pos: tuple[int, int],
     key: tuple[str, str],
     paths: dict[tuple[str, str], Path],
     missing: set[tuple[str, str]],
-    cols: int,
     rows: int,
-    n: int,
+    cols: int,
 ) -> tuple[Image.Image | None, int, int]:
-    """One cell of the summary grid: the first frame of *key* (the card
-    *index* of the *cols* x *rows* tiling of :data:`SHEET_TARGET`
-    holding *n* cards) cover-cropped to its box (:func:`_summary_box` —
-    the empty cells split between the first and the last row, both
-    centered) and inset by half of :data:`SUMMARY_CELL_GAP` on every
-    side, so the dimmed background shows as the spacing between the
-    cards, and rounded at the corners by
-    :data:`SUMMARY_CORNER_RADIUS_FRACTION` — with its top-left corner,
-    or (None, 0, 0) for a card in *missing*. Runs in a worker thread —
-    Pillow releases the GIL in the decode, the LANCZOS resize and the
-    crop — and only ever produces its own image, never touching the
-    shared canvas (Pillow images are not thread-safe)."""
+    """One cell of the summary grid: the first frame of *key* (at the
+    tiling's cell *pos*, see :func:`_summary_positions`) cover-cropped to
+    its box and inset by half of :data:`SUMMARY_CELL_GAP` on every side, so
+    the dimmed background shows as the spacing between the cards, and rounded
+    at the corners by :data:`SUMMARY_CORNER_RADIUS_FRACTION` — with its
+    top-left corner, or (None, 0, 0) for a card in *missing*. Runs in a worker
+    thread — Pillow releases the GIL in the decode, the LANCZOS resize and the
+    crop — and only ever produces its own image, never touching the shared
+    canvas (Pillow images are not thread-safe)."""
     if key in missing:
         return None, 0, 0
-    left, top, right, bottom = _summary_box(index, cols, rows, n)
+    left, top, right, bottom = _cell_box(pos[0], pos[1], rows, cols)
     # Inset the card within its cell: the inset is clamped to a quarter
     # of the cell so tiny cells still leave a positive card box.
     g = min(SUMMARY_CELL_GAP // 2, (right - left) // 4, (bottom - top) // 4)
@@ -948,24 +1065,30 @@ def _summary_grid(
     logo: Image.Image,
     out_path: Path,
     source_hash: str,
+    rows: int,
+    cols: int,
+    logo_box: tuple[int, int, int, int],
+    keep_out: int,
 ) -> tuple[int, int]:
     """Draw the summary grid: the expansion's first frames tiled
     across :data:`SHEET_TARGET` — *ordered* (the roster's order, see
     :func:`_ordered_cells`), each cover-cropped to its cell (the cells'
     aspect matching the cards', so the crop is a sliver) and inset
-    within it with its corners rounded, the tiling's empty cells split
-    between the first and the last row (both centered, so they carry
-    the same empty space) — over the dimmed *background* (fitted to the
-    canvas and dimmed toward black, showing between the cards, at the
-    corners and in the cells of *missing*), with *logo* over it, at
-    the sheet's center (at :data:`SUMMARY_LOGO_FRACTION` of the
-    sheet's height, the pack's and box's fronts' treatment — see
+    within it with its corners rounded, the cards flowing around the
+    logo's keep-out (the void at the sheet's center) and the leftover
+    empty cells split between the first and the last row (both
+    centered) — over the dimmed *background* (fitted to the canvas and
+    dimmed toward black, showing between the cards, at the corners,
+    in the void and in the cells of *missing*), with *logo* over the
+    void, at the sheet's center (at :data:`SUMMARY_LOGO_FRACTION` of
+    the sheet's height, the pack's and box's fronts' treatment — see
     ``expansion._composite_logo`` — plus a soft drop shadow behind the
     mark) — and write it to *out_path*
     (atomically, the *source_hash* embedded). The cells' frames are
     decoded and cropped in parallel threads; the finished canvas is
     assembled on the main thread. Returns the canvas's size."""
-    rows, cols = _summary_dimensions(len(ordered))
+    void = _summary_void(rows, cols, logo_box, keep_out)
+    positions = _summary_positions(rows, cols, len(ordered), void)
     canvas = _dimmed_background(background, SHEET_TARGET)
     # The logo's glow color, derived from the dimmed canvas (before the
     # cards), the way the pack's and box's fronts derive it.
@@ -975,13 +1098,12 @@ def _summary_grid(
         with ThreadPoolExecutor(max_workers=workers) as pool:
             rendered = pool.map(
                 _summary_frame,
-                range(len(ordered)),
+                positions,
                 ordered,
                 itertools.repeat(paths),
                 itertools.repeat(missing),
-                itertools.repeat(cols),
                 itertools.repeat(rows),
-                itertools.repeat(len(ordered)),
+                itertools.repeat(cols),
             )
             for frame, left, top in rendered:
                 if frame is not None:
