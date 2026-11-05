@@ -1,0 +1,350 @@
+[
+ {
+  "name": "No Caller ID",
+  "date": "2022-11-10"
+ },
+ {
+  "name": "Hightech Toy",
+  "date": "2022-11-24"
+ },
+ {
+  "name": "Miracle Snow",
+  "date": "2022-12-08"
+ },
+ {
+  "name": "Brand New Year",
+  "date": "2022-12-28"
+ },
+ {
+  "name": "D-Outsiders",
+  "date": "2023-01-12"
+ },
+ {
+  "name": "Maid in Valentine",
+  "date": "2023-02-01"
+ },
+ {
+  "name": "BULLET X CHAINSAW",
+  "date": "2023-02-22"
+ },
+ {
+  "name": "Bow-Wow Paradise",
+  "date": "2023-03-15"
+ },
+ {
+  "name": "Cherry Blossom",
+  "date": "2023-03-30"
+ },
+ {
+  "name": "Full Fool Day",
+  "date": "2023-04-01"
+ },
+ {
+  "name": "License to Kill",
+  "date": "2023-04-13"
+ },
+ {
+  "name": "Over Zone",
+  "date": "2023-04-27"
+ },
+ {
+  "name": "Bunny X 777",
+  "date": "2023-05-18"
+ },
+ {
+  "name": "Queen's Order",
+  "date": "2023-06-01"
+ },
+ {
+  "name": "Blue Water Island",
+  "date": "2023-06-15"
+ },
+ {
+  "name": "Nya Nya Paradise",
+  "date": "2023-07-06"
+ },
+ {
+  "name": "Golden Ship",
+  "date": "2023-07-20"
+ },
+ {
+  "name": "Sea, You, Again",
+  "date": "2023-08-03"
+ },
+ {
+  "name": "First Affection",
+  "date": "2023-08-24"
+ },
+ {
+  "name": "OuteR: Automata",
+  "date": "2023-09-01"
+ },
+ {
+  "name": "School of Lock",
+  "date": "2023-09-21"
+ },
+ {
+  "name": "Dazzling Cupid",
+  "date": "2023-10-05"
+ },
+ {
+  "name": "A.C.P.U.! FREEZE!",
+  "date": "2023-10-19"
+ },
+ {
+  "name": "Happy 1st Anniversary",
+  "date": "2023-11-02"
+ },
+ {
+  "name": "Red Ash",
+  "date": "2023-11-02"
+ },
+ {
+  "name": "Alone Survivor",
+  "date": "2023-11-23"
+ },
+ {
+  "name": "NEVERLAND",
+  "date": "2023-12-07"
+ },
+ {
+  "name": "New Year, New Sword",
+  "date": "2023-12-28"
+ },
+ {
+  "name": "Lion Heart",
+  "date": "2024-01-11"
+ },
+ {
+  "name": "Dirty Backyard",
+  "date": "2024-01-25"
+ },
+ {
+  "name": "Perfect Maid",
+  "date": "2024-02-05"
+ },
+ {
+  "name": "Booms Day",
+  "date": "2024-02-22"
+ },
+ {
+  "name": "Kill the Lord",
+  "date": "2024-03-07"
+ },
+ {
+  "name": "Re:CIPE FOR YOU",
+  "date": "2024-03-21"
+ },
+ {
+  "name": "Liar's End",
+  "date": "2024-04-01"
+ },
+ {
+  "name": "One More Time",
+  "date": "2024-04-11"
+ },
+ {
+  "name": "Last Kingdom",
+  "date": "2024-04-25"
+ },
+ {
+  "name": "D.ark Hero",
+  "date": "2024-05-16"
+ },
+ {
+  "name": "Golden Coin Rush",
+  "date": "2024-05-30"
+ },
+ {
+  "name": "Clay, More!",
+  "date": "2024-06-20"
+ },
+ {
+  "name": "Beauty Full Shot",
+  "date": "2024-07-04"
+ },
+ {
+  "name": "Juvenile Days",
+  "date": "2024-07-25"
+ },
+ {
+  "name": "Colorless",
+  "date": "2024-08-08"
+ },
+ {
+  "name": "You Can (Not) Evade",
+  "date": "2024-08-21"
+ },
+ {
+  "name": "Jinx Player",
+  "date": "2024-09-19"
+ },
+ {
+  "name": "Nonsense Red",
+  "date": "2024-09-19"
+ },
+ {
+  "name": "Phantom Thief vs Detective",
+  "date": "2024-10-03"
+ },
+ {
+  "name": "Life Again",
+  "date": "2024-10-17"
+ },
+ {
+  "name": "Old Tales (event)",
+  "date": "2024-10-31"
+ },
+ {
+  "name": "Secret Garden",
+  "date": "2024-11-21"
+ },
+ {
+  "name": "Ice Dragon Saga",
+  "date": "2024-12-05"
+ },
+ {
+  "name": "Footstep, Walk, Run",
+  "date": "2024-12-26"
+ },
+ {
+  "name": "Out of Uniform",
+  "date": "2025-01-01"
+ },
+ {
+  "name": "Wisdom Spring",
+  "date": "2025-01-16"
+ },
+ {
+  "name": "Romantic Valentine",
+  "date": "2025-01-30"
+ },
+ {
+  "name": "Second Quest",
+  "date": "2025-02-20"
+ },
+ {
+  "name": "For Rest",
+  "date": "2025-03-13"
+ },
+ {
+  "name": "New Flavor",
+  "date": "2025-03-27"
+ },
+ {
+  "name": "Fool Burst Day",
+  "date": "2025-04-01"
+ },
+ {
+  "name": "True Flavor",
+  "date": "2025-04-10"
+ },
+ {
+  "name": "Unbreakable Sphere",
+  "date": "2025-04-24"
+ },
+ {
+  "name": "Arcane Archive",
+  "date": "2025-05-15"
+ },
+ {
+  "name": "Lord, for Justice",
+  "date": "2025-05-29"
+ },
+ {
+  "name": "Memories Teller",
+  "date": "2025-06-12"
+ },
+ {
+  "name": "Over the Horizon (event)",
+  "date": "2025-07-03"
+ },
+ {
+  "name": "Boom! The Ghost!",
+  "date": "2025-07-17"
+ },
+ {
+  "name": "ABSOLUTE",
+  "date": "2025-08-07"
+ },
+ {
+  "name": "Coins in Rush",
+  "date": "2025-09-04"
+ },
+ {
+  "name": "Reborn Evil",
+  "date": "2025-09-24"
+ },
+ {
+  "name": "Yes, My Commander",
+  "date": "2025-10-16"
+ },
+ {
+  "name": "Goddess Fall (event)",
+  "date": "2025-10-30"
+ },
+ {
+  "name": "Blank Ticket",
+  "date": "2025-11-20"
+ },
+ {
+  "name": "Terminus Ticket",
+  "date": "2025-12-04"
+ },
+ {
+  "name": "Ark Guardian",
+  "date": "2025-12-30"
+ },
+ {
+  "name": "Sin Editor",
+  "date": "2026-01-15"
+ },
+ {
+  "name": "Fatal Maid",
+  "date": "2026-01-29"
+ },
+ {
+  "name": "B-Side Idol",
+  "date": "2026-05-14"
+ },
+ {
+  "name": "Bitter Spice",
+  "date": "2026-05-28"
+ },
+ {
+  "name": "Ark Ranger",
+  "date": "2026-06-11"
+ },
+ {
+  "name": "Wave to You",
+  "date": "2026-07-02"
+ },
+ {
+  "name": "Project Matis",
+  "date": "2026-07-23"
+ },
+ {
+  "name": "Persona on Frontline",
+  "date": "2026-08-12"
+ },
+ {
+  "name": "Great Villain Union",
+  "date": "2026-09-03"
+ },
+ {
+  "name": "Coin Rush Showdown",
+  "date": "2026-09-17"
+ },
+ {
+  "name": "Little Witch Trick",
+  "date": "2026-10-08"
+ },
+ {
+  "name": "Most Beautiful Maid",
+  "date": "2026-10-08"
+ },
+ {
+  "name": "MARIA-n",
+  "date": "2026-10-29"
+ }
+]
