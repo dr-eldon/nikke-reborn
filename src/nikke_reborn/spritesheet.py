@@ -21,8 +21,9 @@ its column positions across them.
 
 Besides the pages, the run writes the summary grid — ``<set>.png``,
 :data:`SHEET_TARGET`: every first frame tiled across the whole canvas
-in the roster's order (each character's presentations in the
-expansion's rarity order), each card's corners rounded, the tiling's
+in a randomized order (a deterministic shuffle seeded by the
+expansion's name, so the same roster always lays out the same way),
+each card's corners rounded, the tiling's
 empty cells past the last card split between the first and the last row
 (both centered, so they carry the same empty space), and the
 expansion's logo at the sheet's center — no labels, no footer.
@@ -46,6 +47,7 @@ import argparse
 import hashlib
 import itertools
 import os
+import random
 import re
 import sys
 from collections.abc import Sequence
@@ -110,7 +112,7 @@ ROW_HEIGHT = 160
 #: label column is sized from the full roster's labels).
 SHEET_ROWS = 20
 #: The summary grid's canvas (px): every first frame tiled
-#: across it, in the roster's order, the dimmed background
+#: across it, in a randomized order, the dimmed background
 #: showing between the cards.
 SHEET_TARGET = (3840, 2160)
 #: The spacing between the summary grid's cards (px): each card is
@@ -283,7 +285,7 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
     )
     parts: list[_Part] = []
     # The summary grid: the first frames tiled across SHEET_TARGET
-    # in the roster's order, the cards flowing around the logo's
+    # in a randomized order, the cards flowing around the logo's
     # keep-out at the sheet's center — no labels or footer.
     ordered = _ordered_cells(exp.cards, columns, cells)
     logo_box = _summary_logo_box(
@@ -299,8 +301,12 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
     if not force and _stored_hash(summary_path) == summary_hash:
         parts.append((summary_path, summary_rows, summary_cols, None, True))
     else:
+        # The cards' display order: a deterministic shuffle of the roster's
+        # order (seeded by the expansion's name), so the same roster lays out
+        # the same way on every rebuild — the sheet's byte protocol.
+        display = _shuffled_cells(ordered, exp.name)
         size = _summary_grid(
-            ordered,
+            display,
             paths,
             missing,
             background,
@@ -374,13 +380,26 @@ def _ordered_cells(
 ) -> list[tuple[str, str]]:
     """The grid's cells as a flat sequence in the roster's order (each
     character's presentations in the expansion's rarity order) — the
-    order the summary grid tiles them."""
+    canonical order the summary's source hash is taken over."""
     return [
         (stem, column)
         for stem in (entry.stem for entry in entries)
         for column in columns
         if (stem, column) in cells
     ]
+
+
+def _shuffled_cells(cells: list[tuple[str, str]], seed: str) -> list[tuple[str, str]]:
+    """A deterministic shuffle of *cells*, seeded by *seed* (the expansion's
+    name): the summary grid's display order. Seeded (not fresh randomness) so
+    the same roster lays out identically on every rebuild — a fresh seed would
+    re-shuffle the sheet and break its byte-for-byte determinism. A string seed
+    is hashed with SHA-512 by ``random.Random``, so it is stable across runs
+    and platforms (unlike the built-in ``hash``)."""
+    rng = random.Random(seed)
+    out = list(cells)
+    rng.shuffle(out)
+    return out
 
 
 def _card_aspect() -> float:
@@ -1058,7 +1077,7 @@ def _summary_frame(
 
 
 def _summary_grid(
-    ordered: list[tuple[str, str]],
+    display: list[tuple[str, str]],
     paths: dict[tuple[str, str], Path],
     missing: set[tuple[str, str]],
     background: Image.Image,
@@ -1071,8 +1090,9 @@ def _summary_grid(
     keep_out: int,
 ) -> tuple[int, int]:
     """Draw the summary grid: the expansion's first frames tiled
-    across :data:`SHEET_TARGET` — *ordered* (the roster's order, see
-    :func:`_ordered_cells`), each cover-cropped to its cell (the cells'
+    across :data:`SHEET_TARGET` — *display* (the cards' randomized
+    display order, see :func:`_shuffled_cells`), each cover-cropped to
+    its cell (the cells'
     aspect matching the cards', so the crop is a sliver) and inset
     within it with its corners rounded, the cards flowing around the
     logo's keep-out (the void at the sheet's center) and the leftover
@@ -1088,18 +1108,18 @@ def _summary_grid(
     decoded and cropped in parallel threads; the finished canvas is
     assembled on the main thread. Returns the canvas's size."""
     void = _summary_void(rows, cols, logo_box, keep_out)
-    positions = _summary_positions(rows, cols, len(ordered), void)
+    positions = _summary_positions(rows, cols, len(display), void)
     canvas = _dimmed_background(background, SHEET_TARGET)
     # The logo's glow color, derived from the dimmed canvas (before the
     # cards), the way the pack's and box's fronts derive it.
     glow_color = expansion._background_glow_color(expansion._image_average(canvas))
-    if ordered:
-        workers = min(len(ordered), os.cpu_count() or 1, MAX_STAGE_THREADS)
+    if display:
+        workers = min(len(display), os.cpu_count() or 1, MAX_STAGE_THREADS)
         with ThreadPoolExecutor(max_workers=workers) as pool:
             rendered = pool.map(
                 _summary_frame,
                 positions,
-                ordered,
+                display,
                 itertools.repeat(paths),
                 itertools.repeat(missing),
                 itertools.repeat(rows),
