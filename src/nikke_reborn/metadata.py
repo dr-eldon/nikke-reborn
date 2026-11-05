@@ -2,7 +2,6 @@ import json
 import math
 
 from nikke_reborn import expansion as expansion_mod
-from nikke_reborn import card as card_mod
 from nikke_reborn.config import (
     BOX_MESH,
     IMAGES_DIR,
