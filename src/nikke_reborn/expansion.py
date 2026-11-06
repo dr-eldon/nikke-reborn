@@ -36,6 +36,7 @@ import colorsys
 import hashlib
 import io
 import json
+import re
 import subprocess
 import tomllib
 import unicodedata
@@ -531,9 +532,11 @@ def load_expansion(path: Path) -> Expansion:
 
 
 def is_event(char_id: str) -> bool:
-    """True when the id is an event illustration CG (not a character: it
-    does not start with ``c``)."""
-    return not char_id.startswith("c")
+    """True when the id is not a character's — ``c`` plus a number, its
+    sub-flavor suffix optional; event CG ids may start with ``c``
+    themselves (``cherryblossom``), so the prefix alone does not
+    classify."""
+    return not re.fullmatch(r"c\d+(_\d+)?", char_id)
 
 
 def is_nikke_logo(expansion: Expansion) -> bool:
