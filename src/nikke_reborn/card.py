@@ -203,14 +203,14 @@ def build_selection(
     expansion's ``rarities`` subset, the ``Goddess`` presentation dropped
     when the character carries no ``sc`` variant, the ``CoverProfile`` and
     ``AimProfile`` presentations dropped when the character lacks the
-    corresponding variant, the two ``Special`` presentations dropped when
-    the character has no reel animation and the two ``Exotic``
-    presentations dropped when the character has no ``action`` animation),
+    corresponding variant, the ``Special`` and ``Rare`` presentations
+    dropped when the character has no reel animation and the ``Exotic``
+    presentation dropped when the character has no ``action`` animation),
     filtered to the characters the caller named when *ids* is given (an id
     that is not in an expansion's roster errors, naming the known ids).
     Every selected character is resolved against the viewer (its variants,
-    its reel's animation) before the run starts, so a character that cannot
-    render a presentation fails before anything is rendered."""
+    its reel's animations) before the run starts, so a character that
+    cannot render a presentation fails before anything is rendered."""
     if ids:
         known: dict[str, set[str]] = {
             e.name: {c.id for c in e.cards} for e in expansions

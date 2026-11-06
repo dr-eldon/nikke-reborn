@@ -119,19 +119,22 @@ REEL = "reel"
 
 #: The photo reel's candidate animations (the first
 #: :data:`PROFILE_REEL_COUNT` the character has, in this order, become
-#: the reel's stills) and the ``Special`` presentations' animation (the
-#: first the character has).
+#: the reel's stills) and the reel presentations' animations (the
+#: ``Special`` presentations' the first the character has, the
+#: ``Rare`` presentation's the second — the first, when the character
+#: has only one).
 PROFILE_REEL_ANIMATIONS = (
-    "think",
-    "smile",
+    "special",
+    "special_02",
     "shy",
-    "no",
+    "good",
     "delight",
     "surprise",
     "surprised",
-    "special_02",
-    "special",
+    "smile",
+    "think",
     "serious",
+    "no",
     "etc",
     "angry",
     "worry",
@@ -316,15 +319,14 @@ class CharacterInfo:
     """What the viewer reports for one character: the variants it renders
     (the ``sc`` variant decides the goddess presentation, the
     ``cover``/``aim`` ones the cover/aim profiles), the animations (the
-    ``action`` one decides the exotic presentations) and the
-    profile-reel's animation (the first of
-    :data:`PROFILE_REEL_ANIMATIONS` it has — the ``Special``
-    presentations' animation; a character with none has no
-    ``Special`` presentations)."""
+    ``action`` one decides the exotic presentations) and the reel's
+    animations (the character's available ones, in
+    :data:`PROFILE_REEL_ANIMATIONS`' order — a character with none has
+    no reel, so no ``Special`` or ``Rare`` presentations)."""
 
     variants: frozenset[str]
     animations: frozenset[str]
-    reel: str | None
+    reel: tuple[str, ...]
 
 
 # --- the game's data ----------------------------------------------------------
@@ -863,15 +865,14 @@ def resolve_character(entry: CardEntry) -> CharacterInfo:
     process, see :func:`_character_lists`): its variants (the ``sc`` variant
     decides the goddess presentation, the ``cover``/``aim`` ones the
     cover/aim profiles), its animations (the ``action`` one decides the
-    exotic presentations) and the profile-reel's animation —
-    the first of :data:`PROFILE_REEL_ANIMATIONS` the character has, which
-    the ``Special`` presentations run. A character with no reel animation
-    has no reel, so its ``Special`` presentations are dropped (see
+    exotic presentations) and the reel's animations —
+    :data:`PROFILE_REEL_ANIMATIONS` the character has, in the list's
+    order. A character with no reel animation has no reel, so its
+    ``Special`` and ``Rare`` presentations are dropped (see
     :func:`presentations_for`), mirroring the ``sc``/goddess skip."""
     variants, available = _character_lists(entry.id)
-    reel = next(
-        (animation for animation in PROFILE_REEL_ANIMATIONS if animation in available),
-        None,
+    reel = tuple(
+        animation for animation in PROFILE_REEL_ANIMATIONS if animation in available
     )
     return CharacterInfo(variants=variants, animations=available, reel=reel)
 
@@ -897,12 +898,13 @@ def presentations_for(
     ``cards`` entry drops — its ``false`` entries — the ``Goddess``
     presentation dropped when the character carries no ``sc`` variant,
     the ``CoverProfile`` and ``AimProfile`` presentations dropped when
-    the character lacks the corresponding variant, the two ``Special``
-    presentations dropped when the character has no reel animation and
-    the two ``Exotic`` presentations dropped when the character has no
-    ``action`` animation), the ``Special`` presentations' animation
-    resolved to the reel's pick and the character's per-presentation
-    ``animation`` override applied on top. An event (an id that is not a
+    the character lacks the corresponding variant, the ``Special`` and
+    ``Rare`` presentations dropped when the character has no reel
+    animation and the ``Exotic`` presentation dropped when the character
+    has no ``action`` animation), the reel presentations' animations
+    resolved to the reel's picks (see :data:`PROFILE_REEL_ANIMATIONS`)
+    and the character's per-presentation ``animation`` override applied
+    on top. An event (an id that is not a
     character) is a single full-art presentation at the set's highest
     presentation: its ``models.json`` name, that presentation's
     background and its top-level override (its framing and animation)."""
@@ -942,9 +944,10 @@ def presentations_for(
         if animation == "action" and "action" not in info.animations:
             continue  # no action animation: the exotic presentations are skipped
         if animation == REEL:
-            if info.reel is None:
-                continue  # no reel: the Special presentation is skipped
-            animation = info.reel
+            if not info.reel:
+                continue  # no reel: the presentation is skipped
+            pick = 1 if name == "Rare" and len(info.reel) > 1 else 0
+            animation = info.reel[pick]
         overrides = entry.overrides.get(name) or {}
         presentations.append(
             Presentation(
