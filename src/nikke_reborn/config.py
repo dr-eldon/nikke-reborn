@@ -57,11 +57,11 @@ ITEM_VIEWER_HEIGHT = 1024
 PACK_TEMPLATE = IMAGES_DIR / "CardPack_Material.png"
 PACK_MATERIAL_NAME = "CardPack_Material.png"
 PACK_ITEM_NAME = "CardPack_Item.png"
-PACK_MESH = MESHES_DIR / "CardPackStatic_Mesh.obj"
+PACK_MESH = MESHES_DIR / "CardPackStatic_Mesh_low.obj"
 
 #: The pack item's viewer configuration (model rotation and camera
 #: zoom/pan, exported by the viewer's GUI).
-PACK_CONFIG = MESHES_DIR / "CardPackStatic_Mesh.json"
+PACK_CONFIG = MESHES_DIR / "CardPackStatic_Mesh_low.json"
 
 
 #: The box's material template: its mask rectangles mark the paste
