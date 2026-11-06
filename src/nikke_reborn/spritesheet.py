@@ -156,6 +156,11 @@ DOMINANT_SAMPLE_WIDTH = 160
 DOMINANT_PALETTE_SIZE = 12
 #: The row-label color.
 LABEL_COLOR = (235, 238, 245)
+#: The labels' black trail's offset, as a fraction of the label font's
+#: size: each label draws a black copy offset down-right behind it —
+#: the header logo's tight trail (``expansion.LOGO_TRAIL``) at label
+#: scale.
+LABEL_TRAIL_FRACTION = 0.08
 #: The column-label font sizes tried, largest first: the first whose
 #: longest label fits the cell's width is used.
 COLUMN_LABEL_SIZES = (24, 22, 20, 18, 16, 14, 12, 10)
@@ -689,13 +694,15 @@ def _compose(
     label_w: int,
 ) -> tuple[int, int]:
     """Draw one sheet image — the logo header (the logo with the pack's
-    and box's glow and trail treatment), the column labels, the label
-    column and the rows of first frames (the animated cards' cells
-    marked with a white ▶ in a black circle, a black *MISSING_TEXT*
-    placeholder box for the cells in *missing*, and a legend — the
-    badge and ``= Animated`` — in the top-right corner) — over the
-    expansion's *background* (resized to cover the canvas without
-    deformation, bottom edges aligned, and dimmed toward black), on a
+    and box's glow and trail treatment), the column labels and the
+    label column (each label with a black trail — see
+    :data:`LABEL_TRAIL_FRACTION`) and the rows of first frames (the
+    animated cards' cells marked with a white ▶ in a black circle, a
+    black *MISSING_TEXT* placeholder box for the cells in *missing*,
+    and a legend — the badge and ``= Animated`` — in the top-right
+    corner) — over the expansion's *background* (resized to cover the
+    canvas without deformation, bottom edges aligned, and dimmed), on
+    a
     canvas fitted to its content, the cards' copyright line (a bit
     smaller) in white at the bottom left, and write it to *out_path*
     (atomically, the *source_hash* embedded). *entries* is the image's
@@ -803,10 +810,19 @@ def _compose(
     grid_y = header + label_h + COLUMN_LABEL_GAP
 
     # --- the column labels: each rarity centered over its column ---------
+    col_trail = max(1, round(col_font.size * LABEL_TRAIL_FRACTION))
     for j, label in enumerate(col_labels):
         x = grid_x + j * (cell_w + CELL_GAP) + cell_w // 2
+        y = header + label_h // 2
         draw.text(
-            (x, header + label_h // 2),
+            (x + col_trail, y + col_trail),
+            label,
+            font=col_font,
+            fill=(0, 0, 0),
+            anchor="mm",
+        )
+        draw.text(
+            (x, y),
             label,
             font=col_font,
             fill=LABEL_COLOR,
@@ -829,6 +845,7 @@ def _compose(
 
     # --- the rows: rendered in worker threads, assembled on the main ----
     workers = min(len(rows), os.cpu_count() or 1, MAX_STAGE_THREADS)
+    row_trail = max(1, round(font.size * LABEL_TRAIL_FRACTION))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         rendered = pool.map(
             _row_cards,
@@ -841,6 +858,13 @@ def _compose(
         )
         for i, (prefix, cards) in enumerate(rendered):
             y = grid_y + i * (cell_h + CELL_GAP)
+            draw.text(
+                (x0 + row_trail, y + cell_h // 2 + row_trail),
+                labels[i],
+                font=font,
+                fill=(0, 0, 0),
+                anchor="lm",
+            )
             draw.text(
                 (x0, y + cell_h // 2),
                 labels[i],
