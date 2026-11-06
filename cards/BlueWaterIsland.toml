@@ -130,7 +130,7 @@ cards = [
     { id = "story2201" },
     { id = "story2202" },
     { id = "story2206" },
-    { id = "whitememory1" },
+    { id = "whitememory1", animation = "skillcut_1" },
     { id = "whitememory2" },
     { id = "queensorder" },
     { id = "bluewaterisland" },
