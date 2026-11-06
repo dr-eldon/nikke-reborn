@@ -1,6 +1,6 @@
 """Compose an expansion's sprite sheet: an overview of all its rendered
 cards, fitted to the grid — over the expansion's background (dimmed
-toward black so the grid reads against it).
+so the grid reads against it).
 
 The sheet composites the finished first frames
 (``output/<set>/<stem>_<rarity index>_<presentation>.png``) into a
@@ -54,7 +54,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
 
 from nikke_reborn import card, expansion
 from nikke_reborn.config import (
@@ -138,9 +138,22 @@ SUMMARY_LOGO_SHADOW_ALPHA = 0.9
 LABEL_GAP = 32
 #: The gutter between the grid's cells.
 CELL_GAP = 8
-#: The fraction of the background's brightness kept (the background is
-#: dimmed toward black so the grid and the labels read against it).
-BACKGROUND_DIM = 0.45
+#: The fraction of the background kept through the dim (the rest
+#: fading toward the dim's target — the background's own dominant
+#: color; see :data:`DOMINANT_TARGET_FRACTION`) so the grid and the
+#: labels read against it.
+BACKGROUND_DIM = 0.5
+#: The dim's target's brightness, as a fraction of the dominant
+#: color's own: the fade settles into the scene's own color instead
+#: of black — black muddies the dimmed colors toward brown and gray.
+DOMINANT_TARGET_FRACTION = 1.0
+#: The downsample's width (the height follows the aspect) and the
+#: palette size the dominant color is computed from: the downsample
+#: keeps the quantize cheap on the sheet's canvases, the small
+#: palette keeps the winning cluster the scene's dominant tone rather
+#: than a detail.
+DOMINANT_SAMPLE_WIDTH = 160
+DOMINANT_PALETTE_SIZE = 12
 #: The row-label color.
 LABEL_COLOR = (235, 238, 245)
 #: The column-label font sizes tried, largest first: the first whose
@@ -618,13 +631,45 @@ def _row_cards(
     return prefix, cards
 
 
+def _dominant_color(image: Image.Image) -> tuple[int, int, int]:
+    """The image's dominant color: the largest cluster of its
+    :data:`DOMINANT_PALETTE_SIZE`-color quantized palette, computed on
+    a :data:`DOMINANT_SAMPLE_WIDTH` downsample. Taken from the image
+    itself (not a fitted crop) so every sheet image of a set — each a
+    different crop — fades toward the same target."""
+    height = max(1, round(image.height * DOMINANT_SAMPLE_WIDTH / image.width))
+    sample = image.convert("RGB").resize(
+        (DOMINANT_SAMPLE_WIDTH, height), Image.Resampling.LANCZOS
+    )
+    counts = sample.quantize(DOMINANT_PALETTE_SIZE).convert("RGB").getcolors()
+    return max(counts, key=lambda entry: entry[0])[1]
+
+
+def _fade_target(image: Image.Image) -> tuple[int, int, int]:
+    """The dim's fade target: the image's dominant color scaled to
+    :data:`DOMINANT_TARGET_FRACTION` of its own brightness (the color
+    the fade settles into — an all-black image fades to black)."""
+    return tuple(round(c * DOMINANT_TARGET_FRACTION) for c in _dominant_color(image))
+
+
 def _dimmed_background(background: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """The expansion's *background* fitted to *size* and dimmed toward
-    black (the sheets' canvas, so the grid and the labels read against
-    it)."""
+    """The expansion's *background* fitted to *size*, autocontrasted
+    (the dim would otherwise crush its range), and faded toward its
+    own dominant color (see :func:`_fade_target`) with
+    :data:`BACKGROUND_DIM` of it kept — the sheets' canvas, so the
+    grid and the labels read against it."""
     canvas = expansion._fit_cover(background, size)
+    # autocontrast takes no alpha — stretch the RGB, then restore the
+    # channel.
+    alpha = canvas.getchannel("A")
+    canvas = ImageOps.autocontrast(
+        canvas.convert("RGB"), cutoff=(10, 0), preserve_tone=True
+    )
+    canvas.putalpha(alpha)
     return Image.blend(
-        canvas, Image.new("RGBA", canvas.size, (0, 0, 0, 255)), 1 - BACKGROUND_DIM
+        canvas,
+        Image.new("RGBA", canvas.size, _fade_target(background) + (255,)),
+        1 - BACKGROUND_DIM,
     )
 
 
