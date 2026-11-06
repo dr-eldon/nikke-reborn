@@ -85,6 +85,15 @@ def back_size() -> tuple[int, int]:
     return rect[2] - rect[0], rect[3] - rect[1]
 
 
+def _nikke_logo_size(size: tuple[int, int]) -> tuple[int, int]:
+    """The stamped mark's (width, height) at the pack front's *size*:
+    its width is a fraction of the front's width, its height
+    proportional (see :data:`PACK_LOGO_WIDTH`)."""
+    with Image.open(PACK_LOGO) as opened:
+        logo_w = round(PACK_LOGO_WIDTH * size[0])
+        return logo_w, round(logo_w * opened.height / opened.width)
+
+
 def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
     """Composite the white logo onto *front* at *rect* (its own bounds
     when placed on the front itself; right and bottom exclusive): its
@@ -94,13 +103,9 @@ def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
     place."""
     left, top, right, bottom = rect
     rw, rh = right - left, bottom - top
+    logo_w, logo_h = _nikke_logo_size((rw, rh))
     with Image.open(PACK_LOGO) as opened:
-        logo = opened.convert("RGBA")
-    logo_w = round(PACK_LOGO_WIDTH * rw)
-    logo = logo.resize(
-        (logo_w, round(logo_w * logo.height / logo.width)),
-        Image.Resampling.LANCZOS,
-    )
+        logo = opened.convert("RGBA").resize((logo_w, logo_h), Image.Resampling.LANCZOS)
     front.alpha_composite(
         logo, (left + (rw - logo_w) // 2, top + round(PACK_LOGO_TOP * rh))
     )
@@ -124,10 +129,11 @@ def back_source_hash(exp: expansion.Expansion) -> str:
 
 def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
     """The pack front: the shared front composition with the pack's
-    background fit and white NIKKE logo — or, when the expansion's logo
-    is the NIKKE logo itself, the expansion's logo at the top (the NIKKE
-    logo's slot), in memory (the material's right rectangle, never
-    written to disk)."""
+    background fit, the expansion's logo covering the NIKKE logo (no
+    smaller in either dimension) and the white NIKKE logo — or, when
+    the expansion's logo is the NIKKE logo itself, the expansion's
+    logo at the top (the NIKKE logo's slot), in memory (the
+    material's right rectangle, never written to disk)."""
     if expansion.is_nikke_logo(exp):
         return compose_front(
             exp,
@@ -136,7 +142,19 @@ def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
             place_logo=None,
             expansion_logo_placement="top",
         )
-    return compose_front(exp, size, fit="crop", place_logo=place_logo)
+    # Fractions of the face that round-trip to the NIKKE mark's exact
+    # pixel width and height (the composition multiplies them back by
+    # the face's dimensions): the logo is scaled to cover the mark's
+    # box, so neither dimension is ever smaller.
+    nikke_w, nikke_h = _nikke_logo_size(size)
+    return compose_front(
+        exp,
+        size,
+        fit="crop",
+        place_logo=place_logo,
+        expansion_logo_height=nikke_h / size[1],
+        expansion_logo_min_width=nikke_w / size[0],
+    )
 
 
 def build_back(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:

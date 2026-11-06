@@ -1120,11 +1120,12 @@ def compose_front(
 
     *fit* selects the background's fit (``"crop"`` — the pack's front;
     ``"cover-bottom"`` — the box's front). *expansion_logo_height*, when
-    given (the box's front), sizes the expansion's logo by height
-    instead of by width (:data:`LOGO_WIDTH`). *expansion_logo_min_width*,
-    when given (the box's front), floors the mark's width at that
-    fraction of the front's width (see :func:`_composite_logo`): a mark
-    sized by height and narrower than that is rescaled to that width.
+    given (the box's and pack's fronts), sizes the expansion's logo by
+    height instead of by width (:data:`LOGO_WIDTH`).
+    *expansion_logo_min_width*, when given (the box's and pack's
+    fronts), floors the mark's width at that fraction of the front's
+    width (see :func:`_composite_logo`): a mark sized by height and
+    narrower than that is rescaled to that width.
     *expansion_logo_placement*,
     when given (the pack's front, when the expansion's logo is the NIKKE
     logo itself), overrides the expansion's ``logo.placement``: the mark
@@ -1358,15 +1359,15 @@ def _composite_logo(
     darkened glow tint, offset down-right — is drawn behind it, and the
     sharp mark on top. The mark is scaled to :data:`LOGO_WIDTH` the
     front's width (or, when *mark_height* is given — the box's front
-    and side — to that fraction of the face's height, its width
-    proportional; or, when *width_fraction* is given — the box's top —
-    to that fraction of the face's width, its height proportional) and
-    centered horizontally; top/bottom placements inset it
+    and side, and the pack's front — to that fraction of the face's
+    height, its width proportional; or, when *width_fraction* is given
+    — the box's top — to that fraction of the face's width, its height
+    proportional) and centered horizontally; top/bottom placements inset it
     :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the
-    front. When *min_width_fraction* is given (the box's front) the
-    mark's width is no smaller than that fraction of the face's width:
-    a mark sized by height is rescaled to that width, its height
-    growing proportionally, when its width is smaller. When
+    front. When *min_width_fraction* is given (the box's and pack's
+    fronts) the mark's width is no smaller than that fraction of the
+    face's width: a mark sized by height is rescaled to that width, its
+    height growing proportionally, when its width is smaller. When
     *corner_inset* is given (the box's front, when the expansion's logo
     is the NIKKE logo itself: its slot is the NIKKE logo's corner), the
     mark's top-left corner instead sits inset by that fraction of the
