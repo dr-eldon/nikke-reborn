@@ -414,14 +414,18 @@ def _card_aspect() -> float:
 def _expansion_background(
     exp: expansion.Expansion,
 ) -> tuple[Image.Image, Path]:
-    """The expansion's background (RGBA) and its file: its
-    ``background.base``, resolved against the expansion's folder."""
-    path = (exp.path.parent / exp.backgrounds["base"]).resolve()
+    """The expansion's background (RGBA) and its file: the one its
+    items' materials use (see ``expansion._item_background_key`` —
+    its ``background.item`` when the table carries one, its
+    ``base`` when it does not), resolved against the expansion's
+    folder."""
+    key = expansion._item_background_key(exp)
+    path = (exp.path.parent / exp.backgrounds[key]).resolve()
     if not path.is_file():
         raise GenerationError(
-            f"{exp.name}: background not found: {exp.backgrounds['base']}"
+            f"{exp.name}: background not found: {exp.backgrounds[key]}"
         )
-    return expansion.load_background(exp), path
+    return expansion.load_background(exp, key), path
 
 
 def _expansion_logo(exp: expansion.Expansion) -> tuple[Image.Image, Path]:
