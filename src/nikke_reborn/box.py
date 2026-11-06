@@ -79,6 +79,12 @@ BOX_LOGO_INVERT_BRIGHTNESS = 180
 # fraction of the face's height).
 BOX_EXPANSION_LOGO_HEIGHT = 1 / 3
 
+# The expansion's logo's minimum width on the box's front (a fraction
+# of the front's width): a mark sized by
+# :data:`BOX_EXPANSION_LOGO_HEIGHT` and narrower than this is scaled up
+# to this width (its height growing proportionally).
+BOX_FRONT_EXPANSION_LOGO_MIN_WIDTH = 2 / 5
+
 # The expansion's logo's width on the box's top (a fraction of the
 # top's width).
 BOX_TOP_EXPANSION_LOGO_WIDTH = 2 / 5
@@ -282,6 +288,7 @@ def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
         fit="cover-bottom",
         place_logo=place_logo,
         expansion_logo_height=BOX_EXPANSION_LOGO_HEIGHT,
+        expansion_logo_min_width=BOX_FRONT_EXPANSION_LOGO_MIN_WIDTH,
         hero_height=BOX_HERO_HEIGHT,
         back_height=BOX_BACK_HEIGHT,
         back_offset_x=BOX_BACK_OFFSET_X,

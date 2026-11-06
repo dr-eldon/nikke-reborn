@@ -1104,6 +1104,7 @@ def compose_front(
     expansion_logo_height: float | None = None,
     expansion_logo_placement: str | None = None,
     expansion_logo_corner_inset: float | None = None,
+    expansion_logo_min_width: float | None = None,
     hero_height: float | None = None,
     back_height: float | None = None,
     back_offset_x: float | None = None,
@@ -1120,7 +1121,11 @@ def compose_front(
     *fit* selects the background's fit (``"crop"`` — the pack's front;
     ``"cover-bottom"`` — the box's front). *expansion_logo_height*, when
     given (the box's front), sizes the expansion's logo by height
-    instead of by width (:data:`LOGO_WIDTH`). *expansion_logo_placement*,
+    instead of by width (:data:`LOGO_WIDTH`). *expansion_logo_min_width*,
+    when given (the box's front), floors the mark's width at that
+    fraction of the front's width (see :func:`_composite_logo`): a mark
+    sized by height and narrower than that is rescaled to that width.
+    *expansion_logo_placement*,
     when given (the pack's front, when the expansion's logo is the NIKKE
     logo itself), overrides the expansion's ``logo.placement``: the mark
     then sits in the NIKKE logo's slot (the top), where the redundant
@@ -1191,6 +1196,7 @@ def compose_front(
         glow_color,
         mark_height=expansion_logo_height,
         corner_inset=expansion_logo_corner_inset,
+        min_width_fraction=expansion_logo_min_width,
     )
     if place_logo is not None:
         place_logo(canvas, (0, 0, width, height))
@@ -1344,6 +1350,7 @@ def _composite_logo(
     mark_height: float | None = None,
     width_fraction: float | None = None,
     corner_inset: float | None = None,
+    min_width_fraction: float | None = None,
 ) -> None:
     """Composite the expansion's *logo* over *canvas* at *placement*
     with a glow: the halo (tinted *glow_color*) is screen-blended for a
@@ -1356,12 +1363,15 @@ def _composite_logo(
     to that fraction of the face's width, its height proportional) and
     centered horizontally; top/bottom placements inset it
     :data:`LOGO_MARGIN` from the edge, ``center`` centers it in the
-    front. When *corner_inset* is given (the box's front, when the
-    expansion's logo is the NIKKE logo itself: its slot is the NIKKE
-    logo's corner), the mark's top-left corner instead sits inset by
-    that fraction of the face's height from the top and from the left,
-    and the *placement*'s position rule is ignored. Modifies *canvas*
-    in place."""
+    front. When *min_width_fraction* is given (the box's front) the
+    mark's width is no smaller than that fraction of the face's width:
+    a mark sized by height is rescaled to that width, its height
+    growing proportionally, when its width is smaller. When
+    *corner_inset* is given (the box's front, when the expansion's logo
+    is the NIKKE logo itself: its slot is the NIKKE logo's corner), the
+    mark's top-left corner instead sits inset by that fraction of the
+    face's height from the top and from the left, and the *placement*'s
+    position rule is ignored. Modifies *canvas* in place."""
     width, height = size
     if mark_height is None:
         logo_w = round(
@@ -1377,10 +1387,12 @@ def _composite_logo(
         logo_h = round(mark_height * height)
         if logo_h < 1:
             return
-        logo = logo.resize(
-            (round(logo_h * logo.width / logo.height), logo_h),
-            Image.Resampling.LANCZOS,
-        )
+        logo_w = round(logo_h * logo.width / logo.height)
+        if min_width_fraction is not None:
+            floor = round(min_width_fraction * width)
+            if logo_w < floor:
+                logo_w, logo_h = floor, round(floor * logo.height / logo.width)
+        logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
     if corner_inset is not None:
         margin = round(corner_inset * height)
         x = margin
