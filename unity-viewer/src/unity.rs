@@ -104,7 +104,7 @@ impl Mesh {
         let index_hex = d
             .scalar("m_IndexBuffer")
             .ok_or_else(|| Error::Parse("missing m_IndexBuffer".into()))?;
-        let indices = decode_u16_le(index_hex, index_count, vertex_count)?;
+        let mut indices = decode_u16_le(index_hex, index_count, vertex_count)?;
 
         // --- vertex data --------------------------------------------------
         let Some(vd) = d.index_of("m_VertexData:") else {
@@ -268,6 +268,8 @@ impl Mesh {
                 "vertex layout sanity check failed: {out_of_bounds}/{vertex_count} positions outside localAABB"
             )));
         }
+
+        indices.reverse();
 
         Ok(Mesh {
             name,
@@ -607,8 +609,7 @@ mod material_tests {
 
     #[test]
     fn decodes_a_png_material() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/images/Cardback.png");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/images/Cardback.png");
         if !path.exists() {
             eprintln!("skipping: {}", path.display());
             return;
