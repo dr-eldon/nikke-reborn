@@ -8,7 +8,8 @@ black twin when the region it lands on is too bright — see
 :mod:`nikke_reborn.box`'s ``BOX_LOGO*`` constants), its
 expansion-logo sizing, and its character sizing — sized by the face's
 height, since the box's front is landscape. The side and top (which
-the bottom face shares) carry the expansion's background, the
+the bottom face shares) carry the expansion's items' background
+(see :func:`nikke_reborn.expansion.load_item_background`), the
 expansion's logo center-center and the NIKKE logo.
 
 Like the pack's front they are built procedurally — never stored — and
@@ -43,7 +44,7 @@ from nikke_reborn.expansion import (
     _image_average,
     compose_front,
     front_source_digest,
-    load_background,
+    load_item_background,
     load_logo,
 )
 from nikke_reborn.file import (
@@ -296,13 +297,14 @@ def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
 
 
 def build_side(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
-    """The box side: the expansion's background fitted to cover the
-    side, with the expansion's logo center-center and the NIKKE logo
+    """The box side: the expansion's items' background (see
+    :func:`nikke_reborn.expansion.load_item_background`) fitted to cover
+    the side, with the expansion's logo center-center and the NIKKE logo
     bottom-center (omitted when the expansion's logo is the NIKKE
     logo itself), in memory (the material's green rectangle, never
     written to disk). Its inputs are a subset of the front's, so the
     front's source hash covers it."""
-    background = load_background(exp)
+    background = load_item_background(exp)
     side = _fit_cover(background, size)
     place_center_expansion_logo(side, exp)
     if not expansion.is_nikke_logo(exp):
@@ -311,14 +313,15 @@ def build_side(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
 
 
 def build_top(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
-    """The box top: the expansion's background fitted to cover the top
-    (center-cropped), with the expansion's logo center-center and the
-    NIKKE logo top-right (omitted when the expansion's logo is the
-    NIKKE logo itself), in memory (the material's red rectangle,
+    """The box top: the expansion's items' background (see
+    :func:`nikke_reborn.expansion.load_item_background`) fitted to cover
+    the top (center-cropped), with the expansion's logo center-center
+    and the NIKKE logo top-right (omitted when the expansion's logo is
+    the NIKKE logo itself), in memory (the material's red rectangle,
     never written to disk); it also serves the bottom face, which
     shares the red rectangle. Its inputs are a subset of the front's,
     so the front's source hash covers it."""
-    top = _fit_cover(load_background(exp), size, v_align="center")
+    top = _fit_cover(load_item_background(exp), size, v_align="center")
     place_center_expansion_logo(
         top,
         exp,

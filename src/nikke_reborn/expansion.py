@@ -6,7 +6,8 @@ its 1-based position plus the compact name from the game's data), its
 rarities (``rarities`` — the subset of the presentations' names the set
 generates, in the order the set carries them), its pack/box materials
 (``pack`` — the featured characters, ``background`` — the
-base/special/battle backgrounds, ``logo``) and its card names (the title
+base/special/battle backgrounds and the items' ``item`` one (see
+:data:`ITEM_BACKGROUND_KEY`), ``logo``) and its card names (the title
 from ``characters.json`` — the model's name when the character has no
 record —, the subtitle — the skin — from the model's name). Every
 character renders the expansion's ``rarities`` subset of the fixed set
@@ -94,6 +95,11 @@ NIKKE_LOGO_NAMES = ("Logo_White", "Logo_Black")
 #: The keys every expansion's ``background`` table must carry (relative
 #: paths, against the expansion's folder).
 BACKGROUND_KEYS = ("base", "special", "battle")
+
+#: The ``background`` table's optional key for the expansion's items'
+#: (the pack's and box's materials') background: an expansion without
+#: one renders its items on its ``base`` background.
+ITEM_BACKGROUND_KEY = "item"
 
 #: An event's rarity (fixed, the game's top one — it carries the set's
 #: highest).
@@ -478,6 +484,14 @@ def load_expansion(path: Path) -> Expansion:
             raise GenerationError(
                 f"{path.name}: background.{key} not found: {backgrounds[key]}"
             )
+    item = backgrounds.get(ITEM_BACKGROUND_KEY)
+    if item is not None and (
+        not isinstance(item, str) or not (path.parent / item).resolve().is_file()
+    ):
+        raise GenerationError(
+            f"{path.name}: background.{ITEM_BACKGROUND_KEY} must name an "
+            f"existing file: {item!r}"
+        )
 
     logo = data.get("logo")
     if not isinstance(logo, dict) or not isinstance(logo.get("path"), str):
@@ -968,6 +982,23 @@ def load_background(expansion: Expansion, key: str = "base") -> Image.Image:
     return Image.open(background_path).convert("RGBA")
 
 
+def _item_background_key(expansion: Expansion) -> str:
+    """The expansion's items' (the pack's and box's materials')
+    background's key (see :data:`ITEM_BACKGROUND_KEY`): its ``item``
+    when the ``background`` table carries one, its ``base`` when it
+    does not."""
+    return (
+        ITEM_BACKGROUND_KEY if ITEM_BACKGROUND_KEY in expansion.backgrounds else "base"
+    )
+
+
+def load_item_background(expansion: Expansion) -> Image.Image:
+    """The expansion's items' (the pack's and box's materials')
+    background (RGBA) (see :func:`_item_background_key`), resolved
+    against the expansion's folder."""
+    return load_background(expansion, _item_background_key(expansion))
+
+
 def load_logo(expansion: Expansion) -> tuple[Image.Image, str]:
     """The expansion's logo (RGBA) and its placement: its ``logo.path``
     (resolved against the expansion's folder) and its ``logo.placement``
@@ -989,6 +1020,13 @@ def _background_path(expansion: Expansion, key: str) -> Path:
     return path
 
 
+def _item_background_path(expansion: Expansion) -> Path:
+    """The expansion's items' background's file (see
+    :func:`_item_background_key`), resolved against the expansion's
+    folder."""
+    return _background_path(expansion, _item_background_key(expansion))
+
+
 def _logo_path(expansion: Expansion) -> Path:
     path = (expansion.path.parent / expansion.logo_path).resolve()
     if not path.is_file():
@@ -1002,13 +1040,14 @@ def front_source_digest(expansion: Expansion, logo: Path, template: Path) -> str
     """A hash of an expansion front's *inputs* — everything the composed
     front depends on: the featured characters it lists (their ids, ``x``
     nudges and per-character ``animation``/``time``/``zoom`` overrides),
-    its ``background.base``, its ``logo`` (and its ``placement``), the
-    white NIKKE logo placed on the front (*logo*), and the material template
-    that sizes it (*template*). It is computed without rendering the front,
-    so the finished material can be skipped (and the front's render
-    avoided) when those inputs are unchanged. The pack's and the box's
-    front source hashes are this digest with their own *logo* and
-    *template* (see :func:`nikke_reborn.pack.front_source_hash` /
+    its items' background (see :func:`load_item_background`), its
+    ``logo`` (and its ``placement``), the white NIKKE logo placed on the
+    front (*logo*), and the material template that sizes it (*template*).
+    It is computed without rendering the front, so the finished material
+    can be skipped (and the front's render avoided) when those inputs are
+    unchanged. The pack's and the box's front source hashes are this
+    digest with their own *logo* and *template* (see
+    :func:`nikke_reborn.pack.front_source_hash` /
     :func:`nikke_reborn.box.front_source_hash`)."""
     digest = hashlib.sha256()
     hash_term(digest, expansion.logo_placement.encode())
@@ -1018,7 +1057,7 @@ def front_source_digest(expansion: Expansion, logo: Path, template: Path) -> str
         hash_term(digest, f"animation:{featured.animation}".encode())
         hash_term(digest, f"time:{featured.time}".encode())
         hash_term(digest, f"zoom:{featured.zoom}".encode())
-    hash_term(digest, _background_path(expansion, "base").read_bytes())
+    hash_term(digest, _item_background_path(expansion).read_bytes())
     hash_term(digest, _logo_path(expansion).read_bytes())
     hash_term(digest, logo.read_bytes())
     hash_term(digest, template.read_bytes())
@@ -1027,12 +1066,13 @@ def front_source_digest(expansion: Expansion, logo: Path, template: Path) -> str
 
 def back_source_hash(expansion: Expansion, template: Path) -> str:
     """A hash of the back's *inputs* — everything the composed back depends
-    on: the expansion's ``background.base`` and the material template that
-    sizes it (the back is the background's left crop). It is computed
-    without composing the back, so the finished material can be skipped
-    (and the back's composition avoided) when those inputs are unchanged."""
+    on: the expansion's items' background (see
+    :func:`load_item_background`) and the material template that sizes it
+    (the back is the background's left crop). It is computed without
+    composing the back, so the finished material can be skipped (and the
+    back's composition avoided) when those inputs are unchanged."""
     digest = hashlib.sha256()
-    hash_term(digest, _background_path(expansion, "base").read_bytes())
+    hash_term(digest, _item_background_path(expansion).read_bytes())
     hash_term(digest, template.read_bytes())
     return digest.hexdigest()
 
@@ -1109,8 +1149,9 @@ def compose_front(
     back_height: float | None = None,
     back_offset_x: float | None = None,
 ) -> Image.Image:
-    """Compose an expansion's front: its background (fitted per *fit*),
-    the featured NIKKES drawn over it (backs first, the hero on top,
+    """Compose an expansion's front: its items' background (see
+    :func:`load_item_background`, fitted per *fit*), the featured NIKKES
+    drawn over it (backs first, the hero on top,
     each with its optional horizontal ``x`` nudge — the material's own
     pixels), and the expansion's logo with its glow on top, at its
     ``logo.placement``; the caller's white NIKKE logo is placed last
@@ -1142,7 +1183,7 @@ def compose_front(
     bigger characters and the group a bit closer to the hero."""
     width, height = size
 
-    background = load_background(expansion, "base")
+    background = load_item_background(expansion)
     if fit == "crop":
         canvas = fit_background(background, size)
     elif fit == "cover-bottom":

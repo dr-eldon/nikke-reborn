@@ -35,7 +35,7 @@ from nikke_reborn.expansion import (
     compose_front,
     fit_background,
     front_source_digest,
-    load_background,
+    load_item_background,
 )
 from nikke_reborn.file import (
     _material_hash,
@@ -158,11 +158,12 @@ def build_front(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
 
 
 def build_back(exp: expansion.Expansion, size: tuple[int, int]) -> Image.Image:
-    """The pack back: the expansion's background resized to the back's
-    height and left-cropped to its exact width (the front center-crops
-    the same background), in memory (the material's left rectangle,
-    never written to disk)."""
-    return fit_background(load_background(exp), size, align="left")
+    """The pack back: the expansion's items' background (see
+    :func:`nikke_reborn.expansion.load_item_background`) resized to the
+    back's height and left-cropped to its exact width (the front
+    center-crops the same background), in memory (the material's left
+    rectangle, never written to disk)."""
+    return fit_background(load_item_background(exp), size, align="left")
 
 
 def _process_pack_material(
