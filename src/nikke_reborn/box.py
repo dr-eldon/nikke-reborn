@@ -55,6 +55,7 @@ from nikke_reborn.file import (
     _viewer_hash,
 )
 from nikke_reborn.image import (
+    _at_oklch_lightness,
     _box_side_mask,
     _box_top_mask,
     _pack_mask,
@@ -77,20 +78,23 @@ BOX_LOGO_MARGIN = 0.05
 BOX_LOGO_SHADOW_BRIGHTNESS = 180
 
 # The mark's drop shadow — the mark's blurred silhouette behind it,
-# tinted with the region it lands on scaled by
-# :data:`BOX_LOGO_SHADOW_DARKEN` — the summary grid's logo's treatment
-# (see :mod:`nikke_reborn.spritesheet`, which offsets its shadow
-# down-right): its blur radius and offset (fractions of the mark's
-# height — a zero offset centers it on the mark) and its peak opacity.
-BOX_LOGO_SHADOW_RADIUS = 0.04
+# tinted with the region it lands on at
+# :data:`BOX_LOGO_SHADOW_LIGHTNESS`'s Oklch lightness — the summary
+# grid's logo's treatment (see :mod:`nikke_reborn.spritesheet`, which
+# offsets its shadow down-right): its blur radius and offset
+# (fractions of the mark's height — a zero offset centers it on the
+# mark) and its peak opacity.
+BOX_LOGO_SHADOW_RADIUS = 0.05
 BOX_LOGO_SHADOW_OFFSET = 0
-BOX_LOGO_SHADOW_ALPHA = 0.9
+BOX_LOGO_SHADOW_ALPHA = 1.0
 
-# The shadow's tint, the region's representative color scaled toward
-# black (see :func:`nikke_reborn.expansion._image_average`): a tint
-# that keeps the scene's hue blends the shadow into the background
-# (a black shadow would cut a hole in it).
-BOX_LOGO_SHADOW_DARKEN = 0.7
+# The shadow's tint, the region's representative color (see
+# :func:`nikke_reborn.expansion._image_average`) at this Oklch
+# lightness (hue and chroma kept — see
+# :func:`nikke_reborn.image._at_oklch_lightness`): a tint in the
+# scene's own hue at a constant depth blends the shadow into the
+# background (a black shadow would cut a hole in it).
+BOX_LOGO_SHADOW_LIGHTNESS = 0.5
 
 # The expansion's logo's height on the box's front and side (a
 # fraction of the face's height).
@@ -194,18 +198,18 @@ def _stamp_logo(
 ) -> None:
     """The white NIKKE mark at (left, top) on *face*, with its drop
     shadow (see the ``BOX_LOGO_SHADOW_*`` constants — its tint, the
-    region's representative color darkened by
-    :data:`BOX_LOGO_SHADOW_DARKEN`, sampled before the mark is
-    composited) when the region it lands on is too bright for plain
-    white (see :data:`BOX_LOGO_SHADOW_BRIGHTNESS`). Modifies *face* in
-    place."""
+    region's representative color at
+    :data:`BOX_LOGO_SHADOW_LIGHTNESS`'s Oklch lightness, sampled
+    before the mark is composited) when the region it lands on is too
+    bright for plain white (see :data:`BOX_LOGO_SHADOW_BRIGHTNESS`).
+    Modifies *face* in place."""
     logo = _nikke_logo(width, height)
     region = _image_average(face.crop((left, top, left + width, top + height)))
     if _region_brightness(region) >= BOX_LOGO_SHADOW_BRIGHTNESS:
         shadow, pad = _logo_glow_layer(
             logo,
             round(BOX_LOGO_SHADOW_RADIUS * height),
-            tuple(int(c * BOX_LOGO_SHADOW_DARKEN) for c in region),
+            _at_oklch_lightness(region, BOX_LOGO_SHADOW_LIGHTNESS),
             BOX_LOGO_SHADOW_ALPHA,
         )
         offset = round(BOX_LOGO_SHADOW_OFFSET * height)
