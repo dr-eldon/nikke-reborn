@@ -76,14 +76,21 @@ BOX_LOGO_MARGIN = 0.05
 # region this bright (the shadow restores it).
 BOX_LOGO_SHADOW_BRIGHTNESS = 180
 
-# The mark's drop shadow — a blurred, darkened copy of the mark
-# behind it (the summary grid's logo's treatment, see
-# :mod:`nikke_reborn.spritesheet`, which offsets its shadow down-right):
-# its blur radius and offset (fractions of the mark's height — a zero
-# offset centers it on the mark) and its peak opacity.
-BOX_LOGO_SHADOW_RADIUS = 0.03
+# The mark's drop shadow — the mark's blurred silhouette behind it,
+# tinted with the region it lands on scaled by
+# :data:`BOX_LOGO_SHADOW_DARKEN` — the summary grid's logo's treatment
+# (see :mod:`nikke_reborn.spritesheet`, which offsets its shadow
+# down-right): its blur radius and offset (fractions of the mark's
+# height — a zero offset centers it on the mark) and its peak opacity.
+BOX_LOGO_SHADOW_RADIUS = 0.04
 BOX_LOGO_SHADOW_OFFSET = 0
-BOX_LOGO_SHADOW_ALPHA = 0.5
+BOX_LOGO_SHADOW_ALPHA = 0.9
+
+# The shadow's tint, the region's representative color scaled toward
+# black (see :func:`nikke_reborn.expansion._image_average`): a tint
+# that keeps the scene's hue blends the shadow into the background
+# (a black shadow would cut a hole in it).
+BOX_LOGO_SHADOW_DARKEN = 0.7
 
 # The expansion's logo's height on the box's front and side (a
 # fraction of the face's height).
@@ -167,11 +174,11 @@ def _nikke_logo_size(face_height: int) -> tuple[int, int]:
         return round(logo_h * opened.width / opened.height), logo_h
 
 
-def _region_brightness(face: Image.Image, rect: tuple[int, int, int, int]) -> int:
-    """The region's mean luminance (0-255): the ITU-R BT.601 luma of
-    its area-averaged color (see
+def _region_brightness(color: tuple[int, int, int]) -> int:
+    """The mean luminance (0-255) of *color*: the ITU-R BT.601 luma of
+    a region's area-averaged color (see
     :func:`nikke_reborn.expansion._image_average`)."""
-    r, g, b = _image_average(face.crop(rect))
+    r, g, b = color
     return round(0.299 * r + 0.587 * g + 0.114 * b)
 
 
@@ -186,18 +193,19 @@ def _stamp_logo(
     face: Image.Image, left: int, top: int, width: int, height: int
 ) -> None:
     """The white NIKKE mark at (left, top) on *face*, with its drop
-    shadow (see the ``BOX_LOGO_SHADOW_*`` constants) when the region it
-    lands on is too bright for plain white (see
-    :data:`BOX_LOGO_SHADOW_BRIGHTNESS`). Modifies *face* in place."""
+    shadow (see the ``BOX_LOGO_SHADOW_*`` constants — its tint, the
+    region's representative color darkened by
+    :data:`BOX_LOGO_SHADOW_DARKEN`, sampled before the mark is
+    composited) when the region it lands on is too bright for plain
+    white (see :data:`BOX_LOGO_SHADOW_BRIGHTNESS`). Modifies *face* in
+    place."""
     logo = _nikke_logo(width, height)
-    if (
-        _region_brightness(face, (left, top, left + width, top + height))
-        >= BOX_LOGO_SHADOW_BRIGHTNESS
-    ):
+    region = _image_average(face.crop((left, top, left + width, top + height)))
+    if _region_brightness(region) >= BOX_LOGO_SHADOW_BRIGHTNESS:
         shadow, pad = _logo_glow_layer(
             logo,
             round(BOX_LOGO_SHADOW_RADIUS * height),
-            (0, 0, 0),
+            tuple(int(c * BOX_LOGO_SHADOW_DARKEN) for c in region),
             BOX_LOGO_SHADOW_ALPHA,
         )
         offset = round(BOX_LOGO_SHADOW_OFFSET * height)

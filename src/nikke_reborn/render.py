@@ -27,7 +27,6 @@ from nikke_reborn.error import GenerationError
 from nikke_reborn.file import _save_atomic, _stored_hash
 from nikke_reborn.image import (
     LOGO_PADDING_FACTOR,
-    _fade_to_dominant,
     _fit_background,
     _profile_layers,
     _standard_layers,
