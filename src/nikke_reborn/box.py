@@ -4,10 +4,10 @@ expansion's TOML.
 The front is the shared front composition (see
 :mod:`nikke_reborn.expansion`) at the box material template's size,
 with the box's own pieces: its background fit, its NIKKE logo (the
-black twin when the region it lands on is too bright — see
-:mod:`nikke_reborn.box`'s ``BOX_LOGO*`` constants), its
-expansion-logo sizing, and its character sizing — sized by the face's
-height, since the box's front is landscape. The side and top (which
+white mark, with its drop shadow when the region it lands on is too
+bright — see the ``BOX_LOGO*`` constants), its expansion-logo sizing,
+and its character sizing — sized by the face's height, since the
+box's front is landscape. The side and top (which
 the bottom face shares) carry the expansion's items' background
 (see :func:`nikke_reborn.expansion.load_item_background`), the
 expansion's logo center-center and the NIKKE logo.
@@ -42,6 +42,7 @@ from nikke_reborn.expansion import (
     _composite_logo,
     _fit_cover,
     _image_average,
+    _logo_glow_layer,
     compose_front,
     front_source_digest,
     load_item_background,
@@ -62,19 +63,27 @@ from nikke_reborn.image import (
 from nikke_reborn.preset import Preset
 
 # The NIKKE logo stamped on the box's faces (its height as a fraction
-# of the face's height, its corner inset by that margin): the white
-# mark, or — when the region it lands on is too bright for white (see
-# :data:`BOX_LOGO_INVERT_BRIGHTNESS`) — its black twin (the same shape
-# and size).
+# of the face's height, its corner inset by that margin): always the
+# white mark, which drops its shadow when the region it lands on is
+# too bright for plain white (see
+# :data:`BOX_LOGO_SHADOW_BRIGHTNESS`).
 BOX_LOGO = IMAGES_DIR / "Logo_White.png"
-BOX_LOGO_BLACK = IMAGES_DIR / "Logo_Black.png"
 BOX_LOGO_HEIGHT = 0.15
 BOX_LOGO_MARGIN = 0.05
 
-# The region's mean luminance (0-255) from which the black mark
-# replaces the white: a white mark carries no contrast against a
-# region this bright (the black one does).
-BOX_LOGO_INVERT_BRIGHTNESS = 180
+# The region's mean luminance (0-255) from which the white mark
+# carries its drop shadow: a white mark carries no contrast against a
+# region this bright (the shadow restores it).
+BOX_LOGO_SHADOW_BRIGHTNESS = 180
+
+# The mark's drop shadow — a blurred, darkened copy of the mark
+# behind it (the summary grid's logo's treatment, see
+# :mod:`nikke_reborn.spritesheet`, which offsets its shadow down-right):
+# its blur radius and offset (fractions of the mark's height — a zero
+# offset centers it on the mark) and its peak opacity.
+BOX_LOGO_SHADOW_RADIUS = 0.04
+BOX_LOGO_SHADOW_OFFSET = 0
+BOX_LOGO_SHADOW_ALPHA = 0.9
 
 # The expansion's logo's height on the box's front and side (a
 # fraction of the face's height).
@@ -166,21 +175,34 @@ def _region_brightness(face: Image.Image, rect: tuple[int, int, int, int]) -> in
     return round(0.299 * r + 0.587 * g + 0.114 * b)
 
 
-def _nikke_logo(
-    face: Image.Image, left: int, top: int, width: int, height: int
-) -> Image.Image:
-    """The NIKKE mark resized to (width, height) for stamping at
-    (left, top) on *face*: the black twin when the region it lands on
-    is too bright for the white one (see
-    :data:`BOX_LOGO_INVERT_BRIGHTNESS`)."""
-    path = (
-        BOX_LOGO_BLACK
-        if _region_brightness(face, (left, top, left + width, top + height))
-        >= BOX_LOGO_INVERT_BRIGHTNESS
-        else BOX_LOGO
-    )
-    with Image.open(path) as opened:
+def _nikke_logo(width: int, height: int) -> Image.Image:
+    """The white NIKKE mark resized to (width, height) for stamping
+    (see :data:`BOX_LOGO`)."""
+    with Image.open(BOX_LOGO) as opened:
         return opened.convert("RGBA").resize((width, height), Image.Resampling.LANCZOS)
+
+
+def _stamp_logo(
+    face: Image.Image, left: int, top: int, width: int, height: int
+) -> None:
+    """The white NIKKE mark at (left, top) on *face*, with its drop
+    shadow (see the ``BOX_LOGO_SHADOW_*`` constants) when the region it
+    lands on is too bright for plain white (see
+    :data:`BOX_LOGO_SHADOW_BRIGHTNESS`). Modifies *face* in place."""
+    logo = _nikke_logo(width, height)
+    if (
+        _region_brightness(face, (left, top, left + width, top + height))
+        >= BOX_LOGO_SHADOW_BRIGHTNESS
+    ):
+        shadow, pad = _logo_glow_layer(
+            logo,
+            round(BOX_LOGO_SHADOW_RADIUS * height),
+            (0, 0, 0),
+            BOX_LOGO_SHADOW_ALPHA,
+        )
+        offset = round(BOX_LOGO_SHADOW_OFFSET * height)
+        face.alpha_composite(shadow, (left + offset - pad, top + offset - pad))
+    face.alpha_composite(logo, (left, top))
 
 
 def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
@@ -192,8 +214,7 @@ def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
     left, top, _, bottom = rect
     rh = bottom - top
     margin = round(BOX_LOGO_MARGIN * rh)
-    logo = _nikke_logo(front, left + margin, top + margin, *_nikke_logo_size(rh))
-    front.alpha_composite(logo, (left + margin, top + margin))
+    _stamp_logo(front, left + margin, top + margin, *_nikke_logo_size(rh))
 
 
 def place_side_logo(side: Image.Image) -> None:
@@ -206,7 +227,7 @@ def place_side_logo(side: Image.Image) -> None:
     logo_w, logo_h = _nikke_logo_size(side.height)
     x = (side.width - logo_w) // 2
     y = side.height - round(BOX_LOGO_MARGIN * side.height) - logo_h
-    side.alpha_composite(_nikke_logo(side, x, y, logo_w, logo_h), (x, y))
+    _stamp_logo(side, x, y, logo_w, logo_h)
 
 
 def place_top_logo(top: Image.Image) -> None:
@@ -216,7 +237,7 @@ def place_top_logo(top: Image.Image) -> None:
     logo_w, logo_h = _nikke_logo_size(top.height)
     margin = round(BOX_LOGO_MARGIN * top.height)
     left = top.width - margin - logo_w
-    top.alpha_composite(_nikke_logo(top, left, margin, logo_w, logo_h), (left, margin))
+    _stamp_logo(top, left, margin, logo_w, logo_h)
 
 
 def place_center_expansion_logo(
