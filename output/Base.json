@@ -181,7 +181,7 @@
       "AutoSetBoxPrice": true,
       "IsTallItem": false,
       "InBoxOffsetY": 0,
-      "InBoxOffsetScale": 0,
+      "InBoxOffsetScale": -0.2,
       "ItemDeminsion": {
         "x": 2,
         "y": 4,
@@ -193,8 +193,8 @@
         "z": 0
       },
       "ColliderScale": {
-        "x": 0.1,
-        "y": 0.2,
+        "x": 0.18,
+        "y": 0.15,
         "z": 0.1
       },
       "PriceAffectedBy": [],
