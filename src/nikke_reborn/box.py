@@ -81,9 +81,9 @@ BOX_LOGO_SHADOW_BRIGHTNESS = 180
 # :mod:`nikke_reborn.spritesheet`, which offsets its shadow down-right):
 # its blur radius and offset (fractions of the mark's height — a zero
 # offset centers it on the mark) and its peak opacity.
-BOX_LOGO_SHADOW_RADIUS = 0.04
+BOX_LOGO_SHADOW_RADIUS = 0.03
 BOX_LOGO_SHADOW_OFFSET = 0
-BOX_LOGO_SHADOW_ALPHA = 0.9
+BOX_LOGO_SHADOW_ALPHA = 0.5
 
 # The expansion's logo's height on the box's front and side (a
 # fraction of the face's height).
