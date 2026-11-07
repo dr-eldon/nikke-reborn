@@ -108,9 +108,9 @@ cards = [
     { id = "c939" },
     { id = "c941" },
     { id = "c945" },
-    { id = "777" },
     { id = "c946" },
     # the event CGs close the set
+    { id = "777" },
     { id = "nocallerid" },
     { id = "hightechtoy" },
     { id = "miraclesnow" },
