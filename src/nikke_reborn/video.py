@@ -22,9 +22,10 @@ from typing import IO
 
 from PIL import Image
 
+from nikke_reborn import linear
 from nikke_reborn.config import SOURCE_HASH_KEY, VIEWER
 from nikke_reborn.error import GenerationError
-from nikke_reborn.image import _composite_frame, _monochrome
+from nikke_reborn.image import _monochrome
 from nikke_reborn.lettering import _apply_name, _NameLayers
 
 ENCODER = "ffmpeg"
@@ -150,8 +151,8 @@ def _stream_composited(
     — the caller's *make_overlay* applied to the first frame's art (the
     stamps' faces are chosen from that frame's luma) — stamped on top of
     every frame, and the name stack (*parts*, when any) applied, in a
-    sliding window of *composite_workers* threads (Pillow releases the
-    GIL in its raster ops, so the reader stays ahead of the encode).
+    sliding window of *composite_workers* threads (the element-wise
+    blends release the GIL, so the reader stays ahead of the encode).
     Frame 0 is read and composited on the calling thread (the overlay
     is derived from it, so it cannot race the window's workers); at most
     ~2x the worker count of further frames are in memory at once. The
@@ -164,22 +165,31 @@ def _stream_composited(
     frame_bytes = width * height * 4
     assert viewer.stdout is not None
     stdout = viewer.stdout
-    # A fully opaque base takes the GIL-releasing Image.composite path
-    # (see _composite_frame); the base's alpha is restored onto the
-    # result so the downstream stamps see the same alpha either way.
-    # Computed once per card (None when the base is not fully opaque).
-    base_alpha = base.getchannel("A")
-    if base_alpha.getextrema() != (255, 255):
-        base_alpha = None
+    # The base decodes to linear light once per card; each frame
+    # composites over it there (see nikke_reborn.linear — Pillow's
+    # stored-value blends darken and hue-shift partial-alpha mixes), the
+    # alpha channel compositing along with the colour.
+    base_lin = linear._to_linear(base)
+    base_alpha = linear._alpha(base)
 
     def to_art(data: bytes) -> Image.Image:
         frame = Image.frombytes("RGBA", (width, height), data)
-        return _composite_frame(frame, base, base_alpha)
+        coverage = linear._alpha(frame)
+        art = linear._to_linear(frame) * coverage[..., None] + base_lin * (
+            1.0 - coverage[..., None]
+        )
+        image = linear._from_linear(art)
+        image.putalpha(
+            linear._encode_alpha(
+                coverage + base_alpha * (1.0 - coverage), (width, height)
+            )
+        )
+        return image
 
     def stamp(
         art: Image.Image, overlay: Image.Image, overlay_pos: tuple[int, int]
     ) -> Image.Image:
-        art.alpha_composite(overlay, overlay_pos)
+        linear._linear_over(art, overlay, overlay_pos)
         return _apply_name(art, parts) if parts is not None else art
 
     time_lock = threading.Lock()
@@ -304,44 +314,70 @@ def _stream_dual_composited(
     tint_pixel = tint.getpixel((0, 0))
     assert isinstance(tint_pixel, tuple)
     tint_rgb = (tint_pixel[0], tint_pixel[1], tint_pixel[2])
-    # The background is a fully opaque card: the per-frame blends take the
-    # GIL-releasing Image.composite path (see _composite_frame), with the
-    # background's alpha restored before the stamps — the finished card is
-    # byte-identical to the alpha_composite chain. The constant layers'
-    # alpha channels are the blend masks, computed once.
-    background_alpha = background.getchannel("A")
-    base_opaque = background_alpha.getextrema() == (255, 255)
-    tint_alpha = tint.getchannel("A")
-    mask_alpha = mask.getchannel("A")
+    # The layers composite in linear light (see nikke_reborn.linear —
+    # Pillow's stored-value blends darken and hue-shift partial-alpha
+    # mixes). The background decodes once per card; the static runs —
+    # the tint wash and the profile mask under the body, and over it the
+    # photo reel, the overlay and the name stack — precompute into linear
+    # affines the per-frame frames apply for multiply-adds, the alpha
+    # channels folding into their own affine.
+    background_lin = linear._to_linear(background)
+    background_alpha = linear._alpha(background)
+    lower = linear._affine_init((width, height))
+    lower = linear._affine_over(lower, tint)
+    lower = linear._affine_over(lower, mask)
+    lower_alpha = linear._affine_alpha_init((width, height))
+    lower_alpha = linear._affine_alpha_over(lower_alpha, tint)
+    lower_alpha = linear._affine_alpha_over(lower_alpha, mask)
 
-    def to_art(face_data: bytes, body_data: bytes) -> Image.Image:
+    def to_art(face_data: bytes, body_data: bytes):
         face = Image.frombytes("RGBA", (width, height), face_data)
         face = _monochrome(face, tint_rgb, PROFILE_FACE_BRIGHTNESS)
         body = Image.frombytes("RGBA", (width, height), body_data)
-        if base_opaque:
-            art = Image.composite(face, background, face.getchannel("A"))
-            art = Image.composite(tint, art, tint_alpha)
-            art = Image.composite(mask, art, mask_alpha)
-            art = Image.composite(body, art, body.getchannel("A"))
-            art.putalpha(background_alpha)
-        else:
-            art = background.copy()
-            art.alpha_composite(face)
-            art.alpha_composite(tint)
-            art.alpha_composite(mask)
-            art.alpha_composite(body)
-        return art
+        face_alpha = linear._alpha(face)
+        body_alpha = linear._alpha(body)
+        art = linear._to_linear(face) * face_alpha[..., None] + background_lin * (
+            1.0 - face_alpha[..., None]
+        )
+        art = linear._affine_apply(lower, art)
+        art = linear._to_linear(body) * body_alpha[..., None] + art * (
+            1.0 - body_alpha[..., None]
+        )
+        alpha = face_alpha + background_alpha * (1.0 - face_alpha)
+        alpha = linear._affine_apply(lower_alpha, alpha)
+        alpha = body_alpha + alpha * (1.0 - body_alpha)
+        return art, alpha
 
-    def apply_reel(art: Image.Image) -> Image.Image:
-        for still, position in reel:
-            art.alpha_composite(still, position)
-        return art
+    def make_upper(overlay: Image.Image, overlay_pos: tuple[int, int]):
+        # The statics over the body, in the order the sRGB chain used to
+        # apply them: the reel (under the overlay), the overlay, the name
+        # stack.
+        parts_layers = (
+            ()
+            if parts is None
+            else tuple(
+                part
+                for part in (
+                    parts.rect,
+                    parts.sub_rect,
+                    parts.title,
+                    parts.arrow,
+                    parts.sub_top,
+                )
+                if part is not None
+            )
+        )
+        upper = linear._affine_init((width, height))
+        upper_alpha = linear._affine_alpha_init((width, height))
+        for layer, position in (*reel, (overlay, overlay_pos), *parts_layers):
+            upper = linear._affine_over(upper, layer, position)
+            upper_alpha = linear._affine_alpha_over(upper_alpha, layer, position)
+        return upper, upper_alpha
 
-    def stamp(
-        art: Image.Image, overlay: Image.Image, overlay_pos: tuple[int, int]
-    ) -> Image.Image:
-        art.alpha_composite(overlay, overlay_pos)
-        return _apply_name(art, parts) if parts is not None else art
+    def encode_frame(art, alpha) -> Image.Image:
+        image = linear._from_linear(art)
+        image.putalpha(linear._encode_alpha(alpha, (width, height)))
+        return image
 
     time_lock = threading.Lock()
     workers = max(1, composite_workers)
@@ -374,10 +410,14 @@ def _stream_dual_composited(
                     f"{VIEWER} body stream for {label} truncated: "
                     f"{len(body_data)} of {frame_bytes} bytes"
                 )
-            art = apply_reel(to_art(face_data, body_data))
-            overlay, overlay_pos = make_overlay(art)
+            art, alpha = to_art(face_data, body_data)
+            overlay, overlay_pos = make_overlay(encode_frame(art, alpha))
+            upper, upper_alpha = make_upper(overlay, overlay_pos)
             started = time.perf_counter()
-            first = stamp(art, overlay, overlay_pos)
+            first = encode_frame(
+                linear._affine_apply(upper, art),
+                linear._affine_apply(upper_alpha, alpha),
+            )
             with time_lock:
                 composite_time[0] += time.perf_counter() - started
             # Keep the first composited frame: for animations it is
@@ -387,8 +427,10 @@ def _stream_dual_composited(
 
             def composite(face_data: bytes, body_data: bytes) -> Image.Image:
                 started = time.perf_counter()
-                result = stamp(
-                    apply_reel(to_art(face_data, body_data)), overlay, overlay_pos
+                art, alpha = to_art(face_data, body_data)
+                result = encode_frame(
+                    linear._affine_apply(upper, art),
+                    linear._affine_apply(upper_alpha, alpha),
                 )
                 with time_lock:
                     composite_time[0] += time.perf_counter() - started

@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageStat
 
 from nikke_reborn.config import CARD_REFERENCE_WIDTH, FONT, FONTS_DIR
 from nikke_reborn.image import _scale_logo, _set_luma, _with_logo
+from nikke_reborn.linear import _linear_over
 
 #: The card name's face (vendored static font, SIL OFL).
 FONT_NAME = FONTS_DIR / "AireExterior.ttf"
@@ -449,7 +450,7 @@ def _name_layers(
 def _apply_name(art: Image.Image, parts: _NameLayers) -> Image.Image:
     for layer in (parts.rect, parts.sub_rect, parts.title, parts.arrow, parts.sub_top):
         if layer is not None:
-            art.alpha_composite(layer[0], layer[1])
+            _linear_over(art, layer[0], layer[1])
     return art
 
 

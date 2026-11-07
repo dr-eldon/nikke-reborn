@@ -11,7 +11,9 @@ import re
 
 from PIL import Image, ImageChops, ImageStat
 
+from nikke_reborn import linear
 from nikke_reborn.config import CARD_REFERENCE_WIDTH, IMAGES_DIR
+from nikke_reborn.linear import _linear_over
 
 #: The profile card's mask, next to its GIMP source.
 PROFILE_MASK_PATH = IMAGES_DIR / "designs" / "Card_Mask_Profile.png"
@@ -275,7 +277,7 @@ def _standard_layers(base: Image.Image) -> Image.Image:
     if mask.size != base.size:
         mask = mask.resize(base.size, Image.Resampling.LANCZOS)
     face = base.copy()
-    face.alpha_composite(mask)
+    _linear_over(face, mask)
     return face
 
 
@@ -284,8 +286,9 @@ def _fade_to_dominant(image: Image.Image, factor: float = 0.5) -> Image.Image:
     (the standard tier's gentle version of :func:`_monochrome`). The
     alpha is passed through untouched."""
     dominant = _dominant_color(image)
-    faded = Image.blend(
-        image.convert("RGB"), Image.new("RGB", image.size, dominant), factor
+    # The fade blends in linear light (see nikke_reborn.linear).
+    faded = linear._from_linear(
+        linear._to_linear(image) * (1 - factor) + linear.DECODE[list(dominant)] * factor
     )
     faded.putalpha(image.getchannel("A"))
     return faded
@@ -304,7 +307,7 @@ def _with_logo(
 ) -> Image.Image:
     canvas = base.copy()
     y = margin if top else base.height - logo.height - margin
-    canvas.alpha_composite(logo, (base.width - logo.width - margin, y))
+    _linear_over(canvas, logo, (base.width - logo.width - margin, y))
     return canvas
 
 
@@ -324,28 +327,6 @@ def _set_luma(hue: float, sat: float, target: float) -> tuple[int, int, int]:
         value = 1.0
     r, g, b = colorsys.hsv_to_rgb(hue, sat, value)
     return (round(r * 255), round(g * 255), round(b * 255))
-
-
-def _composite_frame(
-    frame: Image.Image, base: Image.Image, base_alpha: Image.Image | None
-) -> Image.Image:
-    """Composite *frame* over *base* (RGBA result).
-
-    When *base_alpha* (the base's alpha channel, computed once per card)
-    is given, the base is fully opaque and the blend takes the
-    GIL-releasing ``Image.composite`` path: bit-identical to
-    ``base.alpha_composite(frame)``, with the base's alpha band restored
-    so the downstream stamps composite against the same alpha — the
-    finished card is byte-identical either way."""
-    if frame.mode != "RGBA":
-        frame = frame.convert("RGBA")
-    if base_alpha is None:
-        canvas = base.copy()
-        canvas.alpha_composite(frame)
-        return canvas
-    art = Image.composite(frame, base, frame.getchannel("A"))
-    art.putalpha(base_alpha)
-    return art
 
 
 def _pack_mask(template: Image.Image) -> Image.Image:

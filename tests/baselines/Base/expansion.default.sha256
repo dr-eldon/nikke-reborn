@@ -5,7 +5,7 @@
 # recorded by: test --new-baseline (generate --force --jobs 1)
 # verify from the repo root: sha256sum -c tests/baselines/Base/expansion.default.sha256
 
-5d4804d877a25302a9ca9b8cb7ed3e981721a5c004bee73894ceae576b920701  output/Base/CardBox_Item.png
-00217bca042462963e30843b3d2f7cc87386dcdeb6a4c8554c2e8b094c6281ca  output/Base/CardBox_Material.png
-39ba9871c59c850896e9566f088b4f5d43e4d36ff2f021715c8a3723a20556bc  output/Base/CardPack_Item.png
-40e3e0333cd8d8470b742b4d1b32a93ed7fa2cb41965b4cffead72cdbd4dcf3f  output/Base/CardPack_Material.png
+3de62806ae5e4e11be69e88002660bb7b1c546bf21932ac14155520475b5510b  output/Base/CardBox_Item.png
+fdf5f38934cc9883ebcd121c662e3405ba1e99cc6e4cc29fe67a5fcf617ca11e  output/Base/CardBox_Material.png
+fe08686771a380c4cf893a0379d1594bba0f318c8e1bcb373af5b12148f69873  output/Base/CardPack_Item.png
+f55da59237c465fb739b789e119e700f584ef90c660a4e4bb82cce7e9323e850  output/Base/CardPack_Material.png

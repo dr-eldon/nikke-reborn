@@ -61,6 +61,7 @@ from nikke_reborn.image import (
     _pack_mask,
     _pack_mask_rects,
 )
+from nikke_reborn.linear import _linear_over
 from nikke_reborn.preset import Preset
 
 # The NIKKE logo stamped on the box's faces (its height as a fraction
@@ -213,8 +214,8 @@ def _stamp_logo(
             BOX_LOGO_SHADOW_ALPHA,
         )
         offset = round(BOX_LOGO_SHADOW_OFFSET * height)
-        face.alpha_composite(shadow, (left + offset - pad, top + offset - pad))
-    face.alpha_composite(logo, (left, top))
+        _linear_over(face, shadow, (left + offset - pad, top + offset - pad))
+    _linear_over(face, logo, (left, top))
 
 
 def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
@@ -410,7 +411,7 @@ def _process_box_material(
         front_target = (rects[0][2] - rects[0][0], rects[0][3] - rects[0][1])
         if front.size != front_target:
             front = front.resize(front_target, Image.Resampling.LANCZOS)
-        template.alpha_composite(front, (rects[0][0], rects[0][1]))
+        _linear_over(template, front, (rects[0][0], rects[0][1]))
         side_rect = side_rects[0]
         side_target = (
             side_rect[2] - side_rect[0],
@@ -418,12 +419,12 @@ def _process_box_material(
         )
         if side.size != side_target:
             side = side.resize(side_target, Image.Resampling.LANCZOS)
-        template.alpha_composite(side, (side_rect[0], side_rect[1]))
+        _linear_over(template, side, (side_rect[0], side_rect[1]))
         top_rect = top_rects[0]
         top_target = (top_rect[2] - top_rect[0], top_rect[3] - top_rect[1])
         if top.size != top_target:
             top = top.resize(top_target, Image.Resampling.LANCZOS)
-        template.alpha_composite(top, (top_rect[0], top_rect[1]))
+        _linear_over(template, top, (top_rect[0], top_rect[1]))
         final = template.convert("RGB")
     if preset.scale != 1.0:
         final = final.resize(

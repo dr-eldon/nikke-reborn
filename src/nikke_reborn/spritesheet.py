@@ -56,7 +56,7 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
 
-from nikke_reborn import card, expansion
+from nikke_reborn import card, expansion, linear
 from nikke_reborn.config import (
     CARD_REFERENCE_WIDTH,
     CARD_VIEWPORT,
@@ -671,11 +671,14 @@ def _dimmed_background(background: Image.Image, size: tuple[int, int]) -> Image.
         canvas.convert("RGB"), cutoff=(10, 0), preserve_tone=True
     )
     canvas.putalpha(alpha)
-    return Image.blend(
-        canvas,
-        Image.new("RGBA", canvas.size, _fade_target(background) + (255,)),
-        1 - BACKGROUND_DIM,
+    # The fade blends in linear light (see nikke_reborn.linear).
+    target = _fade_target(background)
+    canvas = linear._from_linear(
+        linear._to_linear(canvas) * BACKGROUND_DIM
+        + linear.DECODE[list(target)] * (1.0 - BACKGROUND_DIM)
     )
+    canvas.putalpha(alpha)
+    return canvas
 
 
 def _compose(
@@ -773,7 +776,8 @@ def _compose(
     # The triangle's mass sits on its base (the left edge), so its ink is
     # nipped 1 px right of the geometric center — shifting it 1 px right
     # reads as optically centered in the circle.
-    badge.alpha_composite(
+    linear._linear_over(
+        badge,
         marker,
         ((badge_d - marker.width) // 2 + 1, (badge_d - marker.height) // 2),
     )
@@ -795,16 +799,16 @@ def _compose(
         glow_color,
         expansion.LOGO_GLOW_INTENSITY,
     )
-    expansion._screen_composite(canvas, halo, (logo_x - pad, HEADER_PADDING - pad))
+    linear._linear_screen(canvas, halo, (logo_x - pad, HEADER_PADDING - pad))
     trail_offset = round(expansion.LOGO_TRAIL * logo.height)
     if trail_offset > 0:
         trail_tint = tuple(int(c * expansion.LOGO_TRAIL_DARKEN) for c in glow_color)
         trail = Image.new("RGBA", logo.size, trail_tint + (255,))
         trail.putalpha(logo.getchannel("A"))
-        canvas.alpha_composite(
-            trail, (logo_x + trail_offset, HEADER_PADDING + trail_offset)
+        linear._linear_over(
+            canvas, trail, (logo_x + trail_offset, HEADER_PADDING + trail_offset)
         )
-    canvas.alpha_composite(logo, (logo_x, HEADER_PADDING))
+    linear._linear_over(canvas, logo, (logo_x, HEADER_PADDING))
     x0 = MARGIN
     grid_x = x0 + label_w + LABEL_GAP
     grid_y = header + label_h + COLUMN_LABEL_GAP
@@ -841,7 +845,7 @@ def _compose(
         fill=LABEL_COLOR,
         anchor="lm",
     )
-    canvas.alpha_composite(badge, (legend_x - LEGEND_GAP - badge.width, MARGIN))
+    linear._linear_over(canvas, badge, (legend_x - LEGEND_GAP - badge.width, MARGIN))
 
     # --- the rows: rendered in worker threads, assembled on the main ----
     workers = min(len(rows), os.cpu_count() or 1, MAX_STAGE_THREADS)
@@ -891,14 +895,15 @@ def _compose(
                 if card is None:
                     continue
                 if key in animated:
-                    card.alpha_composite(
+                    linear._linear_over(
+                        card,
                         badge,
                         (
                             (card.width - badge.width) // 2,
                             (card.height - badge.height) // 2,
                         ),
                     )
-                canvas.alpha_composite(card, (x, y))
+                linear._linear_over(canvas, card, (x, y))
 
     # --- the copyright line: the cards' notice, bottom left, white -----
     font_size = round(
@@ -918,7 +923,8 @@ def _compose(
     )
     stamp = Image.new("RGBA", small.size, (255, 255, 255, 255))
     stamp.putalpha(small)
-    canvas.alpha_composite(
+    linear._linear_over(
+        canvas,
         stamp,
         (
             MARGIN,
@@ -1200,7 +1206,7 @@ def _summary_grid(
             )
             for frame, left, top in rendered:
                 if frame is not None:
-                    canvas.alpha_composite(frame, (left, top))
+                    linear._linear_over(canvas, frame, (left, top))
     # The logo's drop shadow, behind the mark: a darkened, blurred
     # copy offset down-right, drawn before the mark so the glow and the
     # mark composite over it. The shadow uses the mark's box (the one
@@ -1220,7 +1226,7 @@ def _summary_grid(
     offset = round(SUMMARY_LOGO_SHADOW_OFFSET * SHEET_TARGET[1])
     x = SHEET_TARGET[0] // 2 - mark.width // 2
     y = SHEET_TARGET[1] // 2 - mark.height // 2
-    canvas.alpha_composite(shadow, (x + offset - pad, y + offset - pad))
+    linear._linear_over(canvas, shadow, (x + offset - pad, y + offset - pad))
     expansion._composite_logo(
         canvas,
         mark,

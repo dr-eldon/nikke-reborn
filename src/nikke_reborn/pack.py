@@ -44,6 +44,7 @@ from nikke_reborn.file import (
     _viewer_hash,
 )
 from nikke_reborn.image import _pack_mask, _pack_mask_rects
+from nikke_reborn.linear import _linear_over
 from nikke_reborn.preset import Preset
 
 # The white logo stamped on the pack's front (its width and top inset,
@@ -106,8 +107,8 @@ def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
     logo_w, logo_h = _nikke_logo_size((rw, rh))
     with Image.open(PACK_LOGO) as opened:
         logo = opened.convert("RGBA").resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-    front.alpha_composite(
-        logo, (left + (rw - logo_w) // 2, top + round(PACK_LOGO_TOP * rh))
+    _linear_over(
+        front, logo, (left + (rw - logo_w) // 2, top + round(PACK_LOGO_TOP * rh))
     )
 
 
@@ -202,11 +203,11 @@ def _process_pack_material(
         back_target = (rects[0][2] - rects[0][0], rects[0][3] - rects[0][1])
         if back.size != back_target:
             back = back.resize(back_target, Image.Resampling.LANCZOS)
-        template.alpha_composite(back, (rects[0][0], rects[0][1]))
+        _linear_over(template, back, (rects[0][0], rects[0][1]))
         front_target = (rects[1][2] - rects[1][0], rects[1][3] - rects[1][1])
         if front.size != front_target:
             front = front.resize(front_target, Image.Resampling.LANCZOS)
-        template.alpha_composite(front, (rects[1][0], rects[1][1]))
+        _linear_over(template, front, (rects[1][0], rects[1][1]))
         final = template.convert("RGB")
     if preset.scale != 1.0:
         final = final.resize(
