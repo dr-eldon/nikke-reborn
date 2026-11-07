@@ -1,5 +1,6 @@
 import json
 import math
+import re
 
 from nikke_reborn import expansion as expansion_mod
 from nikke_reborn.config import (
@@ -104,7 +105,7 @@ def expansion(set, cards, rarities) -> dict:
     set carries them: the order the set's price ladder indexes, the
     simulation and the sprite sheet follow)."""
     return {
-        "Name": f"{set} Set",
+        "Name": f"{_name(set)} Set",
         "CardExpansion": f"{BUNDLE_NAME}_{set}",
         "Cards": cards,
         "MenuCategory": "NIKKE",
@@ -190,7 +191,7 @@ def pack(set, rarities) -> dict:
     }
 
     return {
-        "Name": f"{set} Packs",
+        "Name": f"{_name(set)} Packs",
         "CardExpansion": f"{BUNDLE_NAME}_{set}",
         "PackType": f"{BUNDLE_NAME}_{set}_CardPack",
         "ItemType": f"{BUNDLE_NAME}_{set}_CardPack_Item",
@@ -297,7 +298,7 @@ def _card(name, variant, rarity, sprite) -> dict:
 
 def box(set) -> dict:
     return {
-        "Name": f"{set} Box",
+        "Name": f"{_name(set)} Box",
         "Material": "CardBox_Material",
         "SpriteName": "CardBox_Item",
         "ItemType": f"{BUNDLE_NAME}_{set}_CardBox_Item",
@@ -347,3 +348,7 @@ def box(set) -> dict:
         "GodWeights": {},
         "SlotWeights": {},
     }
+
+
+def _name(set):
+    return re.sub(r"(\w)([A-Z])", r"\1 \2", set)
