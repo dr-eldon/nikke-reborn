@@ -145,6 +145,6 @@ placement = "bottom"
 
 [background]
 item = "../assets/images/backgrounds/beach-day.png"
-base = "../assets/images/backgrounds/beach-silent-night.png"
+base = "../assets/images/backgrounds/sky-night.png"
 special = "../assets/images/backgrounds/smoke-pink.png"
 battle = "../assets/images/backgrounds/bubble-maker.png"

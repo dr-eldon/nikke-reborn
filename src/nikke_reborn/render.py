@@ -905,7 +905,6 @@ def _process_full_art(
 
         background = ImageOps.autocontrast(
             background.convert("RGB"),
-            cutoff=(5, 0),
             preserve_tone=True,
         ).convert("RGBA")
 
@@ -1027,7 +1026,6 @@ def _process_profile_card(
 
     background = ImageOps.autocontrast(
         background.convert("RGB"),
-        cutoff=(5, 0),
         preserve_tone=True,
     ).convert("RGBA")
 
@@ -1154,15 +1152,8 @@ def _process_standard_card(
 
     background = ImageOps.autocontrast(
         background.convert("RGB"),
-        cutoff=(20, 0),
         preserve_tone=True,
     ).convert("RGBA")
-    brightness = ImageStat.Stat(background).mean[0]
-
-    background = _fade_to_dominant(
-        background,
-        factor=min(4.0 * max(brightness - 80, 0) / 255, 1.0),
-    )
 
     base = _standard_layers(background)
 
