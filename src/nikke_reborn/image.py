@@ -307,7 +307,7 @@ def _with_logo(
 ) -> Image.Image:
     canvas = base.copy()
     y = margin if top else base.height - logo.height - margin
-    _linear_over(canvas, logo, (base.width - logo.width - margin, y))
+    canvas.alpha_composite(logo, (base.width - logo.width - margin, y))
     return canvas
 
 

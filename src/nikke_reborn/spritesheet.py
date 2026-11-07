@@ -799,16 +799,16 @@ def _compose(
         glow_color,
         expansion.LOGO_GLOW_INTENSITY,
     )
-    linear._linear_screen(canvas, halo, (logo_x - pad, HEADER_PADDING - pad))
+    expansion._screen_composite(canvas, halo, (logo_x - pad, HEADER_PADDING - pad))
     trail_offset = round(expansion.LOGO_TRAIL * logo.height)
     if trail_offset > 0:
         trail_tint = tuple(int(c * expansion.LOGO_TRAIL_DARKEN) for c in glow_color)
         trail = Image.new("RGBA", logo.size, trail_tint + (255,))
         trail.putalpha(logo.getchannel("A"))
-        linear._linear_over(
-            canvas, trail, (logo_x + trail_offset, HEADER_PADDING + trail_offset)
+        canvas.alpha_composite(
+            trail, (logo_x + trail_offset, HEADER_PADDING + trail_offset)
         )
-    linear._linear_over(canvas, logo, (logo_x, HEADER_PADDING))
+    canvas.alpha_composite(logo, (logo_x, HEADER_PADDING))
     x0 = MARGIN
     grid_x = x0 + label_w + LABEL_GAP
     grid_y = header + label_h + COLUMN_LABEL_GAP
@@ -923,8 +923,7 @@ def _compose(
     )
     stamp = Image.new("RGBA", small.size, (255, 255, 255, 255))
     stamp.putalpha(small)
-    linear._linear_over(
-        canvas,
+    canvas.alpha_composite(
         stamp,
         (
             MARGIN,
@@ -1226,7 +1225,7 @@ def _summary_grid(
     offset = round(SUMMARY_LOGO_SHADOW_OFFSET * SHEET_TARGET[1])
     x = SHEET_TARGET[0] // 2 - mark.width // 2
     y = SHEET_TARGET[1] // 2 - mark.height // 2
-    linear._linear_over(canvas, shadow, (x + offset - pad, y + offset - pad))
+    canvas.alpha_composite(shadow, (x + offset - pad, y + offset - pad))
     expansion._composite_logo(
         canvas,
         mark,

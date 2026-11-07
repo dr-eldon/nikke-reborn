@@ -107,8 +107,8 @@ def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
     logo_w, logo_h = _nikke_logo_size((rw, rh))
     with Image.open(PACK_LOGO) as opened:
         logo = opened.convert("RGBA").resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-    _linear_over(
-        front, logo, (left + (rw - logo_w) // 2, top + round(PACK_LOGO_TOP * rh))
+    front.alpha_composite(
+        logo, (left + (rw - logo_w) // 2, top + round(PACK_LOGO_TOP * rh))
     )
 
 

@@ -189,7 +189,9 @@ def _stream_composited(
     def stamp(
         art: Image.Image, overlay: Image.Image, overlay_pos: tuple[int, int]
     ) -> Image.Image:
-        linear._linear_over(art, overlay, overlay_pos)
+        # The overlay (the logo and copyright) and the name stack are text
+        # and logos: they composite in sRGB, over the linear art.
+        art.alpha_composite(overlay, overlay_pos)
         return _apply_name(art, parts) if parts is not None else art
 
     time_lock = threading.Lock()
@@ -316,11 +318,13 @@ def _stream_dual_composited(
     tint_rgb = (tint_pixel[0], tint_pixel[1], tint_pixel[2])
     # The layers composite in linear light (see nikke_reborn.linear —
     # Pillow's stored-value blends darken and hue-shift partial-alpha
-    # mixes). The background decodes once per card; the static runs —
-    # the tint wash and the profile mask under the body, and over it the
-    # photo reel, the overlay and the name stack — precompute into linear
-    # affines the per-frame frames apply for multiply-adds, the alpha
-    # channels folding into their own affine.
+    # mixes) — except the overlay (the logo and copyright) and the name
+    # stack, which are text and logos and composite in sRGB over them,
+    # after the encode. The background decodes once per card; the linear
+    # static runs — the tint wash and the profile mask under the body,
+    # and the photo reel over it — precompute into linear affines the
+    # per-frame frames apply for multiply-adds, the alpha channels
+    # folding into their own affine.
     background_lin = linear._to_linear(background)
     background_alpha = linear._alpha(background)
     lower = linear._affine_init((width, height))
@@ -329,6 +333,14 @@ def _stream_dual_composited(
     lower_alpha = linear._affine_alpha_init((width, height))
     lower_alpha = linear._affine_alpha_over(lower_alpha, tint)
     lower_alpha = linear._affine_alpha_over(lower_alpha, mask)
+    # The reel, the last linear static over the body (the overlay and
+    # name stack sit over it, in sRGB). It is static, so its affine is
+    # precomputed once.
+    reel_layer = linear._affine_init((width, height))
+    reel_alpha = linear._affine_alpha_init((width, height))
+    for layer, position in reel:
+        reel_layer = linear._affine_over(reel_layer, layer, position)
+        reel_alpha = linear._affine_alpha_over(reel_alpha, layer, position)
 
     def to_art(face_data: bytes, body_data: bytes):
         face = Image.frombytes("RGBA", (width, height), face_data)
@@ -347,32 +359,6 @@ def _stream_dual_composited(
         alpha = linear._affine_apply(lower_alpha, alpha)
         alpha = body_alpha + alpha * (1.0 - body_alpha)
         return art, alpha
-
-    def make_upper(overlay: Image.Image, overlay_pos: tuple[int, int]):
-        # The statics over the body, in the order the sRGB chain used to
-        # apply them: the reel (under the overlay), the overlay, the name
-        # stack.
-        parts_layers = (
-            ()
-            if parts is None
-            else tuple(
-                part
-                for part in (
-                    parts.rect,
-                    parts.sub_rect,
-                    parts.title,
-                    parts.arrow,
-                    parts.sub_top,
-                )
-                if part is not None
-            )
-        )
-        upper = linear._affine_init((width, height))
-        upper_alpha = linear._affine_alpha_init((width, height))
-        for layer, position in (*reel, (overlay, overlay_pos), *parts_layers):
-            upper = linear._affine_over(upper, layer, position)
-            upper_alpha = linear._affine_alpha_over(upper_alpha, layer, position)
-        return upper, upper_alpha
 
     def encode_frame(art, alpha) -> Image.Image:
         image = linear._from_linear(art)
@@ -412,11 +398,22 @@ def _stream_dual_composited(
                 )
             art, alpha = to_art(face_data, body_data)
             overlay, overlay_pos = make_overlay(encode_frame(art, alpha))
-            upper, upper_alpha = make_upper(overlay, overlay_pos)
+
+            # The overlay (the logo and copyright) and the name stack
+            # are text and logos: they composite in sRGB, over the
+            # linear art and reel.
+            def stamp(image: Image.Image) -> Image.Image:
+                image.alpha_composite(overlay, overlay_pos)
+                if parts is not None:
+                    _apply_name(image, parts)
+                return image
+
             started = time.perf_counter()
-            first = encode_frame(
-                linear._affine_apply(upper, art),
-                linear._affine_apply(upper_alpha, alpha),
+            first = stamp(
+                encode_frame(
+                    linear._affine_apply(reel_layer, art),
+                    linear._affine_apply(reel_alpha, alpha),
+                )
             )
             with time_lock:
                 composite_time[0] += time.perf_counter() - started
@@ -428,9 +425,11 @@ def _stream_dual_composited(
             def composite(face_data: bytes, body_data: bytes) -> Image.Image:
                 started = time.perf_counter()
                 art, alpha = to_art(face_data, body_data)
-                result = encode_frame(
-                    linear._affine_apply(upper, art),
-                    linear._affine_apply(upper_alpha, alpha),
+                result = stamp(
+                    encode_frame(
+                        linear._affine_apply(reel_layer, art),
+                        linear._affine_apply(reel_alpha, alpha),
+                    )
                 )
                 with time_lock:
                     composite_time[0] += time.perf_counter() - started

@@ -45,7 +45,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageChops, ImageFilter
 
 from nikke_reborn.config import (
     CARDS_DIR,
@@ -55,7 +55,7 @@ from nikke_reborn.config import (
 )
 from nikke_reborn.error import GenerationError
 from nikke_reborn.file import hash_term
-from nikke_reborn.linear import _linear_over, _linear_screen
+from nikke_reborn.linear import _linear_over
 from nikke_reborn.video import _PipeDrain, _read_exact, _reap_viewer
 
 # --- front composition tuning (fractions of the front) ----------------------
@@ -1370,6 +1370,28 @@ def _logo_glow_layer(
     return layer, pad
 
 
+def _screen_composite(
+    base: Image.Image, overlay: Image.Image, pos: tuple[int, int]
+) -> None:
+    """Screen-blend *overlay*'s color onto *base* at *pos*, masked by the
+    overlay's alpha: the mark's bloom brightens the front without painting over
+    it (unlike an opaque alpha paste). Clipped to *base*'s bounds; *base* is
+    modified in place."""
+    base_w, base_h = base.size
+    over_w, over_h = overlay.size
+    x, y = pos
+    sx, sy = max(0, -x), max(0, -y)
+    ex, ey = min(over_w, base_w - x), min(over_h, base_h - y)
+    if ex <= sx or ey <= sy:
+        return
+    box = (x + sx, y + sy, x + ex, y + ey)
+    region = base.crop(box)
+    halo = overlay.crop((sx, sy, ex, ey))
+    mask = halo.getchannel("A")
+    blended = ImageChops.screen(region.convert("RGB"), halo.convert("RGB"))
+    base.paste(Image.composite(blended, region.convert("RGB"), mask), box)
+
+
 def _composite_logo(
     canvas: Image.Image,
     logo: Image.Image,
@@ -1444,11 +1466,11 @@ def _composite_logo(
     halo, pad = _logo_glow_layer(
         logo, round(LOGO_GLOW_RADIUS * height), glow_color, LOGO_GLOW_INTENSITY
     )
-    _linear_screen(canvas, halo, (x - pad, y - pad))
+    _screen_composite(canvas, halo, (x - pad, y - pad))
     trail_offset = round(LOGO_TRAIL * logo.height)
     if trail_offset > 0:
         trail_tint = tuple(int(c * LOGO_TRAIL_DARKEN) for c in glow_color)
         trail = Image.new("RGBA", logo.size, trail_tint + (255,))
         trail.putalpha(logo.getchannel("A"))
-        _linear_over(canvas, trail, (x + trail_offset, y + trail_offset))
-    _linear_over(canvas, logo, (x, y))
+        canvas.alpha_composite(trail, (x + trail_offset, y + trail_offset))
+    canvas.alpha_composite(logo, (x, y))

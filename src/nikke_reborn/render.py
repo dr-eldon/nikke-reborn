@@ -40,7 +40,6 @@ from nikke_reborn.lettering import (
     _rect_tint,
     _tint_layer,
 )
-from nikke_reborn.linear import _linear_over
 from nikke_reborn.preset import Preset
 from nikke_reborn.video import (
     PIPE_BUFSIZE,
@@ -742,8 +741,8 @@ def _render_standard(
             # and the new mark land at their card positions, then crop
             # back to the combined ink.
             full = Image.new("RGBA", size, (0, 0, 0, 0))
-            _linear_over(full, overlay, overlay_pos)
-            _linear_over(full, mark, (size[0] - inset - mark_w, inset))
+            full.alpha_composite(overlay, overlay_pos)
+            full.alpha_composite(mark, (size[0] - inset - mark_w, inset))
             box = full.getbbox()
             assert box is not None, "the standard card's overlay is empty"
             return full.crop(box), (box[0], box[1])

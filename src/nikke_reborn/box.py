@@ -214,8 +214,8 @@ def _stamp_logo(
             BOX_LOGO_SHADOW_ALPHA,
         )
         offset = round(BOX_LOGO_SHADOW_OFFSET * height)
-        _linear_over(face, shadow, (left + offset - pad, top + offset - pad))
-    _linear_over(face, logo, (left, top))
+        face.alpha_composite(shadow, (left + offset - pad, top + offset - pad))
+    face.alpha_composite(logo, (left, top))
 
 
 def place_logo(front: Image.Image, rect: tuple[int, int, int, int]) -> None:
