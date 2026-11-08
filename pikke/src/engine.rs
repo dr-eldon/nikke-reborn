@@ -21,12 +21,12 @@ impl Engine {
     pub fn load(script: impl AsRef<Path>) -> anywho::Result<Engine> {
         let script = script.as_ref().to_path_buf();
         let source = std::fs::read_to_string(&script)
-            .map_err(|e| anywho!("failed to read {}: {e}", script.display()))?;
+            .map_err(|error| anywho!("failed to read {}: {error}", script.display()))?;
 
         let lua = Lua::new();
 
-        // A dedicated environment: the script's globals (and, later,
-        // the op table) live here, separate from the engine's.
+        // A dedicated environment: the script's globals live here,
+        // separate from the engine's.
         let env = lua.create_table()?;
         env.set("_G", env.clone())?;
 
@@ -135,8 +135,10 @@ impl Engine {
                         )));
                     }
 
-                    let n = *yielded.borrow_mut() + 1;
-                    eprintln!("yield: frame {n} ({frame_width}×{frame_height})");
+                    let frame_number = *yielded.borrow_mut() + 1;
+                    eprintln!(
+                        "yield: frame {frame_number} ({frame_width}×{frame_height})"
+                    );
                     Ok(())
                 })?,
         )?;

@@ -18,7 +18,7 @@ pub struct Image {
     a: Vec<f32>,
     width: u32,
     height: u32,
-    /// The scale of these pixel dims (a loaded asset: 1.0, the
+    /// The scale of these pixel dims (a loaded asset: the
     /// reference's; a resampled buffer: the run's).
     scale: f32,
     /// The run's viewport (the op-boundary transform, the receiver
@@ -179,8 +179,6 @@ mod tests {
     use crate::Viewport;
     use std::path::Path;
 
-    // The Base background loads at its file dims (the PNG's own
-    // header).
     #[test]
     fn the_base_background_loads_at_its_file_dims() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))

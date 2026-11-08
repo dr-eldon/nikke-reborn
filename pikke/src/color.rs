@@ -8,7 +8,7 @@ pub struct Color {
 }
 
 impl Color {
-    /// A stored sRGB pixel (0-255, r, g, b, a) as a 0-1 sRGB color.
+    /// A stored sRGB pixel (0-255) as a 0-1 sRGB color.
     pub fn from_rgba_u8(pixel: [u8; 4]) -> Self {
         Self {
             r: pixel[0] as f32 / 255.0,
@@ -51,8 +51,7 @@ impl Color {
         ]
     }
 
-    /// The buffer's premultiplied form: the rgb channels scaled by
-    /// the alpha.
+    /// The buffer's premultiplied form.
     pub fn premultiply(self) -> Self {
         Self {
             r: self.r * self.a,
@@ -62,9 +61,8 @@ impl Color {
         }
     }
 
-    /// The straight form from the buffer's premultiplied one: the rgb
-    /// channels divided by the alpha. A fully transparent pixel's
-    /// color is unrecoverable and reads as 0.
+    /// The straight form from the buffer's premultiplied one. A fully
+    /// transparent pixel's color is unrecoverable and reads as 0.
     pub fn demultiply(self) -> Self {
         if self.a == 0.0 {
             return Self {
@@ -83,10 +81,9 @@ impl Color {
         }
     }
 
-    /// Porter-Duff 'over' in the buffer's premultiplied form (the rgb
-    /// channels premultiplied by the alpha; the caller's domain:
-    /// linear light or sRGB): no division, and a 0 or 1 alpha on
-    /// either side falls out of the formula exactly.
+    /// Porter-Duff 'over' in the buffer's premultiplied form (the
+    /// caller's domain: linear light or sRGB): no division, and a 0
+    /// or 1 alpha on either side falls out of the formula exactly.
     pub fn over(self, layer: Color) -> Color {
         let retain = 1.0 - layer.a;
 
@@ -132,8 +129,7 @@ pub fn luma(pixel: [u8; 3]) -> f64 {
 }
 
 /// The ITU-R 601 luma of a stored sRGB pixel — the stretch's histogram
-/// channel (the reference's `convert("L")` integer path, not the 709
-/// weights).
+/// channel (the reference's `convert("L")` integer path).
 pub fn luma601(pixel: [u8; 3]) -> u8 {
     (((pixel[0] as u32) * 19595 + (pixel[1] as u32) * 38470 + (pixel[2] as u32) * 7471 + 0x8000)
         >> 16) as u8
@@ -171,7 +167,7 @@ mod vectors {
 
     #[test]
     fn encode_matches_the_reference_within_one() {
-        let reference: Vec<u8> = read("encode_ref.bin");
+        let reference = read("encode_ref.bin");
         assert_eq!(reference.len(), 65_536);
         let mut differing = 0;
         for step in 0..65_536u32 {
@@ -193,11 +189,11 @@ mod vectors {
     }
 
     // over.txt lines: base(4) layer(4) linear_out(4) srgb_out(4).
-    // Both columns through the buffer's form (premultiply, over,
-    // demultiply, encoded) — in linear for the first, in sRGB
-    // for the second. The one line skipped is both alphas 0: the
-    // reference keeps the layer's color where a straight composite
-    // would leave it, and the premultiplied form discards it.
+    // Both columns through the buffer's form — in linear for the
+    // first, in sRGB for the second. The one line skipped is both
+    // alphas 0: the reference keeps the layer's color where a
+    // straight composite would leave it, and the premultiplied
+    // form discards it.
     #[test]
     fn over_matches_the_reference() {
         let text = String::from_utf8(read("over.txt")).unwrap();
@@ -271,9 +267,11 @@ mod vectors {
                 .collect();
             assert_eq!(pixels.len(), height * width * 3);
             let count = height * width;
-            let sum: f64 = (0..count)
-                .map(|i| luma([pixels[3 * i], pixels[3 * i + 1], pixels[3 * i + 2]]))
-                .sum();
+            // RGB: 3-byte pixels, so no remainder.
+            let mut sum = 0.0;
+            for pixel in pixels.as_chunks::<3>().0 {
+                sum += luma(*pixel);
+            }
             let ours = sum / count as f64;
             assert!(
                 (ours - mean).abs() < 1e-3,

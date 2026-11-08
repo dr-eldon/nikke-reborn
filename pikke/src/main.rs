@@ -19,7 +19,6 @@ use engine::Engine;
 pub use image::Image;
 pub use viewport::Viewport;
 
-/// Errors are user-facing messages (see `--help`).
 fn main() -> anywho::Result<()> {
     let mut args = std::env::args();
     let _process = args.next();

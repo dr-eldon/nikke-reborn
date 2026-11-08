@@ -7,8 +7,7 @@ pub struct Viewport {
 }
 
 impl Viewport {
-    /// Logical → physical: × the run's scale, rounded (Rust's round,
-    /// ties away from zero).
+    /// Logical → physical; the rounding ties away from zero.
     pub fn physical(&self, logical: f32) -> u32 {
         (logical * self.scale).round() as u32
     }
@@ -26,8 +25,7 @@ impl Viewport {
 mod tests {
     use super::Viewport;
 
-    // The op-boundary transform (× the scale, Rust's round): exact
-    // against the reference's scaled values at 0.5 — the viewport and
+    // Exact against the reference's scaled values: the viewport and
     // the script's logo, copyright, and title.
     #[test]
     fn the_transform_is_exact_at_the_reference_values() {

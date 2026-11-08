@@ -8,7 +8,7 @@ impl UserData for Rectangle {
     }
 
     fn add_methods<M: UserDataMethods<Rectangle>>(methods: &mut M) {
-        methods.add_method("padded", |_lua, _this, _n: f64| -> Result<Rectangle> {
+        methods.add_method("padded", |_lua, _this, _pad: f64| -> Result<Rectangle> {
             Ok(Rectangle)
         });
     }
