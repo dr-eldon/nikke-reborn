@@ -51,31 +51,50 @@ impl Color {
         ]
     }
 
-    /// Porter-Duff 'over' (0-1, the caller's domain: linear light or
-    /// sRGB): the layer over the base.
-    pub fn over(self, layer: Color) -> Color {
-        let coverage = layer.a;
-        let base_alpha = self.a;
-        let out_alpha = coverage + base_alpha * (1.0 - coverage);
+    /// The buffer's premultiplied form: the rgb channels scaled by
+    /// the alpha.
+    pub fn premultiply(self) -> Self {
+        Self {
+            r: self.r * self.a,
+            g: self.g * self.a,
+            b: self.b * self.a,
+            a: self.a,
+        }
+    }
 
-        // The degenerate pixels take their operands un-divided: a clear
-        // layer leaves the base, a transparent base receives the layer
-        // straight (no divide by the zero output alpha).
-        let mix = |base, layer| {
-            if coverage == 0.0 {
-                base
-            } else if base_alpha == 0.0 {
-                layer
-            } else {
-                (layer * coverage + (base * base_alpha) * (1.0 - coverage)) / out_alpha
-            }
-        };
+    /// The straight form from the buffer's premultiplied one: the rgb
+    /// channels divided by the alpha. A fully transparent pixel's
+    /// color is unrecoverable and reads as 0.
+    pub fn demultiply(self) -> Self {
+        if self.a == 0.0 {
+            return Self {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            };
+        }
+
+        Self {
+            r: self.r / self.a,
+            g: self.g / self.a,
+            b: self.b / self.a,
+            a: self.a,
+        }
+    }
+
+    /// Porter-Duff 'over' in the buffer's premultiplied form (the rgb
+    /// channels premultiplied by the alpha; the caller's domain:
+    /// linear light or sRGB): no division, and a 0 or 1 alpha on
+    /// either side falls out of the formula exactly.
+    pub fn over(self, layer: Color) -> Color {
+        let retain = 1.0 - layer.a;
 
         Color {
-            r: mix(self.r, layer.r),
-            g: mix(self.g, layer.g),
-            b: mix(self.b, layer.b),
-            a: out_alpha,
+            r: layer.r + self.r * retain,
+            g: layer.g + self.g * retain,
+            b: layer.b + self.b * retain,
+            a: layer.a + self.a * retain,
         }
     }
 }
@@ -174,6 +193,11 @@ mod vectors {
     }
 
     // over.txt lines: base(4) layer(4) linear_out(4) srgb_out(4).
+    // Both columns through the buffer's form (premultiply, over,
+    // demultiply, encoded) — in linear for the first, in sRGB
+    // for the second. The one line skipped is both alphas 0: the
+    // reference keeps the layer's color where a straight composite
+    // would leave it, and the premultiplied form discards it.
     #[test]
     fn over_matches_the_reference() {
         let text = String::from_utf8(read("over.txt")).unwrap();
@@ -187,20 +211,32 @@ mod vectors {
             let base = Color::from_rgba_u8([values[0], values[1], values[2], values[3]]);
             let layer = Color::from_rgba_u8([values[4], values[5], values[6], values[7]]);
 
-            let linear = base.srgb_to_linear().over(layer.srgb_to_linear());
-            let linear_out = linear.linear_to_srgb().to_rgba_u8();
+            if base.a == 0.0 && layer.a == 0.0 {
+                continue;
+            }
+
+            let linear = base
+                .srgb_to_linear()
+                .premultiply()
+                .over(layer.srgb_to_linear().premultiply())
+                .demultiply()
+                .linear_to_srgb()
+                .to_rgba_u8();
             let reference = [values[8], values[9], values[10], values[11]];
 
-            let srgb = base.over(layer);
-            let srgb_out = srgb.to_rgba_u8();
+            let srgb = base
+                .premultiply()
+                .over(layer.premultiply())
+                .demultiply()
+                .to_rgba_u8();
             let srgb_reference = [values[12], values[13], values[14], values[15]];
 
-            // The round-trip cases are byte-exact on both paths.
+            // The round-trip cases are byte-exact on both columns.
             let exact = layer.a == 0.0 || layer.a == 1.0 || base.a == 0.0;
             for channel in 0..4 {
                 for (ours, theirs, path) in [
-                    (linear_out[channel], reference[channel], "linear"),
-                    (srgb_out[channel], srgb_reference[channel], "srgb"),
+                    (linear[channel], reference[channel], "linear"),
+                    (srgb[channel], srgb_reference[channel], "srgb"),
                 ] {
                     if exact {
                         assert_eq!(

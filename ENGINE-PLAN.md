@@ -58,6 +58,13 @@ From the design review (2026-11-08):
 - **`spawn` protocol:** the script passes the producer's protocol flag
   (`--stdout`); frames are raw RGBA8 on the producer's stdout, canvas-
   sized. No retry.
+- **Internal buffer: premultiplied** RGBA, f32 linear (0–1) — the op
+  boundary stays straight RGBA8 sRGB (§3b). The linear composite is
+  `layer + base·(1 − layer.a)`: no division, and a 0 or 1 alpha on either
+  side exact. Premultiplication discards a fully transparent pixel's
+  color — the stored-channel ops (`luma_at`, the contrast histogram)
+  read it as colorless — exact on the standard tier (the regions are
+  opaque), a representation limit otherwise.
 - **`text` anchor:** the tight ink box's top-left lands at `(x, y)`.
 - **No `size = "auto"`** — numeric px only.
 - **`fill`'s space is automatic:** a `Text` region composites in sRGB,
@@ -115,7 +122,8 @@ record where they occur and folded back into ENGINE.md later:
   so the engine asserts canvas dims on `yield` and on `blend`'s
   receiver.
 - **Buffer representation:** at the op boundary a buffer is straight-
-  alpha RGBA8 sRGB; internally the buffer is f32 linear (0–1), and
+  alpha RGBA8 sRGB; internally the buffer is f32 linear (0–1),
+  premultiplied (§2), and
   the sRGB ↔ linear transfer is evaluated directly at the boundaries
   (load, yield) and in the small sRGB-composite and `luma_at` regions
   — no LUTs (deviation from the reference's 0–65535 LUTs). Rounding

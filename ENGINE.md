@@ -99,9 +99,13 @@ The top edge is `0`, the right edge `width()`, the bottom edge
 - **`blend` defaults to linear light; `fill` chooses by the region's
   kind** — a `Text` region composites in sRGB (text is sRGB, always), a
   `Rectangle` region in linear. For proper color handling, artwork composites
-  in linear light by default. Implementors should likely keep
-  pre-multiplied RGBA buffers in linear light for easy, correct
-  compositing.
+  in linear light by default. The buffer holds **premultiplied** RGBA in
+  linear light (0–1): the linear composite is `layer + base·(1 − layer.a)` —
+  no division, and a 0 or 1 alpha on either side falls out of the formula
+  exactly. A fully transparent pixel's color is discarded with the alpha —
+  the ops defined on stored channels (the luma, the contrast histogram)
+  read such a pixel as colorless; while the region is opaque (the
+  standard tier), that is exact.
 - **`text` is sRGB, always.** Type is authored in sRGB; no opt-out.
 - **Opt-in sRGB.** `color_space = "srgb"` switches a `blend` to sRGB
   compositing — the logos (the NIKKE mark, the manufacturer mark) are
