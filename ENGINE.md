@@ -58,10 +58,11 @@ The top edge is `0`, the right edge `width()`, the bottom edge
 
 | op | signature | meaning |
 |---|---|---|
-| `contrast` | `img:contrast({auto=true}) → Image` | Histogram-stretch to full range, **tone-preserving** (no highlight/shadow clip). New buffer. |
-| `resize` | `img:resize({width, height, mode}) → Image` | Scale to the target (logical px): exactly one of `width`/`height` — aspect preserved; both — the target box, `mode = "cover"` covers it and center-crops, no `mode` scales to it exactly. New buffer. |
-| `blend` | `img:blend(other, {at, color_space}) → Image` | Alpha-composite `other` over `img`, `other`'s top-left at `at` (a `Rectangle`, default `(0, 0)`), clipped to the canvas. `color_space`: `"linear"` (default) / `"srgb"`. New buffer. |
-| `fill` | `img:fill(region, color) → Image` | Paint `region` (a `Rectangle` or `Text`) with `color` (hex). The space is chosen by the region's kind: a `Text` region composites in sRGB, a `Rectangle` region in linear. New buffer. |
+| `clone` | `img:clone() → Image` | A copy sharing `img`'s buffer (cheap); the copy diverges from `img` (copy-on-write) on its first in-place write. The branch point. |
+| `contrast` | `img:contrast({auto=true})` | Histogram-stretch to full range, **tone-preserving** (no highlight/shadow clip). In place. |
+| `resize` | `img:resize({width, height, mode})` | Scale to the target (logical px): exactly one of `width`/`height` — aspect preserved; both — the target box, `mode = "cover"` covers it and center-crops, no `mode` scales to it exactly. In place. |
+| `blend` | `img:blend(other, {at, color_space})` | Alpha-composite `other` over `img`, `other`'s top-left at `at` (a `Rectangle`, default `(0, 0)`), clipped to the canvas. `color_space`: `"linear"` (default) / `"srgb"`. In place. |
+| `fill` | `img:fill(region, color)` | Paint `region` (a `Rectangle` or `Text`) with `color` (hex). The space is chosen by the region's kind: a `Text` region composites in sRGB, a `Rectangle` region in linear. In place. |
 | `luma_at` | `img:luma_at(region) → number` | Mean luma of `region` (a `Rectangle`), 0–255 (see *Luma*). |
 | `width` | `img:width() → number` | The image's width (px). |
 | `height` | `img:height() → number` | The image's height (px). |
@@ -82,16 +83,18 @@ The top edge is `0`, the right edge `width()`, the bottom edge
 
 ## Execution model
 
-- **Immutable buffers.** Every op returns a new buffer; the receiver
-  is never mutated (`img:blend(x)` leaves `img` intact).
+- **In-place ops; one explicit copy.** The pixel ops (`contrast`,
+  `resize`, `blend`, `fill`) mutate the receiver in place and return
+  nothing. `clone()` is the model's only copy and the branch point:
+  fork a canvas, paint on it, `clone()` to start a fresh one.
 - **No hidden canvas.** The running composite is a value the script
   threads explicitly (`base` → `output`). There is no global state.
 - **Streaming.** `spawn` is lazy. The `for frame in stream` loop is
   the sole driver: the engine produces exactly one frame per
   iteration, on demand. Nothing else advances the stream.
 - **Prefix / suffix split.** Ops before `spawn` (the `base`) run
-  **once**; ops inside the loop run **per frame**, each starting from
-  `base` (a fresh prefix), never accumulated across frames. `yield`
+  **once**; ops inside the loop run **per frame**, each starting from a
+  fresh `clone()` of `base`, never accumulated across frames. `yield`
   emits the frame at the loop's end.
 
 ## Color space

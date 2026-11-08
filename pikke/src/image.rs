@@ -23,7 +23,7 @@ pub struct Image {
     viewport: Viewport,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Buffer {
     r: Vec<f32>,
     g: Vec<f32>,
@@ -159,17 +159,20 @@ impl UserData for Image {
         methods.add_method("size", |_lua, this, _args: ()| -> Result<(u32, u32)> {
             Ok((this.logical_width(), this.logical_height()))
         });
-        methods.add_method("resize", |_lua, this, _opts: Table| -> Result<Image> {
-            // Mock: the passthrough; the real resize resamples to the
-            // target's dims.
+        methods.add_method("clone", |_lua, this, _args: ()| -> Result<Image> {
+            // Cheap (shares the buffer's Arc); the pixel copy is deferred
+            // to the first in-place write (CoW).
             Ok(this.clone())
         });
-        methods.add_method("contrast", |_lua, this, _opts: Table| -> Result<Image> {
-            Ok(this.clone())
+        methods.add_method_mut("resize", |_lua, _this, _opts: Table| -> Result<()> {
+            Ok(())
         });
-        methods.add_method(
+        methods.add_method_mut("contrast", |_lua, _this, _opts: Table| -> Result<()> {
+            Ok(())
+        });
+        methods.add_method_mut(
             "blend",
-            |_lua, this, (_layer, _opts): (AnyUserData, Option<Table>)| -> Result<Image> {
+            |_lua, this, (_layer, _opts): (AnyUserData, Option<Table>)| -> Result<()> {
                 // A blend's receiver is the physical viewport (§3b).
                 let (width, height) = (this.physical_width(), this.physical_height());
                 let (physical_width, physical_height) =
@@ -179,14 +182,12 @@ impl UserData for Image {
                         "blend: the receiver is {width}×{height}, the viewport is {physical_width}×{physical_height}"
                     )));
                 }
-                Ok(this.clone())
+                Ok(())
             },
         );
-        methods.add_method(
+        methods.add_method_mut(
             "fill",
-            |_lua, this, (_region, _color): (mlua::Value, String)| -> Result<Image> {
-                Ok(this.clone())
-            },
+            |_lua, _this, (_region, _color): (mlua::Value, String)| -> Result<()> { Ok(()) },
         );
         methods.add_method(
             "luma_at",
