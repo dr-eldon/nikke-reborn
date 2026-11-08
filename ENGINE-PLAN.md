@@ -232,9 +232,7 @@ pikke/
                  to the script), the `wght` weight axis (a swash
                  variation, set when the file carries it)
     text.rs      the `Text`: the layout (the ink-offset probe, the
-                 anchor, the supersampling — the font rasterizes at
-                 the run scale, the physical size = the logical size ×
-                 the scale), the ink-cropped pixels, `bounds`
+                 anchor), the ink-cropped pixels, `bounds`
     rectangle.rs the `Rectangle` and `padded`
     stream.rs    the `Stream`: the `spawn`'d producer protocol — the
                  stdout frame reader, the stderr drain thread (bounded
@@ -344,13 +342,12 @@ mean on the three Base backgrounds.
 
 **Phase 7 — text.** `font.rs` + `text.rs` on `cosmic-text` (the face
 via `FontSet` from the file's bytes — the path relative to the
-script —, swash shaping + rasterization): the `wght` axis (a swash
-variation, set when the file carries it — Oswald is variable,
-AireExterior static), the layout, the ink-offset probe (the union of
-the glyphs' ink), the anchor (the tight ink box's top-left at
-`(x, y)`), the 4× supersampling with a Lanczos downscale (a free op),
-`bounds`. Shaping hint `Basic` — plain advances, matching the
-reference's non-GPOS layout (swash kerns by default).
+script —, swash shaping + rasterization at the run scale): the `wght`
+axis (a swash variation, set when the file carries it — Oswald is
+variable, AireExterior static), the layout, the ink-offset probe (the
+union of the glyphs' ink), the anchor (the tight ink box's top-left
+at `(x, y)`), `bounds`. Shaping hint `Basic` — plain advances,
+matching the reference's non-GPOS layout (swash kerns by default).
 *Gate:* the script's two texts (Oswald 300 at the copyright size,
 AireExterior 700 at the title size): the ink box's top-left exactly
 `(x, y)` (pinned), the ink box's size within ~1 px of the reference's
@@ -419,10 +416,15 @@ driver, and the hash-embedding question for engine outputs.
 ## 8. Risks and notes
 
 - **Free ops chosen for parity, not copied.** The Lanczos resize,
-  swash rasterization, the 4× supersampling and the reference's
+  swash rasterization and the reference's
   ffmpeg flags are chosen to sit the noise floor low — the invariant is
   the bounded delta, not byte identity, and none of these is replicated
   detail for its own sake.
+- **No text supersampling for now:** the glyphs rasterize directly at
+  the run scale. Swash is unhinted, so the small text (the copyright
+  line, ~10 physical px at 0.5×) is the risk case — if its per-pixel
+  delta against the reference's stamp exceeds the Phase 7 gate, the
+  first fix is 4× supersampling with a Lanczos downscale.
 - **The resample happens once.** A layer is resampled to the run scale
   at the first op that needs it there (the `resize`, or the composite
   when the layer is still at its file scale); the reference's
