@@ -45,4 +45,5 @@ ffmpeg → finished cards under `output/<set>/` (half resolution by default),
 ## Dependencies
 
 Python ≥ 3.14 (uv). On PATH: `nikke-viewer` and `unity-viewer` (Rust;
-source in `unity-viewer/`), `ffmpeg`, `ffprobe`.
+sources in `../nikke-viewer/` and `unity-viewer/`), `ffmpeg`,
+`ffprobe`.

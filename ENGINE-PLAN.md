@@ -243,8 +243,13 @@ pikke/
 
 Dependencies: `mlua` with the vendored Lua 5.4 (no system Lua),
 `image` (PNG codec + the Lanczos resize filter), `freetype` (the system
-libfreetype, present: 26.7.20 — the reference's own rasterizer stack),
-`clap` for the CLI (the flags built per introspected parameter).
+libfreetype, present: 26.7.20 — the reference's own rasterizer stack).
+No argument-parsing crate: the CLI is hand-rolled, in the style of
+`nikke-viewer` — one `while let` pass over `std::env::args()` with a
+`match` per argument: boolean flags, `--flag value` arms (the value is
+the next argument), unknown options and extra positionals are errors,
+`--help` prints after the pass; the dynamic parameter flags enter the
+match as a membership test against the introspected names.
 
 Frame flow: the script threads `base` → `output` explicitly (no hidden
 canvas); the engine only interprets. Compositing is single-threaded in
@@ -269,12 +274,13 @@ into ENGINE.md later.
 `luac5.4 -p` clean.
 
 **Phase 1 — the CLI, the VM, and the flags.** The `pikke` crate
-(mlua + clap); the script loads into a dedicated environment; the
-entry's parameters are introspected (the line-hook probe, §3b) and the
-CLI is built from them. Two-stage parsing: the script path is read raw
-first, so the flags exist before the parser (and the help text) is
-generated; flag values bind to the parameters as strings (an omitted
-or empty flag binds `nil`).
+(mlua); the script loads into a dedicated environment; the entry's
+parameters are introspected (the line-hook probe, §3b) and the
+hand-rolled CLI is built from them (the `nikke-viewer` style — the
+dependencies, §6). Two-stage parsing: the script path is read raw
+first, so the flags exist before the pass (and the help text) happens;
+flag values bind to the parameters as strings (an omitted or empty
+flag binds `nil`).
 *Gate:* `pikke --help design/card/standard.lua` prints the
 `--id --title --subtitle --animation --time` flags alongside
 `--width`/`--height`/`--scale`; `pikke design/card/standard.lua
