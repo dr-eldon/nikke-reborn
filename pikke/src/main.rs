@@ -1,8 +1,6 @@
-// The encode, luma, and stretch consumers land with the compositing
-// ops.
+// The luma, stretch, and blend consumers land with the compositing ops.
 #[allow(dead_code)]
 mod color;
-mod encoder;
 mod engine;
 mod font;
 mod image;

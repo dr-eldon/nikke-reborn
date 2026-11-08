@@ -1,6 +1,8 @@
 use std::path::Path;
+use std::sync::Arc;
 
 use anywho::anywho;
+use image::{ColorType, ImageFormat};
 use mlua::{AnyUserData, Lua, Result, Table, UserData, UserDataFields, UserDataMethods};
 
 use crate::Viewport;
@@ -8,14 +10,9 @@ use crate::color::Color;
 
 /// The RGBA buffer: premultiplied f32 linear (0-1) planes, the pixel
 /// dims at `scale`; the API reports logical.
-// The planes' read consumers (the compositing ops) land with them.
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct Image {
-    r: Vec<f32>,
-    g: Vec<f32>,
-    b: Vec<f32>,
-    a: Vec<f32>,
+    buffer: Arc<Buffer>,
     width: u32,
     height: u32,
     /// The scale of these pixel dims (a loaded asset: the
@@ -26,16 +23,26 @@ pub struct Image {
     viewport: Viewport,
 }
 
+#[derive(Debug)]
+struct Buffer {
+    r: Vec<f32>,
+    g: Vec<f32>,
+    b: Vec<f32>,
+    a: Vec<f32>,
+}
+
 impl Image {
     /// A fully transparent buffer at the run's scale (the `spawn`
     /// mock's frame).
     pub fn transparent(width: u32, height: u32, viewport: Viewport) -> Image {
         let count = (width * height) as usize;
         Image {
-            r: vec![0.0; count],
-            g: vec![0.0; count],
-            b: vec![0.0; count],
-            a: vec![0.0; count],
+            buffer: Arc::new(Buffer {
+                r: vec![0.0; count],
+                g: vec![0.0; count],
+                b: vec![0.0; count],
+                a: vec![0.0; count],
+            }),
             width,
             height,
             scale: viewport.scale,
@@ -57,6 +64,50 @@ impl Image {
 
     pub fn logical_height(&self) -> u32 {
         (self.height as f32 / self.scale).round() as u32
+    }
+
+    /// The buffer's straight RGBA8 sRGB form (the PNG/MP4 boundary):
+    /// the premultiplied channels demultiplied, encoded to sRGB, the
+    /// single encode rounding.
+    pub fn to_rgba8(&self) -> Vec<u8> {
+        let count = (self.width * self.height) as usize;
+        let mut out = Vec::with_capacity(count * 4);
+        for i in 0..count {
+            let color = Color {
+                r: self.buffer.r[i],
+                g: self.buffer.g[i],
+                b: self.buffer.b[i],
+                a: self.buffer.a[i],
+            }
+            .demultiply()
+            .linear_to_srgb()
+            .to_rgba_u8();
+            out.extend_from_slice(&color);
+        }
+        out
+    }
+
+    /// The buffer as `output.png` (the working directory): the straight
+    /// RGBA8 sRGB form, the buffer's alpha as-is, written atomically.
+    pub fn write(&self) -> anywho::Result<()> {
+        let rgba8 = self.to_rgba8();
+        let target = Path::new("output.png");
+        let temp = Path::new("output.png.tmp");
+        image::save_buffer_with_format(
+            temp,
+            &rgba8,
+            self.width,
+            self.height,
+            ColorType::Rgba8,
+            ImageFormat::Png,
+        )
+        .map_err(|error| {
+            let _ = std::fs::remove_file(temp);
+            anywho!("failed to write output.png: {error}")
+        })?;
+        std::fs::rename(temp, target)
+            .map_err(|error| anywho!("failed to finalize output.png: {error}"))?;
+        Ok(())
     }
 }
 
@@ -85,10 +136,7 @@ fn load(path: &Path, viewport: Viewport) -> anywho::Result<Image> {
         a.push(color.a);
     }
     Ok(Image {
-        r,
-        g,
-        b,
-        a,
+        buffer: Arc::new(Buffer { r, g, b, a }),
         width,
         height,
         scale: 1.0,
@@ -111,19 +159,10 @@ impl UserData for Image {
         methods.add_method("size", |_lua, this, _args: ()| -> Result<(u32, u32)> {
             Ok((this.logical_width(), this.logical_height()))
         });
-        methods.add_method("resize", |_lua, this, opts: Table| -> Result<Image> {
-            // Mock: the target's dims (transformed at the op
-            // boundary) with a transparent buffer; the real resize
-            // resamples.
-            let width = match opts.get::<Option<f64>>("width")? {
-                Some(logical) => this.viewport.physical(logical as f32),
-                None => this.viewport.physical(this.logical_width() as f32),
-            };
-            let height = match opts.get::<Option<f64>>("height")? {
-                Some(logical) => this.viewport.physical(logical as f32),
-                None => this.viewport.physical(this.logical_height() as f32),
-            };
-            Ok(Image::transparent(width, height, this.viewport))
+        methods.add_method("resize", |_lua, this, _opts: Table| -> Result<Image> {
+            // Mock: the passthrough; the real resize resamples to the
+            // target's dims.
+            Ok(this.clone())
         });
         methods.add_method("contrast", |_lua, this, _opts: Table| -> Result<Image> {
             Ok(this.clone())
@@ -184,6 +223,7 @@ mod tests {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../assets/images/backgrounds/sky-night.png");
         let file = std::fs::read(&path).unwrap();
+
         // The PNG's IHDR: the width and height after the 8-byte
         // signature and the chunk header.
         let file_width = u32::from_be_bytes([file[16], file[17], file[18], file[19]]);
@@ -194,13 +234,21 @@ mod tests {
             height: 2048,
             scale: 1.0,
         };
+
         let image = load(&path, viewport).unwrap();
         assert_eq!(
             (image.logical_width(), image.logical_height()),
             (file_width, file_height)
         );
+
         let count = (file_width * file_height) as usize;
-        for plane in [&image.r, &image.g, &image.b, &image.a] {
+
+        for plane in [
+            &image.buffer.r,
+            &image.buffer.g,
+            &image.buffer.b,
+            &image.buffer.a,
+        ] {
             assert_eq!(plane.len(), count);
         }
     }

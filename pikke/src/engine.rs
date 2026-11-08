@@ -118,7 +118,8 @@ impl Engine {
                 })?,
         )?;
 
-        let yielded = Rc::new(RefCell::new(0u32));
+        let frames = Rc::new(RefCell::new(Vec::new()));
+        let yielded = frames.clone();
         self.env.set(
             "yield",
             self.lua
@@ -135,10 +136,11 @@ impl Engine {
                         )));
                     }
 
-                    let frame_number = *yielded.borrow_mut() + 1;
+                    let frame_number = yielded.borrow().len() + 1;
                     eprintln!(
                         "yield: frame {frame_number} ({frame_width}×{frame_height})"
                     );
+                    yielded.borrow_mut().push((*frame).clone());
                     Ok(())
                 })?,
         )?;
@@ -148,6 +150,22 @@ impl Engine {
             args.set(name.as_str(), value.clone())?;
         }
         self.render.call::<()>(args)?;
+
+        // The frame sequence becomes the output: one frame → the PNG
+        // (the MP4 path starts at frame 2, §5).
+        let frames = frames.borrow();
+        match frames.len() {
+            1 => {
+                frames[0].write()?;
+                eprintln!(
+                    "output: output.png ({}×{})",
+                    frames[0].physical_width(),
+                    frames[0].physical_height()
+                );
+            }
+            0 => {}
+            _ => return Err(anywho!("the MP4 path lands in Phase 9")),
+        }
         Ok(())
     }
 }
