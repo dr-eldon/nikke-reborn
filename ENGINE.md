@@ -40,7 +40,7 @@ is a script edit; an op-behavior change is an engine edit.
 | op | signature | meaning |
 |---|---|---|
 | `image` | `image(path) → Image` | Load a bitmap (path resolved against the script's base). sRGB, with alpha. |
-| `font` | `font(path) → Font` | Load a font; used by `text`. |
+| `font` | `font(path) → Font` | Load a font (path resolved against the script's base); used by `text`. |
 | `spawn` | `spawn(program, args) → Stream` | Run an external frame producer (`args`: an array of strings/numbers, numbers rendered for the command line). Returns a **lazy** stream of `Image` frames. |
 | `rectangle` | `rectangle({x, y, size}) → Rectangle` | A rect; `x`/`y` top-left (px), `size` a scalar (w=h) or `{w, h}`. |
 | `text` | `text(str, {font, size, weight, x, y, color}) → Text` | Lay out a string. `size`: px. `weight`: font weight. `x`/`y`: position. `color`: hex. Returns pixels + bounds. |

@@ -227,7 +227,10 @@ pikke/
                  `round`), Porter-Duff over
                  in linear and sRGB, the Rec. 709 luma, the
                  tone-preserving full-range stretch
-    font.rs      the `Font`: the FreeType face, the `wght` weight axis
+    font.rs      the `Font`: the file loaded via cosmic-text's
+                 `FontSet` (from the file's bytes; the path relative
+                 to the script), the `wght` weight axis (a swash
+                 variation, set when the file carries it)
     text.rs      the `Text`: the layout (the ink-offset probe, the
                  anchor, the supersampling — the font rasterizes at
                  the run scale, the physical size = the logical size ×
@@ -242,8 +245,9 @@ pikke/
 ```
 
 Dependencies: `mlua` with the vendored Lua 5.4 (no system Lua),
-`image` (PNG codec + the Lanczos resize filter), `freetype` (the system
-libfreetype, present: 26.7.20 — the reference's own rasterizer stack).
+`image` (PNG codec + the Lanczos resize filter), `cosmic-text` for the
+text (swash shaping/rasterization + fontdb file loading — pure Rust;
+the same stack `unity-viewer`'s lock pins).
 No argument-parsing crate: the CLI is hand-rolled, in the style of
 `nikke-viewer` — one `while let` pass over `std::env::args()` with a
 `match` per argument: boolean flags, `--flag value` arms (the value is
@@ -338,10 +342,15 @@ mean), and `rectangle.rs` (the Rectangle + `padded`).
 pairs (pinned math: exact at 8-bit); `luma_at` matching the reference
 mean on the three Base backgrounds.
 
-**Phase 7 — text.** `font.rs` + `text.rs` on FreeType: the face, the
-`wght` axis, the layout, the ink-offset probe, the anchor (the tight
-ink box's top-left at `(x, y)`), the 4× supersampling with a Lanczos
-downscale (a free op), `bounds`.
+**Phase 7 — text.** `font.rs` + `text.rs` on `cosmic-text` (the face
+via `FontSet` from the file's bytes — the path relative to the
+script —, swash shaping + rasterization): the `wght` axis (a swash
+variation, set when the file carries it — Oswald is variable,
+AireExterior static), the layout, the ink-offset probe (the union of
+the glyphs' ink), the anchor (the tight ink box's top-left at
+`(x, y)`), the 4× supersampling with a Lanczos downscale (a free op),
+`bounds`. Shaping hint `Basic` — plain advances, matching the
+reference's non-GPOS layout (swash kerns by default).
 *Gate:* the script's two texts (Oswald 300 at the copyright size,
 AireExterior 700 at the title size): the ink box's top-left exactly
 `(x, y)` (pinned), the ink box's size within ~1 px of the reference's
@@ -410,7 +419,7 @@ driver, and the hash-embedding question for engine outputs.
 ## 8. Risks and notes
 
 - **Free ops chosen for parity, not copied.** The Lanczos resize,
-  FreeType rasterization, the 4× supersampling and the reference's
+  swash rasterization, the 4× supersampling and the reference's
   ffmpeg flags are chosen to sit the noise floor low — the invariant is
   the bounded delta, not byte identity, and none of these is replicated
   detail for its own sake.
@@ -430,10 +439,9 @@ driver, and the hash-embedding question for engine outputs.
 - **The GPU is shared and there is no retry** (settled): a transient
   viewer failure (truncated stream, crash) fails the run and is re-run
   by hand.
-- **No system-Lua dependency** (mlua's vendored 5.4); the system
-  libfreetype is required (present). If it ever isn't, the fallback is
-  FreeType built from source — a build-system change, not a semantic
-  one.
+- **No system-Lua dependency** (mlua's vendored 5.4); the text stack
+  (`cosmic-text`/`swash`/`fontdb`) is pure Rust — no fontconfig, no
+  libfreetype.
 - **The standard tier is stills-only,** so the MP4 path is exercised
   synthetically in v1; its measured delta (codec-dominated, per
   ENGINE.md) waits for a real animated run in v2.
