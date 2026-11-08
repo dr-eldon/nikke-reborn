@@ -16,5 +16,6 @@ bundles/
 draft/
 effects/
 
-# Rust (unity-viewer)
+# Rust (unity-viewer, pikke)
 unity-viewer/target/
+pikke/target/

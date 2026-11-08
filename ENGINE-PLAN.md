@@ -122,17 +122,16 @@ record where they occur and folded back into ENGINE.md later:
   happens exactly once, at the linear → 8-bit encode (nearest 1/255
   step, ties away from zero — Rust's `round`; out-of-range linear
   values clamp).
-- **Parameters and entry:** the script's globals expose the op table;
-  the engine loads the script (paths — `image`/`font`/`require` —
-  resolve against the script's directory) and calls its `render(...)`
-  with the parameters. The entry must be a Lua function; the engine
-  introspects its parameter names with a line-hook probe (the hook
-  captures them via `debug.getlocal` on the entry's first line and
-  raises, so the design body never runs; only the stable `S`/`u`
-  getinfo options — recent 5.4 releases reject `s`) and creates a
-  `--<name>` CLI flag for each (the CLI, §5), bound to the parameter
-  of that name. v1: a flag's value is a string; an omitted or empty
-  flag binds `nil`; the script converts where it needs a number.
+- **Parameters and entry:** the script's globals expose the op table
+  and an `arguments` table declaring the entry's parameters (in CLI
+  order) — a table read, so the engine needs no `debug` library. The
+  engine loads the script (paths — `image`/`font`/`require` — resolve
+  against the script's directory), creates a `--<name>` CLI flag for
+  each declared parameter (the CLI, §5), and calls `render(args)`
+  with a single table of the bound values. v1: a flag's value is a
+  string; an omitted or empty flag binds `nil` (optionality is the
+  script's — it guards the optional ones); the script converts where
+  it needs a number.
 
 ## 4. The script's state
 
@@ -153,9 +152,11 @@ record where they occur and folded back into ENGINE.md later:
 
 - **CLI:**
   `pikke <script> --width <W> --height <H> [--scale <s>]
-  [--<param> <value>]...` — one named flag per entry-function
-  parameter, created on the fly from the introspected names (§3b; for
-  the Standard draft: `--id --title --subtitle --animation --time`).
+  [--<param> <value>]...` — the script is the first argument (its
+  parameter flags only exist once it is loaded); one named flag per
+  entry-function parameter, created on the fly from the introspected
+  names (§3b; for the Standard draft: `--id --title --subtitle
+  --animation --time`).
   `--width`/`--height` are the **logical** canvas (the reference
   image's dims) — required: the engine is generic and holds no
   content defaults (not even the card's native viewport); `--scale`
@@ -250,8 +251,10 @@ No argument-parsing crate: the CLI is hand-rolled, in the style of
 `nikke-viewer` — one `while let` pass over `std::env::args()` with a
 `match` per argument: boolean flags, `--flag value` arms (the value is
 the next argument), unknown options and extra positionals are errors,
-`--help` prints after the pass; the dynamic parameter flags enter the
-match as a membership test against the introspected names.
+`--help` prints after the pass; the script is the first argument
+(loaded before the pass, for the dynamic flags); the dynamic
+parameter flags enter the match as a membership test against the
+introspected names.
 
 Frame flow: the script threads `base` → `output` explicitly (no hidden
 canvas); the engine only interprets. Compositing is single-threaded in
@@ -277,17 +280,18 @@ into ENGINE.md later.
 
 **Phase 1 — the CLI, the VM, and the flags.** The `pikke` crate
 (mlua); the script loads into a dedicated environment; the entry's
-parameters are introspected (the line-hook probe, §3b) and the
-hand-rolled CLI is built from them (the `nikke-viewer` style — the
-dependencies, §6). Two-stage parsing: the script path is read raw
-first, so the flags exist before the pass (and the help text) happens;
-flag values bind to the parameters as strings (an omitted or empty
-flag binds `nil`).
-*Gate:* `pikke --help design/card/standard.lua` prints the
+parameters are read from the script's `arguments` declaration (§3b)
+and the hand-rolled CLI is built from them (the `nikke-viewer`
+style — the dependencies, §6). The script is the first argument, so
+the flags exist before the pass (and the help text) happens; flag
+values bind to the parameters as strings (an omitted or empty flag
+binds `nil`).
+*Gate:* `pikke design/card/standard.lua --help` prints the
 `--id --title --subtitle --animation --time` flags alongside
 `--width`/`--height`/`--scale`; `pikke design/card/standard.lua
---id c010` binds the values and fails cleanly at the entry's first op
-(the op table does not exist yet — expected here).
+--width 1640 --height 2048 --id c010` binds the values and fails
+cleanly at the entry's first op (the op table does not exist yet —
+expected here).
 
 **Phase 2 — the API surface, mocked.** Scaffold the crate's final
 structure (§6) and draft the entire Lua API with empty mocks: every op
@@ -425,6 +429,12 @@ driver, and the hash-embedding question for engine outputs.
   line, ~10 physical px at 0.5×) is the risk case — if its per-pixel
   delta against the reference's stamp exceeds the Phase 7 gate, the
   first fix is 4× supersampling with a Lanczos downscale.
+- **The engine runs on mlua's safe standard-library subset:**
+  parameter introspection is a table read of the script's `arguments`
+  declaration (§3b), so no `debug` library is needed — and `package`
+  (for `require`) is in the safe set. Isolation from the base
+  libraries (`os`, `io`, `debug`) comes from the dedicated
+  environment (a fresh globals table), not the subset.
 - **The resample happens once.** A layer is resampled to the run scale
   at the first op that needs it there (the `resize`, or the composite
   when the layer is still at its file scale); the reference's

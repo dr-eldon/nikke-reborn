@@ -1,6 +1,7 @@
 -- config = require(...) # We can require constants and other things here in the future; it's just Lua code!
+arguments = {"id", "title", "subtitle", "animation", "time"} -- the last two are optional
 
-function render(id, title, subtitle, animation, time)
+function render(args)
   background = image("../../assets/images/backgrounds/sky-night.png")
   mask =  image("../../assets/images/designs/Card_Mask_Standard.png")
   logo_white = image("../../assets/images/Logo_White.png")
@@ -20,17 +21,17 @@ function render(id, title, subtitle, animation, time)
     "--height", physical_height(),
     "--half-body",
     "--stdout",
-    id,
+    args.id,
   }
 
-  if animation ~= nil then
+  if args.animation ~= nil then
     viewer_args[#viewer_args + 1] = "--animation"
-    viewer_args[#viewer_args + 1] = animation
+    viewer_args[#viewer_args + 1] = args.animation
   end
 
-  if time ~= nil then
+  if args.time ~= nil then
     viewer_args[#viewer_args + 1] = "--time"
-    viewer_args[#viewer_args + 1] = time
+    viewer_args[#viewer_args + 1] = args.time
   end
 
   character = spawn("nikke-viewer", viewer_args)
@@ -57,7 +58,7 @@ function render(id, title, subtitle, animation, time)
       output = output:fill(copyright, "#FFFFFF")
     end
 
-    title = text(title,
+    title = text(args.title,
       { font = aire_exterior, size = 150, weight = 700, x = 50, y = height() * 0.72 })
 
     -- TODO: Corner cutting
