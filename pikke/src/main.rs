@@ -1,4 +1,5 @@
-// The consumers land with the real image buffer.
+// The encode, luma, and stretch consumers land with the compositing
+// ops.
 #[allow(dead_code)]
 mod color;
 mod encoder;
@@ -8,11 +9,15 @@ mod image;
 mod rectangle;
 mod stream;
 mod text;
+mod viewport;
 
 use std::collections::BTreeMap;
 
 use anywho::anywho;
+
 use engine::Engine;
+pub use image::Image;
+pub use viewport::Viewport;
 
 /// Errors are user-facing messages (see `--help`).
 fn main() -> anywho::Result<()> {
@@ -163,8 +168,8 @@ Arguments:
   <script>          Path to a design script (.lua)
 
 Options:
-  --width <px>      The canvas width in logical px (required)
-  --height <px>     The canvas height in logical px (required)
+  --width <px>      The viewport width in logical px (required)
+  --height <px>     The viewport height in logical px (required)
   --scale <s>       The run's scale (default 1)
   --help            Print this help",
     );

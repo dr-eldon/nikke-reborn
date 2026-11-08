@@ -220,10 +220,12 @@ pikke/
                  (§3b), the execution, and the logical → physical
                  transform at the op boundary (× the scale, Rust's
                  `round`)
-    image.rs     the `Image`: the RGBA buffer — buffers are physical
-                 px (the run scale); the API reports logical. Its ops:
-                 load (PNG, straight-alpha), resize / contrast / blend
-                 / fill / luma_at / width / height / size. Resampling
+    image.rs     the `Image`: the RGBA buffer — buffers are at their
+                 own scale (the file's at load, the run's after a
+                 resample; §2's form); the API reports logical. Its
+                 ops: load (PNG, the straight RGBA8 sRGB boundary,
+                 §3b), resize / contrast / blend / fill / luma_at /
+                 width / height / size. Resampling
                  between scales is a free op (Lanczos): a layer is
                  resampled to the run scale at the first op that needs
                  it there (a `resize`, or the composite when the layer
@@ -328,9 +330,10 @@ round-trip cases (alpha 0/255) — pinned math is right up to integer
 rounding; the luma matching the 709 mean.
 
 **Phase 4 — the real Image buffer.** `image.rs` replaces its mock: the
-straight-alpha RGBA8 buffer, `image(path)` load (PNG decode),
-`width`/`height`/`size`, and the logical → physical transform at the
-op boundary (× the scale, Rust's `round`).
+buffer (§2's form, at its own scale), `image(path)` load (PNG decode,
+the straight RGBA8 sRGB boundary in, §3b), `width`/`height`/`size`,
+and the logical → physical transform at the op boundary (× the scale,
+Rust's `round`).
 *Gate:* a real asset (a Base background) loads at its file dims; at
 `--scale 0.5` the canvas is 820×1024 and the op-boundary transform is
 exact against the reference's scaled values (the logo 200 → 100, the

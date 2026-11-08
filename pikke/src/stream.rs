@@ -1,14 +1,14 @@
 use std::cell::RefCell;
 
-use crate::image::Image;
 use mlua::{
     Lua, MetaMethod, ObjectLike, Result, Table, UserData, UserDataFields, UserDataMethods, Value,
 };
 
-/// The `spawn`'d producer; the frame's (logical canvas) dims.
+use crate::{Image, Viewport};
+
+/// The `spawn`'d producer; the frame's (the viewport's physical) dims.
 pub struct Stream {
-    pub width: u32,
-    pub height: u32,
+    viewport: Viewport,
     done: RefCell<bool>,
 }
 
@@ -28,24 +28,24 @@ impl UserData for Stream {
                     return Ok(Value::Nil);
                 }
                 *this.done.borrow_mut() = true;
-                let frame = lua.create_userdata(Image {
-                    width: this.width,
-                    height: this.height,
-                })?;
+                let frame = lua.create_userdata(Image::transparent(
+                    this.viewport.physical_width(),
+                    this.viewport.physical_height(),
+                    this.viewport,
+                ))?;
                 Ok(frame.to_value())
             },
         );
     }
 }
 
-pub fn install(lua: &Lua, env: &Table, width: u32, height: u32) -> anywho::Result<()> {
+pub fn install(lua: &Lua, env: &Table, viewport: Viewport) -> anywho::Result<()> {
     env.set(
         "spawn",
         lua.create_function(
             move |_lua, (_program, _args): (String, Table)| -> Result<Stream> {
                 Ok(Stream {
-                    width,
-                    height,
+                    viewport,
                     done: RefCell::new(false),
                 })
             },

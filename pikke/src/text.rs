@@ -1,5 +1,6 @@
-use crate::rectangle::Rectangle;
 use mlua::{Lua, Result, Table, UserData, UserDataFields, UserDataMethods};
+
+use crate::rectangle::Rectangle;
 
 pub struct Text;
 

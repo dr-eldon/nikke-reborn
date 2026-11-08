@@ -2,9 +2,10 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::{font, image, image::Image, rectangle, stream, text};
 use anywho::anywho;
 use mlua::{AnyUserData, Function, Lua, Table};
+
+use crate::{Image, Viewport, font, image, rectangle, stream, text};
 
 /// The compositing engine: the Lua state and the loaded design script.
 pub struct Engine {
@@ -63,7 +64,7 @@ impl Engine {
     }
 
     /// Call the entry with the bound parameters as a single table
-    /// keyed by name (`None` binds `nil`), on the canvas of logical
+    /// keyed by name (`None` binds `nil`), on the viewport of logical
     /// `width`/`height` at the run's `scale`.
     pub fn run(
         &self,
@@ -72,12 +73,23 @@ impl Engine {
         scale: f32,
         params: &[(String, Option<String>)],
     ) -> anywho::Result<()> {
+        let viewport = Viewport {
+            width,
+            height,
+            scale,
+        };
+        let script_dir = self
+            .script
+            .parent()
+            .map(|dir| dir.to_path_buf())
+            .unwrap_or_default();
+
         // The op table (§6): each global is bound by its type's module.
-        image::install(&self.lua, &self.env)?;
+        image::install(&self.lua, &self.env, &script_dir, viewport)?;
         font::install(&self.lua, &self.env)?;
         rectangle::install(&self.lua, &self.env)?;
         text::install(&self.lua, &self.env)?;
-        stream::install(&self.lua, &self.env, width, height)?;
+        stream::install(&self.lua, &self.env, viewport)?;
 
         self.env.set(
             "width",
@@ -90,19 +102,19 @@ impl Engine {
                 .create_function(move |_lua, _args: ()| -> mlua::Result<u32> { Ok(height) })?,
         )?;
 
-        // Logical → physical: × the run's scale, each dim rounded (§5).
+        // The physical viewport: the logical → physical transform (§5).
         self.env.set(
             "physical_width",
             self.lua
                 .create_function(move |_lua, _args: ()| -> mlua::Result<u32> {
-                    Ok((width as f32 * scale).round() as u32)
+                    Ok(viewport.physical_width())
                 })?,
         )?;
         self.env.set(
             "physical_height",
             self.lua
                 .create_function(move |_lua, _args: ()| -> mlua::Result<u32> {
-                    Ok((height as f32 * scale).round() as u32)
+                    Ok(viewport.physical_height())
                 })?,
         )?;
 
@@ -111,17 +123,20 @@ impl Engine {
             "yield",
             self.lua
                 .create_function(move |_lua, frame: AnyUserData| -> mlua::Result<()> {
-                    // A frame is canvas-sized (§3b).
+                    // A frame is the physical viewport (§3b).
                     let frame = frame.borrow::<Image>()?;
-                    if (frame.width, frame.height) != (width, height) {
+                    let (frame_width, frame_height) =
+                        (frame.physical_width(), frame.physical_height());
+                    let (physical_width, physical_height) =
+                        (viewport.physical_width(), viewport.physical_height());
+                    if (frame_width, frame_height) != (physical_width, physical_height) {
                         return Err(mlua::Error::RuntimeError(format!(
-                            "yield: the frame is {}×{}, the canvas is {}×{}",
-                            frame.width, frame.height, width, height
+                            "yield: the frame is {frame_width}×{frame_height}, the viewport is {physical_width}×{physical_height}"
                         )));
                     }
 
                     let n = *yielded.borrow_mut() + 1;
-                    eprintln!("yield: frame {n} ({}×{})", frame.width, frame.height);
+                    eprintln!("yield: frame {n} ({frame_width}×{frame_height})");
                     Ok(())
                 })?,
         )?;

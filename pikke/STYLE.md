@@ -40,6 +40,9 @@ semantics, units, gotchas.
   `Option` fields.
 - Errors are user-facing `anywho!` messages; `main` returns
   `anywho::Result` (the default rendering, exit 1).
+- Import groups, separated by blank lines: `std`, external crates,
+  `crate` (last). Shared types are importable from the crate root
+  (`pub use`).
 
 ## CLI
 
