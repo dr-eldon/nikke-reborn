@@ -1,4 +1,11 @@
+mod color;
+mod encoder;
 mod engine;
+mod font;
+mod image;
+mod rectangle;
+mod stream;
+mod text;
 
 use std::collections::BTreeMap;
 
@@ -138,7 +145,7 @@ fn main() -> anywho::Result<()> {
             .join(" ")
     );
 
-    engine.run(&arguments)
+    engine.run(width, height, scale, &arguments)
 }
 
 // --- helpers ---------------------------------------------------------------

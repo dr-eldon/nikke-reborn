@@ -9,10 +9,10 @@ function render(args)
   oswald = font("../../fonts/Oswald.ttf")
   aire_exterior = font("../../fonts/AireExterior.ttf")
 
-  background = background.resize({width=width(), height=height(), mode="cover"})
-  mask = mask.resize({width=width(), height=height()})
-  logo_white = logo_white.resize({width=200})
-  logo_black = logo_black.resize({width=200})
+  background = background:resize({width=width(), height=height(), mode="cover"})
+  mask = mask:resize({width=width(), height=height()})
+  logo_white = logo_white:resize({width=200})
+  logo_black = logo_black:resize({width=200})
 
   base = background:contrast({ auto=true }):blend(mask)
 

@@ -1,7 +1,10 @@
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
+use crate::{font, image, image::Image, rectangle, stream, text};
 use anywho::anywho;
-use mlua::{Function, Lua, Table};
+use mlua::{AnyUserData, Function, Lua, Table};
 
 /// The compositing engine: the Lua state and the loaded design script.
 pub struct Engine {
@@ -9,6 +12,8 @@ pub struct Engine {
     lua: Lua,
     render: Function,
     arguments: Vec<String>,
+    /// The script's environment: the op table's home (§6).
+    env: Table,
 }
 
 impl Engine {
@@ -45,6 +50,7 @@ impl Engine {
             lua,
             render,
             arguments,
+            env,
         })
     }
 
@@ -57,8 +63,69 @@ impl Engine {
     }
 
     /// Call the entry with the bound parameters as a single table
-    /// keyed by name (`None` binds `nil`).
-    pub fn run(&self, params: &[(String, Option<String>)]) -> anywho::Result<()> {
+    /// keyed by name (`None` binds `nil`), on the canvas of logical
+    /// `width`/`height` at the run's `scale`.
+    pub fn run(
+        &self,
+        width: u32,
+        height: u32,
+        scale: f32,
+        params: &[(String, Option<String>)],
+    ) -> anywho::Result<()> {
+        // The op table (§6): each global is bound by its type's module.
+        image::install(&self.lua, &self.env)?;
+        font::install(&self.lua, &self.env)?;
+        rectangle::install(&self.lua, &self.env)?;
+        text::install(&self.lua, &self.env)?;
+        stream::install(&self.lua, &self.env, width, height)?;
+
+        self.env.set(
+            "width",
+            self.lua
+                .create_function(move |_lua, _args: ()| -> mlua::Result<u32> { Ok(width) })?,
+        )?;
+        self.env.set(
+            "height",
+            self.lua
+                .create_function(move |_lua, _args: ()| -> mlua::Result<u32> { Ok(height) })?,
+        )?;
+
+        // Logical → physical: × the run's scale, each dim rounded (§5).
+        self.env.set(
+            "physical_width",
+            self.lua
+                .create_function(move |_lua, _args: ()| -> mlua::Result<u32> {
+                    Ok((width as f32 * scale).round() as u32)
+                })?,
+        )?;
+        self.env.set(
+            "physical_height",
+            self.lua
+                .create_function(move |_lua, _args: ()| -> mlua::Result<u32> {
+                    Ok((height as f32 * scale).round() as u32)
+                })?,
+        )?;
+
+        let yielded = Rc::new(RefCell::new(0u32));
+        self.env.set(
+            "yield",
+            self.lua
+                .create_function(move |_lua, frame: AnyUserData| -> mlua::Result<()> {
+                    // A frame is canvas-sized (§3b).
+                    let frame = frame.borrow::<Image>()?;
+                    if (frame.width, frame.height) != (width, height) {
+                        return Err(mlua::Error::RuntimeError(format!(
+                            "yield: the frame is {}×{}, the canvas is {}×{}",
+                            frame.width, frame.height, width, height
+                        )));
+                    }
+
+                    let n = *yielded.borrow_mut() + 1;
+                    eprintln!("yield: frame {n} ({}×{})", frame.width, frame.height);
+                    Ok(())
+                })?,
+        )?;
+
         let args = self.lua.create_table()?;
         for (name, value) in params {
             args.set(name.as_str(), value.clone())?;

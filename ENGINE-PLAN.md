@@ -136,7 +136,8 @@ record where they occur and folded back into ENGINE.md later:
 ## 4. The script's state
 
 - **Fixed this round:** the spawn args' `[...]` → `{...}` (Lua arrays
-  are brace-delimited); the optional `--animation`/`--time` args are
+  are brace-delimited); the `resize` calls' `.` → `:` (the spec's
+  method call syntax); the optional `--animation`/`--time` args are
   appended only when the parameter is present — `nil`, bound from the
   omitted or empty flag of that name ("the presentation names no
   value") — so an absent term omits the flag; a `nil` that ever

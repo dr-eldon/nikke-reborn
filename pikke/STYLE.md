@@ -28,6 +28,7 @@ semantics, units, gotchas.
   it reads or produces, and a local may shadow a function name.
   Name things by what they are; do not rename to dodge a
   collision.
+- No shortened names: `width` and `height`, not `w` and `h`.
 - Inference carries the types: no annotation where the use fixes
   them; a value keeps its name through conversion
   (`let value: u32 = value.parse()…`).
