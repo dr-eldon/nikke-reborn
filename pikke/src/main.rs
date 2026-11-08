@@ -1,3 +1,5 @@
+// The consumers land with the real image buffer.
+#[allow(dead_code)]
 mod color;
 mod encoder;
 mod engine;

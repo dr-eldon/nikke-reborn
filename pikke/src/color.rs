@@ -1,1 +1,265 @@
+/// A 0-1 RGBA color (straight alpha): linear light or sRGB, by context.
+#[derive(Clone, Copy, Debug)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
 
+impl Color {
+    /// A stored sRGB pixel (0-255, r, g, b, a) as a 0-1 sRGB color.
+    pub fn from_rgba_u8(pixel: [u8; 4]) -> Self {
+        Self {
+            r: pixel[0] as f32 / 255.0,
+            g: pixel[1] as f32 / 255.0,
+            b: pixel[2] as f32 / 255.0,
+            a: pixel[3] as f32 / 255.0,
+        }
+    }
+
+    /// This color in linear light (the IEC 61966-2-1 decode of the
+    /// channels); the alpha is untouched.
+    pub fn srgb_to_linear(self) -> Self {
+        Self {
+            r: srgb_to_linear(self.r),
+            g: srgb_to_linear(self.g),
+            b: srgb_to_linear(self.b),
+            a: self.a,
+        }
+    }
+
+    /// This color in sRGB (the IEC 61966-2-1 encode of the channels);
+    /// the alpha is untouched.
+    pub fn linear_to_srgb(self) -> Self {
+        Self {
+            r: linear_to_srgb(self.r),
+            g: linear_to_srgb(self.g),
+            b: linear_to_srgb(self.b),
+            a: self.a,
+        }
+    }
+
+    /// The 8-bit stored pixel: each channel through the single encode
+    /// rounding.
+    pub fn to_rgba_u8(self) -> [u8; 4] {
+        [
+            encode_u8(self.r),
+            encode_u8(self.g),
+            encode_u8(self.b),
+            encode_u8(self.a),
+        ]
+    }
+
+    /// Porter-Duff 'over' (0-1, the caller's domain: linear light or
+    /// sRGB): the layer over the base.
+    pub fn over(self, layer: Color) -> Color {
+        let coverage = layer.a;
+        let base_alpha = self.a;
+        let out_alpha = coverage + base_alpha * (1.0 - coverage);
+
+        // The degenerate pixels take their operands un-divided: a clear
+        // layer leaves the base, a transparent base receives the layer
+        // straight (no divide by the zero output alpha).
+        let mix = |base, layer| {
+            if coverage == 0.0 {
+                base
+            } else if base_alpha == 0.0 {
+                layer
+            } else {
+                (layer * coverage + (base * base_alpha) * (1.0 - coverage)) / out_alpha
+            }
+        };
+
+        Color {
+            r: mix(self.r, layer.r),
+            g: mix(self.g, layer.g),
+            b: mix(self.b, layer.b),
+            a: out_alpha,
+        }
+    }
+}
+
+/// 0-1 sRGB (stored) -> 0-1 linear light, the IEC 61966-2-1 curve.
+pub fn srgb_to_linear(stored: f32) -> f32 {
+    if stored <= 0.04045 {
+        stored / 12.92
+    } else {
+        ((stored + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+/// 0-1 linear light -> 0-1 sRGB (stored), the IEC 61966-2-1 curve;
+/// out-of-range linear clamps to 0-1 here, the encode path's only
+/// clamp.
+pub fn linear_to_srgb(linear: f32) -> f32 {
+    let linear = linear.clamp(0.0, 1.0);
+    if linear <= 0.0031308 {
+        linear * 12.92
+    } else {
+        1.055 * linear.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+/// The single encode rounding: a 0-1 stored value to 8 bits (nearest
+/// 1/255, ties away from zero).
+pub fn encode_u8(stored: f32) -> u8 {
+    (stored * 255.0).round() as u8
+}
+
+/// The Rec. 709 luma of a stored sRGB pixel (0-255 channels), 0-255.
+pub fn luma(pixel: [u8; 3]) -> f64 {
+    0.2126 * pixel[0] as f64 + 0.7152 * pixel[1] as f64 + 0.0722 * pixel[2] as f64
+}
+
+/// The ITU-R 601 luma of a stored sRGB pixel — the stretch's histogram
+/// channel (the reference's `convert("L")` integer path, not the 709
+/// weights).
+pub fn luma601(pixel: [u8; 3]) -> u8 {
+    (((pixel[0] as u32) * 19595 + (pixel[1] as u32) * 38470 + (pixel[2] as u32) * 7471 + 0x8000)
+        >> 16) as u8
+}
+
+/// The tone-preserving stretch's point map: the stored 8-bit values
+/// over [lo, hi] (the histogram's extent on the 601 luma channel)
+/// mapped to [0, 255]; degenerate (hi <= lo) is the identity.
+pub fn stretch_lut(lo: u32, hi: u32) -> [u8; 256] {
+    let map: Vec<u8> = if hi <= lo {
+        (0u8..=255).collect()
+    } else {
+        let scale = 255.0 / (hi - lo) as f64;
+        let offset = -(lo as f64) * scale;
+        (0u8..=255)
+            .map(|value| ((value as f64) * scale + offset).trunc().clamp(0.0, 255.0) as u8)
+            .collect()
+    };
+    map.try_into().unwrap()
+}
+
+#[cfg(test)]
+mod vectors {
+    use super::*;
+
+    // Recorded from the reference pipeline (tests/vectors/gen.py, run
+    // via uv from the repo root).
+    fn read(name: &str) -> Vec<u8> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("vectors")
+            .join(name);
+        std::fs::read(path).unwrap()
+    }
+
+    #[test]
+    fn encode_matches_the_reference_within_one() {
+        let reference: Vec<u8> = read("encode_ref.bin");
+        assert_eq!(reference.len(), 65_536);
+        let mut differing = 0;
+        for step in 0..65_536u32 {
+            let ours = encode_u8(linear_to_srgb((step as f32) / 65_535.0));
+            let theirs = reference[step as usize];
+            let diff = ours.abs_diff(theirs);
+            assert!(diff <= 1, "step {step}: ours {ours}, theirs {theirs}");
+            differing += usize::from(diff > 0);
+        }
+        eprintln!("encode: {differing}/65536 steps differ (all within one)");
+    }
+
+    #[test]
+    fn the_round_trip_is_exact_for_all_stored_values() {
+        for value in 0..=255u8 {
+            let linear = srgb_to_linear(value as f32 / 255.0);
+            assert_eq!(encode_u8(linear_to_srgb(linear)), value);
+        }
+    }
+
+    // over.txt lines: base(4) layer(4) linear_out(4) srgb_out(4).
+    #[test]
+    fn over_matches_the_reference() {
+        let text = String::from_utf8(read("over.txt")).unwrap();
+        let mut lines = 0;
+        for line in text.lines() {
+            let values: Vec<u8> = line
+                .split_whitespace()
+                .map(|token| token.parse().unwrap())
+                .collect();
+            assert_eq!(values.len(), 16);
+            let base = Color::from_rgba_u8([values[0], values[1], values[2], values[3]]);
+            let layer = Color::from_rgba_u8([values[4], values[5], values[6], values[7]]);
+
+            let linear = base.srgb_to_linear().over(layer.srgb_to_linear());
+            let linear_out = linear.linear_to_srgb().to_rgba_u8();
+            let reference = [values[8], values[9], values[10], values[11]];
+
+            let srgb = base.over(layer);
+            let srgb_out = srgb.to_rgba_u8();
+            let srgb_reference = [values[12], values[13], values[14], values[15]];
+
+            // The round-trip cases are byte-exact on both paths.
+            let exact = layer.a == 0.0 || layer.a == 1.0 || base.a == 0.0;
+            for channel in 0..4 {
+                for (ours, theirs, path) in [
+                    (linear_out[channel], reference[channel], "linear"),
+                    (srgb_out[channel], srgb_reference[channel], "srgb"),
+                ] {
+                    if exact {
+                        assert_eq!(
+                            ours, theirs,
+                            "line {lines}: {path} channel {channel} (base {base:?} layer {layer:?})"
+                        );
+                    } else {
+                        assert!(
+                            ours.abs_diff(theirs) <= 1,
+                            "line {lines}: {path} channel {channel} (base {base:?} layer {layer:?})"
+                        );
+                    }
+                }
+            }
+            lines += 1;
+        }
+        eprintln!("over: {lines} pairs");
+    }
+
+    // luma.txt lines: height width mean, then the row-major pixels.
+    #[test]
+    fn luma_is_the_709_mean() {
+        let text = String::from_utf8(read("luma.txt")).unwrap();
+        for line in text.lines() {
+            let tokens: Vec<&str> = line.split_whitespace().collect();
+            let height: usize = tokens[0].parse().unwrap();
+            let width: usize = tokens[1].parse().unwrap();
+            let mean: f64 = tokens[2].parse().unwrap();
+            let pixels: Vec<u8> = tokens[3..]
+                .iter()
+                .map(|token| token.parse().unwrap())
+                .collect();
+            assert_eq!(pixels.len(), height * width * 3);
+            let count = height * width;
+            let sum: f64 = (0..count)
+                .map(|i| luma([pixels[3 * i], pixels[3 * i + 1], pixels[3 * i + 2]]))
+                .sum();
+            let ours = sum / count as f64;
+            assert!(
+                (ours - mean).abs() < 1e-3,
+                "luma: ours {ours}, theirs {mean} ({count} pixels)"
+            );
+        }
+    }
+
+    // stretch.txt lines: lo hi, then the 256 point map.
+    #[test]
+    fn stretch_matches_the_reference() {
+        let text = String::from_utf8(read("stretch.txt")).unwrap();
+        for line in text.lines() {
+            let values: Vec<u32> = line
+                .split_whitespace()
+                .map(|token| token.parse().unwrap())
+                .collect();
+            assert_eq!(values.len(), 258);
+            let (lo, hi) = (values[0], values[1]);
+            let reference: Vec<u8> = values[2..].iter().map(|value| *value as u8).collect();
+            let ours = stretch_lut(lo, hi);
+            assert_eq!(ours.to_vec(), reference, "stretch: lo {lo}, hi {hi}");
+        }
+    }
+}
