@@ -109,18 +109,20 @@ The top edge is `0`, the right edge `width()`, the bottom edge
 
 ### The linear transfer function
 
-Linear light uses the **IEC 61966-2-1 sRGB curve**, carried on a
-**0–65535** (16-bit) scale:
+Linear light uses the **IEC 61966-2-1 sRGB curve** on the 0–1 scale
+(evaluated directly — no lookup tables):
 
-- Decode (sRGB `v` ∈ 0–255 → linear `L` ∈ 0–65535): with `x = v/255`,
-  `L = 65535 · (x/12.92)` if `x ≤ 0.04045`, else
-  `65535 · ((x + 0.055)/1.055)^2.4`.
-- Encode (linear `L` → sRGB `v`): with `x = L/65535`,
-  `v = round(255 · 12.92·x)` if `x ≤ 0.0031308`, else
-  `round(255 · (1.055·x^(1/2.4) − 0.055))`.
+- Decode (sRGB `x` → linear `L`): `x/12.92` if `x ≤ 0.04045`, else
+  `((x + 0.055)/1.055)^2.4`.
+- Encode (linear `L` → sRGB `x`): `12.92·L` if `L ≤ 0.0031308`, else
+  `1.055·L^(1/2.4) − 0.055`.
 
-The 8-bit decode/encode round-trip is exact: where a layer's alpha is
-0 or 255 the linear result is byte-identical to an sRGB composite; the
+Stored pixels are 8-bit: encoding rounds to the nearest 1/255 step,
+ties away from zero (Rust's `round` — the first implementation's
+native rounding; the reference's half-to-even is not carried) — the
+one rounding a color value undergoes. The
+8-bit decode/encode round-trip is exact: where a layer's alpha is 0 or
+255 the linear result is byte-identical to an sRGB composite; the
 difference is confined to partially transparent pixels.
 
 ### Luma

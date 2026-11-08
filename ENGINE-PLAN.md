@@ -30,7 +30,7 @@ pixels).
 - the `test` command's delta protocol (artifact baselines,
   `MAX_DELTA` enforcement, per-element red reports) and the standing
   measurement tooling (the per-element delta checker, the engine's
-  `--report` sidecar) — deferred; v1's Phase 4 comparison is manual,
+  `--report` sidecar) — deferred; v1's Phase 10 comparison is manual,
   at that time;
 - the presets (draft/ultra/low) — the run is a `--scale` against the
   logical canvas;
@@ -70,7 +70,7 @@ From the design review (2026-11-08):
 - **ffmpeg flags hardcoded**, mirroring the reference's default run.
 - The draft script's simplifications (the 127 face-pick threshold, the
   missing subtitle/corner-cut/arrow/manufacturer pieces, the stamp
-  geometry) stand for now — it is an example, and the Phase 4
+  geometry) stand for now — it is an example, and the Phase 10
   comparison (manual, at that time) is what distinguishes its
   legitimate differences from engine bugs.
 
@@ -107,15 +107,21 @@ record where they occur and folded back into ENGINE.md later:
   differ, and the threshold is a script decision anyway.)
 - **Geometry rounding:** positions, sizes and resize targets are real
   px; every geometric result — and the logical → physical transform
-  itself — rounds to integer px half-to-even (the reference's
-  `round`), and the encode LUT's `round` is the same.
+  itself — rounds to integer px, ties away from zero (Rust's
+  `round` — the first implementation's native rounding; the
+  reference's half-to-even is not carried).
 - **`yield`'s invariant:** a frame is canvas-sized — every op
   preserves the receiver's dims (`resize` is the only dim-changing op),
   so the engine asserts canvas dims on `yield` and on `blend`'s
   receiver.
 - **Buffer representation:** at the op boundary a buffer is straight-
-  alpha RGBA8 sRGB; the internal representation is free (the pinned
-  math runs in f32 linear on the 0–65535 scale).
+  alpha RGBA8 sRGB; internally the buffer is f32 linear (0–1), and
+  the sRGB ↔ linear transfer is evaluated directly at the boundaries
+  (load, yield) and in the small sRGB-composite and `luma_at` regions
+  — no LUTs (deviation from the reference's 0–65535 LUTs). Rounding
+  happens exactly once, at the linear → 8-bit encode (nearest 1/255
+  step, ties away from zero — Rust's `round`; out-of-range linear
+  values clamp).
 - **Parameters and entry:** the script's globals expose the op table;
   the engine loads the script (paths — `image`/`font`/`require` —
   resolve against the script's directory) and calls its `render(...)`
@@ -155,12 +161,12 @@ record where they occur and folded back into ENGINE.md later:
   content defaults (not even the card's native viewport); `--scale`
   the run's scale, defaulting to 1 (the default run is the canvas at
   native scale). The physical canvas is `W×s`/`H×s`, each dim rounded
-  half-to-even; the MP4 path needs even physical dims (the driver's
-  choice; 1640×2048 at 0.5/1.0/2.0 are all even). A flag's value is a
-  string; an omitted or empty flag binds `nil`. Errors go to stderr
+  (Rust's `round`); the MP4 path needs even physical dims (the
+  driver's choice; 1640×2048 at 0.5/1.0/2.0 are all even). A flag's
+  value is a string; an omitted or empty flag binds `nil`. Errors go to stderr
   with a non-zero exit.
 - **Run size:** the default run is without `--scale` (i.e. 1); the
-  reference artifact comparison (Phase 4) runs `--width 1640
+  reference artifact comparison (Phase 10) runs `--width 1640
   --height 2048 --scale 0.5` (physical 820×1024). The engine supplies
   `width()`/`height()` = the logical canvas and
   `physical_width()`/`physical_height()` = the derived physical.
@@ -202,8 +208,8 @@ pikke/
                  `physical_width`/`physical_height` the derived
                  physical) —, the entry's parameter introspection
                  (§3b), the execution, and the logical → physical
-                 transform at the op boundary (× the scale,
-                 half-to-even, matching the reference's `round`)
+                 transform at the op boundary (× the scale, Rust's
+                 `round`)
     image.rs     the `Image`: the RGBA buffer — buffers are physical
                  px (the run scale); the API reports logical. Its ops:
                  load (PNG, straight-alpha), resize / contrast / blend
@@ -214,10 +220,12 @@ pikke/
                  is still at its file scale), so the reference's
                  single-resize paths are reproduced (no double
                  resampling)
-    color.rs     the `Color` and the pinned transfer math: the decode
-                 table (256 → f32 on 0–65535) and the encode LUT
-                 (65536 → u8, half-to-even), Porter-Duff over in
-                 linear and sRGB, the Rec. 709 luma, the
+    color.rs     the `Color` and the pinned transfer math: the IEC
+                 61966-2-1 sRGB ↔ linear conversion (evaluated
+                 directly — no LUTs), the single encode rounding
+                 (nearest 1/255, ties away from zero — Rust's
+                 `round`), Porter-Duff over
+                 in linear and sRGB, the Rec. 709 luma, the
                  tone-preserving full-range stretch
     font.rs      the `Font`: the FreeType face, the `wght` weight axis
     text.rs      the `Text`: the layout (the ink-offset probe, the
@@ -247,7 +255,8 @@ to the encoder as they are yielded.
 
 ## 7. Phases
 
-Each phase carries its gate — the verification that closes it.
+Each phase is a small, self-contained step with its gate — the
+verification that closes it.
 
 **Phase 0 — the open spec deltas.** The script is fixed (§4);
 ENGINE.md carries the settled op semantics (§3a). §3b (the spawn
@@ -259,44 +268,102 @@ into ENGINE.md later.
 *Gate:* ENGINE.md and the script agree on every op the script uses;
 `luac5.4 -p` clean.
 
-**Phase 1 — the buffer and the pinned math.** The crate scaffold;
-`engine.rs`, `image.rs`, `color.rs`, `rectangle.rs`; the `image`
-load (PNG, straight-alpha RGBA8) and the op table bound to Lua.
-*Gate:* test vectors generated from the reference pipeline
-(`nikke_reborn.linear`, `nikke_reborn.image`) — the pinned ops exact:
-decode/encode tables identical to the reference's LUTs; linear and sRGB
-`over` byte-identical to the reference on random RGBA pairs (pinned
-math: exact at 8-bit); `luma_at` matching the 709 mean; the transform
-right: the op-boundary logical → physical application exact against the
-reference's scaled values (the 0.5 comparison run's logo 200 → 100,
-copyright 20 → 10, title 150 → 75); the free ops small: `contrast`
-and `resize` (all three modes) within a few units of the reference's
-`autocontrast(preserve_tone)` and `_fit_background`/mask-stretch on the
-three Base backgrounds.
+**Phase 1 — the CLI, the VM, and the flags.** The `pikke` crate
+(mlua + clap); the script loads into a dedicated environment; the
+entry's parameters are introspected (the line-hook probe, §3b) and the
+CLI is built from them. Two-stage parsing: the script path is read raw
+first, so the flags exist before the parser (and the help text) is
+generated; flag values bind to the parameters as strings (an omitted
+or empty flag binds `nil`).
+*Gate:* `pikke --help design/card/standard.lua` prints the
+`--id --title --subtitle --animation --time` flags alongside
+`--width`/`--height`/`--scale`; `pikke design/card/standard.lua
+--id c010` binds the values and fails cleanly at the entry's first op
+(the op table does not exist yet — expected here).
 
-**Phase 2 — text.** `text.rs` and `font.rs` on FreeType: the
-ink-offset probe, the anchor, the `wght` axis, 4× supersampling with a
-Lanczos downscale (the reference's practice for small sizes — a free
-op chosen to keep the glyph-edge noise small), `bounds`.
-*Gate:* for the script's two texts (Oswald 300 at the run's copyright
-size, AireExterior 700 at the run's title size) the ink box's top-left
-is exactly `(x, y)` (the anchor is pinned, not free), the ink box's
-size within ~1 px of the reference's `_text_ink_offsets` probe, and the
-rasterized copyright line a small per-pixel delta against the
-reference's stamp.
+**Phase 2 — the API surface, mocked.** Scaffold the crate's final
+structure (§6) and draft the entire Lua API with empty mocks: every op
+returns a placeholder; the mock `spawn` returns a lazy stream that
+yields one canvas-sized frame; `yield` records the frame (asserting
+the canvas dims, §3b) and writes no file, encodes nothing.
+*Gate:* `pikke design/card/standard.lua --width 1640 --height 2048
+--id c010 --title Rapi --time 0` invokes the script end to end —
+every op is called, and `yield` was called with the right output (the
+mock's one canvas-sized frame) — producing no image.
 
-**Phase 3 — spawn, streaming, encode.** `stream.rs`, `encoder.rs`,
-`engine.rs`'s orchestration (the PNG/MP4 decision at frame 2).
+**Phase 3 — the pinned color math.** `color.rs`: the IEC 61966-2-1
+sRGB ↔ linear conversion (evaluated directly, 0–1 — no LUTs),
+Porter-Duff over (linear and sRGB), the single encode rounding
+(nearest 1/255 step, ties away from zero — Rust's `round`), the Rec.
+709 luma, the
+tone-preserving full-range stretch.
+*Gate:* test vectors from the reference pipeline
+(`nikke_reborn.linear`, `nikke_reborn.image`) — the encode matching
+the reference's at its 65536 sample points (±1 at rounding
+boundaries — our tie-break and the last-ulp evaluation noise differ);
+the decode/encode round-trip exact for all 256 stored values;
+over within ±1 of the reference on random RGBA pairs, exact on the
+round-trip cases (alpha 0/255) — pinned math is right up to integer
+rounding; the luma matching the 709 mean.
+
+**Phase 4 — the real Image buffer.** `image.rs` replaces its mock: the
+straight-alpha RGBA8 buffer, `image(path)` load (PNG decode),
+`width`/`height`/`size`, and the logical → physical transform at the
+op boundary (× the scale, Rust's `round`).
+*Gate:* a real asset (a Base background) loads at its file dims; at
+`--scale 0.5` the canvas is 820×1024 and the op-boundary transform is
+exact against the reference's scaled values (the logo 200 → 100, the
+copyright 20 → 10, the title 150 → 75).
+
+**Phase 5 — `resize` and `contrast`.** The real resize (the three
+target semantics; Lanczos — a free op) and the real contrast (auto,
+the tone-preserving stretch). Both run in linear — the reference does
+both on stored sRGB (free-op drift, small).
+*Gate:* on the three Base backgrounds, headless: `resize` (all three
+modes) within a few units of the reference's
+`_fit_background`/mask-stretch; `contrast` within a few units of the
+reference's `autocontrast(preserve_tone)` (free ops).
+
+**Phase 6 — compositing: `blend`, `fill`, `luma_at`, the
+Rectangle.** The real blend (over, `color_space`, `at` + the canvas
+clip), fill (the space by the region's kind), luma_at (the region
+mean), and `rectangle.rs` (the Rectangle + `padded`).
+*Gate:* `blend` and `fill` byte-identical to the reference on real
+pairs (pinned math: exact at 8-bit); `luma_at` matching the reference
+mean on the three Base backgrounds.
+
+**Phase 7 — text.** `font.rs` + `text.rs` on FreeType: the face, the
+`wght` axis, the layout, the ink-offset probe, the anchor (the tight
+ink box's top-left at `(x, y)`), the 4× supersampling with a Lanczos
+downscale (a free op), `bounds`.
+*Gate:* the script's two texts (Oswald 300 at the copyright size,
+AireExterior 700 at the title size): the ink box's top-left exactly
+`(x, y)` (pinned), the ink box's size within ~1 px of the reference's
+`_text_ink_offsets` probe, the rasterized copyright line a small
+per-pixel delta against the reference's stamp (free).
+
+**Phase 8 — the real Stream.** `spawn`'s producer protocol: the stdout
+frame reader (raw RGBA8, the canvas's physical dims), the stderr drain
+(the bounded 1 MiB tail), the lazy iterator (one frame per step), the
+failure semantics (a truncated stream or a non-zero exit → an error
+carrying the stderr tail).
 *Gate (no GPU):* a synthetic producer (a small script writing N raw
-RGBA8 frames to stdout) — 1 frame → `output.png`, N frames →
-`output.mp4` with N decoded frames (ffprobe); a truncated stream and a
-non-zero exit each surface as an error carrying the stderr tail. With
-the GPU: one real still (`nikke-viewer --stdout … --time 0 c010`
-through a minimal `background:blend(frame)` script, the viewport taken
-from `physical_width()`/`physical_height()`) — the yielded frame equals
-the raw stream's frame byte-for-byte (no free op between them).
+RGBA8 frames to stdout) — N frames yielded byte-for-byte; a truncated
+stream and a non-zero exit each surface as an error carrying the
+stderr tail. With the GPU: one real still (`nikke-viewer --stdout …
+--time 0 c010` through a minimal `background:blend(frame)` script, the
+viewport from `physical_width()`/`physical_height()`) — the yielded
+frame equals the raw stream's frame byte-for-byte (no free op between
+them).
 
-**Phase 4 — the standard card, end to end.** Run
+**Phase 9 — the encoder.** `encoder.rs`: the PNG writer (RGBA, atomic)
+and the ffmpeg MP4 pipe (the reference's default flags, §5); the
+PNG/MP4 decision at frame 2 (§5) replaces the Phase 2 yield recorder.
+*Gate:* one frame → `output.png` decoding back to the frame
+byte-for-byte (lossless); N frames → `output.mp4` with N frames
+(ffprobe).
+
+**Phase 10 — the standard card, end to end.** Run
 `design/card/standard.lua` for c010:
 `pikke design/card/standard.lua --width 1640 --height 2048
 --scale 0.5 --id c010 --title Rapi --time 0` (`--subtitle` and
@@ -328,7 +395,7 @@ exactly — logical px on both sides — so they are not differences.)
 
 **After v1 (preview, not scheduled here):** the standing measurement
 tooling (the per-element delta checker, the engine's `--report`
-sidecar, the `MAX_DELTA` thresholds — the Phase 4 comparison becomes
+sidecar, the `MAX_DELTA` thresholds — the Phase 10 comparison becomes
 a standing protocol), the `test` delta protocol (artifact baselines,
 `--new-baseline`, per-element enforcement), the profile/full-art
 designs and the op extensions they need, the presets, the TOML
@@ -350,7 +417,7 @@ driver, and the hash-embedding question for engine outputs.
   (on stored sRGB values) can flip a face-pick near the threshold. The
   spec wins; the threshold is a script decision; a flip shows up as a
   localized per-element difference against the reference, visible in
-  the Phase 4 comparison (and, later, the deferred checker).
+  the Phase 10 comparison (and, later, the deferred checker).
 - **`contrast` order:** the reference stretches before the fit; the
   script resizes (cover) then stretches. Free-op drift, small — the
   histogram's tail moves slightly with the crop.
@@ -367,5 +434,5 @@ driver, and the hash-embedding question for engine outputs.
 
 ## 9. Next
 
-The phases (§7) are too broad — the next working step is to break
-them into finer, individually closable steps.
+The phase ladder is settled (§7); the next working step is Phase 1
+(the CLI, the VM, and the flags).
