@@ -32,13 +32,13 @@ to earn it.
 
 Consequently the linear-f32 resample is home-grown — the `image`
 crate's resampler is u8-only (it cannot resample the buffer's
-precision). The window arithmetic is the original's verbatim; the
-kernels are its lanczos (bit-exact within it) and the cubic B-spline,
-where the original's "bicubic" would fringe (its Keys cubic
-convolution's negative lobes dip near-black pixels to black once the
-resample runs in linear light). The default is the B-spline, the
-non-negative cubic — it produces no fringing (the lanczos side-lobes
-ring harder at hard edges). See Phase 5a.
+precision). The lanczos is the original's window arithmetic verbatim
+(bit-exact within it); the default, the cubic, is GIMP's resize
+as-is (GEGL's cubic sampler: the BC-spline b = 1/2, c = 1/4, the
+downsample's sub-block average of its fixed 4-tap, the abyss at the
+edge) — the B-spline (its b = 1.0 corner) proved too soft against
+it, and its mild lobe keeps the fringing at GIMP's level. See
+Phase 5a.
 
 ## 1. Scope
 

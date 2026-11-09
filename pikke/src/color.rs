@@ -160,8 +160,7 @@ pub enum Filter {
 }
 
 /// The buffer's form (the filter over premultiplied light is
-/// alpha-blind); an unchanged axis copies (the unit-scale kernel
-/// would blur it).
+/// alpha-blind).
 pub fn resize(
     filter: Filter,
     src: &[f32],
@@ -172,10 +171,13 @@ pub fn resize(
 ) -> Vec<f32> {
     match filter {
         Filter::Lanczos => resample(lanczos3, 3.0, src, src_w, src_h, dst_w, dst_h),
-        Filter::Cubic => resample(cubic, 2.0, src, src_w, src_h, dst_w, dst_h),
+        Filter::Cubic => resample_cubic(src, src_w, src_h, dst_w, dst_h),
     }
 }
 
+/// The reference's window arithmetic (the support-scaled kernel
+/// window, the weights renormalized per output sample); an unchanged
+/// axis copies (the unit-scale kernel would blur it).
 fn resample(
     kernel: impl Fn(f64) -> f64,
     support: f64,
@@ -271,6 +273,78 @@ fn resample(
     out
 }
 
+/// GIMP's resize as-is (GEGL's cubic sampler): the tap's fixed
+/// 4-window, a downsample of `n >= 2` averaged at the `n` sub-block
+/// centers (capped at 5), the out-of-range taps reading the abyss
+/// (zero; the 4-window's weights sum to one — no renormalization).
+/// An unchanged axis runs the tap (GIMP's; not a copy).
+fn resample_cubic(src: &[f32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> Vec<f32> {
+    let (sw, sh, dw, dh) = (
+        src_w as usize,
+        src_h as usize,
+        dst_w as usize,
+        dst_h as usize,
+    );
+
+    let mut across = vec![0.0f32; dw * sh];
+    for y in 0..sh {
+        pass_cubic(
+            &src[y * sw..(y + 1) * sw],
+            1,
+            &mut across[y * dw..(y + 1) * dw],
+            1,
+            sw,
+            dw,
+        );
+    }
+
+    let mut out = vec![0.0f32; dw * dh];
+    for x in 0..dw {
+        pass_cubic(&across[x..], dw, &mut out[x..], dw, sh, dh);
+    }
+
+    out
+}
+
+/// One separable pass in GIMP's window arithmetic: `src_len` samples
+/// (`src_stride` apart) scaled to `dst_len` (`dst_stride` apart in
+/// `out`): the downsample averages the tap at the sub-block centers,
+/// the out-of-range taps read the abyss.
+fn pass_cubic(
+    src: &[f32],
+    src_stride: usize,
+    out: &mut [f32],
+    dst_stride: usize,
+    src_len: usize,
+    dst_len: usize,
+) {
+    // The sub-blocks: the downscale factor, capped at 5 (GIMP's).
+    let scale = src_len as f64 / dst_len as f64;
+    let n = (scale as usize).clamp(1, 5);
+    let u_dx = scale / n as f64;
+
+    for i in 0..dst_len {
+        // The sub-block centers: the target sample's source block,
+        // the pixel-center convention (tap j at j + 0.5).
+        let x0 = (i as f64 + 0.5) * scale - (scale - u_dx) / 2.0;
+        let mut acc = 0.0f32;
+        for j in 0..n {
+            // The tap's zero: the sub-block center on the source
+            // pixel grid, `ix` the top-left tap's pixel.
+            let shifted = x0 + j as f64 * u_dx - 0.5;
+            let ix = shifted.floor() as i64;
+            let frac = shifted - ix as f64;
+            for d in -1..=2i64 {
+                let t = ix + d;
+                if (0..src_len as i64).contains(&t) {
+                    acc += cubic(frac - d as f64) as f32 * src[t as usize * src_stride];
+                }
+            }
+        }
+        out[i * dst_stride] = acc / n as f32;
+    }
+}
+
 /// The Lanczos-3 kernel: the 3-lobed sinc, zero at the window's edge.
 fn lanczos3(x: f64) -> f64 {
     if x.abs() >= 3.0 {
@@ -284,14 +358,14 @@ fn lanczos3(x: f64) -> f64 {
     (pi_x.sin() / pi_x) * (pi_x3.sin() / pi_x3)
 }
 
-/// The cubic B-spline, zero outside ±2.
+/// GIMP's resize kernel (GEGL's cubic sampler: the BC-spline
+/// b = 1/2, c = 1/4), zero outside ±2.
 fn cubic(x: f64) -> f64 {
     let x = if x < 0.0 { -x } else { x };
     if x < 1.0 {
-        ((3.0 * x - 6.0) * x * x + 4.0) / 6.0
+        ((12.0 * x - 21.0) * x * x + 10.0) / 12.0
     } else if x < 2.0 {
-        let x = 2.0 - x;
-        x * x * x / 6.0
+        (((-4.0 * x + 21.0) * x - 36.0) * x + 20.0) / 12.0
     } else {
         0.0
     }
@@ -464,19 +538,22 @@ mod kernels {
     #[test]
     fn the_kernels_match_their_defining_values() {
         assert_eq!(lanczos3(0.0), 1.0);
-        // The B-spline's exact grid values (a polynomial, the sinc is
-        // not) and its non-negativity over the support: a resample
-        // stays within the neighborhood's range.
-        assert_eq!(cubic(0.0), 2.0 / 3.0);
-        assert_eq!(cubic(1.0), 1.0 / 6.0);
+        // GIMP's cubic's exact grid values (a polynomial, the sinc is
+        // not) and its lobe (the fringe at GIMP's level).
+        assert_eq!(cubic(0.0), 5.0 / 6.0);
+        assert_eq!(cubic(1.0), 1.0 / 12.0);
+        assert_eq!(cubic(1.5), -1.0 / 48.0);
         for x in [2.0, 3.0] {
             assert_eq!(cubic(x), 0.0);
             assert_eq!(cubic(-x), 0.0);
         }
-        for i in 0..=2000 {
-            let x = i as f64 / 1000.0;
-            assert!(cubic(x) >= 0.0);
-            assert!(cubic(-x) >= 0.0);
+        // The partition of unity over the integer shifts: the 4-tap's
+        // weights sum to one (why GIMP's arithmetic renormalizes
+        // nothing).
+        for i in 0..20 {
+            let x = i as f64 / 20.0;
+            let sum: f64 = (-3..=3).map(|d| cubic(x - d as f64)).sum();
+            assert!((sum - 1.0).abs() < 1e-12);
         }
     }
 }

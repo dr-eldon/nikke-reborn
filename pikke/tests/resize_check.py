@@ -10,21 +10,23 @@ the pixels actually carry). No recorded vectors.
 
 The cases diff against an independent implementation of the same
 window arithmetic, run in the buffer's form (premultiplied linear)
-— measuring the engine's arithmetic (the kernel, the window, the
-renormalization, the premultiplied handling), not a filter choice;
-the reference pipeline's own resampler is Pillow's, and the resize's
-drift from it is a free op tracked by the fidelity budget, not
-here. (Pillow has no B-spline at all — its "bicubic" is the Keys
-cubic convolution — so even a same-named Pillow kernel would not be
-a same-arithmetic reference for the cubic.) The cases are one per
-target semantic — the background's cover (its aspect is the canvas',
-so it degrades to a plain resample: the downscale, the filter's
-work), the logo's cover (a different aspect: the center crop), and
-the logo's aspect-preserved width target — over both kernels: the
-default cubic, the lanczos on the aspect case. The x1.25 cases'
-2048×2560 outputs are too heavy for a debug-build run.
+— the cubic against GIMP's resize as-is (GEGL's cubic sampler: the
+BC-spline b = 1/2, c = 1/4, the downsample's sub-block average of
+its fixed 4-tap, the abyss at the edge), the lanczos against the
+reference's (Pillow's) window arithmetic — measuring the engine's
+arithmetic (the kernel, the window, the premultiplied handling), not
+a filter choice; the reference pipeline's own resampler is Pillow's,
+and the resize's drift from it is a free op tracked by the fidelity
+budget, not here. The cases are one per target semantic — the
+background's cover (its aspect is the canvas', so it degrades to a
+plain resample: the downscale, the filter's work), the logo's cover
+(a different aspect: the center crop), and the logo's aspect-preserved
+width target — over both kernels: the default cubic, the lanczos on
+the aspect case. The x1.25 cases' 2048×2560 outputs are too heavy
+for a debug-build run.
 """
 
+import math
 import subprocess
 import sys
 import tempfile
@@ -66,11 +68,12 @@ def encode_u8(x: np.ndarray) -> np.ndarray:
     )
 
 
-def cubic_kernel(x: np.ndarray) -> np.ndarray:
-    """The cubic B-spline, the |x| form (zero outside ±2)."""
+def gegl_cubic_kernel(x: np.ndarray) -> np.ndarray:
+    """GIMP's resize kernel (GEGL's cubic sampler: the BC-spline
+    b = 1/2, c = 1/4), the |x| form (zero outside ±2)."""
     x = np.abs(x)
-    inner = (3.0 * x - 6.0) * x * x / 6.0 + 4.0 / 6.0
-    outer = (2.0 - x) ** 3 / 6.0
+    inner = (12.0 * x**3 - 21.0 * x**2 + 10.0) / 12.0
+    outer = (-4.0 * x**3 + 21.0 * x**2 - 36.0 * x + 20.0) / 12.0
     return np.where(x < 1.0, inner, np.where(x < 2.0, outer, 0.0))
 
 
@@ -82,8 +85,8 @@ def lanczos3_kernel(x: np.ndarray) -> np.ndarray:
 
 def pass_signals(src: np.ndarray, dst_len: int, kernel, support: float) -> np.ndarray:
     """One separable pass along the last axis of `src` (P, N): the
-    engine's window arithmetic (out-of-range taps absent, the weights
-    renormalized per output sample)."""
+    reference's window arithmetic (out-of-range taps absent, the
+    weights renormalized per output sample)."""
     src_len = src.shape[1]
     scale = src_len / dst_len
     filterscale = max(scale, 1.0)
@@ -105,12 +108,36 @@ def pass_signals(src: np.ndarray, dst_len: int, kernel, support: float) -> np.nd
     return np.where(weights[None, :] == 0.0, 0.0, acc / weights)
 
 
-def resample_image(
-    im: Image.Image, size: tuple[int, int], kernel, support: float
-) -> Image.Image:
+def pass_gegl(src: np.ndarray, dst_len: int) -> np.ndarray:
+    """One separable pass along the last axis of `src` (P, N):
+    GIMP's window arithmetic (GEGL's cubic sampler: the downsample
+    averages the fixed 4-tap at the sub-block centers, capped at 5;
+    the out-of-range taps read the abyss, zero, no renormalization)."""
+    src_len = src.shape[1]
+    scale = src_len / dst_len
+    n = max(1, min(int(scale), 5))
+    u_dx = scale / n
+
+    out = np.zeros((src.shape[0], dst_len), dtype=np.float64)
+    for i in range(dst_len):
+        x0 = (i + 0.5) * scale - (scale - u_dx) / 2.0
+        acc = np.zeros(src.shape[0])
+        for j in range(n):
+            shifted = x0 + j * u_dx - 0.5
+            ix = math.floor(shifted)
+            frac = shifted - ix
+            for d in (-1, 0, 1, 2):
+                t = ix + d
+                if 0 <= t < src_len:
+                    acc += gegl_cubic_kernel(frac - d) * src[:, t]
+        out[:, i] = acc / n
+    return out
+
+
+def resample_image(im: Image.Image, size: tuple[int, int], pass_fn) -> Image.Image:
     """A resize in the buffer's form: straight sRGB in, decoded to
-    linear and premultiplied, the two separable passes, the alpha
-    clamped, demultiplied, re-encoded."""
+    linear and premultiplied, the two separable passes (`pass_fn`
+    per axis), the alpha clamped, demultiplied, re-encoded."""
     width, height = size
     arr = np.asarray(im.convert("RGBA")).astype(np.float64) / 255.0
     alpha = arr[..., 3:4]
@@ -119,21 +146,17 @@ def resample_image(
     # The horizontal pass (per row, per channel: sw -> width), then the
     # vertical (per column: sh -> height).
     across = (
-        pass_signals(
+        pass_fn(
             np.ascontiguousarray(linear.transpose(0, 2, 1).reshape(sh * 4, sw)),
             width,
-            kernel,
-            support,
         )
         .reshape(sh, 4, width)
         .transpose(0, 2, 1)
     )
     out = (
-        pass_signals(
+        pass_fn(
             np.ascontiguousarray(across.transpose(2, 1, 0).reshape(4 * width, sh)),
             height,
-            kernel,
-            support,
         )
         .reshape(4, width, height)
         .transpose(2, 1, 0)
@@ -147,11 +170,17 @@ def resample_image(
 
 
 def cubic_resize(im: Image.Image, size: tuple[int, int]) -> Image.Image:
-    return resample_image(im, size, cubic_kernel, 2.0)
+    """GIMP's resize: GEGL's cubic arithmetic, the two passes."""
+    return resample_image(im, size, pass_gegl)
+
+
+def lanczos_pass(src: np.ndarray, dst_len: int) -> np.ndarray:
+    return pass_signals(src, dst_len, lanczos3_kernel, 3.0)
 
 
 def lanczos_resize(im: Image.Image, size: tuple[int, int]) -> Image.Image:
-    return resample_image(im, size, lanczos3_kernel, 3.0)
+    """The reference's window arithmetic, the Lanczos-3."""
+    return resample_image(im, size, lanczos_pass)
 
 
 def cubic_fit(im: Image.Image, size: tuple[int, int]) -> Image.Image:
