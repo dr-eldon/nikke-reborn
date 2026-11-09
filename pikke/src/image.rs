@@ -258,7 +258,7 @@ impl UserData for Image {
 
             let filter = match filter.as_deref() {
                 None => Filter::default(),
-                Some("bicubic") => Filter::Bicubic,
+                Some("cubic") => Filter::Cubic,
                 Some("lanczos") => Filter::Lanczos,
                 Some(other) => {
                     return Err(mlua::Error::RuntimeError(format!(
@@ -404,7 +404,7 @@ mod tests {
 
         // Cover: logical 400×100 → the 200×50 target out of the
         // 200×250 box, cropped 100 from the top.
-        fork.resize(400.0, 100.0, Filter::Bicubic, Mode::Cover);
+        fork.resize(400.0, 100.0, Filter::Cubic, Mode::Cover);
         assert_eq!((fork.physical_width(), fork.physical_height()), (200, 50));
 
         // A no-op target (the file already at the physical target,
@@ -419,7 +419,7 @@ mod tests {
             },
         )
         .unwrap();
-        image.resize(820.0, 1024.0, Filter::Bicubic, Mode::Stretch);
+        image.resize(820.0, 1024.0, Filter::Cubic, Mode::Stretch);
         assert_eq!(image.scale, 2.0);
         assert_eq!((image.logical_width(), image.logical_height()), (820, 1024));
         assert_eq!(

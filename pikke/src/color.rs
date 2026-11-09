@@ -155,13 +155,13 @@ pub fn stretch_lut(lo: u32, hi: u32) -> [u8; 256] {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Filter {
     #[default]
-    Bicubic,
+    Cubic,
     Lanczos,
 }
 
 /// The buffer's form (the filter over premultiplied light is
-/// alpha-blind); an unchanged axis copies (the unit-scale kernel is
-/// the identity).
+/// alpha-blind); an unchanged axis copies (the unit-scale kernel
+/// would blur it).
 pub fn resize(
     filter: Filter,
     src: &[f32],
@@ -172,7 +172,7 @@ pub fn resize(
 ) -> Vec<f32> {
     match filter {
         Filter::Lanczos => resample(lanczos3, 3.0, src, src_w, src_h, dst_w, dst_h),
-        Filter::Bicubic => resample(bicubic, 2.0, src, src_w, src_h, dst_w, dst_h),
+        Filter::Cubic => resample(cubic, 2.0, src, src_w, src_h, dst_w, dst_h),
     }
 }
 
@@ -209,8 +209,6 @@ fn resample(
         for i in 0..dst_len {
             // The kernel's zero: the target sample's center in source
             // samples (the pixel-center convention, tap j at j + 0.5).
-            // At unit scale the arguments are integral and only the
-            // center tap carries weight: the identity, the reference's.
             let center = (i as f64 + 0.5) * scale;
             // The reference's tap bounds: half-up, clamped to the source.
             let start = (center - support + 0.5).trunc().clamp(0.0, src_len as f64) as usize;
@@ -286,14 +284,14 @@ fn lanczos3(x: f64) -> f64 {
     (pi_x.sin() / pi_x) * (pi_x3.sin() / pi_x3)
 }
 
-/// The a = -0.5 cubic convolution, zero outside ±2.
-fn bicubic(x: f64) -> f64 {
-    let a = -0.5;
+/// The cubic B-spline, zero outside ±2.
+fn cubic(x: f64) -> f64 {
     let x = if x < 0.0 { -x } else { x };
     if x < 1.0 {
-        ((a + 2.0) * x - (a + 3.0)) * x * x + 1.0
+        ((3.0 * x - 6.0) * x * x + 4.0) / 6.0
     } else if x < 2.0 {
-        (((x - 5.0) * x + 8.0) * x - 4.0) * a
+        let x = 2.0 - x;
+        x * x * x / 6.0
     } else {
         0.0
     }
@@ -461,20 +459,24 @@ mod vectors {
 
 #[cfg(test)]
 mod kernels {
-    use super::{bicubic, lanczos3};
+    use super::{cubic, lanczos3};
 
     #[test]
     fn the_kernels_match_their_defining_values() {
-        // Unit weight at the center (both).
         assert_eq!(lanczos3(0.0), 1.0);
-        assert_eq!(bicubic(0.0), 1.0);
-        // The bicubic is a polynomial: exact zeros at its grid (the
-        // sinc is not), and the negative lobe (the ringing behind
-        // the alpha clamp).
-        for x in [1.0, 2.0] {
-            assert_eq!(bicubic(x), 0.0);
-            assert_eq!(bicubic(-x), 0.0);
+        // The B-spline's exact grid values (a polynomial, the sinc is
+        // not) and its non-negativity over the support: a resample
+        // stays within the neighborhood's range.
+        assert_eq!(cubic(0.0), 2.0 / 3.0);
+        assert_eq!(cubic(1.0), 1.0 / 6.0);
+        for x in [2.0, 3.0] {
+            assert_eq!(cubic(x), 0.0);
+            assert_eq!(cubic(-x), 0.0);
         }
-        assert!(bicubic(1.5) < 0.0);
+        for i in 0..=2000 {
+            let x = i as f64 / 1000.0;
+            assert!(cubic(x) >= 0.0);
+            assert!(cubic(-x) >= 0.0);
+        }
     }
 }

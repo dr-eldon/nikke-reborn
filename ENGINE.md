@@ -60,7 +60,7 @@ The top edge is `0`, the right edge `width()`, the bottom edge
 |---|---|---|
 | `clone` | `img:clone() → Image` | A copy sharing `img`'s buffer (cheap); the copy diverges from `img` (copy-on-write) on its first in-place write. The branch point. |
 | `contrast` | `img:contrast({auto=true})` | Histogram-stretch to full range, **tone-preserving** (no highlight/shadow clip). In place. |
-| `resize` | `img:resize({width, height, mode, filter})` | Scale to the target (logical px): exactly one of `width`/`height` — aspect preserved; both — the target box, `mode = "cover"` covers it and center-crops, no `mode` scales to it exactly; `filter = "lanczos"` or `"bicubic"` (default). In place. |
+| `resize` | `img:resize({width, height, mode, filter})` | Scale to the target (logical px): exactly one of `width`/`height` — aspect preserved; both — the target box, `mode = "cover"` covers it and center-crops, no `mode` scales to it exactly; `filter = "lanczos"` or `"cubic"` (default). In place. |
 | `blend` | `img:blend(other, {at, color_space})` | Alpha-composite `other` over `img`, `other`'s top-left at `at` (a `Rectangle`, default `(0, 0)`), clipped to the canvas. `color_space`: `"linear"` (default) / `"srgb"`. In place. |
 | `fill` | `img:fill(region, color)` | Paint `region` (a `Rectangle` or `Text`) with `color` (hex). The space is chosen by the region's kind: a `Text` region composites in sRGB, a `Rectangle` region in linear. In place. |
 | `luma_at` | `img:luma_at(region) → number` | Mean luma of `region` (a `Rectangle`), 0–255 (see *Luma*). |

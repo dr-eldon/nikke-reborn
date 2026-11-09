@@ -32,10 +32,13 @@ to earn it.
 
 Consequently the linear-f32 resample is home-grown — the `image`
 crate's resampler is u8-only (it cannot resample the buffer's
-precision). The kernels are the original's window arithmetic verbatim
-(its lanczos and bicubic, bit-exact within it); the default is
-bicubic — it produces no fringing (the lanczos side-lobes ring
-harder at hard edges). See Phase 5a.
+precision). The window arithmetic is the original's verbatim; the
+kernels are its lanczos (bit-exact within it) and the cubic B-spline,
+where the original's "bicubic" would fringe (its Keys cubic
+convolution's negative lobes dip near-black pixels to black once the
+resample runs in linear light). The default is the B-spline, the
+non-negative cubic — it produces no fringing (the lanczos side-lobes
+ring harder at hard edges). See Phase 5a.
 
 ## 1. Scope
 
@@ -362,7 +365,7 @@ exact against the original's scaled values (the logo 200 → 100, the
 copyright 20 → 10, the title 150 → 75).
 
 **Phase 5a — `resize`.** The real resize (the three target
-semantics; the default bicubic and a lanczos — free ops), run in
+semantics; the default cubic and a lanczos — free ops), run in
 linear — the original does it on stored sRGB (free-op drift, small).
 *Gate:* on the three Base backgrounds, headless: all three modes
 within a few units of the original's `_fit_background`/mask-stretch.
