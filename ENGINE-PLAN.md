@@ -7,13 +7,39 @@ conforming engine: a Rust binary that runs the standard-tier design
 decisions, the contract deltas still owed to the spec, the v1 harness
 and architecture, and the phase breakdown with its verification gates.
 
+## ⚠ Linear U8 is ALWAYS WRONG
+
+The buffer is linear **f32** (0–1), and every op runs on it by
+default.
+
+**Never a linear u8.** A *linear u8* — the linear light quantized to
+256 uniform steps (`u8 = linear × 255`) — is *always* wrong: it is a
+256-level *lossy* compression of a value that must carry continuous
+linear light — the 1/255 quantization throws away the buffer's f32
+precision and bands smooth gradients (worst in the shadows, where the
+sRGB encode keeps fine steps). Any resample, composite or filter run
+on it inherits the quantization, so the error is baked into everything
+downstream. There is no circumstance that justifies it.
+
+**An sRGB u8, when justified.** The sRGB u8 is the *correct* 8-bit
+representation (the sRGB encode) — the default at the 8-bit boundary
+(the PNG/MP4 output), the single rounding the plan allows. An op may
+*also* work on the sRGB u8 mid-pipeline, but only with a valid reason
+and an explicit justification at the op's defining site: the sRGB
+encode is a bounded, legitimate loss, whereas a linear quantization
+is data destruction. The default is the f32; an sRGB-u8 shortcut has
+to earn it.
+
+Consequently the linear-f32 Lanczos resample is home-grown — the
+`image` crate's resampler is u8-only (it cannot resample the buffer's
+precision). See Phase 5a.
+
 ## 1. Scope
 
-**Goal.** A Rust engine, `pikke`, that loads a design script,
-binds its parameters, executes it against the op table, and encodes the
-yielded frames: one frame → `output.png`, many → `output.mp4`, within
-the fidelity invariant (bounded delta against the reference, decoded
-pixels).
+**Goal.** A Rust compositing engine, `pikke`, focused on color accuracy
+and correctnes that loads a design script, binds its parameters, executes
+it against the op table, and encodes the yielded frames: one frame → `output.png`,
+many → `output.mp4`.
 
 **Non-goals for v1** (explicit):
 
@@ -24,8 +50,8 @@ pixels).
   computation);
 - producer retry (a failed `spawn` is an error; the GPU is shared and a
   transient failure is re-run by hand);
-- embedding the source hash in outputs (the reference's skip check is
-  untouched — the reference pipeline and its byte protocol are
+- embedding the source hash in outputs (the original's skip check is
+  untouched — the original pipeline and its byte protocol are
   unchanged);
 - the `test` command's delta protocol (artifact baselines,
   `MAX_DELTA` enforcement, per-element red reports) and the standing
@@ -48,7 +74,7 @@ From the design review (2026-11-08):
   presentations (Standard, Rare, Cover, Aim) are stills (`time` given),
   so v1's real outputs are PNGs; the MP4 path exists and is verified
   with a synthetic producer.
-- **Units: the script is in logical px** — the scale of the reference
+- **Units: the script is in logical px** — the scale of the original
   image, the native canvas `width()`/`height()` report. The engine
   receives the run's scale and performs the logical → physical
   transform internally; the script never scales.
@@ -72,9 +98,9 @@ From the design review (2026-11-08):
   region kind). `blend` keeps its explicit `color_space` (default
   linear).
 - **Outputs hardcoded:** `output.png` / `output.mp4` in the working
-  directory (the reference artifacts live under `output/<set>/`; no
+  directory (the original artifacts live under `output/<set>/`; no
   collision).
-- **ffmpeg flags hardcoded**, mirroring the reference's default run.
+- **ffmpeg flags hardcoded**, mirroring the original's default run.
 - The draft script's simplifications (the 127 face-pick threshold, the
   missing subtitle/corner-cut/arrow/manufacturer pieces, the stamp
   geometry) stand for now — it is an example, and the Phase 10
@@ -103,20 +129,20 @@ record where they occur and folded back into ENGINE.md later:
   producer's own protocol flag is the script's business.
 - **`text`'s anchor and value:** the tight ink box's top-left is at
   `(x, y)` (the engine measures the rasterized ink's offsets and
-  compensates, as the reference does). A `Text` value carries its
+  compensates, as the original does). A `Text` value carries its
   ink-cropped pixels plus the laid-out ink position; `bounds()` is that
   ink box as a `Rectangle`. `weight` sets the variable font's `wght` axis; a
   static font ignores it.
 - **`luma_at`:** the mean over the region (clipped to the canvas) of
   the Rec. 709 luma of the region's **stored sRGB** RGB channels (alpha
-  ignored), 0–255. (The reference samples with ITU-R 601 weights; the
+  ignored), 0–255. (The original samples with ITU-R 601 weights; the
   spec wins — near the face-pick threshold a face can legitimately
   differ, and the threshold is a script decision anyway.)
 - **Geometry rounding:** positions, sizes and resize targets are real
   px; every geometric result — and the logical → physical transform
   itself — rounds to integer px, ties away from zero (Rust's
   `round` — the first implementation's native rounding; the
-  reference's half-to-even is not carried).
+  original's half-to-even is not carried).
 - **`yield`'s invariant:** a frame is canvas-sized — every op
   preserves the receiver's dims (`resize` is the only dim-changing op),
   so the engine asserts canvas dims on `yield` and on `blend`'s
@@ -126,7 +152,7 @@ record where they occur and folded back into ENGINE.md later:
   premultiplied (§2), and
   the sRGB ↔ linear transfer is evaluated directly at the boundaries
   (load, yield) and in the small sRGB-composite and `luma_at` regions
-  — no LUTs (deviation from the reference's 0–65535 LUTs). Rounding
+  — no LUTs (deviation from the original's 0–65535 LUTs). Rounding
   happens exactly once, at the linear → 8-bit encode (nearest 1/255
   step, ties away from zero — Rust's `round`; out-of-range linear
   values clamp).
@@ -166,7 +192,7 @@ record where they occur and folded back into ENGINE.md later:
   entry-function parameter, created on the fly from the introspected
   names (§3b; for the Standard draft: `--id --title --subtitle
   --animation --time`).
-  `--width`/`--height` are the **logical** canvas (the reference
+  `--width`/`--height` are the **logical** canvas (the original
   image's dims) — required: the engine is generic and holds no
   content defaults (not even the card's native viewport); `--scale`
   the run's scale, defaulting to 1 (the default run is the canvas at
@@ -176,7 +202,7 @@ record where they occur and folded back into ENGINE.md later:
   value is a string; an omitted or empty flag binds `nil`. Errors go to stderr
   with a non-zero exit.
 - **Run size:** the default run is without `--scale` (i.e. 1); the
-  reference artifact comparison (Phase 10) runs `--width 1640
+  original artifact comparison (Phase 10) runs `--width 1640
   --height 2048 --scale 0.5` (physical 820×1024). The engine supplies
   `width()`/`height()` = the logical canvas and
   `physical_width()`/`physical_height()` = the derived physical.
@@ -185,16 +211,14 @@ record where they occur and folded back into ENGINE.md later:
   frame 2's arrival starts the MP4 path (flushing frame 1 into the
   encoder). One yielded frame → the PNG.
 - **PNG:** RGBA — the buffer's alpha as-is, no need to drop it (the
-  base is opaque, so 255 throughout); the reference's artifacts are
+  base is opaque, so 255 throughout); the original's artifacts are
   RGB, so comparisons against them look at the RGB channels. Written
   atomically.
 - **MP4:** the frame stream piped to ffmpeg, hardcoded to the
-  reference's default run:
+  original's default run:
   `-f rawvideo -pix_fmt rgba -s <W>x<H> -framerate 60 -i - -c:v libx264
   -preset slow -crf 16 -pix_fmt yuv420p -movflags +faststart -f mp4
   output.mp4`
-  (the reference's variable `-threads` is omitted in v1; it joins when
-  the MP4 delta is measured).
 
 ## 6. Architecture
 
@@ -225,13 +249,7 @@ pikke/
                  resample; §2's form); the API reports logical. Its
                  ops: load (PNG, the straight RGBA8 sRGB boundary,
                  §3b), resize / contrast / blend / fill / luma_at /
-                 width / height / size. Resampling
-                 between scales is a free op (Lanczos): a layer is
-                 resampled to the run scale at the first op that needs
-                 it there (a `resize`, or the composite when the layer
-                 is still at its file scale), so the reference's
-                 single-resize paths are reproduced (no double
-                 resampling)
+                 width / height / size.
     color.rs     the `Color` and the pinned transfer math: the IEC
                  61966-2-1 sRGB ↔ linear conversion (evaluated
                  directly — no LUTs), the single encode rounding
@@ -255,9 +273,10 @@ pikke/
 ```
 
 Dependencies: `mlua` with the vendored Lua 5.4 (no system Lua),
-`image` (PNG codec + the Lanczos resize filter), `cosmic-text` for the
-text (swash shaping/rasterization + fontdb file loading — pure Rust;
-the same stack `unity-viewer`'s lock pins).
+`image` (PNG codec only — its resampler is u8-only, so the linear-f32
+Lanczos is home-grown; see the Linear-U8-Is-Always-Wrong notice),
+`cosmic-text` for the text (swash shaping/rasterization + fontdb file
+loading — pure Rust; the same stack `unity-viewer`'s lock pins).
 No argument-parsing crate: the CLI is hand-rolled, in the style of
 `nikke-viewer` — one `while let` pass over `std::env::args()` with a
 `match` per argument: boolean flags, `--flag value` arms (the value is
@@ -320,12 +339,12 @@ Porter-Duff over (linear and sRGB), the single encode rounding
 (nearest 1/255 step, ties away from zero — Rust's `round`), the Rec.
 709 luma, the
 tone-preserving full-range stretch.
-*Gate:* test vectors from the reference pipeline
+*Gate:* test vectors from the original pipeline
 (`nikke_reborn.linear`, `nikke_reborn.image`) — the encode matching
-the reference's at its 65536 sample points (±1 at rounding
+the original's at its 65536 sample points (±1 at rounding
 boundaries — our tie-break and the last-ulp evaluation noise differ);
 the decode/encode round-trip exact for all 256 stored values;
-over within ±1 of the reference on random RGBA pairs, exact on the
+over within ±1 of the original on random RGBA pairs, exact on the
 round-trip cases (alpha 0/255) — pinned math is right up to integer
 rounding; the luma matching the 709 mean.
 
@@ -336,24 +355,27 @@ and the logical → physical transform at the op boundary (× the scale,
 Rust's `round`).
 *Gate:* a real asset (a Base background) loads at its file dims; at
 `--scale 0.5` the canvas is 820×1024 and the op-boundary transform is
-exact against the reference's scaled values (the logo 200 → 100, the
+exact against the original's scaled values (the logo 200 → 100, the
 copyright 20 → 10, the title 150 → 75).
 
-**Phase 5 — `resize` and `contrast`.** The real resize (the three
-target semantics; Lanczos — a free op) and the real contrast (auto,
-the tone-preserving stretch). Both run in linear — the reference does
-both on stored sRGB (free-op drift, small).
-*Gate:* on the three Base backgrounds, headless: `resize` (all three
-modes) within a few units of the reference's
-`_fit_background`/mask-stretch; `contrast` within a few units of the
-reference's `autocontrast(preserve_tone)` (free ops).
+**Phase 5a — `resize`.** The real resize (the three target semantics;
+Lanczos — a free op), run in linear — the original does it on stored
+sRGB (free-op drift, small).
+*Gate:* on the three Base backgrounds, headless: all three modes
+within a few units of the original's `_fit_background`/mask-stretch.
+
+**Phase 5b — `contrast`.** The real contrast (auto, the
+tone-preserving stretch; a free op), run in linear — the original
+does it on stored sRGB (free-op drift, small).
+*Gate:* on the three Base backgrounds, headless: within a few units of
+the original's `autocontrast(preserve_tone)`.
 
 **Phase 6 — compositing: `blend`, `fill`, `luma_at`, the
 Rectangle.** The real blend (over, `color_space`, `at` + the canvas
 clip), fill (the space by the region's kind), luma_at (the region
 mean), and `rectangle.rs` (the Rectangle + `padded`).
-*Gate:* `blend` and `fill` byte-identical to the reference on real
-pairs (pinned math: exact at 8-bit); `luma_at` matching the reference
+*Gate:* `blend` and `fill` within a few units to the original on real
+pairs (pinned math: exact at 8-bit); `luma_at` matching the original
 mean on the three Base backgrounds.
 
 **Phase 7 — text.** `font.rs` + `text.rs` on `cosmic-text` (the face
@@ -363,12 +385,12 @@ axis (a swash variation, set when the file carries it — Oswald is
 variable, AireExterior static), the layout, the ink-offset probe (the
 union of the glyphs' ink), the anchor (the tight ink box's top-left
 at `(x, y)`), `bounds`. Shaping hint `Basic` — plain advances,
-matching the reference's non-GPOS layout (swash kerns by default).
+matching the original's non-GPOS layout (swash kerns by default).
 *Gate:* the script's two texts (Oswald 300 at the copyright size,
 AireExterior 700 at the title size): the ink box's top-left exactly
-`(x, y)` (pinned), the ink box's size within ~1 px of the reference's
+`(x, y)` (pinned), the ink box's size within ~1 px of the original's
 `_text_ink_offsets` probe, the rasterized copyright line a small
-per-pixel delta against the reference's stamp (free).
+per-pixel delta against the original's stamp (free).
 
 **Phase 8 — the real Stream.** `spawn`'s producer protocol: the stdout
 frame reader (raw RGBA8, the canvas's physical dims), the stderr drain
@@ -385,7 +407,7 @@ frame equals the raw stream's frame byte-for-byte (no free op between
 them).
 
 **Phase 9 — the encoder.** `encoder.rs`: the PNG writer (RGBA, atomic)
-and the ffmpeg MP4 pipe (the reference's default flags, §5); the
+and the ffmpeg MP4 pipe (the original's default flags, §5); the
 PNG/MP4 decision at frame 2 (§5) replaces the Phase 2 yield recorder.
 *Gate:* one frame → `output.png` decoding back to the frame
 byte-for-byte (lossless); N frames → `output.mp4` with N frames
@@ -397,7 +419,7 @@ byte-for-byte (lossless); N frames → `output.mp4` with N frames
 --scale 0.5 --id c010 --title Rapi --time 0` (`--subtitle` and
 `--animation` omitted, so they bind `nil` and the script omits the
 `--animation` flag — the Standard presentation's is the viewer's
-default) and compare `output.png` against the reference artifact
+default) and compare `output.png` against the original artifact
 `output/Base/0001_c010_Rapi_01_Standard.png` — manually at that time
 (the standing measurement tooling is deferred, below).
 *Gate:* the background and character regions (everything the engine
@@ -407,19 +429,16 @@ ad-hoc diff at that time. The stamp elements show the *expected*
 script-level differences, recorded as the known-differences list (all
 logical px):
 
-- the logo at top-right, y 50, margin 50 — the reference's standard
+- the logo at top-right, y 50, margin 50 — the original's standard
   tier stamps it bottom-right at 1.5× the padding (75);
-- the face-pick threshold 127 vs the reference's 200 (a face can
+- the face-pick threshold 127 vs the original's 200 (a face can
   legitimately flip);
-- the title bar: a flat `padded(30)` rect vs the reference's
+- the title bar: a flat `padded(30)` rect vs the original's
   0.2×ink-height bar with its corner cut, arrow, bar and squares;
 - the copyright line's vertical position (the script's flat 50 vs the
-  reference's scale-adjusted, ink-centered placement);
+  original's scale-adjusted, ink-centered placement);
 - the title glyphs, subtitle, and the manufacturer's logo absent (the
   script's TODOs).
-
-(The title's 150 and the copyright's 20 now agree with the reference
-exactly — logical px on both sides — so they are not differences.)
 
 **After v1 (preview, not scheduled here):** the standing measurement
 tooling (the per-element delta checker, the engine's `--report`
@@ -432,14 +451,14 @@ driver, and the hash-embedding question for engine outputs.
 ## 8. Risks and notes
 
 - **Free ops chosen for parity, not copied.** The Lanczos resize,
-  swash rasterization and the reference's
+  swash rasterization and the original's
   ffmpeg flags are chosen to sit the noise floor low — the invariant is
-  the bounded delta, not byte identity, and none of these is replicated
-  detail for its own sake.
+  a bounded delta, not byte identity, and none of these is replicated
+  detail for its own sake. Colo accuracy is paramount.
 - **No text supersampling for now:** the glyphs rasterize directly at
   the run scale. Swash is unhinted, so the small text (the copyright
   line, ~10 physical px at 0.5×) is the risk case — if its per-pixel
-  delta against the reference's stamp exceeds the Phase 7 gate, the
+  delta against the original's stamp exceeds the Phase 7 gate, the
   first fix is 4× supersampling with a Lanczos downscale.
 - **The engine runs on mlua's safe standard-library subset:**
   parameter introspection is a table read of the script's `arguments`
@@ -449,15 +468,15 @@ driver, and the hash-embedding question for engine outputs.
   environment (a fresh globals table), not the subset.
 - **The resample happens once.** A layer is resampled to the run scale
   at the first op that needs it there (the `resize`, or the composite
-  when the layer is still at its file scale); the reference's
+  when the layer is still at its file scale); the original's
   single-resize paths are reproduced, so no path pays a double
   resampling.
-- **luma weights:** the spec's Rec. 709 vs the reference's ITU-R 601
+- **luma weights:** the spec's Rec. 709 vs the original's ITU-R 601
   (on stored sRGB values) can flip a face-pick near the threshold. The
   spec wins; the threshold is a script decision; a flip shows up as a
-  localized per-element difference against the reference, visible in
+  localized per-element difference against the original, visible in
   the Phase 10 comparison (and, later, the deferred checker).
-- **`contrast` order:** the reference stretches before the fit; the
+- **`contrast` order:** the original stretches before the fit; the
   script resizes (cover) then stretches. Free-op drift, small — the
   histogram's tail moves slightly with the crop.
 - **The GPU is shared and there is no retry** (settled): a transient
@@ -472,5 +491,5 @@ driver, and the hash-embedding question for engine outputs.
 
 ## 9. Next
 
-The phase ladder is settled (§7); the next working step is Phase 1
-(the CLI, the VM, and the flags).
+The phase ladder is settled (§7); the next working step is Phase 5a
+(`resize` — the three target semantics, Lanczos).
