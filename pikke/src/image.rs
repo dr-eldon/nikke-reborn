@@ -6,7 +6,7 @@ use image::{ColorType, ImageFormat};
 use mlua::{AnyUserData, Lua, Result, Table, UserData, UserDataFields, UserDataMethods};
 
 use crate::Viewport;
-use crate::color::{Color, crop, resize_lanczos};
+use crate::color::{Color, Filter, crop, resize};
 
 /// The RGBA buffer: premultiplied f32 linear (0-1) planes, the pixel
 /// dims at `scale`; the API reports logical.
@@ -15,11 +15,7 @@ pub struct Image {
     buffer: Arc<Buffer>,
     width: u32,
     height: u32,
-    /// The scale of these pixel dims (a loaded asset: the
-    /// reference's; a resampled buffer: the run's).
     scale: f32,
-    /// The run's viewport (the op-boundary transform, the receiver
-    /// assertion).
     viewport: Viewport,
 }
 
@@ -32,18 +28,16 @@ struct Buffer {
 }
 
 /// How a resize target is met.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mode {
-    /// Resample to the covering box and center-crop the target out of
-    /// it (the reference's fit arithmetic, its intermediate round
-    /// included).
-    Cover,
-    /// Resample to the target box itself.
+    /// Stretch to the target box itself.
+    #[default]
     Stretch,
+    /// Center-crop the target.
+    Cover,
 }
 
 impl Image {
-    /// A fully transparent buffer at the run's scale (the `spawn`
-    /// mock's frame).
     pub fn transparent(width: u32, height: u32, viewport: Viewport) -> Image {
         let count = (width * height) as usize;
         Image {
@@ -76,9 +70,6 @@ impl Image {
         (self.height as f32 / self.scale).round() as u32
     }
 
-    /// The buffer's straight RGBA8 sRGB form (the PNG/MP4 boundary):
-    /// the premultiplied channels demultiplied, encoded to sRGB, the
-    /// single encode rounding.
     pub fn to_rgba8(&self) -> Vec<u8> {
         let count = (self.width * self.height) as usize;
         let mut out = Vec::with_capacity(count * 4);
@@ -97,12 +88,7 @@ impl Image {
         out
     }
 
-    /// The buffer resampled to the logical target (physical at the run
-    /// scale); one-dim targets are the caller's resolution (both dims
-    /// arrive here). The buffer settles at the run's scale — a no-op
-    /// target settles it too; the resample-once invariant (a layer
-    /// resamples here, not again).
-    pub fn resize(&mut self, new_width: f32, new_height: f32, mode: Mode) {
+    pub fn resize(&mut self, new_width: f32, new_height: f32, filter: Filter, mode: Mode) {
         let scale = self.viewport.scale;
         let (target_w, target_h) = (
             self.viewport.physical(new_width),
@@ -143,10 +129,10 @@ impl Image {
         let resized = (box_w, box_h) != (self.width, self.height);
         if resized {
             let (w, h) = (self.width, self.height);
-            buffer.r = resize_lanczos(&buffer.r, w, h, box_w, box_h);
-            buffer.g = resize_lanczos(&buffer.g, w, h, box_w, box_h);
-            buffer.b = resize_lanczos(&buffer.b, w, h, box_w, box_h);
-            buffer.a = resize_lanczos(&buffer.a, w, h, box_w, box_h);
+            buffer.r = resize(filter, &buffer.r, w, h, box_w, box_h);
+            buffer.g = resize(filter, &buffer.g, w, h, box_w, box_h);
+            buffer.b = resize(filter, &buffer.b, w, h, box_w, box_h);
+            buffer.a = resize(filter, &buffer.a, w, h, box_w, box_h);
         }
         if left != 0 || top != 0 {
             buffer.r = crop(&buffer.r, box_w, left, top, target_w, target_h);
@@ -249,6 +235,7 @@ impl UserData for Image {
         methods.add_method_mut("resize", |_lua, this, opts: Table| -> Result<()> {
             let width: Option<f32> = opts.get("width")?;
             let height: Option<f32> = opts.get("height")?;
+            let filter: Option<String> = opts.get("filter")?;
             let mode: Option<String> = opts.get("mode")?;
 
             // A one-dim target: the missing dim follows the image's aspect.
@@ -269,8 +256,19 @@ impl UserData for Image {
                 }
             };
 
+            let filter = match filter.as_deref() {
+                None => Filter::default(),
+                Some("bicubic") => Filter::Bicubic,
+                Some("lanczos") => Filter::Lanczos,
+                Some(other) => {
+                    return Err(mlua::Error::RuntimeError(format!(
+                        "resize: unknown filter: {other}"
+                    )));
+                }
+            };
+
             let mode = match mode.as_deref() {
-                None => Mode::Stretch,
+                None => Mode::default(),
                 Some("cover") => Mode::Cover,
                 Some(other) => {
                     return Err(mlua::Error::RuntimeError(format!(
@@ -279,7 +277,7 @@ impl UserData for Image {
                 }
             };
 
-            this.resize(width, height, mode);
+            this.resize(width, height, filter, mode);
             Ok(())
         });
         methods.add_method_mut("contrast", |_lua, _this, _opts: Table| -> Result<()> {
@@ -371,7 +369,7 @@ mod tests {
 
     #[test]
     fn resize_lands_on_its_targets_and_forks() {
-        use super::Mode;
+        use super::{Filter, Mode};
 
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../assets/images/backgrounds/sky-night.png");
@@ -391,7 +389,7 @@ mod tests {
         // Stretch: the caller resolves the aspect (200 logical wide
         // at the file's 2048/1640: 250 tall) — 100×125 physical at
         // run scale 0.5.
-        image.resize(200.0, 250.0, Mode::Stretch);
+        image.resize(200.0, 250.0, Filter::Lanczos, Mode::Stretch);
         assert_eq!(
             (image.physical_width(), image.physical_height()),
             (100, 125)
@@ -406,7 +404,7 @@ mod tests {
 
         // Cover: logical 400×100 → the 200×50 target out of the
         // 200×250 box, cropped 100 from the top.
-        fork.resize(400.0, 100.0, Mode::Cover);
+        fork.resize(400.0, 100.0, Filter::Bicubic, Mode::Cover);
         assert_eq!((fork.physical_width(), fork.physical_height()), (200, 50));
 
         // A no-op target (the file already at the physical target,
@@ -421,7 +419,7 @@ mod tests {
             },
         )
         .unwrap();
-        image.resize(820.0, 1024.0, Mode::Stretch);
+        image.resize(820.0, 1024.0, Filter::Bicubic, Mode::Stretch);
         assert_eq!(image.scale, 2.0);
         assert_eq!((image.logical_width(), image.logical_height()), (820, 1024));
         assert_eq!(

@@ -151,10 +151,40 @@ pub fn stretch_lut(lo: u32, hi: u32) -> [u8; 256] {
     map.try_into().unwrap()
 }
 
+/// The resize's resampling kernel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Filter {
+    #[default]
+    Bicubic,
+    Lanczos,
+}
+
 /// The buffer's form (the filter over premultiplied light is
 /// alpha-blind); an unchanged axis copies (the unit-scale kernel is
 /// the identity).
-pub fn resize_lanczos(src: &[f32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> Vec<f32> {
+pub fn resize(
+    filter: Filter,
+    src: &[f32],
+    src_w: u32,
+    src_h: u32,
+    dst_w: u32,
+    dst_h: u32,
+) -> Vec<f32> {
+    match filter {
+        Filter::Lanczos => resample(lanczos3, 3.0, src, src_w, src_h, dst_w, dst_h),
+        Filter::Bicubic => resample(bicubic, 2.0, src, src_w, src_h, dst_w, dst_h),
+    }
+}
+
+fn resample(
+    kernel: impl Fn(f64) -> f64,
+    support: f64,
+    src: &[f32],
+    src_w: u32,
+    src_h: u32,
+    dst_w: u32,
+    dst_h: u32,
+) -> Vec<f32> {
     /// One separable pass: `src_len` samples, `src_stride` apart, in
     /// `src`, scaled to `dst_len` (`dst_stride` apart in `out`), the
     /// weights normalized per output sample; out-of-range taps are
@@ -166,13 +196,15 @@ pub fn resize_lanczos(src: &[f32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u3
         dst_stride: usize,
         src_len: usize,
         dst_len: usize,
+        kernel: impl Fn(f64) -> f64,
+        support: f64,
     ) {
         // Source samples per target sample; the reference's filter scale
         // is the ratio on a downscale and 1 on an upscale (the window
-        // stays at 3 source samples, the kernel argument unscaled).
+        // stays at the kernel's width, the kernel argument unscaled).
         let scale = src_len as f64 / dst_len as f64;
         let filterscale = scale.max(1.0);
-        let support = 3.0 * filterscale;
+        let support = support * filterscale;
 
         for i in 0..dst_len {
             // The kernel's zero: the target sample's center in source
@@ -187,7 +219,7 @@ pub fn resize_lanczos(src: &[f32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u3
             let mut acc = 0.0f32;
             let mut weights = 0.0f32;
             for j in start..end {
-                let w = lanczos3((j as f64 + 0.5 - center) / filterscale) as f32;
+                let w = kernel((j as f64 + 0.5 - center) / filterscale) as f32;
                 acc += w * src[j * src_stride];
                 weights += w;
             }
@@ -214,6 +246,8 @@ pub fn resize_lanczos(src: &[f32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u3
                 1,
                 sw,
                 dw,
+                &kernel,
+                support,
             );
         }
     }
@@ -223,7 +257,16 @@ pub fn resize_lanczos(src: &[f32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u3
         out.copy_from_slice(&across);
     } else {
         for x in 0..dw {
-            pass(&across[x..], dw, &mut out[x..], dw, sh, dh);
+            pass(
+                &across[x..],
+                dw,
+                &mut out[x..],
+                dw,
+                sh,
+                dh,
+                &kernel,
+                support,
+            );
         }
     }
 
@@ -241,6 +284,19 @@ fn lanczos3(x: f64) -> f64 {
     let pi_x = std::f64::consts::PI * x;
     let pi_x3 = pi_x / 3.0;
     (pi_x.sin() / pi_x) * (pi_x3.sin() / pi_x3)
+}
+
+/// The a = -0.5 cubic convolution, zero outside ±2.
+fn bicubic(x: f64) -> f64 {
+    let a = -0.5;
+    let x = if x < 0.0 { -x } else { x };
+    if x < 1.0 {
+        ((a + 2.0) * x - (a + 3.0)) * x * x + 1.0
+    } else if x < 2.0 {
+        (((x - 5.0) * x + 8.0) * x - 4.0) * a
+    } else {
+        0.0
+    }
 }
 
 /// The `out_w`×`out_h` region `left`/`top` into a `src_w`-wide
@@ -400,5 +456,25 @@ mod vectors {
             let ours = stretch_lut(lo, hi);
             assert_eq!(ours.to_vec(), reference, "stretch: lo {lo}, hi {hi}");
         }
+    }
+}
+
+#[cfg(test)]
+mod kernels {
+    use super::{bicubic, lanczos3};
+
+    #[test]
+    fn the_kernels_match_their_defining_values() {
+        // Unit weight at the center (both).
+        assert_eq!(lanczos3(0.0), 1.0);
+        assert_eq!(bicubic(0.0), 1.0);
+        // The bicubic is a polynomial: exact zeros at its grid (the
+        // sinc is not), and the negative lobe (the ringing behind
+        // the alpha clamp).
+        for x in [1.0, 2.0] {
+            assert_eq!(bicubic(x), 0.0);
+            assert_eq!(bicubic(-x), 0.0);
+        }
+        assert!(bicubic(1.5) < 0.0);
     }
 }

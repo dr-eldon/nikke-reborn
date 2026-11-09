@@ -30,9 +30,12 @@ encode is a bounded, legitimate loss, whereas a linear quantization
 is data destruction. The default is the f32; an sRGB-u8 shortcut has
 to earn it.
 
-Consequently the linear-f32 Lanczos resample is home-grown — the
-`image` crate's resampler is u8-only (it cannot resample the buffer's
-precision). See Phase 5a.
+Consequently the linear-f32 resample is home-grown — the `image`
+crate's resampler is u8-only (it cannot resample the buffer's
+precision). The kernels are the original's window arithmetic verbatim
+(its lanczos and bicubic, bit-exact within it); the default is
+bicubic — it produces no fringing (the lanczos side-lobes ring
+harder at hard edges). See Phase 5a.
 
 ## 1. Scope
 
@@ -358,9 +361,9 @@ Rust's `round`).
 exact against the original's scaled values (the logo 200 → 100, the
 copyright 20 → 10, the title 150 → 75).
 
-**Phase 5a — `resize`.** The real resize (the three target semantics;
-Lanczos — a free op), run in linear — the original does it on stored
-sRGB (free-op drift, small).
+**Phase 5a — `resize`.** The real resize (the three target
+semantics; the default bicubic and a lanczos — free ops), run in
+linear — the original does it on stored sRGB (free-op drift, small).
 *Gate:* on the three Base backgrounds, headless: all three modes
 within a few units of the original's `_fit_background`/mask-stretch.
 
@@ -491,5 +494,5 @@ driver, and the hash-embedding question for engine outputs.
 
 ## 9. Next
 
-The phase ladder is settled (§7); the next working step is Phase 5a
-(`resize` — the three target semantics, Lanczos).
+The phase ladder is settled (§7); the next working step is Phase 5b
+(`contrast` — the auto stretch).

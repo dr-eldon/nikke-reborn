@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""How far is pikke's resize from Pillow's LANCZOS, on the fly.
+"""How far is pikke's resize from Pillow's resampling, on the fly.
 
 One engine run per case (resize_check.lua loads, resizes, yields),
 diffed against the reference pipeline's own arithmetic on the same
@@ -10,11 +10,13 @@ color is undefined — the engine's buffer form reads it as zero, and
 that is the comparison the pixels actually carry). No recorded
 vectors.
 
-The cases are one per target semantic: the background's cover (its
-aspect is the canvas', so it degrades to a plain resample — the
-downscale, the filter's work), the logo's cover (a different aspect —
-the center crop), and the logo's aspect-preserved width target. The
-x1.25 cases' 2048×2560 outputs are too heavy for a debug-build run.
+The cases are one per target semantic — the background's cover (its
+aspect is the canvas', so it degrades to a plain resample: the
+downscale, the filter's work), the logo's cover (a different aspect:
+the center crop), and the logo's aspect-preserved width target —
+over both kernels: the default bicubic, the lanczos on the aspect
+case. The x1.25 cases' 2048×2560 outputs are too heavy for a
+debug-build run.
 """
 
 import subprocess
@@ -38,25 +40,26 @@ def rel(path: Path) -> str:
     return "../../" + path.relative_to(ROOT).as_posix()
 
 
-def fit_background(im: Image.Image, size: tuple[int, int]) -> Image.Image:
+def fit_background(
+    im: Image.Image, size: tuple[int, int], resample: Image.Resampling
+) -> Image.Image:
     """src/nikke_reborn/image.py::_fit_background."""
     width, height = size
     scale = max(width / im.width, height / im.height)
     if scale != 1.0:
-        im = im.resize(
-            (round(im.width * scale), round(im.height * scale)),
-            Image.Resampling.LANCZOS,
-        )
+        im = im.resize((round(im.width * scale), round(im.height * scale)), resample)
     left = (im.width - width) // 2
     top = (im.height - height) // 2
     return im.crop((left, top, left + width, top + height)).convert("RGBA")
 
 
-def aspect(im: Image.Image, width: int) -> Image.Image:
+def aspect(
+    im: Image.Image, width: int, resample: Image.Resampling
+) -> Image.Image:
     """The logo's one-dim resize: the height derived from the width."""
-    return im.resize(
-        (width, round(width * im.height / im.width)), Image.Resampling.LANCZOS
-    ).convert("RGBA")
+    return im.resize((width, round(width * im.height / im.width)), resample).convert(
+        "RGBA"
+    )
 
 
 def delta(ours: Image.Image, ref: Image.Image) -> tuple[int, int]:
@@ -101,25 +104,45 @@ def main() -> int:
 
     cases: list[tuple[str, object, tuple[int, int], float, dict[str, object]]] = [
         (
-            "sky-night cover x0.5",
-            lambda: fit_background(Image.open(sky).convert("RGBA"), half),
+            "sky-night cover x0.5 bicubic",
+            lambda: fit_background(
+                Image.open(sky).convert("RGBA"), half, Image.Resampling.BICUBIC
+            ),
             CANVAS,
             0.5,
-            {"rw": CANVAS[0], "rh": CANVAS[1], "path": rel(sky), "mode": "cover"},
+            {
+                "rw": CANVAS[0],
+                "rh": CANVAS[1],
+                "path": rel(sky),
+                "mode": "cover",
+                "filter": "bicubic",
+            },
         ),
         (
-            "logo cover x0.5",
-            lambda: fit_background(Image.open(logo).convert("RGBA"), half),
+            "logo cover x0.5 bicubic",
+            lambda: fit_background(
+                Image.open(logo).convert("RGBA"), half, Image.Resampling.BICUBIC
+            ),
             CANVAS,
             0.5,
-            {"rw": CANVAS[0], "rh": CANVAS[1], "path": rel(logo), "mode": "cover"},
+            {
+                "rw": CANVAS[0],
+                "rh": CANVAS[1],
+                "path": rel(logo),
+                "mode": "cover",
+                "filter": "bicubic",
+            },
         ),
         (
-            "logo aspect x1",
-            lambda: aspect(Image.open(logo).convert("RGBA"), LOGO_TARGET_WIDTH),
+            "logo aspect x1 lanczos",
+            lambda: aspect(
+                Image.open(logo).convert("RGBA"),
+                LOGO_TARGET_WIDTH,
+                Image.Resampling.LANCZOS,
+            ),
             (LOGO_TARGET_WIDTH, logo_height),
             1.0,
-            {"path": rel(logo), "rw": LOGO_TARGET_WIDTH},
+            {"path": rel(logo), "rw": LOGO_TARGET_WIDTH, "filter": "lanczos"},
         ),
     ]
 
@@ -135,7 +158,7 @@ def main() -> int:
         verdict = "ok" if worst <= 5 else ("marginal" if worst <= 8 else "FAR")
         if worst > 8:
             far += 1
-        print(f"{label:22} max {worst:3d}  >=8: {off:7d} px  {verdict}")
+        print(f"{label:29} max {worst:3d}  >=8: {off:7d} px  {verdict}")
 
     print(f"\n{len(cases) - far}/{len(cases)} cases within a few units")
     return 1 if far else 0
