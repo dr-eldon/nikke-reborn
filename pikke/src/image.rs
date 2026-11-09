@@ -6,7 +6,7 @@ use image::{ColorType, ImageFormat};
 use mlua::{AnyUserData, Lua, Result, Table, UserData, UserDataFields, UserDataMethods};
 
 use crate::Viewport;
-use crate::color::Color;
+use crate::color::{Color, crop, resize_lanczos};
 
 /// The RGBA buffer: premultiplied f32 linear (0-1) planes, the pixel
 /// dims at `scale`; the API reports logical.
@@ -29,6 +29,16 @@ struct Buffer {
     g: Vec<f32>,
     b: Vec<f32>,
     a: Vec<f32>,
+}
+
+/// How a resize target is met.
+pub enum Mode {
+    /// Resample to the covering box and center-crop the target out of
+    /// it (the reference's fit arithmetic, its intermediate round
+    /// included).
+    Cover,
+    /// Resample to the target box itself.
+    Stretch,
 }
 
 impl Image {
@@ -85,6 +95,78 @@ impl Image {
             out.extend_from_slice(&color);
         }
         out
+    }
+
+    /// The buffer resampled to the logical target (physical at the run
+    /// scale); one-dim targets are the caller's resolution (both dims
+    /// arrive here). The buffer settles at the run's scale — a no-op
+    /// target settles it too; the resample-once invariant (a layer
+    /// resamples here, not again).
+    pub fn resize(&mut self, new_width: f32, new_height: f32, mode: Mode) {
+        let scale = self.viewport.scale;
+        let (target_w, target_h) = (
+            self.viewport.physical(new_width),
+            self.viewport.physical(new_height),
+        );
+        assert!(
+            target_w != 0 && target_h != 0,
+            "resize: the physical target is {target_w}×{target_h}; it must be at least 1×1"
+        );
+
+        let (box_w, box_h) = match mode {
+            Mode::Cover => {
+                let factor = f32::max(
+                    target_w as f32 / self.width as f32,
+                    target_h as f32 / self.height as f32,
+                );
+                (
+                    (self.width as f32 * factor).round() as u32,
+                    (self.height as f32 * factor).round() as u32,
+                )
+            }
+            Mode::Stretch => (target_w, target_h),
+        };
+
+        // The center crop's halves (the box is ≥ the target: the cover
+        // box is built from the max of the per-axis ratios).
+        let left = (box_w - target_w) / 2;
+        let top = (box_h - target_h) / 2;
+
+        // A no-op resize still settles the buffer at the run scale.
+        if (box_w, box_h) == (self.width, self.height) && left == 0 && top == 0 {
+            self.scale = scale;
+            return;
+        }
+
+        // The first in-place write forks a shared buffer (CoW).
+        let buffer = Arc::make_mut(&mut self.buffer);
+        let resized = (box_w, box_h) != (self.width, self.height);
+        if resized {
+            let (w, h) = (self.width, self.height);
+            buffer.r = resize_lanczos(&buffer.r, w, h, box_w, box_h);
+            buffer.g = resize_lanczos(&buffer.g, w, h, box_w, box_h);
+            buffer.b = resize_lanczos(&buffer.b, w, h, box_w, box_h);
+            buffer.a = resize_lanczos(&buffer.a, w, h, box_w, box_h);
+        }
+        if left != 0 || top != 0 {
+            buffer.r = crop(&buffer.r, box_w, left, top, target_w, target_h);
+            buffer.g = crop(&buffer.g, box_w, left, top, target_w, target_h);
+            buffer.b = crop(&buffer.b, box_w, left, top, target_w, target_h);
+            buffer.a = crop(&buffer.a, box_w, left, top, target_w, target_h);
+        }
+
+        // Alpha is a 0-1 ratio, not light: the resample's
+        // out-of-range ringing is meaningless there (the light
+        // channels keep it to the encode's clamp).
+        if resized {
+            for value in buffer.a.iter_mut() {
+                *value = value.clamp(0.0, 1.0);
+            }
+        }
+
+        self.width = target_w;
+        self.height = target_h;
+        self.scale = scale;
     }
 
     /// The buffer as `output.png` (the working directory): the straight
@@ -164,7 +246,40 @@ impl UserData for Image {
             // to the first in-place write (CoW).
             Ok(this.clone())
         });
-        methods.add_method_mut("resize", |_lua, _this, _opts: Table| -> Result<()> {
+        methods.add_method_mut("resize", |_lua, this, opts: Table| -> Result<()> {
+            let width: Option<f32> = opts.get("width")?;
+            let height: Option<f32> = opts.get("height")?;
+            let mode: Option<String> = opts.get("mode")?;
+
+            // A one-dim target: the missing dim follows the image's aspect.
+            let (width, height) = match (width, height) {
+                (Some(width), Some(height)) => (width, height),
+                (Some(width), None) => (
+                    width,
+                    (width * this.height as f32 / this.width as f32).round(),
+                ),
+                (None, Some(height)) => (
+                    (height * this.width as f32 / this.height as f32).round(),
+                    height,
+                ),
+                (None, None) => {
+                    return Err(mlua::Error::RuntimeError(
+                        "resize: needs width or height".to_owned(),
+                    ));
+                }
+            };
+
+            let mode = match mode.as_deref() {
+                None => Mode::Stretch,
+                Some("cover") => Mode::Cover,
+                Some(other) => {
+                    return Err(mlua::Error::RuntimeError(format!(
+                        "resize: unknown mode: {other}"
+                    )));
+                }
+            };
+
+            this.resize(width, height, mode);
             Ok(())
         });
         methods.add_method_mut("contrast", |_lua, _this, _opts: Table| -> Result<()> {
@@ -252,5 +367,66 @@ mod tests {
         ] {
             assert_eq!(plane.len(), count);
         }
+    }
+
+    #[test]
+    fn resize_lands_on_its_targets_and_forks() {
+        use super::Mode;
+
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../assets/images/backgrounds/sky-night.png");
+        let mut image = load(
+            &path,
+            Viewport {
+                width: 1640,
+                height: 2048,
+                scale: 0.5,
+            },
+        )
+        .unwrap();
+        let first_pixel = image.buffer.r[0];
+
+        let mut fork = image.clone();
+
+        // Stretch: the caller resolves the aspect (200 logical wide
+        // at the file's 2048/1640: 250 tall) — 100×125 physical at
+        // run scale 0.5.
+        image.resize(200.0, 250.0, Mode::Stretch);
+        assert_eq!(
+            (image.physical_width(), image.physical_height()),
+            (100, 125)
+        );
+
+        // The fork keeps the original: the resize forked it (CoW).
+        assert_eq!(
+            (fork.physical_width(), fork.physical_height()),
+            (1640, 2048)
+        );
+        assert_eq!(fork.buffer.r[0], first_pixel);
+
+        // Cover: logical 400×100 → the 200×50 target out of the
+        // 200×250 box, cropped 100 from the top.
+        fork.resize(400.0, 100.0, Mode::Cover);
+        assert_eq!((fork.physical_width(), fork.physical_height()), (200, 50));
+
+        // A no-op target (the file already at the physical target,
+        // here at run scale 2) only moves the buffer to the run's
+        // scale: the same pixels now read as half the logical size.
+        let mut image = load(
+            &path,
+            Viewport {
+                width: 1640,
+                height: 2048,
+                scale: 2.0,
+            },
+        )
+        .unwrap();
+        image.resize(820.0, 1024.0, Mode::Stretch);
+        assert_eq!(image.scale, 2.0);
+        assert_eq!((image.logical_width(), image.logical_height()), (820, 1024));
+        assert_eq!(
+            (image.physical_width(), image.physical_height()),
+            (1640, 2048)
+        );
     }
 }

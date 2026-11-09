@@ -151,6 +151,111 @@ pub fn stretch_lut(lo: u32, hi: u32) -> [u8; 256] {
     map.try_into().unwrap()
 }
 
+/// The buffer's form (the filter over premultiplied light is
+/// alpha-blind); an unchanged axis copies (the unit-scale kernel is
+/// the identity).
+pub fn resize_lanczos(src: &[f32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> Vec<f32> {
+    /// One separable pass: `src_len` samples, `src_stride` apart, in
+    /// `src`, scaled to `dst_len` (`dst_stride` apart in `out`), the
+    /// weights normalized per output sample; out-of-range taps are
+    /// absent (the weights renormalize over the window that remains).
+    fn pass(
+        src: &[f32],
+        src_stride: usize,
+        out: &mut [f32],
+        dst_stride: usize,
+        src_len: usize,
+        dst_len: usize,
+    ) {
+        // Source samples per target sample; the reference's filter scale
+        // is the ratio on a downscale and 1 on an upscale (the window
+        // stays at 3 source samples, the kernel argument unscaled).
+        let scale = src_len as f64 / dst_len as f64;
+        let filterscale = scale.max(1.0);
+        let support = 3.0 * filterscale;
+
+        for i in 0..dst_len {
+            // The kernel's zero: the target sample's center in source
+            // samples (the pixel-center convention, tap j at j + 0.5).
+            // At unit scale the arguments are integral and only the
+            // center tap carries weight: the identity, the reference's.
+            let center = (i as f64 + 0.5) * scale;
+            // The reference's tap bounds: half-up, clamped to the source.
+            let start = (center - support + 0.5).trunc().clamp(0.0, src_len as f64) as usize;
+            let end = (center + support + 0.5).trunc().clamp(0.0, src_len as f64) as usize;
+
+            let mut acc = 0.0f32;
+            let mut weights = 0.0f32;
+            for j in start..end {
+                let w = lanczos3((j as f64 + 0.5 - center) / filterscale) as f32;
+                acc += w * src[j * src_stride];
+                weights += w;
+            }
+            out[i * dst_stride] = if weights == 0.0 { 0.0 } else { acc / weights };
+        }
+    }
+
+    let (sw, sh, dw, dh) = (
+        src_w as usize,
+        src_h as usize,
+        dst_w as usize,
+        dst_h as usize,
+    );
+
+    let mut across = vec![0.0f32; dw * sh];
+    if dw == sw {
+        across.copy_from_slice(src);
+    } else {
+        for y in 0..sh {
+            pass(
+                &src[y * sw..(y + 1) * sw],
+                1,
+                &mut across[y * dw..(y + 1) * dw],
+                1,
+                sw,
+                dw,
+            );
+        }
+    }
+
+    let mut out = vec![0.0f32; dw * dh];
+    if dh == sh {
+        out.copy_from_slice(&across);
+    } else {
+        for x in 0..dw {
+            pass(&across[x..], dw, &mut out[x..], dw, sh, dh);
+        }
+    }
+
+    out
+}
+
+/// The Lanczos-3 kernel: the 3-lobed sinc, zero at the window's edge.
+fn lanczos3(x: f64) -> f64 {
+    if x.abs() >= 3.0 {
+        return 0.0;
+    }
+    if x == 0.0 {
+        return 1.0;
+    }
+    let pi_x = std::f64::consts::PI * x;
+    let pi_x3 = pi_x / 3.0;
+    (pi_x.sin() / pi_x) * (pi_x3.sin() / pi_x3)
+}
+
+/// The `out_w`×`out_h` region `left`/`top` into a `src_w`-wide
+/// row-major plane.
+pub fn crop(src: &[f32], src_w: u32, left: u32, top: u32, out_w: u32, out_h: u32) -> Vec<f32> {
+    let (sw, ow, oh) = (src_w as usize, out_w as usize, out_h as usize);
+    let (left, top) = (left as usize, top as usize);
+    let mut out = vec![0.0f32; ow * oh];
+    for y in 0..oh {
+        let row = (top + y) * sw + left;
+        out[y * ow..(y + 1) * ow].copy_from_slice(&src[row..row + ow]);
+    }
+    out
+}
+
 #[cfg(test)]
 mod vectors {
     use super::*;
