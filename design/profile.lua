@@ -11,12 +11,21 @@ local cache = {}
 local mask = image("../assets/images/designs/Card_Mask_Profile.png")
 mask:resize({ width = width, height = height })
 
-profile.arguments =
-	{ "id", "background", "manufacturer", "title", "subtitle", "animation", "reel", "time" }
+profile.arguments = {
+	"id",
+	"background",
+	"manufacturer",
+	"title",
+	"subtitle",
+	"animation",
+	"reel",
+	"time",
+}
 
 function profile.render(args)
 	if cache[args.background] == nil then
-		local base = image("../assets/images/backgrounds/" .. args.background .. ".png")
+		local base =
+			image("../assets/images/backgrounds/" .. args.background .. ".png")
 		local tint = base:dominant_in(rectangle({ size = base.size }))
 
 		base:autocontrast()
@@ -33,12 +42,15 @@ function profile.render(args)
 	for expression in string.gmatch(args.reel, "([^,]+)") do
 		local size = math.floor(base.width / 7)
 
-		local render = stream(
-			"nikke-viewer",
-			size,
-			size,
-			{ args.id, "--stdout", "--portrait", "--animation", expression, "--time", "0" }
-		)
+		local render = stream("nikke-viewer", size, size, {
+			args.id,
+			"--stdout",
+			"--portrait",
+			"--animation",
+			expression,
+			"--time",
+			"0",
+		})
 
 		local face = blank({ width = size, height = size, color = "#FFFFFF" })
 		face:blend(render())
@@ -58,7 +70,8 @@ function profile.render(args)
 		viewer_args[#viewer_args + 1] = args.time
 	end
 
-	local character = stream("nikke-viewer", base.width, base.height, viewer_args)
+	local character =
+		stream("nikke-viewer", base.width, base.height, viewer_args)
 
 	for frame in character do
 		local output = base:clone()
@@ -71,15 +84,21 @@ function profile.render(args)
 			offset_x = -500
 		end
 
-		local face = stream(
-			"nikke-viewer",
-			base.width,
-			base.height,
-			{ "--face", "--zoom", "2", "--offset-x", offset_x * scale, table.unpack(viewer_args) }
-		)()
+		local face = stream("nikke-viewer", base.width, base.height, {
+			"--face",
+			"--zoom",
+			2,
+			"--offset-x",
+			offset_x * scale,
+			table.unpack(viewer_args),
+		})()
 		face:monochrome(tint)
-
 		output:blend(face)
+
+		local fade =
+			gradient(180):stop(0.3, tint:with_alpha(0.85)):stop(1.0, tint)
+		output:fill(rectangle({ size = output.size }), fade)
+
 		output:blend(mask)
 		output:blend(frame)
 		-- output:fill(left, "#000000")
