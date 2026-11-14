@@ -18,4 +18,4 @@ effects/
 
 # Rust (unity-viewer, pikke)
 unity-viewer/target/
-pikke/target/
+target/
