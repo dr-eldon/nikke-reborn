@@ -6,10 +6,18 @@ local black = image("../../assets/images/Logo_Black.png")
 white:resize({ width = 200 })
 black:resize({ width = 200 })
 
-function logo.render(output, args)
+function logo.render(output, inset)
+	if inset.x < 0 then
+		inset.x = inset.x + output.width - black.width
+	end
+
+	if inset.y < 0 then
+		inset.y = inset.y + output.height - black.height
+	end
+
 	local logo = rectangle({
-		x = args.x - black.width,
-		y = args.y - black.height,
+		x = inset.x,
+		y = inset.y,
 		size = black.size,
 	})
 

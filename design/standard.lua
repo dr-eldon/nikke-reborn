@@ -1,7 +1,7 @@
-logo = require("nikke.logo")
-copyright = require("nikke.copyright")
-title = require("nikke.title")
-manufacturer = require("nikke.manufacturer")
+local copyright = require("nikke.copyright")
+local logo = require("nikke.logo")
+local manufacturer = require("nikke.manufacturer")
+local title = require("nikke.title")
 
 local standard = {}
 local width = 1640
@@ -11,7 +11,8 @@ local cache = {}
 local mask = image("../assets/images/designs/Card_Mask_Standard.png")
 mask:resize({ width = width, height = height })
 
-standard.arguments = { "id", "background", "manufacturer", "title", "subtitle", "animation", "time" }
+standard.arguments =
+	{ "id", "background", "manufacturer", "title", "subtitle", "animation", "time" }
 
 function standard.render(args)
 	if cache[args.background] == nil then
@@ -44,7 +45,7 @@ function standard.render(args)
 		local output = base:clone()
 		output:blend(frame)
 
-		logo.render(output, { x = width - 75, y = height - 75 })
+		logo.render(output, { x = -75, y = -75 })
 		copyright.render(output, { x = 50, y = height - 15 })
 
 		title.render(output, {
