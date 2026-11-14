@@ -21,7 +21,7 @@ function profile.render(args)
 
 		base:autocontrast()
 		base:resize({ width = width, height = height, mode = "cover" })
-		base:blend(mask)
+		base:monochrome(tint)
 
 		cache[args.background] = { base, tint }
 	end
@@ -62,7 +62,28 @@ function profile.render(args)
 
 	for frame in character do
 		local output = base:clone()
+
+		local left = rectangle({ x = 150, y = 220, size = { 300, 350 } })
+		local right = rectangle({ x = 1220, y = 220, size = { 300, 350 } })
+		local offset_x = 500
+
+		if frame:coverage_in(left) < frame:coverage_in(right) then
+			offset_x = -500
+		end
+
+		local face = stream(
+			"nikke-viewer",
+			base.width,
+			base.height,
+			{ "--face", "--zoom", "2", "--offset-x", offset_x * scale, table.unpack(viewer_args) }
+		)()
+		face:monochrome(tint)
+
+		output:blend(face)
+		output:blend(mask)
 		output:blend(frame)
+		-- output:fill(left, "#000000")
+		-- output:fill(right, "#000000")
 
 		logo.render(output, { x = -75, y = 75 })
 		copyright.render(output, { x = 50, y = height - 15 })
