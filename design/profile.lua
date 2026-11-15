@@ -17,7 +17,6 @@ profile.arguments = {
 	"manufacturer",
 	"title",
 	"subtitle",
-	"animation",
 	"reel",
 }
 
@@ -58,12 +57,6 @@ function profile.render(args)
 	end
 
 	local viewer_args = { args.id, "--stdout", "--time", 0 }
-
-	if args.animation ~= nil then
-		viewer_args[#viewer_args + 1] = "--animation"
-		viewer_args[#viewer_args + 1] = args.animation
-	end
-
 	local frame = stream("nikke-viewer", base.width, base.height, viewer_args)()
 	local output = base:clone()
 

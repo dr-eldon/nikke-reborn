@@ -109,7 +109,7 @@ impl Expansion {
         let models = model::Model::map();
         let mut cards = Vec::new();
 
-        for model in self.models.iter() {
+        for (number, model) in self.models.iter().enumerate() {
             let Some(metadata) = models.get(&model.id) else {
                 return Err(Error::ModelNotFound(model.id.clone()));
             };
@@ -118,6 +118,7 @@ impl Expansion {
 
             if model.is_event() {
                 cards.push(Card {
+                    number,
                     model: metadata.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Classified,
@@ -138,6 +139,7 @@ impl Expansion {
             let animations = nikke_viewer(&model.id, "--list-animations").await?;
 
             cards.push(Card {
+                number,
                 model: metadata.clone(),
                 animation: animation.clone(),
                 rarity: card::Rarity::Standard,
@@ -174,6 +176,7 @@ impl Expansion {
             };
 
             cards.push(Card {
+                number,
                 model: metadata.clone(),
                 animation: animation.clone(),
                 rarity: card::Rarity::Profile { reel: reel.clone() },
@@ -182,6 +185,7 @@ impl Expansion {
 
             if variants.contains(&"cover".to_owned()) {
                 cards.push(Card {
+                    number,
                     model: metadata.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Cover,
@@ -191,6 +195,7 @@ impl Expansion {
 
             if variants.contains(&"aim".to_owned()) {
                 cards.push(Card {
+                    number,
                     model: metadata.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Aim,
@@ -200,6 +205,7 @@ impl Expansion {
 
             if let Some(animation) = reel.get(1) {
                 cards.push(Card {
+                    number,
                     model: metadata.clone(),
                     animation: Some(animation.clone()),
                     rarity: card::Rarity::Rare,
@@ -209,6 +215,7 @@ impl Expansion {
 
             if let Some(animation) = reel.first() {
                 cards.push(Card {
+                    number,
                     model: metadata.clone(),
                     animation: Some(animation.clone()),
                     rarity: card::Rarity::Special,
@@ -218,6 +225,7 @@ impl Expansion {
 
             if variants.contains(&"sc".to_owned()) && model.goddess.is_enabled() {
                 cards.push(Card {
+                    number,
                     model: metadata.clone(),
                     animation: model
                         .goddess

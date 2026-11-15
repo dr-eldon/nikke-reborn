@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
@@ -29,10 +29,14 @@ impl Character {
     pub fn map() -> &'static HashMap<String, Character> {
         &CHARACTERS
     }
+
+    pub fn manufacturer(&self) -> Option<Manufacturer> {
+        self.manufacturer
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(try_from = "String")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub enum Manufacturer {
     Elysion,
     Tetra,
@@ -52,6 +56,18 @@ impl TryFrom<String> for Manufacturer {
             "pilgrim" => Self::Pilgrim,
             "abnormal" => Self::Abnormal,
             _ => return Err(Error::InvalidManufacturer(value.clone())),
+        })
+    }
+}
+
+impl From<Manufacturer> for String {
+    fn from(manufacturer: Manufacturer) -> Self {
+        String::from(match manufacturer {
+            Manufacturer::Elysion => "elysion",
+            Manufacturer::Tetra => "tetra",
+            Manufacturer::Missilis => "missilis",
+            Manufacturer::Pilgrim => "pilgrim",
+            Manufacturer::Abnormal => "abnormal",
         })
     }
 }

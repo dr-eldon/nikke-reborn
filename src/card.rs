@@ -1,8 +1,11 @@
+use std::fmt;
+
 use crate::model;
 use crate::{Character, Model};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Card {
+    pub number: usize,
     pub model: Model,
     pub animation: Option<String>,
     pub rarity: Rarity,
@@ -40,6 +43,17 @@ impl Card {
         }
 
         Some(subtitle.to_owned())
+    }
+
+    pub fn file_name(&self) -> String {
+        format!(
+            "{number:<04}_{model}_{title}_{rarity_index:<02}_{rarity}",
+            number = self.number,
+            model = self.model.id,
+            title = self.title(),
+            rarity_index = self.rarity.index(),
+            rarity = self.rarity.to_string()
+        )
     }
 }
 
@@ -87,9 +101,39 @@ impl Rarity {
         Some(match self {
             Rarity::Standard | Rarity::Profile { .. } => "sky-night",
             Rarity::Cover | Rarity::Aim => "bubble-maker",
-            Rarity::Rare | Rarity::Special => "pink-smoke",
+            Rarity::Rare | Rarity::Special => "smoke-pink",
             Rarity::Exotic => "sky-night",
             Rarity::Goddess | Rarity::Classified => return None,
+        })
+    }
+
+    pub fn index(&self) -> usize {
+        match self {
+            Rarity::Standard => 0,
+            Rarity::Profile { .. } => 1,
+            Rarity::Rare => 2,
+            Rarity::Cover => 3,
+            Rarity::Aim => 4,
+            Rarity::Special => 5,
+            Rarity::Exotic => 6,
+            Rarity::Goddess => 7,
+            Rarity::Classified => 8,
+        }
+    }
+}
+
+impl fmt::Display for Rarity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Rarity::Standard => "Standard",
+            Rarity::Profile { .. } => "Profile",
+            Rarity::Rare => "Rare",
+            Rarity::Cover => "Cover",
+            Rarity::Aim => "Aim",
+            Rarity::Special => "Special",
+            Rarity::Exotic => "Exotic",
+            Rarity::Goddess => "Goddess",
+            Rarity::Classified => "Classified",
         })
     }
 }

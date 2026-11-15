@@ -11,12 +11,21 @@ local cache = {}
 local mask = image("../assets/images/designs/Card_Mask_Standard.png")
 mask:resize({ width = width, height = height })
 
-standard.arguments =
-	{ "id", "background", "manufacturer", "title", "subtitle", "animation", "time" }
+standard.arguments = {
+	"id",
+	"background",
+	"manufacturer",
+	"title",
+	"subtitle",
+	"variant",
+	"animation",
+	"time",
+}
 
 function standard.render(args)
 	if cache[args.background] == nil then
-		local base = image("../assets/images/backgrounds/" .. args.background .. ".png")
+		local base =
+			image("../assets/images/backgrounds/" .. args.background .. ".png")
 		local tint = base:dominant_in(rectangle({ size = base.size }))
 
 		base:autocontrast()
@@ -27,19 +36,20 @@ function standard.render(args)
 	end
 
 	local base, tint = table.unpack(cache[args.background])
-	local viewer_args = { "--half-body", "--stdout", args.id }
+	local variant = args.variant or "fb"
+	local focus = variant == "fb" and "--half-body" or "--full-body"
 
-	if args.animation ~= nil then
-		viewer_args[#viewer_args + 1] = "--animation"
-		viewer_args[#viewer_args + 1] = args.animation
-	end
-
-	if args.time ~= nil then
-		viewer_args[#viewer_args + 1] = "--time"
-		viewer_args[#viewer_args + 1] = args.time
-	end
-
-	local character = stream("nikke-viewer", base.width, base.height, viewer_args)
+	local character = stream("nikke-viewer", base.width, base.height, {
+		"--stdout",
+		"--variant",
+		variant,
+		focus,
+		"--animation",
+		args.animation or "-",
+		"--time",
+		args.time or "-",
+		args.id,
+	})
 
 	for frame in character do
 		local output = base:clone()
