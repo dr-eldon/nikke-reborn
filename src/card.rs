@@ -52,7 +52,7 @@ impl Card {
             model = self.model.id,
             title = self.title(),
             rarity_index = self.rarity.index(),
-            rarity = self.rarity.to_string()
+            rarity = self.rarity
         )
     }
 }
@@ -109,15 +109,26 @@ impl Rarity {
 
     pub fn index(&self) -> usize {
         match self {
-            Rarity::Standard => 0,
-            Rarity::Profile { .. } => 1,
-            Rarity::Rare => 2,
-            Rarity::Cover => 3,
-            Rarity::Aim => 4,
-            Rarity::Special => 5,
-            Rarity::Exotic => 6,
-            Rarity::Goddess => 7,
-            Rarity::Classified => 8,
+            Rarity::Standard => 1,
+            Rarity::Profile { .. } => 2,
+            Rarity::Rare => 3,
+            Rarity::Cover => 4,
+            Rarity::Aim => 5,
+            Rarity::Special => 6,
+            Rarity::Exotic => 7,
+            Rarity::Goddess => 8,
+            Rarity::Classified => 9,
+        }
+    }
+
+    pub fn focus(&self) -> &'static str {
+        match self {
+            Rarity::Standard | Rarity::Rare | Rarity::Special | Rarity::Exotic => "half-body",
+            Rarity::Profile { .. }
+            | Rarity::Cover
+            | Rarity::Aim
+            | Rarity::Goddess
+            | Rarity::Classified => "full-body",
         }
     }
 }

@@ -2,6 +2,7 @@ local logo = {}
 
 local white = image("../../assets/images/Logo_White.png")
 local black = image("../../assets/images/Logo_Black.png")
+local invert = nil
 
 white:resize({ width = 200 })
 black:resize({ width = 200 })
@@ -21,11 +22,19 @@ function logo.render(output, inset)
 		size = black.size,
 	})
 
-	if output:dominant_in(logo):to_oklch().l > 0.5 then
+	if invert == nil then
+		invert = output:dominant_in(logo):to_oklch().l > 0.5
+	end
+
+	if invert then
 		output:blend(black, { at = logo, color_space = "srgb" })
 	else
 		output:blend(white, { at = logo, color_space = "srgb" })
 	end
+end
+
+function logo.reset()
+	invert = nil
 end
 
 return logo

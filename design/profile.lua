@@ -87,6 +87,9 @@ function profile.render(args)
 	-- output:fill(left, "#000000")
 	-- output:fill(right, "#000000")
 
+	logo.reset()
+	copyright.reset()
+
 	logo.render(output, { x = -75, y = 75 })
 	copyright.render(output, { x = 50, y = height - 15 })
 

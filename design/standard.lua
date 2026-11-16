@@ -51,6 +51,9 @@ function standard.render(args)
 		args.id,
 	})
 
+	logo.reset()
+	copyright.reset()
+
 	for frame in character do
 		local output = base:clone()
 		output:blend(frame)

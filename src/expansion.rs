@@ -109,11 +109,12 @@ impl Expansion {
         let models = model::Model::map();
         let mut cards = Vec::new();
 
-        for (number, model) in self.models.iter().enumerate() {
+        for (i, model) in self.models.iter().enumerate() {
             let Some(metadata) = models.get(&model.id) else {
                 return Err(Error::ModelNotFound(model.id.clone()));
             };
 
+            let number = i + 1;
             let animation = model.options.animation().map(str::to_owned);
 
             if model.is_event() {

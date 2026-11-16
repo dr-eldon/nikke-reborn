@@ -165,6 +165,7 @@ struct FullArt {
     variant: model::Variant,
     animation: Option<String>,
     time: Option<f32>,
+    focus: String,
     output: PathBuf,
 }
 
@@ -186,6 +187,7 @@ impl FullArt {
             variant: card.rarity.variant(),
             animation: card.animation.clone(),
             time: card.rarity.time(),
+            focus: card.rarity.focus().to_owned(),
             output: output_dir()
                 .join(format!("{}_Ultra", expansion.id.clone()))
                 .join(card.file_name())

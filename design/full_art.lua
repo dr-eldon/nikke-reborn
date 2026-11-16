@@ -12,6 +12,7 @@ standard.arguments = {
 	"variant",
 	"animation",
 	"time",
+	"focus",
 }
 
 function standard.render(args)
@@ -34,19 +35,21 @@ function standard.render(args)
 	end
 
 	local variant = args.variant or "fb"
-	local focus = variant == "fb" and "--half-body" or "--full-body"
 
 	local character = stream("nikke-viewer", base.width, base.height, {
 		"--stdout",
 		"--variant",
 		variant,
-		focus,
 		"--animation",
 		args.animation or "-",
 		"--time",
 		args.time or "-",
+		"--" .. args.focus,
 		args.id,
 	})
+
+	logo.reset()
+	copyright.reset()
 
 	for frame in character do
 		local output = base:clone()
