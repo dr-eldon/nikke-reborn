@@ -227,11 +227,14 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
-                    animation: model
-                        .goddess
-                        .animation()
-                        .map(str::to_owned)
-                        .or_else(|| animation.clone()),
+                    animation: Some(
+                        model
+                            .goddess
+                            .animation()
+                            .map(str::to_owned)
+                            .or_else(|| animation.clone())
+                            .unwrap_or_else(|| "main".to_owned()),
+                    ),
                     rarity: card::Rarity::Goddess,
                     character: character.cloned(),
                 });

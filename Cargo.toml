@@ -14,5 +14,5 @@ serde.version = "1"
 serde.features = ["derive"]
 
 tokio.version = "1"
-tokio.features = ["fs", "process", "macros", "rt"]
+tokio.features = ["fs", "process", "macros", "rt", "io-util"]
 
