@@ -31,6 +31,7 @@ function standard.render(args)
 		base:autocontrast()
 		base:resize({ width = width, height = height, mode = "cover" })
 		base:blend(mask)
+		base:convert("srgb")
 
 		cache[args.background] = { base, tint }
 	end
@@ -39,16 +40,22 @@ function standard.render(args)
 	local variant = args.variant or "fb"
 	local focus = variant == "fb" and "--half-body" or "--full-body"
 
-	local character = stream("nikke-viewer", base.width, base.height, {
-		"--stdout",
-		"--variant",
-		variant,
-		focus,
-		"--animation",
-		args.animation or "-",
-		"--time",
-		args.time or "-",
-		args.id,
+	local character = stream("nikke-viewer", {
+		width = base.width,
+		height = base.height,
+		color_space = "srgb",
+		alpha = "premultiplied",
+		args = {
+			"--stdout",
+			"--variant",
+			variant,
+			focus,
+			"--animation",
+			args.animation or "-",
+			"--time",
+			args.time or "-",
+			args.id,
+		},
 	})
 
 	logo.reset()

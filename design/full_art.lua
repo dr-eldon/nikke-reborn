@@ -22,6 +22,7 @@ function standard.render(args)
 
 		base:autocontrast()
 		base:resize({ width = width, height = height, mode = "cover" })
+		base:convert("srgb")
 
 		cache[args.background] = base
 	end
@@ -29,23 +30,34 @@ function standard.render(args)
 	local base
 
 	if args.background == nil then
-		base = blank({ width = width, height = height, color = "#000000" })
+		base = blank({
+			width = width,
+			height = height,
+			color = "#000000",
+			color_space = "srgb",
+		})
 	else
 		base = cache[args.background]
 	end
 
 	local variant = args.variant or "fb"
 
-	local character = stream("nikke-viewer", base.width, base.height, {
-		"--stdout",
-		"--variant",
-		variant,
-		"--animation",
-		args.animation or "-",
-		"--time",
-		args.time or "-",
-		"--" .. args.focus,
-		args.id,
+	local character = stream("nikke-viewer", {
+		width = base.width,
+		height = base.height,
+		color_space = "srgb",
+		alpha = "premultiplied",
+		args = {
+			"--stdout",
+			"--variant",
+			variant,
+			"--animation",
+			args.animation or "-",
+			"--time",
+			args.time or "-",
+			"--" .. args.focus,
+			args.id,
+		},
 	})
 
 	logo.reset()

@@ -29,6 +29,7 @@ function profile.render(args)
 		base:autocontrast()
 		base:resize({ width = width, height = height, mode = "cover" })
 		base:monochrome(tint)
+		base:convert("srgb")
 
 		cache[args.background] = { base, tint }
 	end
@@ -40,14 +41,20 @@ function profile.render(args)
 	for expression in string.gmatch(args.reel, "([^,]+)") do
 		local size = math.floor(base.width / 7)
 
-		local render = stream("nikke-viewer", size, size, {
-			args.id,
-			"--stdout",
-			"--portrait",
-			"--animation",
-			expression,
-			"--time",
-			0,
+		local render = stream("nikke-viewer", {
+			width = size,
+			height = size,
+			color_space = "srgb",
+			alpha = "premultiplied",
+			args = {
+				args.id,
+				"--stdout",
+				"--portrait",
+				"--animation",
+				expression,
+				"--time",
+				0,
+			},
 		})
 
 		local face = blank({ width = size, height = size, color = "#FFFFFF" })
@@ -57,7 +64,13 @@ function profile.render(args)
 	end
 
 	local viewer_args = { args.id, "--stdout", "--time", 0 }
-	local frame = stream("nikke-viewer", base.width, base.height, viewer_args)()
+	local frame = stream("nikke-viewer", {
+		width = base.width,
+		height = base.height,
+		color_space = "srgb",
+		alpha = "premultiplied",
+		args = viewer_args,
+	})()
 	local output = base:clone()
 
 	local left = rectangle({ x = 150, y = 220, size = { 300, 350 } })
@@ -68,13 +81,19 @@ function profile.render(args)
 		offset_x = -500
 	end
 
-	local face = stream("nikke-viewer", base.width, base.height, {
-		"--face",
-		"--zoom",
-		2,
-		"--offset-x",
-		offset_x * scale,
-		table.unpack(viewer_args),
+	local face = stream("nikke-viewer", {
+		width = base.width,
+		height = base.height,
+		color_space = "srgb",
+		alpha = "premultiplied",
+		args = {
+			"--face",
+			"--zoom",
+			2,
+			"--offset-x",
+			offset_x * scale,
+			table.unpack(viewer_args),
+		},
 	})()
 	face:monochrome(tint)
 	output:blend(face)
