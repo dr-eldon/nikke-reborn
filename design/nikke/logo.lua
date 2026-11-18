@@ -42,12 +42,29 @@ function logo.glowing(output, args)
 
 	local x, y = table.unpack(args.position(logo.width, logo.height))
 
-	local radius = math.floor(logo.width / 20)
 	local bounds = rectangle({
 		x = x,
 		y = y,
 		size = logo.size,
-	}):padded(radius)
+	})
+
+	local radius = math.floor(logo.width / 20)
+	local tint = output:dominant_in(bounds):to_oklch()
+
+	if tint.l > 0.5 then
+		logo = black:clone()
+		logo:resize({ width = args.width, height = args.height })
+		radius = radius / 3
+		tint.c = 0.3
+		tint.l = 0.8
+		tint.a = 0.4
+	else
+		tint.c = 0.2
+		tint.l = 0.65
+		tint.a = 0.4
+	end
+
+	bounds = bounds:padded(radius)
 
 	local glowing = blank({
 		width = bounds.width,
@@ -56,12 +73,6 @@ function logo.glowing(output, args)
 	glowing:blend(logo, {
 		at = rectangle({ x = radius, y = radius, size = logo.size }),
 	})
-
-	local tint = output:dominant_in(bounds):to_oklch()
-
-	tint.c = 0.2
-	tint.l = 0.65
-	tint.a = 0.4
 
 	glowing:recolor(tint)
 	glowing:blur(radius)
