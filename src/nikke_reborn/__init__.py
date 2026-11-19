@@ -1,44 +1,13 @@
-"""Render and composite Nikke trading cards.
+"""Pack-opening simulation, sprite sheets and the game bundle for NIKKE
+REBORN.
 
-One TOML per expansion (``cards/<set>.toml``) is the pipeline's single
-input: its characters (the ``cards`` list of viewer ids, in order —
-the card's number is its position, its stem its zero-padded number
-plus the compact name from the game's data), its pack's featured
-characters (``pack``), its backgrounds (the ``background`` table) and
-its logo (``logo.path`` and ``logo.placement``, relative to the
-expansion's folder).
-
-Every character renders the expansion's ``rarities`` subset of the
-fixed set of presentations (:data:`nikke_reborn.expansion.PRESENTATION_SPECS`
-describes the tiers, their masks and their viewer terms), each
-composited in memory over its background and stamped with the NIKKE
-logo and the copyright line; the standard and profile cards carry the
-card name over the art (:mod:`nikke_reborn.lettering`). The expansion's
-pack and box get their artwork images, built from the templates in
-``assets/images/`` (:mod:`nikke_reborn.pack`, :mod:`nikke_reborn.box`);
-the materials' items are rendered by ``unity-viewer`` from the
-finished materials, so they are generated after them.
-
-The finished results are written under ``output/<set>/`` (half
-resolution by default — the ``--ultra`` preset renders at the native
-resolution into the ``<set> (Ultra)`` set folders, the ``--low`` preset
-renders the default's settings at a lower framerate into the
-``<set> (Low)`` set folders, and ``--draft`` runs the whole pipeline at
-half resolution into ``draft/``), with the SHA-256 of their inputs
-embedded as metadata: a result whose stored hash matches the current
-inputs is skipped instead of re-rendered. ``--force``
-skips the up-to-date check; ``--no-video`` skips the MP4 generation
-(see :mod:`nikke_reborn.video`); ``--no-standard``, ``--no-profile``
-and ``--no-full-art`` disable the three generation passes.
-
-The pipeline streams the viewer's raw frames in memory — nothing
-intermediate ever touches the disk; only the finished card is written
-(atomically). Cards are independent of each other, so they are
-processed by a pool of worker processes (:mod:`nikke_reborn.generate`);
-within an animated card, the frames are composited in parallel threads.
-
-By default every expansion under ``cards/`` is generated; one or more
-expansion paths may be passed on the command line to generate only the
-selected expansions, and ``--ids`` restricts a run to the named
-characters of the selected expansions.
+Three commands (the ``[project.scripts]`` entry points): ``bundle`` composes
+the BepInEx bundles the mod ships (every set's rendered cards and its
+metadata bundle, under ``bundles/``); ``simulate`` opens packs of an
+expansion's bundle — ``output/<set>.json``, what the Rust ``generate``
+pipeline writes — and writes a self-contained HTML report with the
+statistics for fine-tuning the pack odds and the card prices;
+``spritesheet`` composes the expansion's rendered first frames into a
+summary grid and paged sheets. The cards' rendering and the bundles'
+metadata live in the Rust crate (this repository) and ``pikke``.
 """

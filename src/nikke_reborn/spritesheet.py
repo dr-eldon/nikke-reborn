@@ -3,18 +3,25 @@ cards, fitted to the grid — over the expansion's background (dimmed
 so the grid reads against it).
 
 The sheet composites the finished first frames
-(``output/<set>/<stem>_<rarity index>_<presentation>.png``) into a
-grid: the
+(``output/<set>_Ultra/<sprite>.png``, the bundle's ``Sprite`` names
+under the set folder ``generate`` writes) into a grid: the
 expansion's logo at the top, one row per character (a label column
 with the card's number and name) and one column per presentation
-(the expansion's ``rarities`` subset, in its order; a column only
-when the roster carries it). The animated cards (an ``.mp4`` next to
-their first frame) are marked with a white ▶ in a black circle, and
-the cards' copyright line sits at the bottom left.
+(the bundle's ``Rarities``, in its order; a column only when the
+roster carries it). The animated cards (an ``.mp4`` next to their
+first frame) are marked with a white ▶ in a black circle, and the
+cards' copyright line sits at the bottom left.
+
+The roster — every card's number, name and sprite — comes straight
+from the expansion's bundle (``output/<set>.json``, what
+``generate`` writes), so the sheet is composed after ``generate``;
+a missing first frame renders as a named placeholder instead of
+failing the whole sheet.
 
 The grid is windowed into images of at most :data:`SHEET_ROWS` rows
 each — ``<set>_{n}.png``, 1-based (``draft/<set>_{n}.png`` for
-``--draft``) — each self-contained (its own header and copyright) and
+``--draft``, which reads the first frames from ``draft/<set>/``
+instead) — each self-contained (its own header and copyright) and
 carrying the same geometry: the label column is sized from the full
 roster's labels, so the images are equally wide and the grid keeps
 its column positions across them.
@@ -28,11 +35,6 @@ empty cells past the last card split between the first and the last row
 (both centered, so they carry the same empty space), and the
 expansion's logo at the sheet's center — no labels, no footer.
 
-The cells are the first frames only — the PNGs the pipeline writes
-for every card; no video is read or decoded. Every cell must already
-be on disk, so the sheet is composed after ``generate`` (missing
-cards are rendered as placeholders, named).
-
 Like the finished cards, every sheet image embeds the SHA-256 of its
 inputs under the source-hash key, and an image whose stored hash
 matches the current inputs is skipped instead of re-composed. The
@@ -44,39 +46,41 @@ up-to-date check.
 from __future__ import annotations
 
 import argparse
+import colorsys
 import hashlib
 import itertools
+import json
 import os
 import random
 import re
 import sys
-from collections.abc import Sequence
+import tomllib
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
+import numpy as np
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-from nikke_reborn import card, expansion, linear
 from nikke_reborn.config import (
     CARD_REFERENCE_WIDTH,
     CARD_VIEWPORT,
+    CARDS_DIR,
+    DRAFT_DIR,
     FONT,
     IMAGES_DIR,
     MAX_STAGE_THREADS,
+    OUTPUT_DIR,
     REPO_ROOT,
     SOURCE_HASH_KEY,
 )
 from nikke_reborn.error import GenerationError
 from nikke_reborn.file import _save_atomic, hash_term
-from nikke_reborn.lettering import (
-    COPYRIGHT_NOMINAL_SIZE,
-    COPYRIGHT_SUPERSAMPLE,
-    COPYRIGHT_TEXT,
-    COPYRIGHT_WEIGHT,
-    _set_weight,
-    _text_ink_offsets,
-)
-from nikke_reborn.preset import Preset
+
+#: The expansion's backgrounds (``assets/images/backgrounds/<key>.png``)
+#: and logos (``assets/images/logos/<name>.png``).
+BACKGROUNDS_DIR = IMAGES_DIR / "backgrounds"
+LOGOS_DIR = IMAGES_DIR / "logos"
 
 # --- the finished sheet's geometry ----------------------------------------
 #: The sheet's margin around the header and the grid (on every side); the
@@ -125,8 +129,7 @@ SUMMARY_CELL_GAP = 12
 SUMMARY_CORNER_RADIUS_FRACTION = 0.05
 #: The summary grid's logo's height, as a fraction of the sheet's:
 #: the logo is composited over the grid, at the sheet's center, with
-#: the pack's and box's fronts' treatment (see
-#: ``expansion._composite_logo``).
+#: the pack's and box's fronts' treatment (see :func:`_draw_logo`).
 SUMMARY_LOGO_FRACTION = 1 / 5
 #: The summary grid's logo's drop shadow — a darkened, blurred copy of
 #: the mark, offset down-right, behind it: its blur radius and offset
@@ -158,8 +161,7 @@ DOMINANT_PALETTE_SIZE = 12
 LABEL_COLOR = (235, 238, 245)
 #: The labels' black trail's offset, as a fraction of the label font's
 #: size: each label draws a black copy offset down-right behind it —
-#: the header logo's tight trail (``expansion.LOGO_TRAIL``) at label
-#: scale.
+#: the header logo's tight trail (:data:`LOGO_TRAIL`) at label scale.
 LABEL_TRAIL_FRACTION = 0.08
 #: The column-label font sizes tried, largest first: the first whose
 #: longest label fits the cell's width is used.
@@ -201,9 +203,8 @@ def run() -> None:
     """Compose the selected expansion's sprite sheet (the ``spritesheet``
     command)."""
     args = _parse_args()
-    preset = Preset.DRAFT if args.draft else Preset.DEFAULT
     try:
-        parts = _build(args.expansion, preset, args.force)
+        parts = _build(args.expansion, args.draft, args.force)
     except GenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -223,7 +224,9 @@ def run() -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Compose an expansion's sprite sheet: the summary grid "
+            "Compose an expansion's sprite sheet from its bundle "
+            "(output/<set>.json) and its rendered first frames "
+            "(output/<set>_Ultra/): the summary grid "
             "(every first frame tiled across one "
             f"{SHEET_TARGET[0]}x{SHEET_TARGET[1]} image) and the grid's "
             "pages (the expansion's logo on top, one row per character, "
@@ -234,16 +237,16 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "expansion",
         help=(
-            "the expansion's name or path (cards/<set>.toml, <set>.toml "
-            "or <set>, e.g. ELYSION)"
+            "the expansion's name (its bundle at output/<set>.json, its "
+            "first frames at output/<set>_Ultra/)"
         ),
     )
     parser.add_argument(
         "--draft",
         action="store_true",
         help=(
-            "read the first frames from draft/ and write draft/<set>.png "
-            "and draft/<set>_{n}.png"
+            "read the first frames from draft/<set>/ and write the sheets "
+            "to draft/<set>.png and draft/<set>_{n}.png"
         ),
     )
     parser.add_argument(
@@ -254,28 +257,44 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
+def _build(name: str, draft: bool, force: bool) -> list[_Part]:
     """Compose the expansion *name*'s sheet images: the summary grid
     (``<name>.png``, every first frame tiled across
     :data:`SHEET_TARGET`) and its pages (``<name>_{n}.png`` in the
-    preset's output root, one per :data:`SHEET_ROWS` rows of the grid,
-    1-based).
+    output root — ``draft/`` for ``--draft`` — one per
+    :data:`SHEET_ROWS` rows of the grid, 1-based).
 
     Returns one entry per image: its path, its grid's row and column
     counts, its canvas size (None when the image was skipped) and
     whether it was skipped (up to date)."""
-    exp = expansion.load_expansion(expansion.resolve_expansion_path(name))
-    rows, columns, cells = _card_grid(exp)
-    if not rows:
-        raise GenerationError(f"{exp.name}: the expansion's roster is empty")
-    # Every presentation's first frame (the still card's PNG or the
-    # video card's PNG sidecar) at the pipeline's own output path.
-    paths = {
-        (prefix, column): card.output_path(
-            exp.name, prefix, column, exp.rarities.index(column) + 1, "png", preset
+    bundle_path = OUTPUT_DIR / f"{name}.json"
+    if not bundle_path.is_file():
+        available = (
+            ", ".join(sorted(path.stem for path in OUTPUT_DIR.glob("*.json"))) or "none"
         )
-        for prefix, column in sorted(cells)
-    }
+        raise GenerationError(
+            f"no bundle for expansion {name!r}: "
+            f"{bundle_path.relative_to(REPO_ROOT)} is not a file "
+            f"(the available bundles: {available}); run 'generate' first"
+        )
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    expansions = bundle.get("CardExpansions") or []
+    if not expansions:
+        raise GenerationError(
+            f"{bundle_path.name}: the bundle carries no card expansion"
+        )
+    cards = expansions[0].get("Cards") or []
+    if not cards:
+        raise GenerationError(f"{bundle_path.name}: the bundle carries no cards")
+    grid = _card_grid(cards, expansions[0].get("Rarities") or [])
+    if not grid.rows:
+        raise GenerationError(f"{name}: the expansion's roster is empty")
+    # Every presentation's first frame (the still card's PNG or the
+    # video card's PNG sidecar) at the pipeline's own output path:
+    # the expansion's set folder under the output root (where
+    # ``generate`` writes), or ``draft/<set>/`` for ``--draft``.
+    frame_dir = DRAFT_DIR / name if draft else OUTPUT_DIR / f"{name}_Ultra"
+    paths = {key: frame_dir / f"{sprite}.png" for key, sprite in grid.cells.items()}
     # A cell whose first frame is not on disk renders as a placeholder
     # (below) instead of failing the whole sheet.
     missing = {key for key, path in paths.items() if not path.is_file()}
@@ -286,26 +305,28 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
         more = f" (+{len(missing) - 10} more)" if len(missing) > 10 else ""
         print(
             f"warning: {len(missing)} rendered card(s) missing for "
-            f"{exp.name} (run 'generate' first); rendering them as a "
+            f"{name} (run 'generate' first); rendering them as a "
             f"'{MISSING_TEXT}' placeholder: {shown}{more}",
             file=sys.stderr,
         )
-    background, background_path = _expansion_background(exp)
-    logo, logo_path = _expansion_logo(exp)
+    toml = _expansion_toml(name)
+    background, background_path = _expansion_background(name, toml)
+    logo, logo_path = _expansion_logo(name, toml)
     aspect = _card_aspect()
     # The label column is sized from the full roster's labels, so every
     # image carries the same geometry (the same width, the same font)
     # and the grid keeps its positions across the images.
-    labels = _row_labels(exp.cards)
+    labels = _row_labels(grid.rows, grid.names)
     cell_w = round(ROW_HEIGHT * aspect)
     font, label_w = _label_font(
-        labels, len(columns) * cell_w + (len(columns) - 1) * CELL_GAP
+        labels, len(grid.columns) * cell_w + (len(grid.columns) - 1) * CELL_GAP
     )
+    base = DRAFT_DIR if draft else OUTPUT_DIR
     parts: list[_Part] = []
     # The summary grid: the first frames tiled across SHEET_TARGET
     # in a randomized order, the cards flowing around the logo's
     # keep-out at the sheet's center — no labels or footer.
-    ordered = _ordered_cells(exp.cards, columns, cells)
+    ordered = _ordered_cells(grid)
     logo_box = _summary_logo_box(
         SHEET_TARGET[0],
         SHEET_TARGET[1],
@@ -314,15 +335,17 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
     )
     keep_out = _summary_keep_out(SHEET_TARGET[1])
     summary_rows, summary_cols = _summary_dimensions(len(ordered), logo_box, keep_out)
-    summary_path = preset.base / f"{exp.name}.png"
-    summary_hash = _summary_source_hash(exp, logo_path, background_path, ordered, paths)
+    summary_path = base / f"{name}.png"
+    summary_hash = _summary_source_hash(
+        bundle_path.read_bytes(), logo_path, background_path, ordered, paths
+    )
     if not force and _stored_hash(summary_path) == summary_hash:
         parts.append((summary_path, summary_rows, summary_cols, None, True))
     else:
         # The cards' display order: a deterministic shuffle of the roster's
         # order (seeded by the expansion's name), so the same roster lays out
         # the same way on every rebuild — the sheet's byte protocol.
-        display = _shuffled_cells(ordered, exp.name)
+        display = _shuffled_cells(ordered, name)
         size = _summary_grid(
             display,
             paths,
@@ -337,25 +360,27 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
             keep_out,
         )
         parts.append((summary_path, summary_rows, summary_cols, size, False))
+    rows = grid.rows
+    columns = grid.columns
     for n, start in enumerate(range(0, len(rows), SHEET_ROWS), 1):
         part_rows = rows[start : start + SHEET_ROWS]
-        part_cells = {key for key in cells if key[0] in part_rows}
-        part_paths = {key: paths[key] for key in part_cells}
-        out_path = preset.base / f"{exp.name}_{n}.png"
-        source_hash = _source_hash(exp, logo_path, background_path, rows, part_paths)
+        part_paths = {key: paths[key] for key in grid.cells if key[0] in part_rows}
+        out_path = base / f"{name}_{n}.png"
+        source_hash = _source_hash(
+            bundle_path.read_bytes(), logo_path, background_path, part_paths
+        )
         if not force and _stored_hash(out_path) == source_hash:
             parts.append((out_path, len(part_rows), len(columns), None, True))
             continue
         size = _compose(
-            exp.cards[start : start + SHEET_ROWS],
+            part_rows,
             columns,
-            part_cells,
             part_paths,
             logo,
             background,
             out_path,
             source_hash,
-            missing & part_cells,
+            missing & part_paths.keys(),
             aspect,
             labels[start : start + SHEET_ROWS],
             font,
@@ -365,45 +390,60 @@ def _build(name: str, preset: Preset, force: bool) -> list[_Part]:
     return parts
 
 
-def _card_grid(
-    exp: expansion.Expansion,
-) -> tuple[list[str], list[str], set[tuple[str, str]]]:
-    """The sheet's grid: its rows (the card's stems, in the roster's
-    order), its columns (every presentation the roster carries, in the
-    order of the expansion's ``rarities``) and its cells (the
-    stem/presentation pairs the roster actually has).
+# --- the bundle and the grid ------------------------------------------------
 
-    The cells mirror the pipeline's eligibility exactly (each
-    character's presentations come from
-    :func:`nikke_reborn.expansion.presentations_for`, the same source
-    the run's selection uses), so a sheet composed after ``generate``
-    never asks for a card the pipeline does not render."""
+
+@dataclass(frozen=True)
+class Grid:
+    """The sheet's grid from the bundle's cards (see :func:`_card_grid`):
+    its rows (the cards' numbers, in the roster's order), its columns
+    (every rarity the roster carries, in the bundle's ``Rarities``
+    order), its cells (the row/rarity pairs the roster actually has,
+    with the bundle's ``Sprite`` name of the card) and the rows' names
+    (the bundle's ``Name``)."""
+
+    rows: list[str]
+    columns: list[str]
+    cells: dict[tuple[str, str], str]
+    names: dict[str, str]
+
+
+def _card_grid(cards: list[dict], rarities: list[str]) -> Grid:
+    """The sheet's grid from the bundle's cards: one row per character
+    (the card's number — the ``Sprite``'s zero-padded prefix — in the
+    roster's order) and one column per rarity the roster carries (the
+    bundle's ``Rarities``, in its order), the cells the row/rarity pairs
+    the roster actually has. The bundle's cards mirror the pipeline's
+    eligibility exactly, so a sheet composed after ``generate`` never
+    asks for a card the pipeline does not render."""
     rows: list[str] = []
+    row_seen: set[str] = set()
     present: set[str] = set()
-    cells: set[tuple[str, str]] = set()
-    for entry in exp.cards:
-        rows.append(entry.stem)
-        info = expansion.resolve_character(entry)
-        for presentation in expansion.presentations_for(exp, entry, info):
-            present.add(presentation.name)
-            cells.add((entry.stem, presentation.name))
-    columns = [name for name in exp.rarities if name in present]
-    return rows, columns, cells
+    cells: dict[tuple[str, str], str] = {}
+    names: dict[str, str] = {}
+    for card in cards:
+        sprite = card["Sprite"]
+        row = sprite.split("_", 1)[0]
+        if row not in row_seen:
+            row_seen.add(row)
+            rows.append(row)
+            names[row] = card["Name"]
+        rarity = card["Rarity"]
+        cells[(row, rarity)] = sprite
+        present.add(rarity)
+    columns = [rarity for rarity in rarities if rarity in present]
+    return Grid(rows=rows, columns=columns, cells=cells, names=names)
 
 
-def _ordered_cells(
-    entries: Sequence[expansion.CardEntry],
-    columns: list[str],
-    cells: set[tuple[str, str]],
-) -> list[tuple[str, str]]:
+def _ordered_cells(grid: Grid) -> list[tuple[str, str]]:
     """The grid's cells as a flat sequence in the roster's order (each
     character's presentations in the expansion's rarity order) — the
     canonical order the summary's source hash is taken over."""
     return [
-        (stem, column)
-        for stem in (entry.stem for entry in entries)
-        for column in columns
-        if (stem, column) in cells
+        (row, column)
+        for row in grid.rows
+        for column in grid.columns
+        if (row, column) in grid.cells
     ]
 
 
@@ -429,88 +469,109 @@ def _card_aspect() -> float:
     return CARD_VIEWPORT[0] / CARD_VIEWPORT[1]
 
 
-def _expansion_background(
-    exp: expansion.Expansion,
-) -> tuple[Image.Image, Path]:
-    """The expansion's background (RGBA) and its file: the one its
-    items' materials use (see ``expansion._item_background_key`` —
-    its ``background.item`` when the table carries one, its
-    ``base`` when it does not), resolved against the expansion's
-    folder."""
-    key = expansion._item_background_key(exp)
-    path = (exp.path.parent / exp.backgrounds[key]).resolve()
+def _expansion_toml(name: str) -> dict:
+    """The expansion's file (``cards/<set>.toml``) parsed: the sheet
+    reads its ``background`` and ``logo`` from it (the bundle carries
+    neither — the roster and the tuning only)."""
+    path = CARDS_DIR / f"{name}.toml"
     if not path.is_file():
         raise GenerationError(
-            f"{exp.name}: background not found: {exp.backgrounds[key]}"
+            f"no expansion file for {name!r}: "
+            f"{path.relative_to(REPO_ROOT)} is not a file"
         )
-    return expansion.load_background(exp, key), path
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise GenerationError(
+            f"cannot read {path.relative_to(REPO_ROOT)}: {exc}"
+        ) from exc
 
 
-def _expansion_logo(exp: expansion.Expansion) -> tuple[Image.Image, Path]:
-    """The expansion's logo (RGBA) and its file: its ``logo.path``
-    (resolved against the expansion's folder) when the file exists, else
-    ``assets/images/logos/<set>.png``."""
-    path = (exp.path.parent / exp.logo_path).resolve()
-    if path.is_file():
-        return Image.open(path).convert("RGBA"), path
-    fallback = IMAGES_DIR / "logos" / f"{exp.name}.png"
-    if fallback.is_file():
-        return Image.open(fallback).convert("RGBA"), fallback
-    raise GenerationError(
-        f"no logo for expansion {exp.name!r}: {exp.logo_path!r} (against "
-        f"the expansion's folder) is not a file and neither is "
-        f"{fallback.relative_to(REPO_ROOT)}"
+def _expansion_background(name: str, toml: dict) -> tuple[Image.Image, Path]:
+    """The expansion's background (RGBA) and its file: its
+    ``background`` (a key of ``assets/images/backgrounds/`` — the same
+    one its items' materials use)."""
+    key = toml.get("background")
+    if not isinstance(key, str):
+        raise GenerationError(
+            f"{name}: the expansion's 'background' must name a background "
+            f"({BACKGROUNDS_DIR.relative_to(REPO_ROOT)}/<key>.png)"
+        )
+    path = BACKGROUNDS_DIR / f"{key}.png"
+    if not path.is_file():
+        raise GenerationError(
+            f"{name}: background not found: {path.relative_to(REPO_ROOT)}"
+        )
+    return Image.open(path).convert("RGBA"), path
+
+
+def _expansion_logo(name: str, toml: dict) -> tuple[Image.Image, Path]:
+    """The expansion's logo (RGBA) and its file: its ``logo`` (a name of
+    ``assets/images/logos/``) when the file exists, else the NIKKE mark
+    (the white one — the way the box's and pack's materials draw the
+    logo-less sets)."""
+    logo = toml.get("logo")
+    path = (
+        LOGOS_DIR / f"{logo}.png"
+        if isinstance(logo, str)
+        else IMAGES_DIR / "Logo_White.png"
     )
+    if not path.is_file():
+        raise GenerationError(
+            f"no logo for expansion {name!r}: {path.relative_to(REPO_ROOT)} "
+            "is not a file"
+        )
+    return Image.open(path).convert("RGBA"), path
+
+
+# --- the source hash --------------------------------------------------------
 
 
 def _source_hash(
-    exp: expansion.Expansion,
+    bundle: bytes,
     logo_path: Path,
     background_path: Path,
-    rows: list[str],
     paths: dict[tuple[str, str], Path],
 ) -> str:
-    """SHA-256 of the sheet image's inputs: the expansion's name, its logo,
-    its background, the full roster's stems (the image's label column is
-    sized from them, so a roster change re-composes every image) and the
-    image's own first frames (a missing card hashes a sentinel, so the
-    image re-composes when it appears) and each cell's animated state (an
-    ``.mp4`` next to the first frame; it drives the ▶ markers) — embedded
-    under :data:`nikke_reborn.SOURCE_HASH_KEY` so an unchanged image is
-    skipped instead of re-composed."""
+    """SHA-256 of the sheet image's inputs: the expansion's bundle (the
+    roster — the image's label column is sized from the full roster's
+    labels, so a roster change re-composes every image), its logo, its
+    background and the image's own first frames (a missing card hashes
+    a sentinel, so the image re-composes when it appears) and each
+    cell's animated state (an ``.mp4`` next to the first frame; it
+    drives the ▶ markers) — embedded under :data:`SOURCE_HASH_KEY` so
+    an unchanged image is skipped instead of re-composed."""
     digest = hashlib.sha256()
-    digest.update(exp.name.encode())
-    digest.update(logo_path.read_bytes())
-    digest.update(background_path.read_bytes())
-    for stem in rows:
-        digest.update(stem.encode())
+    hash_term(digest, bundle)
+    hash_term(digest, logo_path.read_bytes())
+    hash_term(digest, background_path.read_bytes())
     for key in sorted(paths):
         path = paths[key]
-        digest.update(path.name.encode())
+        hash_term(digest, path.name.encode())
         if path.is_file():
-            digest.update(path.read_bytes())
+            hash_term(digest, path.read_bytes())
         else:
-            digest.update(b"missing")
-        digest.update(b"1" if path.with_suffix(".mp4").is_file() else b"0")
+            hash_term(digest, b"missing")
+        hash_term(digest, b"1" if path.with_suffix(".mp4").is_file() else b"0")
     return digest.hexdigest()
 
 
 def _summary_source_hash(
-    exp: expansion.Expansion,
+    bundle: bytes,
     logo_path: Path,
     background_path: Path,
     ordered: list[tuple[str, str]],
     paths: dict[tuple[str, str], Path],
 ) -> str:
     """SHA-256 of the summary grid's inputs — everything it draws: the
-    expansion's name, its logo and background and the ordered cells'
+    expansion's bundle, its logo and background and the ordered cells'
     first frames (a missing card hashes a sentinel, so the grid
     re-composes when the card appears; the labels and the animated
     state do not enter it — the grid draws neither). Embedded under
-    :data:`nikke_reborn.SOURCE_HASH_KEY` so an unchanged grid is
+    :data:`SOURCE_HASH_KEY` so an unchanged grid is
     skipped instead of re-composed."""
     digest = hashlib.sha256()
-    hash_term(digest, exp.name.encode())
+    hash_term(digest, bundle)
     hash_term(digest, logo_path.read_bytes())
     hash_term(digest, background_path.read_bytes())
     for stem, column in ordered:
@@ -529,9 +590,12 @@ def _stored_hash(out_path: Path) -> str | None:
     try:
         with Image.open(out_path) as image:
             return image.info.get(SOURCE_HASH_KEY)
-    except Exception:  # noqa: BLE001 — older/corrupt cards simply
+    except Exception:  # noqa: BLE001 — older/corrupt sheets simply
         # carry no readable tag: treat the file as stale (None)
         return None
+
+
+# --- the labels' fonts ------------------------------------------------------
 
 
 def _split_camel(text: str) -> str:
@@ -542,27 +606,16 @@ def _split_camel(text: str) -> str:
 
 def _column_label(column: str) -> str:
     """The column's header label: the rarity's name with whitespace
-    between each capital letter (``CoverProfile`` reads as
-    ``Cover Profile``)."""
+    between each capital letter."""
     return _split_camel(column)
 
 
-def _row_label(entry: expansion.CardEntry, width: int) -> str:
-    """The row's label: the card's number as ``#<number>`` (zero-padded
-    to *width* digits, so the labels' numbers align) and its words'
-    CamelCase split by whitespace — the character's name, and its
-    subtitle after a colon when it has one."""
-    label = f"#{entry.number:0{width}d} {_split_camel(entry.title)}"
-    if entry.subtitle:
-        label += ": " + _split_camel(entry.subtitle)
-    return label
-
-
-def _row_labels(entries: Sequence[expansion.CardEntry]) -> list[str]:
-    """The row labels for *entries* (:func:`_row_label`, the numbers padded
-    to the longest number's digit count, so the column aligns)."""
-    width = max(len(str(entry.number)) for entry in entries)
-    return [_row_label(entry, width) for entry in entries]
+def _row_labels(rows: list[str], names: dict[str, str]) -> list[str]:
+    """The row labels: the card's number (the bundle's, zero-padded —
+    the row's identity, so the labels' numbers align) and its name
+    (the bundle's ``Name``, the character's name and its subtitle after
+    a colon when it has one)."""
+    return [f"#{row} {names[row]}" for row in rows]
 
 
 def _column_label_font(labels: list[str], max_w: int) -> ImageFont.FreeTypeFont:
@@ -609,11 +662,13 @@ def _label_font(labels: list[str], card_w: int) -> tuple[ImageFont.FreeTypeFont,
     )
 
 
+# --- the canvas ---------------------------------------------------------------
+
+
 def _row_cards(
     prefix: str,
     paths: dict[tuple[str, str], Path],
     columns: list[str],
-    cells: set[tuple[str, str]],
     size: tuple[int, int],
     missing: set[tuple[str, str]],
 ) -> tuple[str, dict[str, Image.Image]]:
@@ -627,7 +682,7 @@ def _row_cards(
     cards = {}
     for column in columns:
         key = (prefix, column)
-        if key not in cells or key in missing:
+        if key not in paths or key in missing:
             continue
         with Image.open(paths[key]) as card:
             cards[column] = card.convert("RGBA").resize(
@@ -663,7 +718,7 @@ def _dimmed_background(background: Image.Image, size: tuple[int, int]) -> Image.
     own dominant color (see :func:`_fade_target`) with
     :data:`BACKGROUND_DIM` of it kept — the sheets' canvas, so the
     grid and the labels read against it."""
-    canvas = expansion._fit_cover(background, size)
+    canvas = _fit_cover(background, size)
     # autocontrast takes no alpha — stretch the RGB, then restore the
     # channel.
     alpha = canvas.getchannel("A")
@@ -671,20 +726,19 @@ def _dimmed_background(background: Image.Image, size: tuple[int, int]) -> Image.
         canvas.convert("RGB"), cutoff=(10, 0), preserve_tone=True
     )
     canvas.putalpha(alpha)
-    # The fade blends in linear light (see nikke_reborn.linear).
+    # The fade blends in linear light (see the linear-light section).
     target = _fade_target(background)
-    canvas = linear._from_linear(
-        linear._to_linear(canvas) * BACKGROUND_DIM
-        + linear.DECODE[list(target)] * (1.0 - BACKGROUND_DIM)
+    canvas = _from_linear(
+        _to_linear(canvas) * BACKGROUND_DIM
+        + DECODE[list(target)] * (1.0 - BACKGROUND_DIM)
     )
     canvas.putalpha(alpha)
     return canvas
 
 
 def _compose(
-    entries: Sequence[expansion.CardEntry],
+    rows: list[str],
     columns: list[str],
-    cells: set[tuple[str, str]],
     paths: dict[tuple[str, str], Path],
     logo: Image.Image,
     background: Image.Image,
@@ -697,9 +751,9 @@ def _compose(
     label_w: int,
 ) -> tuple[int, int]:
     """Draw one sheet image — the logo header (the logo with the pack's
-    and box's glow and trail treatment), the column labels and the
-    label column (each label with a black trail — see
-    :data:`LABEL_TRAIL_FRACTION`) and the rows of first frames (the
+    and box's glow and trail treatment, see :func:`_draw_logo`), the
+    column labels and the label column (each label with a black trail —
+    see :data:`LABEL_TRAIL_FRACTION`) and the rows of first frames (the
     animated cards' cells marked with a white ▶ in a black circle, a
     black *MISSING_TEXT* placeholder box for the cells in *missing*,
     and a legend — the badge and ``= Animated`` — in the top-right
@@ -708,14 +762,13 @@ def _compose(
     a
     canvas fitted to its content, the cards' copyright line (a bit
     smaller) in white at the bottom left, and write it to *out_path*
-    (atomically, the *source_hash* embedded). *entries* is the image's
+    (atomically, the *source_hash* embedded). *rows* is the image's
     rows (a window of the expansion's roster, in the roster's order)
     and *labels* their labels, in the same order (*font* and *label_w*
     being the label font and column width sized from the full roster,
     so the images align); the rows' first frames are decoded and
     resized in parallel threads; the finished canvas is assembled on
     the main thread. Returns the canvas's size."""
-    rows = [entry.stem for entry in entries]
     row_count = len(rows)
     col_count = len(columns)
     gutter_total = (col_count - 1) * CELL_GAP
@@ -776,7 +829,7 @@ def _compose(
     # The triangle's mass sits on its base (the left edge), so its ink is
     # nipped 1 px right of the geometric center — shifting it 1 px right
     # reads as optically centered in the circle.
-    linear._linear_over(
+    _linear_over(
         badge,
         marker,
         ((badge_d - marker.width) // 2 + 1, (badge_d - marker.height) // 2),
@@ -790,25 +843,9 @@ def _compose(
     draw = ImageDraw.Draw(canvas)
 
     # --- the header's logo, the way the pack's and box's fronts render --
-    # it (see expansion._composite_logo for the treatment).
-    glow_color = expansion._background_glow_color(expansion._image_average(canvas))
-    logo_x = (width - logo.width) // 2
-    halo, pad = expansion._logo_glow_layer(
-        logo,
-        round(expansion.LOGO_GLOW_RADIUS * height),
-        glow_color,
-        expansion.LOGO_GLOW_INTENSITY,
-    )
-    expansion._screen_composite(canvas, halo, (logo_x - pad, HEADER_PADDING - pad))
-    trail_offset = round(expansion.LOGO_TRAIL * logo.height)
-    if trail_offset > 0:
-        trail_tint = tuple(int(c * expansion.LOGO_TRAIL_DARKEN) for c in glow_color)
-        trail = Image.new("RGBA", logo.size, trail_tint + (255,))
-        trail.putalpha(logo.getchannel("A"))
-        canvas.alpha_composite(
-            trail, (logo_x + trail_offset, HEADER_PADDING + trail_offset)
-        )
-    canvas.alpha_composite(logo, (logo_x, HEADER_PADDING))
+    # it (see :func:`_draw_logo` for the treatment).
+    glow_color = _background_glow_color(_image_average(canvas))
+    _draw_logo(canvas, logo, ((width - logo.width) // 2, HEADER_PADDING), glow_color)
     x0 = MARGIN
     grid_x = x0 + label_w + LABEL_GAP
     grid_y = header + label_h + COLUMN_LABEL_GAP
@@ -845,7 +882,7 @@ def _compose(
         fill=LABEL_COLOR,
         anchor="lm",
     )
-    linear._linear_over(canvas, badge, (legend_x - LEGEND_GAP - badge.width, MARGIN))
+    _linear_over(canvas, badge, (legend_x - LEGEND_GAP - badge.width, MARGIN))
 
     # --- the rows: rendered in worker threads, assembled on the main ----
     workers = min(len(rows), os.cpu_count() or 1, MAX_STAGE_THREADS)
@@ -856,7 +893,6 @@ def _compose(
             rows,
             itertools.repeat(paths),
             itertools.repeat(columns),
-            itertools.repeat(cells),
             itertools.repeat((cell_w, cell_h)),
             itertools.repeat(missing),
         )
@@ -895,7 +931,7 @@ def _compose(
                 if card is None:
                     continue
                 if key in animated:
-                    linear._linear_over(
+                    _linear_over(
                         card,
                         badge,
                         (
@@ -903,7 +939,7 @@ def _compose(
                             (card.height - badge.height) // 2,
                         ),
                     )
-                linear._linear_over(canvas, card, (x, y))
+                _linear_over(canvas, card, (x, y))
 
     # --- the copyright line: the cards' notice, bottom left, white -----
     font_size = round(
@@ -935,13 +971,16 @@ def _compose(
     return canvas.size
 
 
+# --- the summary grid ---------------------------------------------------------
+
+
 def _summary_logo_box(
     W: int, H: int, logo_aspect: float, f: float
 ) -> tuple[int, int, int, int]:
     """The logo's box (x0, y0, x1, y1): *f* of the sheet's height tall, its
-    width proportional, centered — the box ``expansion._composite_logo``
-    scales the mark to for ``mark_height=f`` and centers, so the void lines
-    up with the mark that gets drawn."""
+    width proportional, centered — the box :func:`_draw_logo` draws the
+    mark at for *f* (centered at the sheet's), so the void lines up with
+    the mark that gets drawn."""
     logo_h = round(f * H)
     logo_w = round(logo_h * logo_aspect)
     x0 = W // 2 - logo_w // 2
@@ -955,7 +994,7 @@ def _summary_keep_out(H: int) -> int:
     leaves the mark and its bloom and shadow card-free. The shadow is offset
     down-right, so its far (down-right) reach is the offset plus its blur's
     three sigma; the glow is symmetric. The larger of the two bounds both."""
-    glow = 3 * round(expansion.LOGO_GLOW_RADIUS * H)
+    glow = 3 * round(LOGO_GLOW_RADIUS * H)
     shadow = round(SUMMARY_LOGO_SHADOW_OFFSET * H) + 3 * round(
         SUMMARY_LOGO_SHADOW_RADIUS * H
     )
@@ -1180,7 +1219,7 @@ def _summary_grid(
     in the void and in the cells of *missing*), with *logo* over the
     void, at the sheet's center (at :data:`SUMMARY_LOGO_FRACTION` of
     the sheet's height, the pack's and box's fronts' treatment — see
-    ``expansion._composite_logo`` — plus a soft drop shadow behind the
+    :func:`_draw_logo` — plus a soft drop shadow behind the
     mark) — and write it to *out_path*
     (atomically, the *source_hash* embedded). The cells' frames are
     decoded and cropped in parallel threads; the finished canvas is
@@ -1190,7 +1229,7 @@ def _summary_grid(
     canvas = _dimmed_background(background, SHEET_TARGET)
     # The logo's glow color, derived from the dimmed canvas (before the
     # cards), the way the pack's and box's fronts derive it.
-    glow_color = expansion._background_glow_color(expansion._image_average(canvas))
+    glow_color = _background_glow_color(_image_average(canvas))
     if display:
         workers = min(len(display), os.cpu_count() or 1, MAX_STAGE_THREADS)
         with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -1205,18 +1244,18 @@ def _summary_grid(
             )
             for frame, left, top in rendered:
                 if frame is not None:
-                    linear._linear_over(canvas, frame, (left, top))
+                    _linear_over(canvas, frame, (left, top))
     # The logo's drop shadow, behind the mark: a darkened, blurred
     # copy offset down-right, drawn before the mark so the glow and the
     # mark composite over it. The shadow uses the mark's box (the one
-    # expansion._composite_logo scales to for mark_height), so the mark
-    # is pre-scaled to it and _composite_logo's resize is a no-op.
+    # :func:`_draw_logo` draws at, at :data:`SUMMARY_LOGO_FRACTION` of
+    # the sheet's height), so the mark is pre-scaled to it.
     logo_h = round(SUMMARY_LOGO_FRACTION * SHEET_TARGET[1])
     mark = logo.resize(
         (round(logo_h * logo.width / logo.height), logo_h),
         Image.Resampling.LANCZOS,
     )
-    shadow, pad = expansion._logo_glow_layer(
+    shadow, pad = _logo_glow_layer(
         mark,
         round(SUMMARY_LOGO_SHADOW_RADIUS * SHEET_TARGET[1]),
         (0, 0, 0),
@@ -1226,13 +1265,303 @@ def _summary_grid(
     x = SHEET_TARGET[0] // 2 - mark.width // 2
     y = SHEET_TARGET[1] // 2 - mark.height // 2
     canvas.alpha_composite(shadow, (x + offset - pad, y + offset - pad))
-    expansion._composite_logo(
-        canvas,
-        mark,
-        SHEET_TARGET,
-        "center",
-        glow_color,
-        mark_height=SUMMARY_LOGO_FRACTION,
-    )
+    _draw_logo(canvas, mark, (x, y), glow_color)
     _save_atomic(canvas, out_path, source_hash)
     return canvas.size
+
+
+# --- linear-light (sRGB-decoded) compositing ---------------------------------
+# Pillow composites on the stored sRGB values, and a partially
+# transparent colour mix on that scale lands darker and hue-shifted
+# than the same mix of light (mid-alpha blends sag toward the dark
+# side, and the channels' ratios drift). The functions here decode
+# both operands to linear light (the IEC 61966-2-1 sRGB curve),
+# composite there, and re-encode. The 8-bit decode/encode round-trip
+# is exact, so where a layer's alpha is 0 or 255 the result is
+# byte-identical to Pillow's sRGB composite: the difference is
+# confined to the partially transparent pixels, which are exactly
+# the pixels Pillow gets wrong.
+#
+# Linear values are carried on the 0..65535 scale: f32 holds every
+# integer of it exactly, and the tables index it directly. The
+# element-wise numpy work releases the GIL, so the frames' decode
+# thread pool still runs in parallel.
+_LIN_MAX = 65535.0
+
+
+def _decode_table() -> np.ndarray:
+    out = np.empty(256, dtype=np.float32)
+    for v in range(256):
+        x = v / 255
+        linear = x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4
+        out[v] = linear * _LIN_MAX
+    return out
+
+
+def _encode_table() -> np.ndarray:
+    out = np.empty(65536, dtype=np.uint8)
+    for q in range(65536):
+        x = q / _LIN_MAX
+        encoded = x * 12.92 if x <= 0.0031308 else 1.055 * x ** (1 / 2.4) - 0.055
+        out[q] = round(encoded * 255)
+    return out
+
+
+#: sRGB value -> linear light on the 0..65535 scale.
+DECODE = _decode_table()
+
+#: Linear light on the 0..65535 scale -> sRGB value.
+ENCODE = _encode_table()
+
+
+def _alpha(image: Image.Image) -> np.ndarray:
+    """The image's alpha channel as a 0..1 f32 array."""
+    return np.asarray(image.getchannel("A"), dtype=np.float32) / 255.0
+
+
+def _to_linear(image: Image.Image) -> np.ndarray:
+    """The image's RGB, sRGB-decoded, as an (h, w, 3) f32 array on the
+    0..65535 scale (see the section's header)."""
+    flat = np.frombuffer(image.convert("RGB").tobytes(), dtype=np.uint8)
+    return DECODE[flat].reshape(image.size[1], image.size[0], 3)
+
+
+def _from_linear(array: np.ndarray) -> Image.Image:
+    """An (h, w, 3) f32 array on the 0..65535 scale back to an 8-bit
+    sRGB RGB image (clipped)."""
+    index = np.clip(array, 0.0, _LIN_MAX).astype(np.uint16)
+    return Image.frombytes(
+        "RGB", (array.shape[1], array.shape[0]), ENCODE[index].tobytes()
+    )
+
+
+def _clip_box(
+    base_size: tuple[int, int], layer_size: tuple[int, int], pos: tuple[int, int]
+) -> tuple[int, int, int, int] | None:
+    """The overlap of a *layer* at *pos* on a canvas of *base_size*
+    (both (width, height)), as (x, y, w, h) in canvas coordinates, or
+    None when there is none."""
+    x, y = pos
+    left, top = max(0, x), max(0, y)
+    right = min(base_size[0], x + layer_size[0])
+    bottom = min(base_size[1], y + layer_size[1])
+    if right <= left or bottom <= top:
+        return None
+    return (left, top, right - left, bottom - top)
+
+
+def _encode_alpha(alpha: np.ndarray, size: tuple[int, int]) -> Image.Image:
+    """A 0..1 f32 alpha as an 8-bit L channel."""
+    return Image.frombytes(
+        "L",
+        (size[0], size[1]),
+        np.rint(np.clip(alpha, 0.0, 1.0) * 255).astype(np.uint8).tobytes(),
+    )
+
+
+def _linear_over(
+    base: Image.Image, layer: Image.Image, pos: tuple[int, int] = (0, 0)
+) -> None:
+    """Composite *layer* over *base* in linear light (Porter-Duff
+    'over', the layer's straight alpha as the coverage; the alpha
+    channels composite the same way) at *pos*, clipped to *base*'s
+    bounds; modifies *base* in place. Valid for any base alpha: the
+    destination contributes premultiplied and the result is
+    renormalised to straight colour, so a transparent base receives the
+    layer's straight colour exactly as ``alpha_composite`` does.
+    Where the base is opaque the blend is ``l*a + base*(1 - a)`` —
+    byte-identical to ``base.alpha_composite(layer, pos)`` wherever the
+    layer's alpha is 0 or 255 (see the section's header)."""
+    box = _clip_box(base.size, layer.size, pos)
+    if box is None:
+        return
+    x, y, w, h = box
+    src = (x - pos[0], y - pos[1], x - pos[0] + w, y - pos[1] + h)
+    dst = base.crop((x, y, x + w, y + h))
+    region = _to_linear(dst)
+    dst_alpha = _alpha(dst)
+    coverage = _alpha(layer.crop(src))
+    out_alpha = coverage + dst_alpha * (1.0 - coverage)
+    straight = _to_linear(layer.crop(src))
+    # The general blend divides by the output alpha; the degenerate
+    # pixels take their exact, un-divided values instead (a clear layer
+    # leaves the base untouched, a transparent base receives the layer
+    # straight) so no pixel ever pays a second rounding.
+    denom = np.where(out_alpha > 0.0, out_alpha, 1.0)
+    general = (
+        straight * coverage[..., None]
+        + region * dst_alpha[..., None] * (1.0 - coverage[..., None])
+    ) / denom[..., None]
+    out = np.where(
+        coverage[..., None] == 0.0,
+        region,
+        np.where(dst_alpha[..., None] == 0.0, straight, general),
+    )
+    image = _from_linear(out)
+    image.putalpha(_encode_alpha(out_alpha, dst.size))
+    base.paste(image, (x, y))
+
+
+# --- the copyright line ------------------------------------------------------
+#: The copyright text's nominal size (px at the reference card width).
+COPYRIGHT_NOMINAL_SIZE = 20
+#: The copyright's weight (a light weight reads quieter at its small
+#: size).
+COPYRIGHT_WEIGHT = 300
+#: The copyright's supersampling factor: at the final size FreeType
+#: quantizes glyph advances unevenly (the word spaces come out
+#: different widths), and the LANCZOS downscale re-smooths them.
+COPYRIGHT_SUPERSAMPLE = 4
+
+COPYRIGHT_TEXT = "©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP."
+
+
+def _set_weight(font: ImageFont.FreeTypeFont, weight: int) -> None:
+    """Set *font*'s weight via its variation axes (variable fonts only:
+    FreeType raises OSError for static fonts)."""
+    try:
+        font.set_variation_by_axes([weight])
+    except OSError:
+        pass
+
+
+def _text_ink_offsets(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int, int]:
+    """The ink offsets (left, top, bottom) of *text* from its draw
+    origin — measured on a probe render, since the rasterized ink can
+    differ from the font metrics."""
+    origin = 8
+    probe = Image.new(
+        "L",
+        (
+            round(font.getlength(text)) + 2 * origin,
+            font.getmetrics()[0] + font.getmetrics()[1] + 2 * origin,
+        ),
+        0,
+    )
+    ImageDraw.Draw(probe).text((origin, origin), text, font=font, fill=255)
+    bbox = probe.getbbox()
+    assert bbox is not None  # the ink is drawn (fill 255 on a black probe)
+    left, top, _, bottom = bbox
+    return left - origin, top - origin, bottom - origin
+
+
+# --- the expansion logo's treatment ------------------------------------------
+# The sheet's header and the summary's center draw the mark the way the
+# box's and pack's materials do: a soft halo (the mark's alpha blurred,
+# tinted by the scene and screen-blended for a light bloom), a tight
+# trail (the mark's own silhouette in a darkened glow tint, offset
+# down-right) and the sharp mark on top.
+LOGO_GLOW_RADIUS = 0.012  # glow blur radius (canvas-height fraction)
+LOGO_GLOW_INTENSITY = 1.0  # glow strength (alpha multiplier of the halo)
+LOGO_GLOW_VALUE = 0.9  # target brightness of the glow tint (0-1)
+LOGO_TRAIL = 0.008  # the solid trail's offset (mark-height fraction)
+LOGO_TRAIL_DARKEN = 0.7  # the trail's tint darkened relative to the glow's
+
+
+def _image_average(image: Image.Image) -> tuple[int, int, int]:
+    """The area-averaged RGB of *image* (a single box-filtered pixel) — the
+    image's representative color, cheap to compute at any size."""
+    pixel = image.convert("RGB").resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+    assert isinstance(pixel, tuple)
+    return (pixel[0], pixel[1], pixel[2])
+
+
+def _background_glow_color(
+    background: tuple[int, int, int], value: float = LOGO_GLOW_VALUE
+) -> tuple[int, int, int]:
+    """The glow tint from the *background* color: its hue and
+    saturation, brightened to *value*. Keeping the background's hue lets the
+    bloom match the scene's ambient color instead of a fixed white; a fixed
+    target brightness keeps it visible no matter how dark the background is.
+    A near-gray background yields a near-neutral glow."""
+    hue, sat, _ = colorsys.rgb_to_hsv(*(c / 255 for c in background))
+    r, g, b = colorsys.hsv_to_rgb(hue, sat, value)
+    return round(r * 255), round(g * 255), round(b * 255)
+
+
+def _logo_glow_layer(
+    logo: Image.Image, radius: int, color: tuple[int, int, int], intensity: float
+) -> tuple[Image.Image, int]:
+    """A soft halo around *logo*: its alpha blurred by *radius* px,
+    tinted *color*, scaled by *intensity*, on a transparent canvas
+    padded by the blur's full visible extent (three sigma) on every
+    side, so the halo is not clipped at the mark's edges. Returns the
+    RGBA halo and the pad, so the caller can re-align it with the sharp
+    mark."""
+    pad = max(1, 3 * radius)
+    halo = Image.new("L", (logo.width + 2 * pad, logo.height + 2 * pad), 0)
+    halo.paste(logo.getchannel("A"), (pad, pad))
+    halo = halo.filter(ImageFilter.GaussianBlur(radius))
+    halo = halo.point(lambda v: min(255, round(v * intensity)))
+    layer = Image.new("RGBA", halo.size, color + (0,))
+    layer.putalpha(halo)
+    return layer, pad
+
+
+def _screen_composite(
+    base: Image.Image, overlay: Image.Image, pos: tuple[int, int]
+) -> None:
+    """Screen-blend *overlay*'s color onto *base* at *pos*, masked by the
+    overlay's alpha: the mark's bloom brightens the canvas without
+    painting over it (unlike an opaque alpha paste). Clipped to *base*'s
+    bounds; *base* is modified in place."""
+    base_w, base_h = base.size
+    over_w, over_h = overlay.size
+    x, y = pos
+    sx, sy = max(0, -x), max(0, -y)
+    ex, ey = min(over_w, base_w - x), min(over_h, base_h - y)
+    if ex <= sx or ey <= sy:
+        return
+    box = (x + sx, y + sy, x + ex, y + ey)
+    region = base.crop(box)
+    halo = overlay.crop((sx, sy, ex, ey))
+    mask = halo.getchannel("A")
+    blended = ImageChops.screen(region.convert("RGB"), halo.convert("RGB"))
+    base.paste(Image.composite(blended, region.convert("RGB"), mask), box)
+
+
+def _fit_cover(background: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Fit *background* to *size*: scaled just enough to cover the whole
+    region, then cropped horizontally centered and vertically
+    bottom-aligned — the sheet's canvas (the bottom edges aligned, no
+    deformation)."""
+    width, height = size
+    scale = max(width / background.width, height / background.height)
+    if scale != 1.0:
+        background = background.resize(
+            (round(background.width * scale), round(background.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+    left = (background.width - width) // 2
+    top = background.height - height
+    return background.crop((left, top, left + width, top + height)).convert("RGBA")
+
+
+def _draw_logo(
+    canvas: Image.Image,
+    logo: Image.Image,
+    pos: tuple[int, int],
+    glow_color: tuple[int, int, int],
+) -> None:
+    """The mark's treatment — the sheet's header and the summary's
+    center share it (the way the box's and pack's materials draw it):
+    the soft halo screen-blended for a light bloom, the tight trail
+    (the mark's own silhouette in a darkened glow tint, offset
+    down-right) and the sharp mark on top, at *pos* (the mark's top
+    left corner), the halo tinted *glow_color* (see
+    :func:`_background_glow_color`). Modifies *canvas* in place."""
+    x, y = pos
+    halo, pad = _logo_glow_layer(
+        logo,
+        round(LOGO_GLOW_RADIUS * canvas.height),
+        glow_color,
+        LOGO_GLOW_INTENSITY,
+    )
+    _screen_composite(canvas, halo, (x - pad, y - pad))
+    trail_offset = round(LOGO_TRAIL * logo.height)
+    if trail_offset > 0:
+        trail_tint = tuple(int(c * LOGO_TRAIL_DARKEN) for c in glow_color)
+        trail = Image.new("RGBA", logo.size, trail_tint + (255,))
+        trail.putalpha(logo.getchannel("A"))
+        canvas.alpha_composite(trail, (x + trail_offset, y + trail_offset))
+    canvas.alpha_composite(logo, (x, y))

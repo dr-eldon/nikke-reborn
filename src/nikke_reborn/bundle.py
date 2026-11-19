@@ -13,9 +13,10 @@ structure and the set's own (un-suffixed) internal names.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 
-from nikke_reborn import bundler, metadata
+from nikke_reborn import bundler
 from nikke_reborn.config import BUNDLES_DIR, CARDS_DIR, OUTPUT_DIR, SHOP_DIR
 from nikke_reborn.file import copy
 from nikke_reborn.preset import Preset
@@ -50,6 +51,16 @@ def run() -> None:
         # twins carry the set's own internal names).
         set_name = Preset.strip_suffix(target.name)
 
+        # The bundle's identity comes from the set's metadata bundle
+        # (the JSON copied in below): its asset-bundle name (the game
+        # resolves the assets by it) and the phone app's id (the shop
+        # images' folder).
+        bundle_json = json.loads(
+            target.with_suffix(".json").read_text(encoding="utf-8")
+        )
+        bundle_id = bundle_json["BundleId"]
+        app_id = bundle_json["CustomShops"][0]["PhoneAppId"]
+
         bundle = BUNDLES_DIR / f"{MOD_NAME} - {target.name}"
         bundle.mkdir(parents=True)
 
@@ -58,11 +69,7 @@ def run() -> None:
         for file in ["Shop_Icon.png", "Shop_IBG.png", "Shop_OBG.png"]:
             copy(
                 SHOP_DIR / file,
-                plugins
-                / "Phone - Overhaul"
-                / "App Images"
-                / f"{metadata.BUNDLE_NAME}"
-                / file,
+                plugins / "Phone - Overhaul" / "App Images" / app_id / file,
             )
 
         prefab = plugins / MOD_NAME / f"{set_name}_prefabloader"
@@ -76,7 +83,7 @@ def run() -> None:
                 if file.name.endswith(".mp4")
             ]
 
-            videos_dir = animator / f"{metadata.BUNDLE_NAME}_{set_name}"
+            videos_dir = animator / bundle_id
 
             if videos:
                 videos_dir.mkdir(parents=True)
@@ -87,7 +94,7 @@ def run() -> None:
         copy(target.with_suffix(".json"), plugin.with_suffix(".json"))
         bundler.build(
             assets_dir=target,
-            name=f"{metadata.BUNDLE_NAME}_{set_name}",
+            name=bundle_id,
             output=plugin,
             set_name=set_name,
         )

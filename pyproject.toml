@@ -1,7 +1,7 @@
 [project]
 name = "nikke-reborn"
 version = "0.1.0"
-description = "Render and composite Nikke trading cards"
+description = "Pack-opening simulation, sprite sheets and the game bundle for NIKKE REBORN"
 readme = "README.md"
 authors = [
     { name = "Dr. Eldon Tyrell", email = "the.replicant.maker@pm.me" }
@@ -14,11 +14,9 @@ dependencies = [
 ]
 
 [project.scripts]
-generate = "nikke_reborn.generate:run"
 bundle = "nikke_reborn.bundle:run"
-spritesheet = "nikke_reborn.spritesheet:run"
 simulate = "nikke_reborn.simulation:run"
-test = "nikke_reborn.test:run"
+spritesheet = "nikke_reborn.spritesheet:run"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]

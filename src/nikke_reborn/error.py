@@ -1,5 +1,5 @@
-"""Shared error type for the card pipeline."""
+"""Shared error type for the commands."""
 
 
 class GenerationError(RuntimeError):
-    """A card definition could not be rendered or composed."""
+    """An input could not be found or read."""

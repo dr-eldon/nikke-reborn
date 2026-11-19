@@ -13,12 +13,10 @@ The report embeds the draws and the formula's values, so its price editor
 re-prices the pool on the fly and recomputes the price-dependent statistics
 in place (the packs themselves are never re-rolled).
 
-The expansion's bundle is rebuilt from ``cards/<expansion>.toml``,
-``database/characters.json`` and the current
-:mod:`nikke_reborn.metadata` tuning (the same inputs ``generate``
-writes to ``output/<expansion>.json``), so the report always reflects
-the current tuning — no ``generate`` run needed, and a stale bundle on
-disk is never consulted.
+The expansion's bundle is read straight from ``output/<expansion>.json``
+— what ``generate`` writes — so the report reflects the last
+``generate`` run: the card pool, the pack's slot weights and the
+price formula's values all come from the bundle on disk.
 
 A pack is opened the way the game's pack generation strategies do (see
 :func:`run_simulation` and :func:`_slot_tables`), and every card is
@@ -41,8 +39,7 @@ from datetime import datetime
 from itertools import pairwise
 from pathlib import Path
 
-from nikke_reborn import expansion, metadata
-from nikke_reborn.config import CARDS_DIR, OUTPUT_DIR, REPO_ROOT
+from nikke_reborn.config import OUTPUT_DIR, REPO_ROOT
 from nikke_reborn.error import GenerationError
 
 #: The border types in the game's ``ECardBorderType`` order (their
@@ -134,27 +131,35 @@ def card_price(expansion: dict, rarity: str, border: str, foil: bool) -> float:
     return price
 
 
-def _load_expansion(expansion_path: Path) -> tuple[dict, dict, str]:
-    """The expansion's metadata and its pack item, built from
-    ``cards/<set>.toml`` through the current :mod:`nikke_reborn.metadata`
-    tuning (what ``generate`` would write to ``output/<set>.json``), and
-    the set's name."""
-    if not expansion_path.is_file():
-        available = ", ".join(sorted(path.stem for path in CARDS_DIR.glob("*.toml")))
-        raise GenerationError(
-            f"unknown expansion {expansion_path.name!r} (available: {available})"
+def _load_bundle(name: str) -> tuple[dict, dict]:
+    """The expansion's bundle on disk — what ``generate`` writes to
+    ``output/<set>.json``: its card expansion entry (the pool, the
+    rarities and the price formula's values) and its pack item (the
+    slot weights and the pack's flags)."""
+    path = OUTPUT_DIR / f"{name}.json"
+    if not path.is_file():
+        available = (
+            ", ".join(sorted(entry.stem for entry in OUTPUT_DIR.glob("*.json")))
+            or "none"
         )
-    exp = expansion.load_expansion(expansion_path)
-    cards = metadata.cards(exp)
-    if not cards:
         raise GenerationError(
-            f"no cards under {expansion_path.relative_to(REPO_ROOT)}/"
+            f"no bundle for expansion {name!r}: "
+            f"{path.relative_to(REPO_ROOT)} is not a file "
+            f"(the available bundles: {available}); run 'generate' first"
         )
-    return (
-        metadata.expansion(exp.name, cards, exp.rarities),
-        metadata.pack(exp.name, exp.rarities),
-        exp.name,
+    bundle = json.loads(path.read_text(encoding="utf-8"))
+    expansions = bundle.get("CardExpansions") or []
+    if not expansions:
+        raise GenerationError(f"{path.name}: the bundle carries no card expansion")
+    expansion = expansions[0]
+    if not expansion.get("Cards"):
+        raise GenerationError(f"{path.name}: the bundle carries no cards")
+    pack = next(
+        (item for item in bundle.get("Items", []) if item.get("IsCardPack")), None
     )
+    if pack is None:
+        raise GenerationError(f"{path.name}: the bundle carries no pack item")
+    return expansion, pack
 
 
 def _pool(expansion: dict) -> list[Card]:
@@ -1401,8 +1406,8 @@ def render_report(
   <div class="meta">
     {n:,} packs of <code>{e(pack["Name"])}</code> &middot; seed {result.seed}
     &middot; {datetime.now().strftime("%Y-%m-%d %H:%M")} &middot;
-    built from <code>cards/{e(name)}</code> + <code>database/characters.json</code>
-    through the current <code>metadata.py</code> tuning
+    built from <code>output/{e(name)}.json</code> (the bundle the last
+    <code>generate</code> wrote)
   </div>
 
   <h2>Price model</h2>
@@ -1478,9 +1483,10 @@ def render_report(
     slot tables — a slot whose table has no rarity left that can be drawn comes up empty
     (the empty-slot count above), and the remaining slots' tables are renormalized over
     the rarities still available, so the simulation can run above or below the
-    theoretical values; there the simulation is the number to trust. A report always
-    reflects the current <code>metadata.py</code> tuning — a stale
-    <code>output/{e(name)}.json</code> is never consulted.</p>
+    theoretical values; there the simulation is the number to trust. The report
+    reflects the bundle on disk — <code>output/{e(name)}.json</code> as the last
+    <code>generate</code> wrote it; re-run <code>generate</code> after tuning the set
+    to update it.</p>
   </footer>
   <script type="application/json" id="sim-data">{data_json}</script>
   <script>{_SCRIPT}</script>
@@ -1508,8 +1514,9 @@ def run() -> None:
     parser.add_argument(
         "expansion",
         help=(
-            "the expansion to simulate (its name or path — cards/<set>.toml, "
-            "<set>.toml or <set>)"
+            "the expansion to simulate (its name — the bundle at "
+            "output/<set>.json — or a path to one of its files, "
+            "<set>.toml or <set>.json)"
         ),
     )
     parser.add_argument(
@@ -1548,8 +1555,9 @@ def run() -> None:
     )
 
     try:
-        expansion_path = expansion.resolve_expansion_path(args.expansion)
-        expansion_data, pack, name = _load_expansion(expansion_path)
+        raw = args.expansion
+        name = Path(raw).stem if "/" in raw or raw.endswith((".toml", ".json")) else raw
+        expansion_data, pack = _load_bundle(name)
         cards = _pool(expansion_data)
         result = run_simulation(expansion_data, pack, cards, args.packs, seed, args.hit)
         stats = compute_statistics(expansion_data, pack, cards, result, args.hit)
