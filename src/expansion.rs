@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::Deserialize;
@@ -6,12 +6,16 @@ use tokio::fs;
 use tokio::process;
 
 use crate::card;
+use crate::character;
 use crate::model;
 use crate::{Card, Character, Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Expansion {
     pub id: String,
+    pub logo: Option<String>,
+    pub background: String,
+    pub featured: Arc<[character::Featured]>,
     pub models: Arc<[Model]>,
 }
 
@@ -47,6 +51,9 @@ impl Expansion {
     pub async fn load(path: impl AsRef<Path>) -> Result<Self> {
         #[derive(Debug, Deserialize)]
         struct _Expansion {
+            logo: Option<String>,
+            background: String,
+            featured: Vec<character::Featured>,
             cards: Vec<_Model>,
         }
 
@@ -79,6 +86,9 @@ impl Expansion {
                 .expect("expansion must have file stem")
                 .to_string_lossy()
                 .into_owned(),
+            logo: expansion.logo,
+            background: expansion.background,
+            featured: Arc::from(expansion.featured),
             models,
         })
     }
@@ -243,6 +253,12 @@ impl Expansion {
         }
 
         Ok(cards)
+    }
+
+    pub fn output_dir(&self) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("output")
+            .join(format!("{}_Ultra", self.id.clone()))
     }
 }
 

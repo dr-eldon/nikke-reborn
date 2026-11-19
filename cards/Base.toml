@@ -1,3 +1,5 @@
+background = "sky-night"
+
 rarities = [
     "Standard",
     "Profile",
@@ -10,7 +12,7 @@ rarities = [
     "Classified",
 ]
 
-pack = [
+featured = [
     { id = "c010", animation = "action", time = 1.247 },
     { id = "c011" },
     { id = "c013", animation = "action", time = 2 },
@@ -105,12 +107,3 @@ cards = [
     { id = "story1303" },
     { id = "mbg004_appearance" },
 ]
-
-[logo]
-path = "../assets/images/Logo_White.png"
-placement = "bottom"
-
-[background]
-base = "../assets/images/backgrounds/sky-night.png"
-special = "../assets/images/backgrounds/smoke-pink.png"
-battle = "../assets/images/backgrounds/bubble-maker.png"

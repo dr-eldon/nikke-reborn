@@ -1,3 +1,6 @@
+logo = "BlueWaterIsland"
+background = "beach-day"
+
 rarities = [
     "Standard",
     "Profile",
@@ -10,7 +13,7 @@ rarities = [
     "Classified",
 ]
 
-pack = [
+featured = [
     { id = "c353", animation = "action", time = 3 },
     { id = "c142_01", animation = "action", time = 1.34 },
     { id = "c014", animation = "action", time = 4.1 },
@@ -138,13 +141,3 @@ cards = [
     { id = "goldenship" },
     { id = "seayouagain" },
 ]
-
-[logo]
-path = "../assets/images/logos/BlueWaterIsland.png"
-placement = "bottom"
-
-[background]
-item = "../assets/images/backgrounds/beach-day.png"
-base = "../assets/images/backgrounds/sky-night.png"
-special = "../assets/images/backgrounds/smoke-pink.png"
-battle = "../assets/images/backgrounds/bubble-maker.png"

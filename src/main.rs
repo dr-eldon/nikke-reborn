@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::Serialize;
 
@@ -14,6 +14,8 @@ pub async fn main() -> Result<()> {
     let mut standards = Vec::new();
     let mut profiles = Vec::new();
     let mut full_arts = Vec::new();
+    let mut boxes = Vec::new();
+    let mut packs = Vec::new();
 
     let expansions = Expansion::list().await?;
 
@@ -40,11 +42,27 @@ pub async fn main() -> Result<()> {
                 .filter_map(|card| FullArt::new(expansion, card))
                 .filter(|full_art| !full_art.output.is_file()),
         );
+
+        boxes.push(Box {
+            background: expansion.background.clone(),
+            characters: expansion.featured.to_vec(),
+            logo: expansion.logo.clone(),
+            output: expansion.output_dir().join("CardBox_Material.png"),
+        });
+
+        packs.push(Pack {
+            background: expansion.background.clone(),
+            characters: expansion.featured.to_vec(),
+            logo: expansion.logo.clone(),
+            output: expansion.output_dir().join("CardPack_Material.png"),
+        });
     }
 
     generate("standard", &standards).await?;
     generate("profile", &profiles).await?;
     generate("full_art", &full_arts).await?;
+    generate("box", &boxes).await?;
+    generate("pack", &packs).await?;
 
     server.kill().await?;
 
@@ -57,7 +75,7 @@ fn server() -> Result<tokio::process::Child> {
         .spawn()?)
 }
 
-async fn generate(design: &str, cards: &[impl Serialize]) -> Result<()> {
+async fn generate(design: &str, jobs: &[impl Serialize]) -> Result<()> {
     use std::process;
     use tokio::io::AsyncWriteExt;
 
@@ -73,9 +91,9 @@ async fn generate(design: &str, cards: &[impl Serialize]) -> Result<()> {
 
     let mut stdin = pikke.stdin.take().expect("stdin must be piped");
 
-    for card in cards {
+    for job in jobs {
         stdin
-            .write_all(&serde_json::to_vec(card).expect("card must be serializable"))
+            .write_all(&serde_json::to_vec(job).expect("job must be serializable"))
             .await?;
         stdin.write_all(b"\n").await?;
         stdin.flush().await?;
@@ -118,8 +136,8 @@ impl Standard {
             variant: card.rarity.variant(),
             animation: card.animation.clone(),
             time: card.rarity.time(),
-            output: output_dir()
-                .join(format!("{}_Ultra", expansion.id.clone()))
+            output: expansion
+                .output_dir()
                 .join(card.file_name())
                 .with_extension("png"),
         })
@@ -150,8 +168,8 @@ impl Profile {
             title: card.title(),
             subtitle: card.subtitle(),
             reel: reel.join(","),
-            output: output_dir()
-                .join(format!("{}_Ultra", expansion.id.clone()))
+            output: expansion
+                .output_dir()
                 .join(card.file_name())
                 .with_extension("png"),
         })
@@ -188,14 +206,26 @@ impl FullArt {
             animation: card.animation.clone(),
             time: card.rarity.time(),
             focus: card.rarity.focus().to_owned(),
-            output: output_dir()
-                .join(format!("{}_Ultra", expansion.id.clone()))
+            output: expansion
+                .output_dir()
                 .join(card.file_name())
                 .with_extension("png"),
         })
     }
 }
 
-fn output_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("output")
+#[derive(Debug, Serialize)]
+struct Box {
+    background: String,
+    characters: Vec<character::Featured>,
+    logo: Option<String>,
+    output: PathBuf,
+}
+
+#[derive(Debug, Serialize)]
+struct Pack {
+    background: String,
+    characters: Vec<character::Featured>,
+    logo: Option<String>,
+    output: PathBuf,
 }
