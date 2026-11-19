@@ -10,7 +10,7 @@ use crate::card;
 use crate::character;
 use crate::environment;
 use crate::model;
-use crate::{Card, Character, Error, Result};
+use crate::{Card, Character, Error, Quality, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expansion {
@@ -284,8 +284,8 @@ impl Expansion {
         Ok(self.cards.get().unwrap())
     }
 
-    pub fn output_dir(&self) -> PathBuf {
-        environment::output_dir().join(format!("{}_Ultra", self.id.clone()))
+    pub fn output_dir(&self, quality: Quality) -> PathBuf {
+        environment::output_dir().join(format!("{}{}", self.id.clone(), quality.suffix()))
     }
 
     fn bundle_id(&self) -> String {

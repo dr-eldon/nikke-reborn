@@ -9,7 +9,7 @@ use nikke_reborn::card;
 use nikke_reborn::character;
 use nikke_reborn::environment;
 use nikke_reborn::model;
-use nikke_reborn::{Card, Character, Expansion, Result};
+use nikke_reborn::{Card, Character, Expansion, Quality, Result};
 
 static DRY: AtomicBool = AtomicBool::new(false);
 
@@ -18,12 +18,20 @@ pub async fn main() -> Result<()> {
     let mut args = env::args();
     let _process = args.next();
 
+    let mut quality = Quality::default();
+
     while let Some(option) = args.next()
         && option.starts_with("--")
     {
         match option.as_str() {
             "--dry" => {
                 DRY.store(true, atomic::Ordering::Relaxed);
+            }
+            "--ultra" => {
+                quality = Quality::Ultra;
+            }
+            "--low" => {
+                quality = Quality::Low;
             }
             _ => {
                 eprintln!("unknown option: {option}");
@@ -43,26 +51,27 @@ pub async fn main() -> Result<()> {
     let expansions = Expansion::list().await?;
 
     for expansion in expansions.iter() {
+        let output = expansion.output_dir(quality);
         let cards = expansion.cards().await?;
 
         standards.extend(
             cards
                 .iter()
-                .filter_map(|card| Standard::new(expansion, card))
+                .filter_map(|card| Standard::new(expansion, card, quality))
                 .filter(|standard| !standard.output.is_file()),
         );
 
         profiles.extend(
             cards
                 .iter()
-                .filter_map(|card| Profile::new(expansion, card))
+                .filter_map(|card| Profile::new(expansion, card, quality))
                 .filter(|profile| !profile.output.is_file()),
         );
 
         full_arts.extend(
             cards
                 .iter()
-                .filter_map(|card| FullArt::new(expansion, card))
+                .filter_map(|card| FullArt::new(expansion, card, quality))
                 .filter(|full_art| !full_art.output.is_file()),
         );
 
@@ -70,26 +79,22 @@ pub async fn main() -> Result<()> {
             background: expansion.background.clone(),
             characters: expansion.featured.to_vec(),
             logo: expansion.logo.clone(),
-            output: expansion.output_dir().join("CardBox_Material.png"),
+            output: output.join("CardBox_Material.png"),
         });
 
         packs.push(Pack {
             background: expansion.background.clone(),
             characters: expansion.featured.to_vec(),
             logo: expansion.logo.clone(),
-            output: expansion.output_dir().join("CardPack_Material.png"),
+            output: output.join("CardPack_Material.png"),
         });
 
         read_dir(environment::images_dir().join("shop"), async |file| {
-            copy(file, expansion.output_dir()).await
+            copy(file, &output).await
         })
         .await?;
 
-        copy(
-            environment::images_dir().join("Foilmask.png"),
-            expansion.output_dir(),
-        )
-        .await?;
+        copy(environment::images_dir().join("Foilmask.png"), &output).await?;
 
         let bundle = expansion.bundle().await?;
 
@@ -102,18 +107,18 @@ pub async fn main() -> Result<()> {
         .await?;
     }
 
-    generate("standard", &standards).await?;
-    generate("profile", &profiles).await?;
-    generate("full_art", &full_arts).await?;
-    generate("box", &boxes).await?;
-    generate("pack", &packs).await?;
+    generate("standard", &standards, quality).await?;
+    generate("profile", &profiles, quality).await?;
+    generate("full_art", &full_arts, quality).await?;
+    generate("box", &boxes, quality).await?;
+    generate("pack", &packs, quality).await?;
 
     for box_ in boxes {
-        snapshot(&box_.output, "CardBox_Mesh", true).await?;
+        snapshot(&box_.output, "CardBox_Mesh", true, quality).await?;
     }
 
     for pack in packs {
-        snapshot(&pack.output, "CardPackStatic_Mesh_low", false).await?;
+        snapshot(&pack.output, "CardPackStatic_Mesh_low", false, quality).await?;
     }
 
     server.kill().await?;
@@ -135,7 +140,7 @@ struct Standard {
 }
 
 impl Standard {
-    fn new(expansion: &Expansion, card: &Card) -> Option<Self> {
+    fn new(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Self> {
         if !matches!(
             card.rarity,
             card::Rarity::Standard | card::Rarity::Rare | card::Rarity::Cover | card::Rarity::Aim
@@ -153,7 +158,7 @@ impl Standard {
             animation: card.animation.clone(),
             time: card.rarity.time(),
             output: expansion
-                .output_dir()
+                .output_dir(quality)
                 .join(card.file_name())
                 .with_extension("png"),
         })
@@ -172,7 +177,7 @@ struct Profile {
 }
 
 impl Profile {
-    fn new(expansion: &Expansion, card: &Card) -> Option<Self> {
+    fn new(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Self> {
         let card::Rarity::Profile = &card.rarity else {
             return None;
         };
@@ -185,7 +190,7 @@ impl Profile {
             subtitle: card.subtitle(),
             reel: card.reel.join(","),
             output: expansion
-                .output_dir()
+                .output_dir(quality)
                 .join(card.file_name())
                 .with_extension("png"),
         })
@@ -204,7 +209,7 @@ struct FullArt {
 }
 
 impl FullArt {
-    fn new(expansion: &Expansion, card: &Card) -> Option<Self> {
+    fn new(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Self> {
         if !matches!(
             card.rarity,
             card::Rarity::Special
@@ -223,7 +228,7 @@ impl FullArt {
             time: card.rarity.time(),
             focus: card.rarity.focus().to_owned(),
             output: expansion
-                .output_dir()
+                .output_dir(quality)
                 .join(card.file_name())
                 .with_extension("png"),
         })
@@ -253,7 +258,7 @@ fn server() -> Result<tokio::process::Child> {
         .spawn()?)
 }
 
-async fn generate(design: &str, jobs: &[impl Serialize]) -> Result<()> {
+async fn generate(design: &str, jobs: &[impl Serialize], quality: Quality) -> Result<()> {
     use std::process;
     use tokio::io::AsyncWriteExt;
 
@@ -269,6 +274,8 @@ async fn generate(design: &str, jobs: &[impl Serialize]) -> Result<()> {
         ))
         .arg("--stdin")
         .args(["--threads", "8"])
+        .arg("--scale")
+        .arg(format!("{:.2}", quality.scale()))
         .stdin(process::Stdio::piped())
         .spawn()?;
 
@@ -288,7 +295,7 @@ async fn generate(design: &str, jobs: &[impl Serialize]) -> Result<()> {
     Ok(())
 }
 
-async fn snapshot(material: &Path, mesh: &str, copy: bool) -> Result<()> {
+async fn snapshot(material: &Path, mesh: &str, copy: bool, quality: Quality) -> Result<()> {
     if DRY.load(atomic::Ordering::Relaxed) {
         println!("{}: {mesh} copy={copy}", material.display());
         return Ok(());
@@ -298,6 +305,8 @@ async fn snapshot(material: &Path, mesh: &str, copy: bool) -> Result<()> {
         "{}/assets/meshes/{mesh}.obj",
         env!("CARGO_MANIFEST_DIR")
     ));
+
+    let size = ((1024.0 * quality.scale()) as u32).to_string();
 
     let mut unity_viewer = tokio::process::Command::new("unity-viewer")
         .arg(&mesh)
@@ -316,6 +325,8 @@ async fn snapshot(material: &Path, mesh: &str, copy: bool) -> Result<()> {
                 )
                 .with_extension("png"),
         )
+        .args(["--width", &size])
+        .args(["--height", &size])
         .spawn()?;
 
     unity_viewer.wait().await?;
