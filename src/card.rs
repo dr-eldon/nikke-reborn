@@ -1,4 +1,8 @@
 use std::fmt;
+use std::sync::LazyLock;
+
+use regex::Regex;
+use serde::Serialize;
 
 use crate::model;
 use crate::{Character, Model};
@@ -10,23 +14,27 @@ pub struct Card {
     pub animation: Option<String>,
     pub rarity: Rarity,
     pub character: Option<Character>,
+    pub reel: Vec<String>,
 }
 
-impl Card {
-    const SEPARATORS: &[char] = &[':', '-', '_'];
+static SEPARATORS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(":| - |_").expect("parse title separator regex"));
 
+impl Card {
     pub fn title(&self) -> String {
-        if let Some(character) = &self.character
-            && self.model.name.starts_with(&character.name)
-        {
-            &character.name
-        } else {
-            &self.model.name
-        }
-        .split(Self::SEPARATORS)
-        .next()
-        .expect("model name must not be empty")
-        .to_owned()
+        SEPARATORS
+            .split(
+                if let Some(character) = &self.character
+                    && self.model.name.starts_with(&character.name)
+                {
+                    &character.name
+                } else {
+                    &self.model.name
+                },
+            )
+            .next()
+            .expect("model name must not be empty")
+            .to_owned()
     }
 
     pub fn subtitle(&self) -> Option<String> {
@@ -35,7 +43,9 @@ impl Card {
             .name
             .trim_prefix(&self.title())
             .trim()
-            .trim_matches(Self::SEPARATORS)
+            .trim_prefix(':')
+            .trim_prefix(" - ")
+            .trim_prefix('_')
             .trim();
 
         if subtitle.is_empty() {
@@ -45,22 +55,57 @@ impl Card {
         Some(subtitle.to_owned())
     }
 
+    pub fn name(&self) -> String {
+        if let Some(subtitle) = self.subtitle() {
+            format!("{}: {subtitle}", self.title())
+        } else {
+            self.title()
+        }
+    }
+
     pub fn file_name(&self) -> String {
         format!(
             "{number:<04}_{model}_{title}_{rarity_index:<02}_{rarity}",
             number = self.number,
             model = self.model.id,
-            title = self.title(),
+            title = self
+                .title()
+                .chars()
+                .filter(|&c| c.is_ascii_alphanumeric() || c == '-')
+                .collect::<String>(),
             rarity_index = self.rarity.index(),
             rarity = self.rarity
         )
     }
+
+    pub fn border(&self) -> Border {
+        let border = self.rarity.border() as usize;
+
+        let bonus = self
+            .character
+            .as_ref()
+            .and_then(|character| character.rarity)
+            .map(|rarity| match rarity {
+                crate::character::Rarity::R => 0,
+                crate::character::Rarity::SR => 1,
+                crate::character::Rarity::SSR => 2,
+            })
+            .unwrap_or(0);
+
+        let bonus = if border > 0 {
+            (bonus as f32 / border as f32 + 0.5).floor() as usize
+        } else {
+            bonus
+        };
+
+        Border::ALL[(border + bonus).min(Border::ALL.len() - 1)]
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Rarity {
     Standard,
-    Profile { reel: Vec<String> },
+    Profile,
     Rare,
     Cover,
     Aim,
@@ -71,10 +116,10 @@ pub enum Rarity {
 }
 
 impl Rarity {
-    pub fn variant(&self) -> model::Variant {
+    pub fn variant(self) -> model::Variant {
         match self {
             Rarity::Standard => model::Variant::FullBody,
-            Rarity::Profile { .. } => model::Variant::FullBody,
+            Rarity::Profile => model::Variant::FullBody,
             Rarity::Rare => model::Variant::FullBody,
             Rarity::Cover => model::Variant::Cover,
             Rarity::Aim => model::Variant::Aim,
@@ -85,10 +130,10 @@ impl Rarity {
         }
     }
 
-    pub fn time(&self) -> Option<f32> {
+    pub fn time(self) -> Option<f32> {
         match self {
             Rarity::Standard
-            | Rarity::Profile { .. }
+            | Rarity::Profile
             | Rarity::Rare
             | Rarity::Cover
             | Rarity::Aim
@@ -97,9 +142,9 @@ impl Rarity {
         }
     }
 
-    pub fn background(&self) -> Option<&'static str> {
+    pub fn background(self) -> Option<&'static str> {
         Some(match self {
-            Rarity::Standard | Rarity::Profile { .. } => "sky-night",
+            Rarity::Standard | Rarity::Profile => "sky-night",
             Rarity::Cover | Rarity::Aim => "bubble-maker",
             Rarity::Rare | Rarity::Special => "smoke-pink",
             Rarity::Exotic => "sky-night",
@@ -107,10 +152,10 @@ impl Rarity {
         })
     }
 
-    pub fn index(&self) -> usize {
+    pub fn index(self) -> usize {
         match self {
             Rarity::Standard => 1,
-            Rarity::Profile { .. } => 2,
+            Rarity::Profile => 2,
             Rarity::Rare => 3,
             Rarity::Cover => 4,
             Rarity::Aim => 5,
@@ -121,14 +166,32 @@ impl Rarity {
         }
     }
 
-    pub fn focus(&self) -> &'static str {
+    pub fn focus(self) -> &'static str {
         match self {
             Rarity::Standard | Rarity::Rare | Rarity::Special | Rarity::Exotic => "half-body",
-            Rarity::Profile { .. }
+            Rarity::Profile
             | Rarity::Cover
             | Rarity::Aim
             | Rarity::Goddess
             | Rarity::Classified => "full-body",
+        }
+    }
+
+    pub fn is_foil(self) -> bool {
+        matches!(
+            self,
+            Self::Special | Self::Exotic | Self::Goddess | Self::Classified
+        )
+    }
+
+    pub fn border(self) -> Border {
+        match self {
+            Rarity::Standard | Rarity::Profile | Rarity::Rare => Border::Base,
+            Rarity::Cover | Rarity::Aim => Border::FirstEdition,
+            Rarity::Special => Border::Silver,
+            Rarity::Exotic => Border::Gold,
+            Rarity::Goddess => Border::EX,
+            Rarity::Classified => Border::FullArt,
         }
     }
 }
@@ -137,7 +200,7 @@ impl fmt::Display for Rarity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Rarity::Standard => "Standard",
-            Rarity::Profile { .. } => "Profile",
+            Rarity::Profile => "Profile",
             Rarity::Rare => "Rare",
             Rarity::Cover => "Cover",
             Rarity::Aim => "Aim",
@@ -147,4 +210,25 @@ impl fmt::Display for Rarity {
             Rarity::Classified => "Classified",
         })
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum Border {
+    Base,
+    FirstEdition,
+    Silver,
+    Gold,
+    EX,
+    FullArt,
+}
+
+impl Border {
+    pub const ALL: &[Self] = &[
+        Self::Base,
+        Self::FirstEdition,
+        Self::Silver,
+        Self::Gold,
+        Self::EX,
+        Self::FullArt,
+    ];
 }

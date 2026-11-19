@@ -1,7 +1,9 @@
+#![recursion_limit = "512"]
 mod error;
 
 pub mod card;
 pub mod character;
+pub mod environment;
 pub mod expansion;
 pub mod model;
 

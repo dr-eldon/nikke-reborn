@@ -1,12 +1,14 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tokio::fs;
 use tokio::process;
 
 use crate::card;
 use crate::character;
+use crate::environment;
 use crate::model;
 use crate::{Card, Character, Error, Result};
 
@@ -17,6 +19,7 @@ pub struct Expansion {
     pub background: String,
     pub featured: Arc<[character::Featured]>,
     pub models: Arc<[Model]>,
+    pub cards: Arc<OnceLock<Vec<Card>>>,
 }
 
 impl Expansion {
@@ -90,6 +93,7 @@ impl Expansion {
             background: expansion.background,
             featured: Arc::from(expansion.featured),
             models,
+            cards: Arc::default(),
         })
     }
 
@@ -114,7 +118,11 @@ impl Expansion {
         name
     }
 
-    pub async fn cards(&self) -> Result<Vec<Card>> {
+    pub async fn cards(&self) -> Result<&[Card]> {
+        if let Some(cards) = self.cards.get() {
+            return Ok(cards);
+        }
+
         let characters = Character::map();
         let models = model::Model::map();
         let mut cards = Vec::new();
@@ -134,6 +142,7 @@ impl Expansion {
                     animation: animation.clone(),
                     rarity: card::Rarity::Classified,
                     character: None,
+                    reel: Vec::new(),
                 });
                 continue;
             }
@@ -148,14 +157,6 @@ impl Expansion {
 
             let variants = nikke_viewer(&model.id, "--list-variants").await?;
             let animations = nikke_viewer(&model.id, "--list-animations").await?;
-
-            cards.push(Card {
-                number,
-                model: metadata.clone(),
-                animation: animation.clone(),
-                rarity: card::Rarity::Standard,
-                character: character.cloned(),
-            });
 
             let reel: Vec<_> = {
                 const CANDIDATES: &[&str] = &[
@@ -190,8 +191,29 @@ impl Expansion {
                 number,
                 model: metadata.clone(),
                 animation: animation.clone(),
-                rarity: card::Rarity::Profile { reel: reel.clone() },
+                rarity: card::Rarity::Standard,
                 character: character.cloned(),
+                reel: reel.clone(),
+            });
+
+            if let Some(animation) = reel.get(1) {
+                cards.push(Card {
+                    number,
+                    model: metadata.clone(),
+                    animation: Some(animation.clone()),
+                    rarity: card::Rarity::Rare,
+                    character: character.cloned(),
+                    reel: reel.clone(),
+                });
+            }
+
+            cards.push(Card {
+                number,
+                model: metadata.clone(),
+                animation: animation.clone(),
+                rarity: card::Rarity::Profile,
+                character: character.cloned(),
+                reel: reel.clone(),
             });
 
             if variants.contains(&"cover".to_owned()) {
@@ -201,6 +223,7 @@ impl Expansion {
                     animation: animation.clone(),
                     rarity: card::Rarity::Cover,
                     character: character.cloned(),
+                    reel: reel.clone(),
                 });
             }
 
@@ -211,16 +234,7 @@ impl Expansion {
                     animation: animation.clone(),
                     rarity: card::Rarity::Aim,
                     character: character.cloned(),
-                });
-            }
-
-            if let Some(animation) = reel.get(1) {
-                cards.push(Card {
-                    number,
-                    model: metadata.clone(),
-                    animation: Some(animation.clone()),
-                    rarity: card::Rarity::Rare,
-                    character: character.cloned(),
+                    reel: reel.clone(),
                 });
             }
 
@@ -231,6 +245,18 @@ impl Expansion {
                     animation: Some(animation.clone()),
                     rarity: card::Rarity::Special,
                     character: character.cloned(),
+                    reel: reel.clone(),
+                });
+            }
+
+            if animations.contains(&"action".to_owned()) {
+                cards.push(Card {
+                    number,
+                    model: metadata.clone(),
+                    animation: Some("action".to_owned()),
+                    rarity: card::Rarity::Exotic,
+                    character: character.cloned(),
+                    reel: reel.clone(),
                 });
             }
 
@@ -248,17 +274,39 @@ impl Expansion {
                     ),
                     rarity: card::Rarity::Goddess,
                     character: character.cloned(),
+                    reel: reel.clone(),
                 });
             }
         }
 
-        Ok(cards)
+        let _ = self.cards.set(cards);
+
+        Ok(self.cards.get().unwrap())
     }
 
     pub fn output_dir(&self) -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("output")
-            .join(format!("{}_Ultra", self.id.clone()))
+        environment::output_dir().join(format!("{}_Ultra", self.id.clone()))
+    }
+
+    fn bundle_id(&self) -> String {
+        format!("NIKKE_REBORN_{}", self.id)
+    }
+
+    pub async fn bundle(&self) -> Result<Bundle> {
+        let bundle = self.bundle_id();
+
+        Ok(Bundle(json!({
+            "Name": bundle,
+            "BundleId": bundle,
+            "AutoCompressTextures": true,
+            "MaxTextureSize": 2048,
+            "TextureCompression": "BC7",
+            "EnableMipMaps": false,
+            "Assemblies": [],
+            "Items": [pack(self), box_(self)],
+            "CardExpansions": [expansion(self).await?],
+            "CustomShops": [custom_shop()],
+        })))
     }
 }
 
@@ -315,4 +363,282 @@ async fn nikke_viewer(model: &str, flag: &str) -> Result<Vec<String>> {
         .lines()
         .map(str::to_owned)
         .collect())
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Bundle(serde_json::Value);
+
+const PHONE_APP_ID: &str = "NIKKE_REBORN";
+
+fn pack(expansion: &Expansion) -> serde_json::Value {
+    let bundle = expansion.bundle_id();
+
+    #[derive(Default)]
+    struct Slot {
+        profile: f64,
+        rare: f64,
+        cover: f64,
+        aim: f64,
+        special: f64,
+        exotic: f64,
+        goddess: f64,
+        classified: f64,
+    }
+
+    fn slot(slot: Slot) -> serde_json::Value {
+        let total = slot.profile
+            + slot.rare
+            + slot.cover
+            + slot.aim
+            + slot.special
+            + slot.exotic
+            + slot.goddess
+            + slot.classified;
+
+        json!({
+            "Standard": 100.0 - total,
+            "Profile": slot.profile,
+            "Rare": slot.rare,
+            "Cover": slot.cover,
+            "Aim": slot.aim,
+            "Special": slot.special,
+            "Exotic": slot.exotic,
+            "Goddess": slot.goddess,
+            "Classified": slot.classified,
+        })
+    }
+
+    let common = slot(Slot {
+        profile: 2.0,
+        rare: 0.5,
+        ..Slot::default()
+    });
+
+    let uncommon = slot(Slot {
+        profile: 6.0,
+        rare: 2.0,
+        cover: 1.0,
+        aim: 1.0,
+        special: 0.5,
+        exotic: 0.1,
+        ..Slot::default()
+    });
+
+    let rare = slot(Slot {
+        rare: 4.0,
+        cover: 3.0,
+        aim: 3.0,
+        special: 1.5,
+        exotic: 1.0,
+        goddess: 0.2,
+        classified: 0.1,
+        ..Slot::default()
+    });
+
+    json!({
+        "Name": format!("{} Packs", expansion.name()),
+        "CardExpansion": bundle,
+        "PackType": format!("{bundle}_CardPack"),
+        "ItemType": format!("{bundle}_CardPack_Item"),
+        "Material": "CardPack_Material",
+        "SpriteName": "CardPack_Item",
+        "BaseCost": 2,
+        "SmallBoxLicensePrice": 50,
+        "SmallBoxLicenseLevelRequirement": 1,
+        "LicensePrice": 300,
+        "LicenseLevelRequirement": 5,
+        "SlotWeights": {
+          "Slot1": common,
+          "Slot2": common,
+          "Slot3": common,
+          "Slot4": common,
+          "Slot5": uncommon,
+          "Slot6": uncommon,
+          "Slot7": rare,
+        },
+        "ItemCategory": "TCG",
+        "AddItemAsAccessory": false,
+        "AddItemAsFigurine": false,
+        "AddItemAsBoardGame": false,
+        "PhoneAppId": PHONE_APP_ID,
+        "UsesBaseGameMesh": true,
+        "MeshToUse": "BasicCardPack",
+        "Mesh": "",
+        "MaterialList": [],
+        "IsBigBox": true,
+        "BigBoxHideTillUnlocked": false,
+        "IgnoreDoubleImage": false,
+        "HasSmallBox": true,
+        "SmallBoxHideTillUnlocked": false,
+        "SmallBoxIgnoreDoubleImage": false,
+        "IsBulkBox": false,
+        "MinMarketPricePercent": 1,
+        "MaxMarketPricePercent": 1.20000005,
+        "FollowItemPrice": "None",
+        "AutoSetBoxPrice": false,
+        "IsTallItem": false,
+        "InBoxOffsetY": 0,
+        "InBoxOffsetScale": 0,
+        "ItemDeminsion": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "CollidorPosOffset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "ColliderScale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "PriceAffectedBy": [],
+        "IsCardPack": true,
+        "IsCardBox": false,
+        "MinValue": 0,
+        "CanHaveDuplicates": false,
+        "CanHaveGodPacks": false,
+        "GodPackPercentage": 0.000199999995,
+        "PackGenerationStrategy": "Guaranteed",
+        "SpawnsPackType": "",
+        "NormalWeights": {},
+        "GodWeights": {}
+    })
+}
+
+fn box_(expansion: &Expansion) -> serde_json::Value {
+    let bundle = expansion.bundle_id();
+
+    json!({
+        "Name": format!("{} Box", expansion.name()),
+        "Material": "CardBox_Material",
+        "SpriteName": "CardBox_Item",
+        "ItemType": format!("{bundle}_CardBox_Item"),
+        "SpawnsPackType": format!("{bundle}_CardPack_Item"),
+        "SmallBoxLicensePrice": 100,
+        "SmallBoxLicenseLevelRequirement": 3,
+        "LicensePrice": 500,
+        "LicenseLevelRequirement": 8,
+        "ItemCategory": "TCG",
+        "BaseCost": 0,
+        "AddItemAsAccessory": false,
+        "AddItemAsFigurine": false,
+        "AddItemAsBoardGame": false,
+        "PhoneAppId": PHONE_APP_ID,
+        "UsesBaseGameMesh": false,
+        "MeshToUse": "",
+        "Mesh": "CardBox_Mesh",
+        "MaterialList": [],
+        "IsBigBox": true,
+        "BigBoxHideTillUnlocked": false,
+        "IgnoreDoubleImage": false,
+        "HasSmallBox": true,
+        "SmallBoxHideTillUnlocked": false,
+        "SmallBoxIgnoreDoubleImage": false,
+        "IsBulkBox": false,
+        "MinMarketPricePercent": 1,
+        "MaxMarketPricePercent": 1.20000005,
+        "FollowItemPrice": "None",
+        "AutoSetBoxPrice": true,
+        "IsTallItem": false,
+        "InBoxOffsetY": 0,
+        "InBoxOffsetScale": -0.2,
+        "ItemDeminsion": {
+          "x": 2,
+          "y": 4,
+          "z": 1
+        },
+        "CollidorPosOffset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "ColliderScale": {
+          "x": 0.18,
+          "y": 0.15,
+          "z": 0.1
+        },
+        "PriceAffectedBy": [],
+        "IsCardPack": false,
+        "IsCardBox": true,
+        "MinValue": 0,
+        "CardExpansion": "",
+        "CanHaveDuplicates": false,
+        "CanHaveGodPacks": false,
+        "GodPackPercentage": 0.0,
+        "PackGenerationStrategy": "Guaranteed",
+        "PackType": "",
+        "NormalWeights": {},
+        "GodWeights": {},
+        "SlotWeights": {}
+    })
+}
+
+async fn expansion(expansion: &Expansion) -> Result<serde_json::Value> {
+    let bundle = expansion.bundle_id();
+
+    let cards = expansion
+        .cards()
+        .await?
+        .iter()
+        .map(card)
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "Name": format!("{} Set", expansion.name()),
+        "CardExpansion": bundle,
+        "Cards": cards,
+        "MenuCategory": "NIKKE",
+        "CardbackSprite": "Cardback",
+        "FoilMask": "Foilmask",
+        "Rarities": [
+          "Standard",
+          "Profile",
+          "Rare",
+          "Cover",
+          "Aim",
+          "Special",
+          "Exotic",
+          "Goddess",
+          "Classified"
+        ],
+        "HasRandomFoils": false,
+        "FoilChance": 0,
+        "CardPriceStrategy": "RarityDriven",
+        "DefaultBorderMultiplierBase": 3.15,
+        "DefaultFoilMultiplier": 10.0,
+        "RarityDrivenFloor": 0.03,
+        "RarityDrivenStepSize": 0.2,
+        "RarityDrivenBorderMultiplierBase": 5.0,
+        "RarityDrivenFoilMultiplier": 2.0,
+        "PlayCardMaterials": []
+    }))
+}
+
+fn card(card: &Card) -> serde_json::Value {
+    json!({
+        "Name": card.name(),
+        "Rarity": card.rarity,
+        "BorderType": card.border(),
+        "Sprite": card.file_name(),
+        "IsFoil": card.rarity.is_foil(),
+        "ElementType": "None",
+        "FoilMask": "",
+        "CardBack": ""
+    })
+}
+
+fn custom_shop() -> serde_json::Value {
+    json!({
+        "PhoneAppId": PHONE_APP_ID,
+        "AppDisplayName": "NIKKE",
+        "AppIcon": "Shop_Icon",
+        "AppInnerBGImage": "Shop_IBG",
+        "AppOuterBGImage": "Shop_OBG",
+        "SiteLogo": "Shop_Logo",
+        "SiteHeader": "Shop_Banner",
+        "SiteBackground": "Shop_Wallpaper"
+    })
 }
