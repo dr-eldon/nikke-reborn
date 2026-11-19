@@ -57,7 +57,7 @@ impl Expansion {
             logo: Option<String>,
             background: String,
             featured: Vec<character::Featured>,
-            cards: Vec<_Model>,
+            models: Vec<_Model>,
         }
 
         #[derive(Debug, Deserialize)]
@@ -74,7 +74,7 @@ impl Expansion {
         let expansion: _Expansion = toml::from_str(&metadata)?;
 
         let models = expansion
-            .cards
+            .models
             .into_iter()
             .map(|model| Model {
                 id: model.id,

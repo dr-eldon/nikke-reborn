@@ -1,4 +1,7 @@
+use std::env;
 use std::path::{Path, PathBuf};
+use std::process;
+use std::sync::atomic::{self, AtomicBool};
 
 use serde::Serialize;
 
@@ -8,8 +11,27 @@ use nikke_reborn::environment;
 use nikke_reborn::model;
 use nikke_reborn::{Card, Character, Expansion, Result};
 
+static DRY: AtomicBool = AtomicBool::new(false);
+
 #[tokio::main(flavor = "local")]
 pub async fn main() -> Result<()> {
+    let mut args = env::args();
+    let _process = args.next();
+
+    while let Some(option) = args.next()
+        && option.starts_with("--")
+    {
+        match option.as_str() {
+            "--dry" => {
+                DRY.store(true, atomic::Ordering::Relaxed);
+            }
+            _ => {
+                eprintln!("unknown option: {option}");
+                process::exit(1);
+            }
+        }
+    }
+
     let mut server = server()?;
 
     let mut standards = Vec::new();
@@ -235,6 +257,11 @@ async fn generate(design: &str, jobs: &[impl Serialize]) -> Result<()> {
     use std::process;
     use tokio::io::AsyncWriteExt;
 
+    if DRY.load(atomic::Ordering::Relaxed) {
+        println!("{design}: {} jobs", jobs.len());
+        return Ok(());
+    }
+
     let mut pikke = tokio::process::Command::new("pikke")
         .arg(format!(
             "{}/design/{design}.lua",
@@ -262,6 +289,11 @@ async fn generate(design: &str, jobs: &[impl Serialize]) -> Result<()> {
 }
 
 async fn snapshot(material: &Path, mesh: &str, copy: bool) -> Result<()> {
+    if DRY.load(atomic::Ordering::Relaxed) {
+        println!("{}: {mesh} copy={copy}", material.display());
+        return Ok(());
+    }
+
     let mesh = PathBuf::from(format!(
         "{}/assets/meshes/{mesh}.obj",
         env!("CARGO_MANIFEST_DIR")
@@ -315,8 +347,12 @@ async fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result
         .as_ref()
         .join(source.file_name().expect("source must have a filename"));
 
-    println!("{}", destination.display());
+    if DRY.load(atomic::Ordering::Relaxed) {
+        println!("{} -> {}", source.display(), destination.display());
+        return Ok(());
+    }
 
+    println!("{}", destination.display());
     let _ = tokio::fs::copy(source, destination).await?;
 
     Ok(())

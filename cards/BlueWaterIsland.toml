@@ -1,25 +1,11 @@
 logo = "BlueWaterIsland"
 background = "beach-day"
-
-rarities = [
-    "Standard",
-    "Profile",
-    "Rare",
-    "Cover",
-    "Aim",
-    "Special",
-    "Exotic",
-    "Goddess",
-    "Classified",
-]
-
 featured = [
     { id = "c353", animation = "action", time = 3 },
     { id = "c142_01", animation = "action", time = 1.34 },
     { id = "c014", animation = "action", time = 4.1 },
 ]
-
-cards = [
+models = [
     # NIKKEs in release order
     { id = "c352" },
     { id = "c100" },

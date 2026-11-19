@@ -1,49 +1,38 @@
 # AGENTS.md
 
 Pipeline that renders NIKKE trading cards: one `cards/<set>.toml` per
-expansion (its characters, its `rarities` — the subset of presentations
-to generate for the set — its backgrounds and logo) → GPU viewer + Pillow +
-ffmpeg → finished cards under `output/<set>/` (half resolution by default),
-`draft/` (drafts), and BepInEx bundles under `bundles/`.
+expansion.
 
-## Commands (run via `uv`)
+## Rust
 
-- `generate [paths] [--draft | --ultra | --low] [--force] [--no-video] [--jobs N]`
-  — render and composite cards (paths: an expansion's name or
-  `cards/<set>.toml`; `--ids` restricts a run to the named characters)
-- `test <set> [ids…] [--new-baseline]` — byte-for-byte
-  regression check: a forced single-worker re-render of the character(s)'
-  presentations (and the expansion's pack/box) compared by SHA-256 against
-  `tests/baselines/<set>/`
-- `bundle`, `simulate <set>`, `spritesheet <set>`
+- Modules around single-noun types; no `ops`/`utils` catch-alls.
+- Shadowing is fine: a function may share its name with the value
+  it reads or produces, and a local may shadow a function name.
+  Name things by what they are; do not rename to dodge a
+  collision.
+- No shortened names: `width` and `height`, not `w` and `h`.
+- Inference carries the types: no annotation where the use fixes
+  them; a value keeps its name through conversion
+  (`let value: u32 = value.parse()…`).
+- The standard's iterators and combinators over hand-rolled index
+  management (`sequence_values().enumerate()`, `transpose`);
+  `std::env::args()` directly, not collected.
+- Import groups, separated by blank lines: `std`, external crates,
+  `crate` (last). Shared types are importable from the crate root
+  (`pub use`).
 
-## Conventions
+## Comments
 
-- `uvx ruff check src/` and `uvx ruff format --check src/` must be clean.
-- Only commit or push when explicitly asked.
-- Commit subjects are short imperative lines (under ~50 chars); the
-  details go in the body.
-- For quick iteration, `generate` a single character (`--ids`) with the
-  default settings; avoid `--ultra` (`generate`) until the very
-  end — it renders at native resolution and is much slower.
-- Comments/docstrings cover only what the code does not say:
-  invariants, protocol semantics, units, gotchas. Never values (numbers,
-  named lists, restated defaults) or restated code (step-by-step
-  narration, per-parameter docs). Write each fact once, at its defining
-  site; reference it elsewhere.
+No comments allowed, unless explicitly requested during review.
 
-## Verification
+## Commits
 
-- The byte protocol: a forced single-worker re-render is byte-for-byte
-  identical to the recorded baselines (`test`). Changing what goes into
-  a hash requires re-recording the baselines (`test --new-baseline`).
-- When touching `generate` code, `uv run test Base c010` must be run
-  before committing, not while iterating.
-- The GPU is shared: use `--jobs 1` for byte-protocol work, and retry
-  transient `nikke-viewer` failures (truncated stream, crash).
+- Every change must be reviewed by the user. Under no circumstance
+  you are allowed to commit or push until explicitly asked to.
 
-## Dependencies
+- **Short subjects:** one imperative clause, backticked identifiers;
+  details in the body.
 
-Python ≥ 3.14 (uv). On PATH: `nikke-viewer` and `unity-viewer` (Rust;
-sources in `../nikke-viewer/` and `unity-viewer/`), `ffmpeg`,
-`ffprobe`.
+## Hygiene
+
+`cargo fmt --check` and `cargo lint` must be clean.

@@ -1,24 +1,10 @@
 background = "sky-night"
-
-rarities = [
-    "Standard",
-    "Profile",
-    "Rare",
-    "Cover",
-    "Aim",
-    "Special",
-    "Exotic",
-    "Goddess",
-    "Classified",
-]
-
 featured = [
     { id = "c010", animation = "action", time = 1.247 },
     { id = "c011" },
     { id = "c013", animation = "action", time = 2 },
 ]
-
-cards = [
+models = [
     { id = "c010" },
     { id = "c010_02" },
     { id = "c011" },
