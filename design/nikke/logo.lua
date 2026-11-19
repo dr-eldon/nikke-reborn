@@ -51,13 +51,17 @@ function logo.glowing(output, args)
 	local radius = math.floor(logo.width / 20)
 	local tint = output:dominant_in(bounds):to_oklch()
 
-	if tint.l > 0.5 then
+	if tint.l > 0.7 then
 		logo = black:clone()
 		logo:resize({ width = args.width, height = args.height })
 		radius = radius / 3
 		tint.c = 0.3
 		tint.l = 0.8
 		tint.a = 0.4
+	elseif tint.l > 0.5 then
+		tint.c = 0.3
+		tint.l = 0.2
+		tint.a = 0.5
 	else
 		tint.c = 0.2
 		tint.l = 0.65

@@ -14,17 +14,22 @@ local top = material:detect("#FF0000")()
 return {
 	arguments = { "background", "characters", "logo" },
 	render = function(args)
+		-- args.background = "sky-night"
 		-- args.background = "beach-day"
 		-- args.characters = {
-		-- 	{ id = "c353", animation = "action", time = 3 },
-		-- 	{ id = "c142_01", animation = "action", time = 1.34 },
-		-- 	{ id = "c014", animation = "action", time = 4.1 },
+		-- 	{ id = "c010", animation = "action", time = 1.247 },
+		-- 	{ id = "c011" },
+		-- 	{ id = "c013", animation = "action", time = 2 },
+		-- { id = "c353", animation = "action", time = 3 },
+		-- { id = "c142_01", animation = "action", time = 1.34 },
+		-- { id = "c014", animation = "action", time = 4.1 },
 		-- }
 		-- args.logo = "BlueWaterIsland"
 
 		local background =
 			image("../assets/images/backgrounds/" .. args.background .. ".png")
 		background:autocontrast()
+		background:convert("srgb")
 
 		local logo
 		if args.logo ~= nil then
@@ -98,9 +103,9 @@ return {
 					* (front.width * 2 / 7 + (character.x or 0))
 
 				offset = -math.floor(offset + 0.5)
-				zoom = zoom - 0.20 * math.floor(i / 2)
+				zoom = zoom - 0.25 * math.floor(i / 2)
 
-				local translate = math.floor(i / 2) * front.height / 8
+				local translate = math.floor(i / 2) * front.height / 10
 
 				at = rectangle({
 					x = at.x,
