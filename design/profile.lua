@@ -95,11 +95,22 @@ function profile.render(args)
 			table.unpack(viewer_args),
 		},
 	})()
-	face:monochrome(tint)
-	output:blend(face)
+	local tint = frame:vivid_in(rectangle({ size = frame.size }))
 
-	local fade = gradient(180):stop(0.3, tint:with_alpha(0.5)):stop(1.0, tint)
-	output:fill(rectangle({ size = output.size }), fade)
+	do
+		local tint = tint:to_oklch()
+
+		tint.c = math.min(tint.c, 0.04)
+		tint.l = math.min(tint.l, 0.2)
+
+		output:blend(face)
+		output:monochrome(tint)
+
+		local fade =
+			gradient(180):stop(0.0, tint:with_alpha(0.5)):stop(1.0, tint)
+
+		output:fill(rectangle({ size = output.size }), fade)
+	end
 
 	output:blend(mask)
 
