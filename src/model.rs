@@ -25,6 +25,18 @@ impl Model {
     pub fn map() -> &'static HashMap<String, Model> {
         &MODELS
     }
+
+    pub fn is_event(&self) -> bool {
+        !self.is_chibi()
+            && self
+                .id
+                .strip_prefix('c')
+                .is_none_or(|rest| rest.chars().next().is_some_and(|c| !c.is_ascii_digit()))
+    }
+
+    pub fn is_chibi(&self) -> bool {
+        self.id.starts_with("smol")
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

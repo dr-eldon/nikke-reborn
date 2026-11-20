@@ -135,18 +135,6 @@ impl Expansion {
             let number = i + 1;
             let animation = model.options.animation().map(str::to_owned);
 
-            if model.is_event() {
-                cards.push(Card {
-                    number,
-                    model: metadata.clone(),
-                    animation: animation.clone(),
-                    rarity: card::Rarity::Classified,
-                    character: None,
-                    reel: Vec::new(),
-                });
-                continue;
-            }
-
             let character = characters.get(
                 model
                     .id
@@ -154,6 +142,30 @@ impl Expansion {
                     .next()
                     .expect("character id must not be empty"),
             );
+
+            if metadata.is_chibi() {
+                cards.push(Card {
+                    number,
+                    model: metadata.clone(),
+                    animation: animation.clone(),
+                    rarity: card::Rarity::Rare,
+                    character: character.cloned(),
+                    reel: Vec::new(),
+                });
+                continue;
+            }
+
+            if metadata.is_event() {
+                cards.push(Card {
+                    number,
+                    model: metadata.clone(),
+                    animation: animation.clone(),
+                    rarity: card::Rarity::Classified,
+                    character: character.cloned(),
+                    reel: Vec::new(),
+                });
+                continue;
+            }
 
             let variants = nikke_viewer(&model.id, "--list-variants").await?;
             let animations = nikke_viewer(&model.id, "--list-animations").await?;
@@ -207,14 +219,16 @@ impl Expansion {
                 });
             }
 
-            cards.push(Card {
-                number,
-                model: metadata.clone(),
-                animation: animation.clone(),
-                rarity: card::Rarity::Profile,
-                character: character.cloned(),
-                reel: reel.clone(),
-            });
+            if !reel.is_empty() {
+                cards.push(Card {
+                    number,
+                    model: metadata.clone(),
+                    animation: animation.clone(),
+                    rarity: card::Rarity::Profile,
+                    character: character.cloned(),
+                    reel: reel.clone(),
+                });
+            }
 
             if variants.contains(&"cover".to_owned()) {
                 cards.push(Card {
@@ -315,14 +329,6 @@ pub struct Model {
     pub id: String,
     pub options: Options,
     pub goddess: Options,
-}
-
-impl Model {
-    pub fn is_event(&self) -> bool {
-        self.id
-            .strip_prefix('c')
-            .is_none_or(|rest| rest.chars().next().is_some_and(|c| !c.is_ascii_digit()))
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]

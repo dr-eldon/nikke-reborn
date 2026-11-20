@@ -9,7 +9,12 @@ local map = {
 }
 
 for _, manufacturer in pairs(map) do
-	manufacturer:resize({ width = 170 })
+	if manufacturer.width > manufacturer.height then
+		manufacturer:resize({ width = 220 })
+	else
+		manufacturer:resize({ height = 180 })
+	end
+
 	manufacturer:invert()
 end
 

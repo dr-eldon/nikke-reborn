@@ -20,6 +20,7 @@ standard.arguments = {
 	"variant",
 	"animation",
 	"time",
+	"focus",
 }
 
 function standard.render(args)
@@ -38,7 +39,6 @@ function standard.render(args)
 
 	local base, tint = table.unpack(cache[args.background])
 	local variant = args.variant or "fb"
-	local focus = variant == "fb" and "--half-body" or "--full-body"
 
 	local character = stream("nikke-viewer", {
 		width = base.width,
@@ -49,11 +49,11 @@ function standard.render(args)
 			"--stdout",
 			"--variant",
 			variant,
-			focus,
 			"--animation",
 			args.animation or "-",
 			"--time",
 			args.time or "-",
+			"--" .. args.focus,
 			args.id,
 		},
 	})
@@ -63,6 +63,11 @@ function standard.render(args)
 
 	for frame in character do
 		local output = base:clone()
+
+		if args.manufacturer ~= nil then
+			manufacturer.render(output, args.manufacturer, { x = -75, y = 75 })
+		end
+
 		output:blend(frame)
 
 		logo.render(output, { x = -75, y = -75 })
@@ -74,10 +79,6 @@ function standard.render(args)
 			y = height * 0.72,
 			tint = tint,
 		})
-
-		if args.manufacturer ~= nil then
-			manufacturer.render(output, args.manufacturer, { x = -75, y = 75 })
-		end
 
 		yield(output)
 	end

@@ -12,11 +12,11 @@ black_small:resize({ width = 200 })
 
 function logo.render(output, inset)
 	if inset.x < 0 then
-		inset.x = inset.x + output.width - black.width
+		inset.x = inset.x + output.width - black_small.width
 	end
 
 	if inset.y < 0 then
-		inset.y = inset.y + output.height - black.height
+		inset.y = inset.y + output.height - black_small.height
 	end
 
 	local logo = rectangle({

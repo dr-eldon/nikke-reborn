@@ -98,10 +98,19 @@ function profile.render(args)
 	face:monochrome(tint)
 	output:blend(face)
 
-	local fade = gradient(180):stop(0.3, tint:with_alpha(0.85)):stop(1.0, tint)
+	local fade = gradient(180):stop(0.3, tint:with_alpha(0.5)):stop(1.0, tint)
 	output:fill(rectangle({ size = output.size }), fade)
 
 	output:blend(mask)
+
+	if args.manufacturer ~= nil then
+		manufacturer.render(
+			output,
+			args.manufacturer,
+			{ x = 25, y = -height * (1 - 0.72) - 80 }
+		)
+	end
+
 	output:blend(frame)
 	-- output:fill(left, "#000000")
 	-- output:fill(right, "#000000")
@@ -118,14 +127,6 @@ function profile.render(args)
 		y = height * 0.72,
 		tint = tint,
 	})
-
-	if args.manufacturer ~= nil then
-		manufacturer.render(
-			output,
-			args.manufacturer,
-			{ x = 50, y = -height * (1 - 0.72) - 80 }
-		)
-	end
 
 	for i, face in ipairs(reel) do
 		local bounds = rectangle({

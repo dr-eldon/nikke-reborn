@@ -78,6 +78,21 @@ impl Card {
         )
     }
 
+    pub fn focus(&self) -> &'static str {
+        if self.model.is_chibi() {
+            return "full-body";
+        }
+
+        match self.rarity {
+            Rarity::Standard | Rarity::Rare | Rarity::Special | Rarity::Exotic => "half-body",
+            Rarity::Profile
+            | Rarity::Cover
+            | Rarity::Aim
+            | Rarity::Goddess
+            | Rarity::Classified => "full-body",
+        }
+    }
+
     pub fn border(&self) -> Border {
         let border = self.rarity.border() as usize;
 
@@ -163,17 +178,6 @@ impl Rarity {
             Rarity::Exotic => 7,
             Rarity::Goddess => 8,
             Rarity::Classified => 9,
-        }
-    }
-
-    pub fn focus(self) -> &'static str {
-        match self {
-            Rarity::Standard | Rarity::Rare | Rarity::Special | Rarity::Exotic => "half-body",
-            Rarity::Profile
-            | Rarity::Cover
-            | Rarity::Aim
-            | Rarity::Goddess
-            | Rarity::Classified => "full-body",
         }
     }
 

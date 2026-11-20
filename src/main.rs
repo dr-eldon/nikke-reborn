@@ -121,7 +121,7 @@ pub async fn main() -> Result<()> {
 
     generate("standard", &standards, quality).await?;
     generate("profile", &profiles, quality).await?;
-    generate("full_art", &full_arts, quality).await?;
+    // generate("full_art", &full_arts, quality).await?;
     generate("box", &boxes, quality).await?;
     generate("pack", &packs, quality).await?;
 
@@ -148,6 +148,7 @@ struct Standard {
     variant: model::Variant,
     animation: Option<String>,
     time: Option<f32>,
+    focus: String,
     output: PathBuf,
 }
 
@@ -169,6 +170,7 @@ impl Standard {
             variant: card.rarity.variant(),
             animation: card.animation.clone(),
             time: card.rarity.time(),
+            focus: card.focus().to_owned(),
             output: expansion
                 .output_dir(quality)
                 .join(card.file_name())
@@ -238,7 +240,7 @@ impl FullArt {
             variant: card.rarity.variant(),
             animation: card.animation.clone(),
             time: card.rarity.time(),
-            focus: card.rarity.focus().to_owned(),
+            focus: card.focus().to_owned(),
             output: expansion
                 .output_dir(quality)
                 .join(card.file_name())
