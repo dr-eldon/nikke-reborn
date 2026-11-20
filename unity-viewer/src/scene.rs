@@ -248,6 +248,35 @@ fn pad_rows(rgba: &[u8], width: u32) -> (Vec<u8>, u32) {
     (out, stride as u32)
 }
 
+fn generate_mips(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    texture: &wgpu::Texture,
+    mip_level_count: u32,
+    blitter: &wgpu::util::TextureBlitter,
+) {
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("mip downsampler"),
+    });
+    let mip_view = |level: u32| {
+        texture.create_view(&wgpu::wgt::TextureViewDescriptor {
+            label: None,
+            format: None,
+            dimension: None,
+            usage: None,
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: level,
+            mip_level_count: Some(1),
+            base_array_layer: 0,
+            array_layer_count: Some(1),
+        })
+    };
+    for level in 1..mip_level_count {
+        blitter.copy(device, &mut encoder, &mip_view(level - 1), &mip_view(level));
+    }
+    queue.submit([encoder.finish()]);
+}
+
 /// One frame of the scene.
 #[derive(Debug)]
 pub struct Primitive {
@@ -446,7 +475,7 @@ fn fs_main(
     @builtin(front_facing) front: bool,
 ) -> @location(0) vec4<f32> {
     var n = normalize(input.normal);
-    let albedo = textureSample(base_color, base_sampler, input.uv);
+    let albedo = textureSampleBias(base_color, base_sampler, input.uv, -1);
     let ndotl = max(dot(n, -LIGHT_DIR), 0.0);
     let ndotf = max(dot(n, FILL_DIR), 0.0);
     let color = albedo.rgb * (AMBIENT + DIFFUSE * ndotl + FILL * ndotf);
@@ -517,6 +546,7 @@ pub struct Pipeline {
     index_count: u32,
     material: Option<(Arc<Material>, wgpu::TextureView)>,
     sampler: wgpu::Sampler,
+    mip_blitter: wgpu::util::TextureBlitter,
     default_view: wgpu::TextureView,
     /// Offscreen MSAA frame targets, recreated when the size changes:
     /// (width, height, MSAA color view, resolve view (render attachment),
@@ -674,8 +704,14 @@ impl Pipeline {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            anisotropy_clamp: 16,
             ..Default::default()
         });
+
+        let mip_blitter =
+            wgpu::util::TextureBlitterBuilder::new(device, wgpu::TextureFormat::Rgba8UnormSrgb)
+                .sample_type(wgpu::FilterMode::Linear)
+                .build();
 
         // 1×1 white fallback for "no material".
         let default_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -735,6 +771,7 @@ impl Pipeline {
             index_count: 0,
             material: None,
             sampler,
+            mip_blitter,
             default_view,
             frame: None,
         }
@@ -883,18 +920,22 @@ impl Pipeline {
                 .as_ref()
                 .is_some_and(|(m, _)| Arc::ptr_eq(m, material))
             {
+                let size = wgpu::Extent3d {
+                    width: material.width,
+                    height: material.height,
+                    depth_or_array_layers: 1,
+                };
+                let mip_level_count = size.max_mips(wgpu::TextureDimension::D2);
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("material texture"),
-                    size: wgpu::Extent3d {
-                        width: material.width,
-                        height: material.height,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
+                    size,
+                    mip_level_count,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::COPY_DST
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
                     view_formats: &[],
                 });
                 // `Queue::write_texture` requires `bytes_per_row` (a multiple
@@ -913,12 +954,9 @@ impl Pipeline {
                         rows_per_image: None,
                         bytes_per_row: Some(stride),
                     },
-                    wgpu::Extent3d {
-                        width: material.width,
-                        height: material.height,
-                        depth_or_array_layers: 1,
-                    },
+                    size,
                 );
+                generate_mips(device, queue, &texture, mip_level_count, &self.mip_blitter);
                 self.material = Some((
                     material.clone(),
                     texture.create_view(&wgpu::wgt::TextureViewDescriptor {
@@ -928,7 +966,7 @@ impl Pipeline {
                         usage: None,
                         aspect: wgpu::TextureAspect::All,
                         base_mip_level: 0,
-                        mip_level_count: Some(1),
+                        mip_level_count: Some(mip_level_count),
                         base_array_layer: 0,
                         array_layer_count: Some(1),
                     }),
@@ -1148,6 +1186,42 @@ impl Primitive {
         pass.set_bind_group(0, &blit_bind_group, &[]);
         pass.draw(0..3, 0..1);
     }
+}
+
+#[cfg(test)]
+fn test_gpu() -> Option<(wgpu::Device, wgpu::Queue)> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+        .ok()?;
+    runtime.block_on(async {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::from_env().unwrap_or(wgpu::Backends::PRIMARY),
+            flags: wgpu::InstanceFlags::empty(),
+            ..wgpu::InstanceDescriptor::new_without_display_handle()
+        });
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                force_fallback_adapter: false,
+                compatible_surface: None,
+                apply_limit_buckets: false,
+            })
+            .await
+            .ok()?;
+        adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("unity-viewer [test]"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                memory_hints: wgpu::MemoryHints::MemoryUsage,
+                trace: wgpu::Trace::Off,
+            })
+            .await
+            .ok()
+    })
 }
 
 #[cfg(test)]
@@ -1458,38 +1532,13 @@ mod blit_tests {
     /// opaque-pixel bounding box `(min_x, min_y, max_x, max_y)`, or `None`
     /// when no GPU adapter is available (the test then skips).
     fn render_bbox(clip: &iced::Rectangle<u32>, frame: Size<u32>) -> Option<(u32, u32, u32, u32)> {
+        let (device, queue) = test_gpu()?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
             .build()
             .ok()?;
         runtime.block_on(async move {
-            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-                backends: wgpu::Backends::from_env().unwrap_or(wgpu::Backends::PRIMARY),
-                flags: wgpu::InstanceFlags::empty(),
-                ..wgpu::InstanceDescriptor::new_without_display_handle()
-            });
-            let adapter = instance
-                .request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
-                    force_fallback_adapter: false,
-                    compatible_surface: None,
-                    apply_limit_buckets: false,
-                })
-                .await
-                .ok()?;
-            let (device, queue) = adapter
-                .request_device(&wgpu::DeviceDescriptor {
-                    label: Some("unity-viewer [test]"),
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
-                    experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                    memory_hints: wgpu::MemoryHints::MemoryUsage,
-                    trace: wgpu::Trace::Off,
-                })
-                .await
-                .ok()?;
-
             let format = wgpu::TextureFormat::Rgba8UnormSrgb;
             let mut pipeline = Pipeline::create(&device, &queue, format);
             let mesh = crate::mesh::load(std::path::Path::new(
@@ -1650,5 +1699,125 @@ mod blit_tests {
             (None, _) => {}
             _ => panic!("partial GPU render (one clip rendered, the other did not)"),
         }
+    }
+}
+
+#[cfg(test)]
+mod mip_tests {
+    use super::*;
+
+    #[test]
+    fn mip_chain_is_a_full_downsample_not_a_crop() {
+        let Some((device, queue)) = test_gpu() else {
+            return;
+        };
+
+        let q0 = [255u8, 0, 0, 255];
+        let q1 = [0, 255, 0, 255];
+        let q2 = [0, 0, 255, 255];
+        let q3 = [255, 255, 255, 255];
+
+        let mut pixels = [0u8; 64];
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let q = match (x / 2, y / 2) {
+                    (0, 0) => q0,
+                    (1, 0) => q1,
+                    (0, 1) => q2,
+                    _ => q3,
+                };
+                let o = ((y * 4 + x) * 4) as usize;
+                pixels[o..o + 4].copy_from_slice(&q);
+            }
+        }
+
+        let size = wgpu::Extent3d {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: 1,
+        };
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("mip test texture"),
+            size,
+            mip_level_count: 3,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        queue.write_texture(
+            wgpu::wgt::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &pixels,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                rows_per_image: None,
+                bytes_per_row: Some(16),
+            },
+            size,
+        );
+
+        let blitter =
+            wgpu::util::TextureBlitterBuilder::new(&device, wgpu::TextureFormat::Rgba8UnormSrgb)
+                .sample_type(wgpu::FilterMode::Linear)
+                .build();
+        generate_mips(&device, &queue, &texture, 3, &blitter);
+
+        let row_stride = 256u64;
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("mip readback"),
+            size: row_stride * 2,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        encoder.copy_texture_to_buffer(
+            wgpu::wgt::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 1,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    rows_per_image: None,
+                    bytes_per_row: Some(row_stride as u32),
+                },
+            },
+            wgpu::Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+        );
+        let submission = queue.submit([encoder.finish()]);
+        buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
+        device
+            .poll(wgpu::PollType::Wait {
+                submission_index: Some(submission),
+                timeout: None,
+            })
+            .expect("device poll");
+        let mapped = buffer.slice(..).get_mapped_range().expect("mapped range");
+
+        let read = |x: u32, y: u32| {
+            let o = (y as u64 * row_stride + x as u64 * 4) as usize;
+            mapped[o..o + 4].to_vec()
+        };
+        assert_eq!(read(0, 0), q0.to_vec(), "top-left quadrant");
+        assert_eq!(read(1, 0), q1.to_vec(), "top-right quadrant");
+        assert_eq!(read(0, 1), q2.to_vec(), "bottom-left quadrant");
+        assert_eq!(read(1, 1), q3.to_vec(), "bottom-right quadrant");
     }
 }
