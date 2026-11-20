@@ -26,8 +26,11 @@ return {
 		-- }
 		-- args.logo = "BlueWaterIsland"
 
-		local background =
-			image("../assets/images/backgrounds/" .. args.background .. ".png")
+		local background = image(
+			"../assets/images/backgrounds/"
+				.. (args.background.id or args.background)
+				.. ".png"
+		)
 		background:autocontrast()
 		background:convert("srgb")
 
@@ -46,7 +49,8 @@ return {
 			width = side.width,
 			height = side.height,
 			mode = "cover",
-			align_y = "bottom",
+			align_y = args.background.side and args.background.side.align_y
+				or "bottom",
 		})
 		material:blend(base, { at = side })
 
@@ -88,14 +92,15 @@ return {
 			width = front.width,
 			height = front.height,
 			mode = "cover",
-			align_y = "bottom",
+			align_y = args.background.front and args.background.front.align_y
+				or "bottom",
 		})
 		material:blend(base, { at = front })
 
 		for i = #args.characters, 1, -1 do
 			local character = args.characters[i]
 			local offset = 0
-			local zoom = character.zoom or (i == 1 and 0.9) or 1.0
+			local zoom = character.zoom or 1.0
 			local at = front
 
 			if i > 1 then
@@ -162,6 +167,8 @@ return {
 			width = top.width,
 			height = top.height,
 			mode = "cover",
+			align_y = args.background.top and args.background.top.align_y
+				or "center",
 		})
 		material:blend(base, { at = top })
 

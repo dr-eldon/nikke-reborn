@@ -1,0 +1,12 @@
+logo = "GoldenCoinRush"
+background = {
+    id = "coin-rush-game-zone",
+    front = { align_y = "center" },
+}
+
+featured = [
+    { id = "c195" },
+    { id = "c314", animation = "action", time = 1, zoom = 1.1 },
+    { id = "c242_01", animation = "action", time = 0.7, x = 40, zoom = 1.1 },
+]
+models = []

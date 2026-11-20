@@ -29,8 +29,11 @@ return {
 
 		local padding = 100
 
-		local background =
-			image("../assets/images/backgrounds/" .. args.background .. ".png")
+		local background = image(
+			"../assets/images/backgrounds/"
+				.. (args.background.id or args.background)
+				.. ".png"
+		)
 
 		local logo
 		if args.logo ~= nil then
@@ -61,7 +64,7 @@ return {
 			for i = #args.characters, 1, -1 do
 				local character = args.characters[i]
 				local offset = 0
-				local zoom = 0.8 * (character.zoom or (i == 1 and 0.9) or 1.0)
+				local zoom = 0.8 * (character.zoom or 1.0)
 				local at = right
 				local translate = at.height / 7
 
@@ -119,7 +122,10 @@ return {
 				material:blend(logo, {
 					at = rectangle({
 						x = right.x + (right.width - logo.width) / 2,
-						y = right.y + right.height - logo.height - padding,
+						y = right.y
+							+ right.height
+							- logo.height
+							- padding / 1.5,
 						size = logo.size,
 					}),
 					color_space = "srgb",

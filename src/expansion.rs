@@ -16,7 +16,7 @@ use crate::{Card, Character, Error, Quality, Result};
 pub struct Expansion {
     pub id: String,
     pub logo: Option<String>,
-    pub background: String,
+    pub background: serde_json::Value,
     pub featured: Arc<[character::Featured]>,
     pub models: Arc<[Model]>,
     pub cards: Arc<OnceLock<Vec<Card>>>,
@@ -55,7 +55,7 @@ impl Expansion {
         #[derive(Debug, Deserialize)]
         struct _Expansion {
             logo: Option<String>,
-            background: String,
+            background: serde_json::Value,
             featured: Vec<character::Featured>,
             models: Vec<_Model>,
         }

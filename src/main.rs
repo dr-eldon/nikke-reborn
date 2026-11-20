@@ -15,14 +15,16 @@ static DRY: AtomicBool = AtomicBool::new(false);
 
 #[tokio::main(flavor = "local")]
 pub async fn main() -> Result<()> {
-    let mut args = env::args();
+    let mut args = env::args().peekable();
     let _process = args.next();
 
     let mut quality = Quality::default();
 
-    while let Some(option) = args.next()
+    while let Some(option) = args.peek().cloned()
         && option.starts_with("--")
     {
+        let _ = args.next();
+
         match option.as_str() {
             "--dry" => {
                 DRY.store(true, atomic::Ordering::Relaxed);
@@ -40,6 +42,8 @@ pub async fn main() -> Result<()> {
         }
     }
 
+    let expansion_target = args.next();
+
     let mut server = server()?;
 
     let mut standards = Vec::new();
@@ -51,7 +55,15 @@ pub async fn main() -> Result<()> {
     let expansions = Expansion::list().await?;
 
     for expansion in expansions.iter() {
+        if let Some(target) = &expansion_target
+            && expansion.id != *target
+        {
+            continue;
+        }
+
         let output = expansion.output_dir(quality);
+        tokio::fs::create_dir_all(&output).await?;
+
         let cards = expansion.cards().await?;
 
         standards.extend(
@@ -237,7 +249,7 @@ impl FullArt {
 
 #[derive(Debug, Serialize)]
 struct Box {
-    background: String,
+    background: serde_json::Value,
     characters: Vec<character::Featured>,
     logo: Option<String>,
     output: PathBuf,
@@ -245,7 +257,7 @@ struct Box {
 
 #[derive(Debug, Serialize)]
 struct Pack {
-    background: String,
+    background: serde_json::Value,
     characters: Vec<character::Featured>,
     logo: Option<String>,
     output: PathBuf,
