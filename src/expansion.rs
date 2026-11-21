@@ -60,34 +60,12 @@ impl Expansion {
             logo: Option<String>,
             background: serde_json::Value,
             featured: Vec<character::Featured>,
-            models: Vec<_Model>,
-        }
-
-        #[derive(Debug, Deserialize)]
-        struct _Model {
-            id: String,
-            #[serde(flatten)]
-            options: Options,
-            #[serde(rename = "Profile", default)]
-            profile: Options,
-            #[serde(rename = "Goddess", default)]
-            goddess: Options,
+            models: Vec<Model>,
         }
 
         let path = path.as_ref();
         let metadata = fs::read_to_string(&path).await?;
         let expansion: _Expansion = toml::from_str(&metadata)?;
-
-        let models = expansion
-            .models
-            .into_iter()
-            .map(|model| Model {
-                id: model.id,
-                profile: model.profile,
-                options: model.options,
-                goddess: model.goddess,
-            })
-            .collect();
 
         let file_stem = path
             .file_stem()
@@ -104,7 +82,7 @@ impl Expansion {
             logo: expansion.logo,
             background: expansion.background,
             featured: Arc::from(expansion.featured),
-            models,
+            models: Arc::from(expansion.models),
             cards: Arc::default(),
         })
     }
@@ -156,19 +134,6 @@ impl Expansion {
                     .expect("character id must not be empty"),
             );
 
-            if metadata.is_chibi() {
-                cards.push(Card {
-                    number,
-                    model: metadata.clone(),
-                    skin: skin.clone(),
-                    animation: animation.clone(),
-                    rarity: card::Rarity::Rare,
-                    character: character.cloned(),
-                    reel: Vec::new(),
-                });
-                continue;
-            }
-
             if metadata.is_event() {
                 cards.push(Card {
                     number,
@@ -214,6 +179,19 @@ impl Expansion {
                     .collect()
             };
 
+            if metadata.is_chibi() {
+                cards.push(Card {
+                    number,
+                    model: metadata.clone(),
+                    skin: skin.clone(),
+                    animation: animation.clone(),
+                    rarity: card::Rarity::Profile,
+                    character: character.cloned(),
+                    reel: reel.clone(),
+                });
+                continue;
+            }
+
             cards.push(Card {
                 number,
                 model: metadata.clone(),
@@ -236,23 +214,25 @@ impl Expansion {
                 });
             }
 
-            cards.push(Card {
-                number,
-                model: metadata.clone(),
-                skin: model
-                    .profile
-                    .skin()
-                    .map(str::to_owned)
-                    .or_else(|| skin.clone()),
-                animation: model
-                    .profile
-                    .animation()
-                    .map(str::to_owned)
-                    .or_else(|| animation.clone()),
-                rarity: card::Rarity::Profile,
-                character: character.cloned(),
-                reel: reel.clone(),
-            });
+            if model.profile.is_enabled() {
+                cards.push(Card {
+                    number,
+                    model: metadata.clone(),
+                    skin: model
+                        .profile
+                        .skin()
+                        .map(str::to_owned)
+                        .or_else(|| skin.clone()),
+                    animation: model
+                        .profile
+                        .animation()
+                        .map(str::to_owned)
+                        .or_else(|| animation.clone()),
+                    rarity: card::Rarity::Profile,
+                    character: character.cloned(),
+                    reel: reel.clone(),
+                });
+            }
 
             if variants.contains(&"cover".to_owned()) {
                 cards.push(Card {
@@ -290,12 +270,16 @@ impl Expansion {
                 });
             }
 
-            if animations.contains(&"action".to_owned()) {
+            if model.exotic.is_enabled() && animations.contains(&"action".to_owned()) {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
-                    skin: skin.clone(),
-                    animation: Some("action".to_owned()),
+                    skin: model
+                        .exotic
+                        .skin()
+                        .map(str::to_owned)
+                        .or_else(|| skin.clone()),
+                    animation: Some(model.exotic.animation().unwrap_or("action").to_owned()),
                     rarity: card::Rarity::Exotic,
                     character: character.cloned(),
                     reel: reel.clone(),
@@ -366,12 +350,17 @@ impl Expansion {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Model {
     pub id: String,
-    pub profile: Options,
-    pub options: Options,
-    pub goddess: Options,
+    #[serde(flatten)]
+    options: Options,
+    #[serde(rename = "Profile", default)]
+    profile: Options,
+    #[serde(rename = "Exotic", default)]
+    exotic: Options,
+    #[serde(rename = "Goddess", default)]
+    goddess: Options,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]

@@ -9,9 +9,9 @@ pub enum Quality {
 impl Quality {
     pub fn suffix(self) -> &'static str {
         match self {
-            Quality::Low => "_Low",
+            Quality::Low => " (Low)",
             Quality::Normal => "",
-            Quality::Ultra => "_Ultra",
+            Quality::Ultra => " (Ultra)",
         }
     }
 

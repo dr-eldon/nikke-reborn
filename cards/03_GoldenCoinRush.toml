@@ -10,8 +10,8 @@ models = [
     # NIKKEs in release order
     { id = "c260_01" },
     { id = "c070_02" },
-    { id = "c810", Profile = { skin = "acc" }, Goddess = { skin = "acc" } },
-    { id = "c810_01", Profile = { skin = "acc" }, Goddess = { skin = "acc" } },
+    { id = "c810", Profile = { skin = "acc" }, Exotic = { skin = "acc" } },
+    { id = "c810_01", Profile = { skin = "acc" }, Exotic = { skin = "acc" } },
     { id = "c810_02" },
     { id = "c812" },
     { id = "c813" },
@@ -88,8 +88,8 @@ models = [
     { id = "c974" },
     { id = "c974_01" },
     { id = "c975" },
-    { id = "c915" },
-    { id = "c976" },
+    { id = "c915", Profile = false },
+    { id = "c976", Profile = false },
     { id = "c901" },
     { id = "c977" },
     # the chibis in release order

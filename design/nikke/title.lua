@@ -6,7 +6,7 @@ local chocolate = font("../../fonts/ChocolateClassicalSans-Regular.ttf")
 function title.render(output, args)
 	local title = text(args.title:upper(), {
 		font = aire_exterior,
-		size = size(150, 10, args.title),
+		size = size(150, 7, args.title),
 		weight = 700,
 		x = 50,
 		y = args.y,
@@ -78,7 +78,7 @@ function title.render(output, args)
 	if args.subtitle ~= nil then
 		local subtitle = text(args.subtitle:upper(), {
 			font = aire_exterior,
-			size = size(50, 30, args.subtitle),
+			size = size(50, 14, args.subtitle),
 			weight = 700,
 			x = 50,
 			y = title_bounds.y + title_bounds.height + spacing,

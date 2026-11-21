@@ -49,19 +49,20 @@ def run() -> None:
         # The set the bundle's identity is named after: the output
         # folder's own name, minus its run-mode's twin suffix (the
         # twins carry the set's own internal names).
-        set_name = Preset.strip_suffix(target.name)
+        number, variant = target.name.split("_", 1)
+        set_name = Preset.strip_suffix(variant)
 
         # The bundle's identity comes from the set's metadata bundle
         # (the JSON copied in below): its asset-bundle name (the game
         # resolves the assets by it) and the phone app's id (the shop
         # images' folder).
         bundle_json = json.loads(
-            target.with_suffix(".json").read_text(encoding="utf-8")
+            target.with_name(f"{number}_{set_name}.json").read_text(encoding="utf-8")
         )
         bundle_id = bundle_json["BundleId"]
         app_id = bundle_json["CustomShops"][0]["PhoneAppId"]
 
-        bundle = BUNDLES_DIR / f"{MOD_NAME} - {target.name}"
+        bundle = BUNDLES_DIR / f"{MOD_NAME} - {variant}"
         bundle.mkdir(parents=True)
 
         plugins = bundle / "BepInEx" / "plugins"

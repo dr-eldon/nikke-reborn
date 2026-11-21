@@ -187,6 +187,7 @@ struct Profile {
     title: String,
     subtitle: Option<String>,
     reel: String,
+    skin: Option<String>,
     output: PathBuf,
 }
 
@@ -203,6 +204,7 @@ impl Profile {
             title: card.title(),
             subtitle: card.subtitle(),
             reel: card.reel.join(","),
+            skin: card.skin.clone(),
             output: expansion
                 .output_dir(quality)
                 .join(card.file_name())
