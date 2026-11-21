@@ -18,23 +18,24 @@ profile.arguments = {
 	"title",
 	"subtitle",
 	"reel",
+	"skin",
 }
 
 function profile.render(args)
+	args.reel = args.reel or ""
+
 	if cache[args.background] == nil then
 		local base =
 			image("../assets/images/backgrounds/" .. args.background .. ".png")
-		local tint = base:dominant_in(rectangle({ size = base.size }))
 
 		base:autocontrast()
 		base:resize({ width = width, height = height, mode = "cover" })
-		base:monochrome(tint)
 		base:convert("srgb")
 
-		cache[args.background] = { base, tint }
+		cache[args.background] = base
 	end
 
-	local base, tint = table.unpack(cache[args.background])
+	local base = cache[args.background]
 
 	local reel = {}
 
@@ -50,6 +51,8 @@ function profile.render(args)
 				args.id,
 				"--stdout",
 				"--portrait",
+				"--skin",
+				args.skin or "-",
 				"--animation",
 				expression,
 				"--time",
@@ -63,7 +66,15 @@ function profile.render(args)
 		reel[#reel + 1] = face
 	end
 
-	local viewer_args = { args.id, "--stdout", "--time", 0 }
+	local viewer_args = {
+		args.id,
+		"--stdout",
+		"--time",
+		0,
+		"--skin",
+		args.skin or "-",
+	}
+
 	local frame = stream("nikke-viewer", {
 		width = base.width,
 		height = base.height,
@@ -95,6 +106,7 @@ function profile.render(args)
 			table.unpack(viewer_args),
 		},
 	})()
+
 	local tint = frame:vivid_in(rectangle({ size = frame.size }))
 
 	do
@@ -146,7 +158,10 @@ function profile.render(args)
 			size = face.size,
 		})
 
-		output:fill(bounds:padded(1), tint)
+		local tint = tint:to_oklch()
+		tint.l = 0.2
+
+		output:fill(bounds:padded(1 / scale), tint:with_alpha(0.7))
 
 		output:blend(face, {
 			at = bounds,

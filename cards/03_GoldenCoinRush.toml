@@ -10,8 +10,8 @@ models = [
     # NIKKEs in release order
     { id = "c260_01" },
     { id = "c070_02" },
-    { id = "c810" },
-    { id = "c810_01" },
+    { id = "c810", Profile = { skin = "acc" }, Goddess = { skin = "acc" } },
+    { id = "c810_01", Profile = { skin = "acc" }, Goddess = { skin = "acc" } },
     { id = "c810_02" },
     { id = "c812" },
     { id = "c813" },

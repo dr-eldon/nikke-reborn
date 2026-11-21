@@ -3,7 +3,7 @@ local module = {}
 local oswald = font("../../fonts/Oswald.ttf")
 local copyright = text("©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP.", {
 	font = oswald,
-	size = 22,
+	size = 20,
 	weight = 300,
 })
 local invert = nil

@@ -68,6 +68,8 @@ impl Expansion {
             id: String,
             #[serde(flatten)]
             options: Options,
+            #[serde(rename = "Profile", default)]
+            profile: Options,
             #[serde(rename = "Goddess", default)]
             goddess: Options,
         }
@@ -81,6 +83,7 @@ impl Expansion {
             .into_iter()
             .map(|model| Model {
                 id: model.id,
+                profile: model.profile,
                 options: model.options,
                 goddess: model.goddess,
             })
@@ -142,6 +145,7 @@ impl Expansion {
             };
 
             let number = i + 1;
+            let skin = model.options.skin().map(str::to_owned);
             let animation = model.options.animation().map(str::to_owned);
 
             let character = characters.get(
@@ -156,6 +160,7 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Rare,
                     character: character.cloned(),
@@ -168,6 +173,7 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Classified,
                     character: character.cloned(),
@@ -211,6 +217,7 @@ impl Expansion {
             cards.push(Card {
                 number,
                 model: metadata.clone(),
+                skin: skin.clone(),
                 animation: animation.clone(),
                 rarity: card::Rarity::Standard,
                 character: character.cloned(),
@@ -221,6 +228,7 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: skin.clone(),
                     animation: Some(animation.clone()),
                     rarity: card::Rarity::Rare,
                     character: character.cloned(),
@@ -231,7 +239,16 @@ impl Expansion {
             cards.push(Card {
                 number,
                 model: metadata.clone(),
-                animation: animation.clone(),
+                skin: model
+                    .profile
+                    .skin()
+                    .map(str::to_owned)
+                    .or_else(|| skin.clone()),
+                animation: model
+                    .profile
+                    .animation()
+                    .map(str::to_owned)
+                    .or_else(|| animation.clone()),
                 rarity: card::Rarity::Profile,
                 character: character.cloned(),
                 reel: reel.clone(),
@@ -241,6 +258,7 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Cover,
                     character: character.cloned(),
@@ -252,6 +270,7 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Aim,
                     character: character.cloned(),
@@ -263,6 +282,7 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: skin.clone(),
                     animation: Some(animation.clone()),
                     rarity: card::Rarity::Special,
                     character: character.cloned(),
@@ -274,6 +294,7 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: skin.clone(),
                     animation: Some("action".to_owned()),
                     rarity: card::Rarity::Exotic,
                     character: character.cloned(),
@@ -285,6 +306,11 @@ impl Expansion {
                 cards.push(Card {
                     number,
                     model: metadata.clone(),
+                    skin: model
+                        .goddess
+                        .skin()
+                        .map(str::to_owned)
+                        .or_else(|| skin.clone()),
                     animation: Some(
                         model
                             .goddess
@@ -343,6 +369,7 @@ impl Expansion {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Model {
     pub id: String,
+    pub profile: Options,
     pub options: Options,
     pub goddess: Options,
 }
@@ -353,6 +380,7 @@ pub enum Options {
     Toggled(bool),
     Customized {
         animation: Option<String>,
+        skin: Option<String>,
     },
     #[default]
     Default,
@@ -368,7 +396,14 @@ impl Options {
 
     pub fn animation(&self) -> Option<&str> {
         match self {
-            Options::Customized { animation } => animation.as_deref(),
+            Options::Customized { animation, .. } => animation.as_deref(),
+            Options::Toggled(_) | Options::Default => None,
+        }
+    }
+
+    pub fn skin(&self) -> Option<&str> {
+        match self {
+            Options::Customized { skin, .. } => skin.as_deref(),
             Options::Toggled(_) | Options::Default => None,
         }
     }

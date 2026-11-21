@@ -11,6 +11,7 @@ use crate::{Character, Model};
 pub struct Card {
     pub number: usize,
     pub model: Model,
+    pub skin: Option<String>,
     pub animation: Option<String>,
     pub rarity: Rarity,
     pub character: Option<Character>,

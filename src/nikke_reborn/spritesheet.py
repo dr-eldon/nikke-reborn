@@ -3,7 +3,7 @@ cards, fitted to the grid — over the expansion's background (dimmed
 so the grid reads against it).
 
 The sheet composites the finished first frames
-(``output/<set>_Ultra/<sprite>.png``, the bundle's ``Sprite`` names
+(``output/<set>/<sprite>.png``, the bundle's ``Sprite`` names
 under the set folder ``generate`` writes) into a grid: the
 expansion's logo at the top, one row per character (a label column
 with the card's number and name) and one column per presentation
@@ -226,7 +226,7 @@ def _parse_args() -> argparse.Namespace:
         description=(
             "Compose an expansion's sprite sheet from its bundle "
             "(output/<set>.json) and its rendered first frames "
-            "(output/<set>_Ultra/): the summary grid "
+            "(output/<set>/): the summary grid "
             "(every first frame tiled across one "
             f"{SHEET_TARGET[0]}x{SHEET_TARGET[1]} image) and the grid's "
             "pages (the expansion's logo on top, one row per character, "
@@ -238,7 +238,7 @@ def _parse_args() -> argparse.Namespace:
         "expansion",
         help=(
             "the expansion's name (its bundle at output/<set>.json, its "
-            "first frames at output/<set>_Ultra/)"
+            "first frames at output/<set>/)"
         ),
     )
     parser.add_argument(
@@ -293,7 +293,7 @@ def _build(name: str, draft: bool, force: bool) -> list[_Part]:
     # video card's PNG sidecar) at the pipeline's own output path:
     # the expansion's set folder under the output root (where
     # ``generate`` writes), or ``draft/<set>/`` for ``--draft``.
-    frame_dir = DRAFT_DIR / name if draft else OUTPUT_DIR / f"{name}_Ultra"
+    frame_dir = DRAFT_DIR / name if draft else OUTPUT_DIR / f"{name}"
     paths = {key: frame_dir / f"{sprite}.png" for key, sprite in grid.cells.items()}
     # A cell whose first frame is not on disk renders as a placeholder
     # (below) instead of failing the whole sheet.

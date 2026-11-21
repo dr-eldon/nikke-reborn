@@ -114,15 +114,16 @@ function title.render(output, args)
 
 		local tint = args.tint:to_oklch()
 
-		if tint.c > 0.04 then
-			tint.c = 0.3
-			tint.l = 0.7
-		else
-			tint.l = 0.5
+		tint.c = math.min(tint.c * 1.5, 0.25)
+
+		local color = "#FFFFFF"
+
+		if tint.l > 0.8 then
+			color = "#000000"
 		end
 
 		output:fill(subtitle_box, tint)
-		output:fill(subtitle, "#FFFFFF")
+		output:fill(subtitle, color)
 	end
 end
 

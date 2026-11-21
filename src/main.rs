@@ -121,7 +121,7 @@ pub async fn main() -> Result<()> {
 
     generate("standard", &standards, quality).await?;
     generate("profile", &profiles, quality).await?;
-    // generate("full_art", &full_arts, quality).await?;
+    generate("full_art", &full_arts, quality).await?;
     generate("box", &boxes, quality).await?;
     generate("pack", &packs, quality).await?;
 
@@ -216,6 +216,7 @@ struct FullArt {
     id: String,
     background: Option<String>,
     variant: model::Variant,
+    skin: Option<String>,
     animation: Option<String>,
     time: Option<f32>,
     focus: String,
@@ -238,6 +239,7 @@ impl FullArt {
             id: card.model.id.clone(),
             background: card.rarity.background().map(str::to_owned),
             variant: card.rarity.variant(),
+            skin: card.skin.clone(),
             animation: card.animation.clone(),
             time: card.rarity.time(),
             focus: card.focus().to_owned(),
@@ -287,6 +289,7 @@ async fn generate(design: &str, jobs: &[impl Serialize], quality: Quality) -> Re
             env!("CARGO_MANIFEST_DIR")
         ))
         .arg("--stdin")
+        .arg("--release")
         .args(["--threads", "8"])
         .arg("--scale")
         .arg(format!("{:.2}", quality.scale()))
