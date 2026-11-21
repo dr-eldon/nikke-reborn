@@ -290,6 +290,10 @@ async fn generate(design: &str, jobs: &[impl Serialize], quality: Quality) -> Re
         .args(["--threads", "8"])
         .arg("--scale")
         .arg(format!("{:.2}", quality.scale()))
+        .arg("--scale-video")
+        .arg(format!("{:.2}", quality.scale_video()))
+        .arg("--framerate")
+        .arg(quality.framerate().to_string())
         .stdin(process::Stdio::piped())
         .spawn()?;
 

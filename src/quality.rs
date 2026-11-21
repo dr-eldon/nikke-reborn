@@ -22,4 +22,18 @@ impl Quality {
             Quality::Ultra => 1.0,
         }
     }
+
+    pub fn scale_video(&self) -> f32 {
+        match self {
+            Quality::Low => 0.75,
+            Quality::Normal | Quality::Ultra => 1.0,
+        }
+    }
+
+    pub fn framerate(&self) -> u32 {
+        match self {
+            Quality::Low => 30,
+            Quality::Normal | Quality::Ultra => 60,
+        }
+    }
 }
