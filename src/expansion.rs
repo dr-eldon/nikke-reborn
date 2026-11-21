@@ -49,6 +49,8 @@ impl Expansion {
             expansions.push(expansion);
         }
 
+        expansions.sort_by_key(|expansion| expansion.number);
+
         Ok(Arc::from(expansions))
     }
 
@@ -455,6 +457,13 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
         ..Slot::default()
     });
 
+    let level = (10 * (expansion.number - 1)).max(1);
+    let level_big = level + 5;
+
+    fn progression(base: f32, growth: f32, level: usize) -> usize {
+        100 * ((base * (level as f32).powf(growth)).round() / 100.0) as usize
+    }
+
     json!({
         "Name": format!("{} Packs", expansion.name()),
         "CardExpansion": bundle,
@@ -462,11 +471,11 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
         "ItemType": format!("{bundle}_CardPack_Item"),
         "Material": "CardPack_Material",
         "SpriteName": "CardPack_Item",
-        "BaseCost": 2,
-        "SmallBoxLicensePrice": 50,
-        "SmallBoxLicenseLevelRequirement": 1,
-        "LicensePrice": 300,
-        "LicenseLevelRequirement": 5,
+        "BaseCost": 1 + expansion.number,
+        "SmallBoxLicensePrice": 50 + progression(40.0, 1.2, level),
+        "SmallBoxLicenseLevelRequirement": level,
+        "LicensePrice": progression(50.0, 1.2, level_big),
+        "LicenseLevelRequirement": level_big,
         "SlotWeights": {
           "Slot1": common,
           "Slot2": common,

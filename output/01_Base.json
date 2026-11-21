@@ -17,8 +17,8 @@
       "BaseCost": 2,
       "SmallBoxLicensePrice": 50,
       "SmallBoxLicenseLevelRequirement": 1,
-      "LicensePrice": 300,
-      "LicenseLevelRequirement": 5,
+      "LicensePrice": 400,
+      "LicenseLevelRequirement": 6,
       "SlotWeights": {
         "Slot1": {
           "Standard": 97.5,

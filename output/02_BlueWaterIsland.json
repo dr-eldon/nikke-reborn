@@ -14,11 +14,11 @@
       "ItemType": "NIKKE_REBORN_BlueWaterIsland_CardPack_Item",
       "Material": "CardPack_Material",
       "SpriteName": "CardPack_Item",
-      "BaseCost": 2,
-      "SmallBoxLicensePrice": 50,
-      "SmallBoxLicenseLevelRequirement": 1,
-      "LicensePrice": 300,
-      "LicenseLevelRequirement": 5,
+      "BaseCost": 3,
+      "SmallBoxLicensePrice": 650,
+      "SmallBoxLicenseLevelRequirement": 10,
+      "LicensePrice": 1200,
+      "LicenseLevelRequirement": 15,
       "SlotWeights": {
         "Slot1": {
           "Standard": 97.5,
