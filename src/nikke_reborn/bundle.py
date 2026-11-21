@@ -2,12 +2,14 @@
 
 Builds the ``bundles/`` directory that ships with the mod: each set's
 rendered cards and metadata bundle are copied in and turned into a Unity
-asset bundle by :func:`nikke_reborn.bundler.build`, and the shop images
-are laid out under the phone-app plugin. Every set folder under the
-output root is bundled — the suffixed run-modes' twins (``<set>
-(Ultra)``, ``<set> (Low)``) included — so a set's native-resolution
-and low-framerate cards ship alongside the default one, with the same
-structure and the set's own (un-suffixed) internal names.
+asset bundle by :func:`nikke_reborn.bundler.build`, the shop images are
+laid out under the phone-app plugin, and the set's BepInEx tree is
+zipped into one archive per set (the ``BepInEx`` folder at the
+archive's root). Every set folder under the output root is bundled —
+the suffixed run-modes' twins (``<set> (Ultra)``, ``<set> (Low)``)
+included — so a set's native-resolution and low-framerate cards ship
+alongside the default one, with the same structure and the set's own
+(un-suffixed) internal names.
 """
 
 from __future__ import annotations
@@ -15,6 +17,8 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import zipfile
+from pathlib import Path
 
 from nikke_reborn import bundler
 from nikke_reborn.config import BUNDLES_DIR, CARDS_DIR, OUTPUT_DIR, SHOP_DIR
@@ -35,12 +39,12 @@ def run() -> None:
             "Compose the game bundle from the rendered output: every set "
             "folder under output/ (the default and the run-modes' twins, "
             "'<set> (Ultra)' and '<set> (Low)') is copied in and turned "
-            "into a Unity asset bundle under bundles/"
+            "into a Unity asset bundle, and the set's BepInEx tree is "
+            "zipped into one archive per set under bundles/"
         ),
     ).parse_args()
 
-    shutil.rmtree(BUNDLES_DIR, ignore_errors=True)
-    BUNDLES_DIR.mkdir()
+    BUNDLES_DIR.mkdir(exist_ok=True)
 
     for target in sorted(OUTPUT_DIR.iterdir()):
         if not target.is_dir():
@@ -63,6 +67,12 @@ def run() -> None:
         app_id = bundle_json["CustomShops"][0]["PhoneAppId"]
 
         bundle = BUNDLES_DIR / f"{MOD_NAME} - {variant}"
+
+        if bundle.with_suffix(".zip").is_file():
+            print(f"{bundle.name} already bundled. Skipping...")
+            continue
+
+        shutil.rmtree(bundle, ignore_errors=True)
         bundle.mkdir(parents=True)
 
         plugins = bundle / "BepInEx" / "plugins"
@@ -77,25 +87,39 @@ def run() -> None:
         plugin = prefab / set_name
         animator = plugins / "EPLCardAnimator" / "animated"
 
-        if (CARDS_DIR / f"{set_name}.toml").is_file():
-            videos = [
-                file
-                for file in (OUTPUT_DIR / target.name).iterdir()
-                if file.name.endswith(".mp4")
-            ]
+        videos = [
+            file
+            for file in (OUTPUT_DIR / target.name).iterdir()
+            if file.name.endswith(".mp4")
+        ]
 
-            videos_dir = animator / bundle_id
+        videos_dir = animator / bundle_id
 
-            if videos:
-                videos_dir.mkdir(parents=True)
+        if videos:
+            videos_dir.mkdir(parents=True)
 
-            for video in videos:
-                copy(video, videos_dir / video.name)
+        for video in videos:
+            copy(video, videos_dir / video.name)
 
-        copy(target.with_suffix(".json"), plugin.with_suffix(".json"))
+        copy(
+            target.with_name(f"{number}_{set_name}.json"),
+            plugin.with_suffix(".json"),
+        )
         bundler.build(
             assets_dir=target,
             name=bundle_id,
             output=plugin,
             set_name=set_name,
         )
+
+        zip_directory(bundle, BUNDLES_DIR / f"{bundle.name}.zip")
+        shutil.rmtree(bundle)
+
+
+def zip_directory(directory: Path, archive: Path) -> None:
+    """Zip `directory`'s tree into `archive`, rooted at `directory`
+    (the ``BepInEx`` folder at the archive's root)."""
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for file in sorted(directory.rglob("*")):
+            if file.is_file():
+                zip_file.write(file, file.relative_to(directory).as_posix())
