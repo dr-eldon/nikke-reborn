@@ -112,7 +112,7 @@ pub async fn main() -> Result<()> {
 
         tokio::fs::write(
             environment::output_dir()
-                .join(&expansion.id)
+                .join(expansion.file_name())
                 .with_extension("json"),
             &serde_json::to_string_pretty(&bundle).expect("bundle must be serializable"),
         )

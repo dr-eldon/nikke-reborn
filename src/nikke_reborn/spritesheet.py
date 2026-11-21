@@ -491,7 +491,7 @@ def _expansion_background(name: str, toml: dict) -> tuple[Image.Image, Path]:
     """The expansion's background (RGBA) and its file: its
     ``background`` (a key of ``assets/images/backgrounds/`` — the same
     one its items' materials use)."""
-    key = toml.get("background")
+    key = (toml.get("background") or {}).get("id")
     if not isinstance(key, str):
         raise GenerationError(
             f"{name}: the expansion's 'background' must name a background "
@@ -1522,9 +1522,8 @@ def _screen_composite(
 
 def _fit_cover(background: Image.Image, size: tuple[int, int]) -> Image.Image:
     """Fit *background* to *size*: scaled just enough to cover the whole
-    region, then cropped horizontally centered and vertically
-    bottom-aligned — the sheet's canvas (the bottom edges aligned, no
-    deformation)."""
+    region, then cropped horizontally and vertically centered — the sheet's
+    canvas (the bottom edges aligned, no deformation)."""
     width, height = size
     scale = max(width / background.width, height / background.height)
     if scale != 1.0:
@@ -1533,7 +1532,7 @@ def _fit_cover(background: Image.Image, size: tuple[int, int]) -> Image.Image:
             Image.Resampling.LANCZOS,
         )
     left = (background.width - width) // 2
-    top = background.height - height
+    top = (background.height - height) // 2
     return background.crop((left, top, left + width, top + height)).convert("RGBA")
 
 

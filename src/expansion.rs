@@ -15,6 +15,7 @@ use crate::{Card, Character, Error, Quality, Result};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expansion {
     pub id: String,
+    pub number: usize,
     pub logo: Option<String>,
     pub background: serde_json::Value,
     pub featured: Arc<[character::Featured]>,
@@ -83,12 +84,18 @@ impl Expansion {
             })
             .collect();
 
+        let file_stem = path
+            .file_stem()
+            .expect("expansion must have file stem")
+            .to_string_lossy();
+
+        let (number, id) = file_stem
+            .split_once('_')
+            .expect("expansion must have number and name");
+
         Ok(Self {
-            id: path
-                .file_stem()
-                .expect("expansion must have file stem")
-                .to_string_lossy()
-                .into_owned(),
+            id: id.to_owned(),
+            number: number.parse().expect("expansion number must be valid"),
             logo: expansion.logo,
             background: expansion.background,
             featured: Arc::from(expansion.featured),
@@ -219,16 +226,14 @@ impl Expansion {
                 });
             }
 
-            if !reel.is_empty() {
-                cards.push(Card {
-                    number,
-                    model: metadata.clone(),
-                    animation: animation.clone(),
-                    rarity: card::Rarity::Profile,
-                    character: character.cloned(),
-                    reel: reel.clone(),
-                });
-            }
+            cards.push(Card {
+                number,
+                model: metadata.clone(),
+                animation: animation.clone(),
+                rarity: card::Rarity::Profile,
+                character: character.cloned(),
+                reel: reel.clone(),
+            });
 
             if variants.contains(&"cover".to_owned()) {
                 cards.push(Card {
@@ -299,7 +304,16 @@ impl Expansion {
     }
 
     pub fn output_dir(&self, quality: Quality) -> PathBuf {
-        environment::output_dir().join(format!("{}{}", self.id.clone(), quality.suffix()))
+        environment::output_dir().join(format!(
+            "{:<02}_{}{}",
+            self.number,
+            self.id,
+            quality.suffix()
+        ))
+    }
+
+    pub fn file_name(&self) -> String {
+        format!("{:<02}_{}", self.number, self.id)
     }
 
     fn bundle_id(&self) -> String {

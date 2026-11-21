@@ -114,7 +114,7 @@ function title.render(output, args)
 
 		local tint = args.tint:to_oklch()
 
-		if tint.c > 0.07 then
+		if tint.c > 0.04 then
 			tint.c = 0.3
 			tint.l = 0.7
 		else

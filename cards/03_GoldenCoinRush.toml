@@ -1,8 +1,5 @@
 logo = "GoldenCoinRush"
-background = {
-    id = "coin-rush-game-zone",
-    front = { align_y = "center" },
-}
+background = { id = "coin-rush-game-zone", front = { align_y = "center" } }
 
 featured = [
     { id = "c195" },
@@ -47,7 +44,7 @@ models = [
     { id = "c140_02" },
     { id = "c101_02" },
     { id = "c313" },
-    { id = "c310" },
+    { id = "c310", Goddess = false },
     { id = "c480" },
     { id = "c490" },
     { id = "c500" },
@@ -109,10 +106,10 @@ models = [
     { id = "smol_ade" },
     { id = "smol_mpriv" },
     # the favorites in release order
-    { id = "favorite_c072" },
-    { id = "favorite_c100" },
-    { id = "favorite_c142" },
-    { id = "favorite_c210" },
+    { id = "favorite_c072", animation = "expression_merged" },
+    { id = "favorite_c100", animation = "expression_merged" },
+    { id = "favorite_c142", animation = "expression_merged" },
+    { id = "favorite_c210", animation = "expression_merged" },
     # the event CGs close the set
     { id = "outerautomata" },
     { id = "schooloflock" },
