@@ -236,7 +236,7 @@ impl Material {
 /// the padded row stride.
 fn pad_rows(rgba: &[u8], width: u32) -> (Vec<u8>, u32) {
     let row = (width as usize) * 4;
-    let stride = (((row as u64) + 255) / 256 * 256) as usize;
+    let stride = ((row as u64).div_ceil(256) * 256) as usize;
     if stride == row {
         return (rgba.to_vec(), row as u32);
     }
@@ -892,8 +892,8 @@ impl Pipeline {
         queue.write_buffer(&self.uniforms_buffer, 0, bytemuck::bytes_of(&uniforms));
 
         // (Re)upload the mesh when the selection changes.
-        if let Some(mesh) = &primitive.mesh {
-            if !self
+        if let Some(mesh) = &primitive.mesh
+            && !self
                 .mesh
                 .as_ref()
                 .is_some_and(|(m, _, _)| Arc::ptr_eq(m, mesh))
@@ -911,11 +911,10 @@ impl Pipeline {
                 self.index_count = mesh.indices.len() as u32;
                 self.mesh = Some((mesh.clone(), vertex_buffer, index_buffer));
             }
-        }
 
         // (Re)upload the material when the selection changes.
-        if let Some(material) = &primitive.material {
-            if !self
+        if let Some(material) = &primitive.material
+            && !self
                 .material
                 .as_ref()
                 .is_some_and(|(m, _)| Arc::ptr_eq(m, material))
@@ -972,7 +971,6 @@ impl Pipeline {
                     }),
                 ));
             }
-        }
     }
 }
 
@@ -1587,7 +1585,7 @@ mod blit_tests {
             primitive.draw_frame(&pipeline, &mut encoder, &target, clip);
 
             let row_bytes = frame.width as u64 * 4;
-            let row_stride = (row_bytes + 255) / 256 * 256;
+            let row_stride = row_bytes.div_ceil(256) * 256;
             let buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("test readback"),
                 size: row_stride * frame.height as u64,

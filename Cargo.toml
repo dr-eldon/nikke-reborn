@@ -19,3 +19,5 @@ serde_json.features = ["preserve_order"]
 tokio.version = "1"
 tokio.features = ["fs", "process", "macros", "rt", "io-util"]
 
+[workspace]
+members = ["unity-viewer"]

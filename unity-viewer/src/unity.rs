@@ -188,7 +188,7 @@ impl Mesh {
             )));
         }
         let tail = data_size as u64 - cursor;
-        if tail > 256 || tail % 8 != 0 {
+        if tail > 256 || !tail.is_multiple_of(8) {
             return Err(Error::Layout(format!(
                 "suspicious {tail}-byte tail after the vertex streams"
             )));
@@ -371,6 +371,7 @@ fn parse_channels(block: &str) -> Vec<(u32, u32, u32, u32)> {
 
 /// Pick (position, normal, uv0) from the channel list, correcting the
 /// bogus dimensions along the way.
+#[allow(clippy::type_complexity)]
 fn pick_channels(
     channels: &[(u32, u32, u32, u32)],
 ) -> Result<
@@ -442,9 +443,10 @@ fn read_floats(
         ));
     }
     let mut out = [0.0f32; 3];
-    for i in 0..count.min(3) {
+    for (i, out) in out.iter_mut().take(count.min(3)).enumerate() {
         let at = start + i * elem;
-        out[i] = if format == 1 {
+
+        *out = if format == 1 {
             f16_to_f32(u16::from_le_bytes([data[at], data[at + 1]]))
         } else {
             f32::from_bits(u32::from_le_bytes([
@@ -474,16 +476,14 @@ fn f16_to_f32(bits: u16) -> f32 {
 
 fn decode_hex(hex: &str) -> Option<Vec<u8>> {
     let hex = hex.trim();
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return None;
     }
-    Some(
-        (0..hex.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
-            .collect::<Result<_, _>>()
-            .ok()?,
-    )
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
+        .collect::<Result<_, _>>()
+        .ok()
 }
 
 /// Decode the hex index blob into `u16` LE indices.
@@ -524,7 +524,7 @@ mod tests {
         assert_eq!(mesh.vertices.len(), expected_vertex_count);
         assert!(!mesh.indices.is_empty(), "mesh has indices");
         assert!(
-            mesh.indices.len() % 3 == 0,
+            mesh.indices.len().is_multiple_of(3),
             "index count must be multiple of 3"
         );
         for idx in mesh.indices.iter() {

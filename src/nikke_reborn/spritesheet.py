@@ -491,7 +491,11 @@ def _expansion_background(name: str, toml: dict) -> tuple[Image.Image, Path]:
     """The expansion's background (RGBA) and its file: its
     ``background`` (a key of ``assets/images/backgrounds/`` — the same
     one its items' materials use)."""
-    key = (toml.get("background") or {}).get("id")
+    key = toml.get("background")
+
+    if isinstance(key, dict):
+        key = key.get("id")
+
     if not isinstance(key, str):
         raise GenerationError(
             f"{name}: the expansion's 'background' must name a background "

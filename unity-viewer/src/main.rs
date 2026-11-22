@@ -38,7 +38,7 @@ use iced::{Alignment, Bottom, Color, Fill, Font, Point, Right, Task, Theme, Vect
 use unity_viewer::cli;
 use unity_viewer::config::Config;
 use unity_viewer::scene::{Camera, FOV_Y, Material, Model, Primitive};
-use unity_viewer::{mesh, unity::Mesh, IMAGES_DIR, MESHES_DIR, OUTPUT_DIR, ROOT};
+use unity_viewer::{IMAGES_DIR, MESHES_DIR, OUTPUT_DIR, ROOT, mesh, unity::Mesh};
 
 /// Sensitivity of the drag trackball: degrees of asset rotation produced by
 /// a drag spanning the full canvas width (a half turn — like grabbing the
@@ -182,10 +182,7 @@ fn scan_meshes() -> Vec<MeshEntry> {
     let mut entries: Vec<MeshEntry> = rd
         .flatten()
         .map(|e| e.path())
-        .filter(|p| {
-            p.extension()
-                .is_some_and(|e| e == "asset" || e == "obj")
-        })
+        .filter(|p| p.extension().is_some_and(|e| e == "asset" || e == "obj"))
         .filter_map(|p| {
             let label = p.file_stem()?.to_string_lossy().into_owned();
             Some(MeshEntry {
@@ -311,7 +308,7 @@ impl App {
         let mesh_path = app
             .selected_mesh
             .and_then(|i| app.mesh_entries.get(i).map(|e| e.path.clone()));
-        let material_path = app.material_entries.iter().nth(1).map(|e| e.path.clone());
+        let material_path = app.material_entries.get(1).map(|e| e.path.clone());
         let (mesh_idx, material_idx) = (app.selected_mesh, 1usize);
 
         let init = Task::perform(
@@ -332,9 +329,7 @@ impl App {
                 );
                 (mesh_idx, mesh, material_idx, material)
             },
-            |r| match r {
-                (mi, m, xi, x) => Message::InitLoaded(mi, m, xi, x),
-            },
+            |(mi, m, xi, x)| Message::InitLoaded(mi, m, xi, x),
         );
 
         (app, init)
@@ -525,14 +520,14 @@ impl App {
                 self.model_rotation = self.model_rotation.trackball(
                     up,
                     right,
-                    (delta.x as f32).to_radians(),
-                    (delta.y as f32).to_radians(),
+                    delta.x.to_radians(),
+                    delta.y.to_radians(),
                 );
                 Task::none()
             }
 
             Message::Pan(delta) => {
-                let (wx, wy) = (delta.x as f32, delta.y as f32);
+                let (wx, wy) = (delta.x, delta.y);
                 let (right, up) = self.camera.screen_axes();
                 self.camera.pan[0] += up[0] * wy - right[0] * wx;
                 self.camera.pan[1] += up[1] * wy - right[1] * wx;
@@ -760,7 +755,7 @@ impl App {
                 wrap_degrees(self.model_rotation.yaw.to_degrees()),
                 1.0,
                 format!("{:.0}°", wrap_degrees(self.model_rotation.yaw.to_degrees())),
-                |deg| Message::YawChanged(deg),
+                Message::YawChanged,
             ),
             Self::slider_row(
                 "Pitch",
@@ -768,7 +763,7 @@ impl App {
                 self.model_rotation.pitch.to_degrees(),
                 1.0,
                 format!("{:.0}°", self.model_rotation.pitch.to_degrees()),
-                |deg| Message::PitchChanged(deg),
+                Message::PitchChanged,
             ),
             Self::slider_row(
                 "Roll",
@@ -779,7 +774,7 @@ impl App {
                     "{:.0}°",
                     wrap_degrees(self.model_rotation.roll.to_degrees())
                 ),
-                |deg| Message::RollChanged(deg),
+                Message::RollChanged,
             ),
             space::vertical().height(8),
             row![

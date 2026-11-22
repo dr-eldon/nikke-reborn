@@ -21,7 +21,7 @@ use crate::config::Config;
 use crate::scene::{Camera, Material, Model, Pipeline, Primitive};
 use iced::Rectangle;
 
-use crate::{mesh, IMAGES_DIR, MESHES_DIR, OUTPUT_DIR, ROOT};
+use crate::{IMAGES_DIR, MESHES_DIR, OUTPUT_DIR, ROOT, mesh};
 
 const DEFAULT_WIDTH: u32 = 1024;
 const DEFAULT_HEIGHT: u32 = 1024;
@@ -256,7 +256,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         // Read the rendered texture back into a buffer. `copy_texture_to_buffer`
         // requires `bytes_per_row` to be a multiple of 256, so rows are padded.
         let row_bytes = width as u64 * 4;
-        let row_stride = (row_bytes + 255) / 256 * 256;
+        let row_stride = row_bytes.div_ceil(256) * 256;
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("screenshot readback"),
             size: row_stride * height as u64,
@@ -307,8 +307,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
         for px in rgba.chunks_mut(4) {
             let a = px[3];
             if a > 0 && a < 255 {
-                for c in 0..3 {
-                    px[c] = (px[c] as u32 * 255 / a as u32).min(255) as u8;
+                for c in &mut px[0..3] {
+                    *c = (*c as u32 * 255 / a as u32).min(255) as u8;
                 }
             }
         }
@@ -381,7 +381,7 @@ fn parse(args: &[String]) -> Result<Options, String> {
     }
 
     let mesh = positional
-        .get(0)
+        .first()
         .cloned()
         .ok_or_else(|| "missing <mesh> argument (see --help)".to_string())?;
     let material = match positional.get(1) {
@@ -404,8 +404,7 @@ fn parse(args: &[String]) -> Result<Options, String> {
     let rotation = rotation.unwrap_or(angles.yaw);
     let pitch = pitch.unwrap_or(angles.pitch);
     let roll = roll.unwrap_or(angles.roll);
-    let zoom = zoom
-        .unwrap_or(config.map(|c| c.camera.zoom).unwrap_or(default.zoom));
+    let zoom = zoom.unwrap_or(config.map(|c| c.camera.zoom).unwrap_or(default.zoom));
     if zoom <= 0.0 {
         return Err("--zoom must be greater than 0".to_string());
     }
