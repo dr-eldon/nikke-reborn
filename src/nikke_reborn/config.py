@@ -18,6 +18,8 @@ BUNDLES_DIR = REPO_ROOT / "bundles"
 DATABASE_DIR = REPO_ROOT / "database"
 SHOP_DIR = IMAGES_DIR / "shop"
 
+MOD_NAME = "NIKKE REBORN"
+
 VIEWER = "nikke-viewer"
 UNITY_VIEWER = "unity-viewer"
 #: ffprobe: reads the source-hash tag out of a finished MP4.

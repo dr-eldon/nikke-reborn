@@ -1,3 +1,4 @@
+description = "Base expansion. Content available at launch (November 11, 2022)."
 background = "sky-night"
 featured = [
     { id = "c010", animation = "action", time = 1.247 },

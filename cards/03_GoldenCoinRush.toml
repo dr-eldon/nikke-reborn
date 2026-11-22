@@ -1,3 +1,4 @@
+description = "Golden Coin Rush expansion. Content after Sea, You, Again until Golden Coin Rush (~May 30, 2024)."
 logo = "GoldenCoinRush"
 background = { id = "coin-rush-game-zone", front = { align_y = "center" } }
 

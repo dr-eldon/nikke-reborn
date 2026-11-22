@@ -7,6 +7,7 @@
 - 26 animated event CGs
 - 10 side characters
 - Includes the NieR: Automata and Re:Zero collabs!
+- Fixed broken alpha blending and some inconsistencies in the other expansions
 
 # 0.3.0
 

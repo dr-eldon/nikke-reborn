@@ -9,6 +9,8 @@ instead of a triple."""
 
 from __future__ import annotations
 
+import re
+
 from enum import Enum
 from pathlib import Path
 
@@ -36,6 +38,14 @@ DRAFT_X264_PRESET = "ultrafast"
 
 DEFAULT_FRAMERATE = 60
 LOW_FRAMERATE = 30
+
+
+def spaced(name: str) -> str:
+    """A name's display form: a space at every lowercase→uppercase
+    boundary (``BlueWaterIsland`` → ``Blue Water Island``; ``Base``
+    unchanged). Safe on a run's set folder name as well, since the
+    run-mode suffixes carry no lowercase→uppercase boundary."""
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
 
 
 class Preset(Enum):

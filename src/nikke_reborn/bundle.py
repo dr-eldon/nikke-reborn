@@ -21,11 +21,9 @@ import zipfile
 from pathlib import Path
 
 from nikke_reborn import bundler
-from nikke_reborn.config import BUNDLES_DIR, CARDS_DIR, OUTPUT_DIR, SHOP_DIR
+from nikke_reborn.config import BUNDLES_DIR, MOD_NAME, OUTPUT_DIR, SHOP_DIR
 from nikke_reborn.file import copy
-from nikke_reborn.preset import Preset
-
-MOD_NAME = "NIKKE REBORN"
+from nikke_reborn.preset import Preset, spaced
 
 
 def run() -> None:
@@ -66,7 +64,7 @@ def run() -> None:
         bundle_id = bundle_json["BundleId"]
         app_id = bundle_json["CustomShops"][0]["PhoneAppId"]
 
-        bundle = BUNDLES_DIR / f"{MOD_NAME} - {variant}"
+        bundle = BUNDLES_DIR / f"{MOD_NAME} - {spaced(variant)}"
 
         if bundle.with_suffix(".zip").is_file():
             print(f"{bundle.name} already bundled. Skipping...")
