@@ -2923,13 +2923,13 @@
   },
   {
     "id": "c974",
-    "name": "Mass Produced Melee",
+    "name": "Mass Produced: Melee Original",
     "date": "2023-12-28",
     "evidence": "Rose page: 'Rose is a Nikke and the former squad leader of Melee, mass-produced Nikkes oriented in close quarters combat... main antagonist of the event New Year, New Sword'; New Year, New Sword event startDate 2023-12-28; Nikke-db updateLog December 29th 2023: 'Added Scarlet: Black Shadow, Rose, Mass Manufactured Melee, ... New Year New Sword live2d' - the model ships with the event"
   },
   {
     "id": "c974_01",
-    "name": "Mass Produced Melee 2",
+    "name": "Mass Produced: Melee Updated",
     "date": "2024-01-06",
     "evidence": "No proven released-content reference exists for Mass Produced Melee 2 (no wiki page/mention; the c974 family's only trace is the 2023-12-29 'new year new sword' batch, updateLog 'Added … Mass Manufactured Melee …'). Per the operator's ruling the mirror is not a release authority, but with no content date provable the first-landing mirror commit is the only dated evidence: the c974_01 variant's entry first appears in the 2024-01-06 commit 'fix upscale 4k, 4koma, mass produced melee 2' (updateLog 2024-01-06: 'Added Mass Produced Melee 2's l2d'; verified both mirrors). Old 2023-12-28 has no identifiable source."
   },

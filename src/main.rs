@@ -107,6 +107,7 @@ pub async fn main() -> Result<()> {
         .await?;
 
         copy(environment::images_dir().join("Foilmask.png"), &output).await?;
+        copy(environment::images_dir().join("Cardback.png"), &output).await?;
 
         let bundle = expansion.bundle().await?;
 

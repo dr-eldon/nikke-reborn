@@ -564,16 +564,23 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
 fn box_(expansion: &Expansion) -> serde_json::Value {
     let bundle = expansion.bundle_id();
 
+    let level = 3 + (10 * (expansion.number - 1)).max(1);
+    let level_big = level + 5;
+
+    fn progression(base: f32, growth: f32, level: usize) -> usize {
+        100 * ((base * (level as f32).powf(growth)).round() / 100.0) as usize
+    }
+
     json!({
         "Name": format!("{} Box", expansion.name()),
         "Material": "CardBox_Material",
         "SpriteName": "CardBox_Item",
         "ItemType": format!("{bundle}_CardBox_Item"),
         "SpawnsPackType": format!("{bundle}_CardPack_Item"),
-        "SmallBoxLicensePrice": 100,
-        "SmallBoxLicenseLevelRequirement": 3,
-        "LicensePrice": 500,
-        "LicenseLevelRequirement": 8,
+        "SmallBoxLicensePrice": 100 + progression(40.0, 1.3, level),
+        "SmallBoxLicenseLevelRequirement": level,
+        "LicensePrice": progression(50.0, 1.3, level_big),
+        "LicenseLevelRequirement": level_big,
         "ItemCategory": "TCG",
         "BaseCost": 0,
         "AddItemAsAccessory": false,

@@ -7,7 +7,9 @@
 - 26 animated event CGs
 - 10 side characters
 - Includes the NieR: Automata and Re:Zero collabs!
-- Fixed broken alpha blending and some inconsistencies in the other expansions
+- Adds uniquely colored profile cards
+- Fixes broken alpha blending and some inconsistencies in the other expansions
+- Backwards-compatible! Replace all mod files
 
 # 0.3.0
 
