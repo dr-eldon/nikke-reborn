@@ -11,6 +11,7 @@ path = "src/bin/mesh_convert.rs"
 [dependencies]
 bytemuck = { version = "1", features = ["derive"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
+notify = "8"
 rfd = "0.17"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
@@ -26,4 +27,4 @@ features = ["wgpu", "tiny-skia", "crisp", "linux-theme-detection", "x11", "wayla
 
 [dependencies.tokio]
 version = "1"
-features = ["fs", "macros", "rt"]
+features = ["fs", "macros", "rt", "sync"]

@@ -1,8 +1,7 @@
-local logo = {}
+local logo = { invert = nil }
 
 local white = image("../../assets/images/Logo_White.png")
 local black = image("../../assets/images/Logo_Black.png")
-local invert = nil
 
 local white_small = white:clone()
 white_small:resize({ width = 200 })
@@ -19,20 +18,20 @@ function logo.render(output, inset)
 		inset.y = inset.y + output.height - black_small.height
 	end
 
-	local logo = rectangle({
+	local bounds = rectangle({
 		x = inset.x,
 		y = inset.y,
 		size = black_small.size,
 	})
 
-	if invert == nil then
-		invert = output:dominant_in(logo):to_oklch().l > 0.5
+	if logo.invert == nil then
+		logo.invert = output:dominant_in(bounds):to_oklch().l > 0.5
 	end
 
-	if invert then
-		output:blend(black_small, { at = logo, color_space = "srgb" })
+	if logo.invert then
+		output:blend(black_small, { at = bounds, color_space = "srgb" })
 	else
-		output:blend(white_small, { at = logo, color_space = "srgb" })
+		output:blend(white_small, { at = bounds, color_space = "srgb" })
 	end
 end
 
@@ -50,6 +49,7 @@ function logo.glowing(output, args)
 
 	local radius = math.floor(logo.width / 20)
 	local tint = output:dominant_in(bounds):to_oklch()
+	local invert = false
 
 	if tint.l > 0.7 then
 		logo = black:clone()
@@ -58,6 +58,7 @@ function logo.glowing(output, args)
 		tint.c = 0.3
 		tint.l = 0.8
 		tint.a = 0.4
+		invert = true
 	elseif tint.l > 0.5 then
 		tint.c = 0.3
 		tint.l = 0.2
@@ -90,10 +91,12 @@ function logo.glowing(output, args)
 		}),
 		color_space = "srgb",
 	})
+
+	return invert
 end
 
 function logo.reset()
-	invert = nil
+	logo.invert = nil
 end
 
 return logo

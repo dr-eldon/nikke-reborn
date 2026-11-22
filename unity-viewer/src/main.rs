@@ -30,6 +30,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use iced::futures::channel::mpsc;
 use iced::theme;
 use iced::widget::shader::Action;
 use iced::widget::{button, column, combo_box, container, image, row, shader, slider, space, text};
@@ -147,6 +148,7 @@ struct App {
     camera: Camera,
     loading: bool,
     error: Option<String>,
+    watcher: Option<notify::RecommendedWatcher>,
 }
 
 fn main() -> iced::Result {
@@ -303,6 +305,7 @@ impl App {
             camera: Camera::default(),
             loading: false,
             error: None,
+            watcher: None,
         };
 
         let mesh_path = app
@@ -379,11 +382,6 @@ impl App {
                     self.material_preview = None;
                     return Task::none();
                 }
-                if let Some(data) = &self.material_entries[i].data {
-                    self.material = Some(data.clone());
-                    self.material_preview = self.material_entries[i].preview.clone();
-                    return Task::none();
-                }
                 self.loading = true;
                 let path = self.material_entries[i].path.clone();
                 Task::perform(load_material(path), move |res| {
@@ -393,10 +391,15 @@ impl App {
 
             Message::MaterialLoaded(i, res) => {
                 self.loading = false;
+                self.error = None;
                 self.apply_material_load(i, res.map(Some));
-                Task::none()
-            }
 
+                let path = self.material_entries[i].path.clone();
+                let (watcher, receiver) = watch(path);
+                self.watcher = Some(watcher);
+
+                Task::run(receiver, move |_path| Message::MaterialSelected(i))
+            }
             Message::OpenMaterial => {
                 self.loading = true;
                 Task::perform(
@@ -1024,6 +1027,47 @@ impl shader::Program<Message> for Renderer<'_> {
             iced::mouse::Interaction::None
         }
     }
+}
+
+fn watch(path: impl AsRef<Path>) -> (notify::RecommendedWatcher, mpsc::UnboundedReceiver<PathBuf>) {
+    use notify::Watcher;
+
+    let path = path.as_ref();
+    let (sender, receiver) = mpsc::unbounded();
+
+    let mut watcher = {
+        let path = path.to_path_buf();
+
+        notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+            let Ok(event) = event else { return };
+
+            if !matches!(
+                event.kind,
+                notify::EventKind::Modify(
+                    notify::event::ModifyKind::Name(_) | notify::event::ModifyKind::Data(_)
+                )
+            ) {
+                return;
+            }
+
+            if !event
+                .paths
+                .iter()
+                .any(|candidate| candidate.ends_with(&path))
+            {
+                return;
+            }
+
+            let _ = sender.unbounded_send(path.clone());
+        })
+        .expect("create file watcher")
+    };
+
+    if let Some(parent) = path.parent().map(Path::to_path_buf) {
+        let _ = watcher.watch(&parent, notify::RecursiveMode::NonRecursive);
+    }
+
+    (watcher, receiver)
 }
 
 #[cfg(test)]
