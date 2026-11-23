@@ -15,3 +15,7 @@ pub fn assets_dir() -> PathBuf {
 pub fn images_dir() -> PathBuf {
     assets_dir().join("images")
 }
+
+pub fn gallery_dir() -> PathBuf {
+    assets_dir().join("gallery")
+}

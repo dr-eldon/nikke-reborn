@@ -257,9 +257,7 @@ def _plan(
     (the highest position) already carries the target version,
     description and category; ``update`` when it matches but is not at
     the target; ``create`` when there is no match."""
-    file_map = {
-        remote.name: remote.file_id for remote in client.files()
-    }
+    file_map = {remote.name: remote.file_id for remote in client.files()}
     operations = []
     for publication in publications:
         file_id = file_map.get(publication.published_name)
@@ -359,8 +357,7 @@ def _execute(client: NexusClient, operations: list[Operation], version: str) -> 
                 update_mod_version=update_mod_version,
             )
             print(
-                f"updated {publication.published_name}: "
-                f"version id {created.version_id}"
+                f"updated {publication.published_name}: version id {created.version_id}"
             )
         else:
             file_id = client.create_file(

@@ -66,7 +66,7 @@ def run() -> None:
 
         bundle = BUNDLES_DIR / f"{MOD_NAME} - {spaced(variant)}"
 
-        if bundle.with_suffix(".zip").is_file():
+        if bundle.is_dir() or bundle.with_suffix(".zip").is_file():
             print(f"{bundle.name} already bundled. Skipping...")
             continue
 
@@ -109,6 +109,12 @@ def run() -> None:
             output=plugin,
             set_name=set_name,
         )
+
+
+def zip():
+    for bundle in sorted(BUNDLES_DIR.iterdir()):
+        if not bundle.is_dir():
+            continue
 
         zip_directory(bundle, BUNDLES_DIR / f"{bundle.name}.zip")
         shutil.rmtree(bundle)

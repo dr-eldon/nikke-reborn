@@ -897,20 +897,20 @@ impl Pipeline {
                 .mesh
                 .as_ref()
                 .is_some_and(|(m, _, _)| Arc::ptr_eq(m, mesh))
-            {
-                let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("mesh vertices"),
-                    usage: wgpu::BufferUsages::VERTEX,
-                    contents: bytemuck::cast_slice(&mesh.vertices),
-                });
-                let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("mesh indices"),
-                    usage: wgpu::BufferUsages::INDEX,
-                    contents: bytemuck::cast_slice(&mesh.indices),
-                });
-                self.index_count = mesh.indices.len() as u32;
-                self.mesh = Some((mesh.clone(), vertex_buffer, index_buffer));
-            }
+        {
+            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("mesh vertices"),
+                usage: wgpu::BufferUsages::VERTEX,
+                contents: bytemuck::cast_slice(&mesh.vertices),
+            });
+            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("mesh indices"),
+                usage: wgpu::BufferUsages::INDEX,
+                contents: bytemuck::cast_slice(&mesh.indices),
+            });
+            self.index_count = mesh.indices.len() as u32;
+            self.mesh = Some((mesh.clone(), vertex_buffer, index_buffer));
+        }
 
         // (Re)upload the material when the selection changes.
         if let Some(material) = &primitive.material
@@ -918,59 +918,59 @@ impl Pipeline {
                 .material
                 .as_ref()
                 .is_some_and(|(m, _)| Arc::ptr_eq(m, material))
-            {
-                let size = wgpu::Extent3d {
-                    width: material.width,
-                    height: material.height,
-                    depth_or_array_layers: 1,
-                };
-                let mip_level_count = size.max_mips(wgpu::TextureDimension::D2);
-                let texture = device.create_texture(&wgpu::TextureDescriptor {
-                    label: Some("material texture"),
-                    size,
-                    mip_level_count,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING
-                        | wgpu::TextureUsages::COPY_DST
-                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                });
-                // `Queue::write_texture` requires `bytes_per_row` (a multiple
-                // of 256) for multi-row copies, so pad the rows.
-                let (padded, stride) = pad_rows(&material.pixels, material.width);
-                queue.write_texture(
-                    wgpu::wgt::TexelCopyTextureInfo {
-                        texture: &texture,
-                        mip_level: 0,
-                        origin: wgpu::Origin3d::ZERO,
-                        aspect: wgpu::TextureAspect::All,
-                    },
-                    &padded,
-                    wgpu::TexelCopyBufferLayout {
-                        offset: 0,
-                        rows_per_image: None,
-                        bytes_per_row: Some(stride),
-                    },
-                    size,
-                );
-                generate_mips(device, queue, &texture, mip_level_count, &self.mip_blitter);
-                self.material = Some((
-                    material.clone(),
-                    texture.create_view(&wgpu::wgt::TextureViewDescriptor {
-                        label: None,
-                        format: None,
-                        dimension: None,
-                        usage: None,
-                        aspect: wgpu::TextureAspect::All,
-                        base_mip_level: 0,
-                        mip_level_count: Some(mip_level_count),
-                        base_array_layer: 0,
-                        array_layer_count: Some(1),
-                    }),
-                ));
-            }
+        {
+            let size = wgpu::Extent3d {
+                width: material.width,
+                height: material.height,
+                depth_or_array_layers: 1,
+            };
+            let mip_level_count = size.max_mips(wgpu::TextureDimension::D2);
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("material texture"),
+                size,
+                mip_level_count,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            });
+            // `Queue::write_texture` requires `bytes_per_row` (a multiple
+            // of 256) for multi-row copies, so pad the rows.
+            let (padded, stride) = pad_rows(&material.pixels, material.width);
+            queue.write_texture(
+                wgpu::wgt::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &padded,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    rows_per_image: None,
+                    bytes_per_row: Some(stride),
+                },
+                size,
+            );
+            generate_mips(device, queue, &texture, mip_level_count, &self.mip_blitter);
+            self.material = Some((
+                material.clone(),
+                texture.create_view(&wgpu::wgt::TextureViewDescriptor {
+                    label: None,
+                    format: None,
+                    dimension: None,
+                    usage: None,
+                    aspect: wgpu::TextureAspect::All,
+                    base_mip_level: 0,
+                    mip_level_count: Some(mip_level_count),
+                    base_array_layer: 0,
+                    array_layer_count: Some(1),
+                }),
+            ));
+        }
     }
 }
 

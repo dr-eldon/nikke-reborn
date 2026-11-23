@@ -11,7 +11,7 @@ use crate::card;
 use crate::character;
 use crate::environment;
 use crate::model;
-use crate::{Card, Error, Model, Quality, Result, Sleeve};
+use crate::{Card, Error, Model, Poster, Quality, Result, Sleeve};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expansion {
@@ -23,6 +23,7 @@ pub struct Expansion {
     pub models: Arc<[_Model]>,
     pub cards: Arc<OnceLock<Vec<Card>>>,
     pub sleeves: Arc<[Sleeve]>,
+    pub posters: Arc<[Poster]>,
 }
 
 impl Expansion {
@@ -44,9 +45,7 @@ impl Expansion {
                 continue;
             }
 
-            let Ok(expansion) = Self::load(entry.path()).await else {
-                continue;
-            };
+            let expansion = Self::load(entry.path()).await?;
 
             expansions.push(expansion);
         }
@@ -63,7 +62,10 @@ impl Expansion {
             background: serde_json::Value,
             featured: Vec<character::Featured>,
             models: Vec<_Model>,
+            #[serde(default)]
             sleeves: Vec<_Sleeve>,
+            #[serde(default)]
+            posters: Vec<_Poster>,
         }
 
         #[derive(Debug, Deserialize)]
@@ -80,6 +82,13 @@ impl Expansion {
             #[serde(default)]
             offset_x: f32,
             portrait: String,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+        struct _Poster {
+            file: String,
+            name: String,
+            price: usize,
         }
 
         let path = path.as_ref();
@@ -119,6 +128,13 @@ impl Expansion {
             })
             .collect::<Vec<_>>();
 
+        let posters = expansion
+            .posters
+            .into_iter()
+            .enumerate()
+            .map(|(i, poster)| Ok(Poster::new(i + 1, poster.file, poster.name, poster.price)?))
+            .collect::<Result<Vec<_>>>()?;
+
         Ok(Self {
             id: id.to_owned(),
             number: number.parse().expect("expansion number must be valid"),
@@ -128,6 +144,7 @@ impl Expansion {
             models: Arc::from(expansion.models),
             cards: Arc::default(),
             sleeves: Arc::from(sleeves),
+            posters: Arc::from(posters),
         })
     }
 
@@ -365,6 +382,12 @@ impl Expansion {
             .chain(self.sleeves.iter().map(sleeve.with(self)))
             .collect::<Vec<_>>();
 
+        let prefabs = self
+            .posters
+            .iter()
+            .map(poster.with(self))
+            .collect::<Vec<_>>();
+
         Ok(Bundle(json!({
             "Name": bundle,
             "BundleId": bundle,
@@ -376,6 +399,7 @@ impl Expansion {
             "Items": items,
             "CardExpansions": [expansion(self).await?],
             "CustomShops": [custom_shop()],
+            "Prefabs": prefabs,
         })))
     }
 }
@@ -716,17 +740,17 @@ fn sleeve(expansion: &Expansion, sleeve: &Sleeve) -> serde_json::Value {
     let bundle = expansion.bundle_id();
 
     let level = level(expansion) + 3 * sleeve.number;
-    let level_big = level + 5;
+    let price = 100 + progression(20.0, 1.2, level);
 
     json!({
         "Name": format!("{} Sleeves", sleeve.model.name()),
         "Material": format!("{}_Material",sleeve.file_name()),
         "SpriteName": format!("{}_Item", sleeve.file_name()),
         "ItemType": format!("{bundle}_{}_Item", sleeve.file_name()),
-        "SmallBoxLicensePrice": 100 + progression(10.0, 1.2, level),
+        "SmallBoxLicensePrice": price,
         "SmallBoxLicenseLevelRequirement": level,
-        "BigBoxLicensePrice": progression(20.0, 1.2, level_big),
-        "BigBoxLicenseLevelRequirement": level_big,
+        "BigBoxLicensePrice": price,
+        "BigBoxLicenseLevelRequirement": level,
         "BaseCost": sigmoid(3, 20, level),
         "ItemCategory": "Sleeve",
         "SpawnsPackType": null,
@@ -738,10 +762,10 @@ fn sleeve(expansion: &Expansion, sleeve: &Sleeve) -> serde_json::Value {
         "MeshToUse": "CardSleeve_Clear",
         "Mesh": "",
         "MaterialList": [],
-        "HasSmallBox": true,
+        "HasSmallBox": false,
         "HasBigBox": true,
         "BigBoxHideTillUnlocked": false,
-        "IgnoreDoubleImage": false,
+        "BigBoxIgnoreDoubleImage": true,
         "SmallBoxHideTillUnlocked": false,
         "SmallBoxIgnoreDoubleImage": false,
         "IsBulkBox": false,
@@ -763,9 +787,9 @@ fn sleeve(expansion: &Expansion, sleeve: &Sleeve) -> serde_json::Value {
           "z": 0
         },
         "ColliderScale": {
-          "x": 0.18,
-          "y": 0.15,
-          "z": 0.1
+          "x": 1,
+          "y": 1,
+          "z": 1
         },
         "PriceAffectedBy": [],
         "IsCardPack": false,
@@ -780,6 +804,25 @@ fn sleeve(expansion: &Expansion, sleeve: &Sleeve) -> serde_json::Value {
         "NormalWeights": {},
         "GodWeights": {},
         "SlotWeights": {}
+    })
+}
+
+fn poster(expansion: &Expansion, poster: &Poster) -> serde_json::Value {
+    let bundle = expansion.bundle_id();
+    let level = level(expansion) + poster.number;
+    let file_stem = poster.file_stem();
+
+    json!({
+        "Name": poster.name,
+        "PrefabName": format!("{file_stem}_Prefab"),
+        "SpriteName": format!("{file_stem}_Icon"),
+        "DecoObject": format!("{bundle}_{file_stem}_Deco"),
+        "DecoType": "Poster",
+        "IsDecoObject": true,
+        "AddItemToFurnitureShop": false,
+        "Price": poster.price,
+        "LevelRequirement": level,
+        "VideoClips": []
     })
 }
 

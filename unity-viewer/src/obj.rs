@@ -206,31 +206,35 @@ fn corner(
     t_count: usize,
     n_count: usize,
 ) -> Result<Corner, Error> {
-    let resolve =
-        |idx: &str, count: usize, what: &str| -> Result<Option<usize>, Error> {
-            if idx.is_empty() {
-                return Ok(None);
-            }
-            let mut i: i64 = idx.parse().map_err(|_| {
-                Error::Parse(format!("line {line}: bad {what} index {idx:?}"))
-            })?;
-            if i <= 0 {
-                i += count as i64;
-            }
-            if i < 1 || i > count as i64 {
-                return Err(Error::Mesh(format!(
-                    "line {line}: {what} index {i} out of range (1..{count})"
-                )));
-            }
-            Ok(Some(i as usize - 1))
-        };
+    let resolve = |idx: &str, count: usize, what: &str| -> Result<Option<usize>, Error> {
+        if idx.is_empty() {
+            return Ok(None);
+        }
+        let mut i: i64 = idx
+            .parse()
+            .map_err(|_| Error::Parse(format!("line {line}: bad {what} index {idx:?}")))?;
+        if i <= 0 {
+            i += count as i64;
+        }
+        if i < 1 || i > count as i64 {
+            return Err(Error::Mesh(format!(
+                "line {line}: {what} index {i} out of range (1..{count})"
+            )));
+        }
+        Ok(Some(i as usize - 1))
+    };
     let mut it = part.splitn(3, '/');
     let vi = resolve(
-        it.next().ok_or_else(|| Error::Parse(format!("line {line}: bad face corner {part:?}")))?,
+        it.next()
+            .ok_or_else(|| Error::Parse(format!("line {line}: bad face corner {part:?}")))?,
         v_count,
         "vertex",
     )?
-    .ok_or_else(|| Error::Parse(format!("line {line}: face corner {part:?} has no vertex index")))?;
+    .ok_or_else(|| {
+        Error::Parse(format!(
+            "line {line}: face corner {part:?} has no vertex index"
+        ))
+    })?;
     let ti = resolve(it.next().unwrap_or(""), t_count, "uv")?;
     let ni = resolve(it.next().unwrap_or(""), n_count, "normal")?;
     Ok((vi, ti, ni))
@@ -243,9 +247,9 @@ fn three(s: &str, tag: &str) -> Result<[f32; 3], Error> {
     }
     let mut out = [0.0f32; 3];
     for (i, n) in nums.iter().take(3).enumerate() {
-        out[i] = n.parse().map_err(|_| {
-            Error::Parse(format!("bad {tag} number {}", n))
-        })?;
+        out[i] = n
+            .parse()
+            .map_err(|_| Error::Parse(format!("bad {tag} number {}", n)))?;
     }
     Ok(out)
 }
@@ -256,11 +260,11 @@ fn two(s: &str, tag: &str) -> Result<[f32; 2], Error> {
         return Err(Error::Parse(format!("{tag} needs 2 numbers, got {nums:?}")));
     }
     Ok([
-        nums[0].parse().map_err(|_| {
-            Error::Parse(format!("bad {tag} number {}", nums[0]))
-        })?,
-        nums[1].parse().map_err(|_| {
-            Error::Parse(format!("bad {tag} number {}", nums[1]))
-        })?,
+        nums[0]
+            .parse()
+            .map_err(|_| Error::Parse(format!("bad {tag} number {}", nums[0])))?,
+        nums[1]
+            .parse()
+            .map_err(|_| Error::Parse(format!("bad {tag} number {}", nums[1])))?,
     ])
 }

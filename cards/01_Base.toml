@@ -123,3 +123,18 @@ variant = "sc"
 animation = "main"
 time = 1.0
 portrait = "shy"
+
+[[posters]]
+name = "Syuen (Chapter 2)"
+file = "EventScene_Chap_02_After_02"
+price = 200
+
+[[posters]]
+name = "Eunhwa and Emma (Chapter 4)"
+file = "EventScene_Chap_04_01"
+price = 500
+
+[[posters]]
+name = "Ludmilla and Alice (Chapter 7)"
+file = "EventScene_Chap_07_01"
+price = 1_000

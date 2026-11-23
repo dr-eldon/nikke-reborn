@@ -1,5 +1,6 @@
 #![recursion_limit = "512"]
 mod error;
+mod poster;
 mod quality;
 mod sleeve;
 
@@ -14,6 +15,7 @@ pub use character::Character;
 pub use error::Error;
 pub use expansion::Expansion;
 pub use model::Model;
+pub use poster::Poster;
 pub use quality::Quality;
 pub use sleeve::Sleeve;
 

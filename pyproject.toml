@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 bundle = "nikke_reborn.bundle:run"
+zip = "nikke_reborn.bundle:zip"
 publish = "nikke_reborn.publish:run"
 simulate = "nikke_reborn.simulation:run"
 spritesheet = "nikke_reborn.spritesheet:run"

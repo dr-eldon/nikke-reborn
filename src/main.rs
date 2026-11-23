@@ -51,6 +51,8 @@ pub async fn main() -> Result<()> {
     let mut packs = Vec::new();
     let mut boxes = Vec::new();
     let mut sleeves = Vec::new();
+    let mut posters = Vec::new();
+    let mut poster_icons = Vec::new();
 
     let expansions = Expansion::list().await?;
 
@@ -105,8 +107,8 @@ pub async fn main() -> Result<()> {
             }),
         ));
 
-        for sleeve in expansion.sleeves.iter() {
-            sleeves.push(job(
+        sleeves.extend(expansion.sleeves.iter().map(|sleeve| {
+            job(
                 output
                     .join(format!("{}_Material", sleeve.file_name()))
                     .with_extension("png"),
@@ -123,6 +125,25 @@ pub async fn main() -> Result<()> {
                     "offset_x": sleeve.offset_x,
                     "portrait": sleeve.portrait,
                 }),
+            )
+        }));
+
+        for poster in expansion.posters.iter() {
+            posters.push(job(
+                output
+                    .join(format!("{}_Art", poster.file_stem()))
+                    .with_extension("png"),
+                json!({
+                    "file": poster.file,
+                    "aspect": poster.aspect,
+                }),
+            ));
+
+            poster_icons.push(job(
+                output
+                    .join(format!("{}_Icon", poster.file_stem()))
+                    .with_extension("png"),
+                json!({ "file": poster.file }),
             ));
         }
 
@@ -148,6 +169,8 @@ pub async fn main() -> Result<()> {
     packs.retain(|pack| !pack.is_done());
     boxes.retain(|box_| !box_.is_done());
     sleeves.retain(|sleeve| !sleeve.is_done());
+    posters.retain(|poster| !poster.is_done());
+    poster_icons.retain(|icon| !icon.is_done());
 
     generate("standard", &standards, quality).await?;
     generate("profile", &profiles, quality).await?;
@@ -155,6 +178,8 @@ pub async fn main() -> Result<()> {
     generate("box", &boxes, quality).await?;
     generate("pack", &packs, quality).await?;
     generate("sleeve", &sleeves, quality).await?;
+    generate("poster", &posters, quality).await?;
+    generate("poster_icon", &poster_icons, quality).await?;
 
     for box_ in boxes {
         snapshot(&box_.output, "CardBox_Mesh", true, quality).await?;
@@ -370,8 +395,17 @@ async fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result
         .as_ref()
         .join(source.file_name().expect("source must have a filename"));
 
+    let root = env!("CARGO_MANIFEST_DIR");
+
     if DRY.load(atomic::Ordering::Relaxed) {
-        println!("{} -> {}", source.display(), destination.display());
+        println!(
+            "{} -> {}",
+            source.strip_prefix(root).unwrap_or(source).display(),
+            destination
+                .strip_prefix(root)
+                .unwrap_or(destination.as_path())
+                .display()
+        );
         return Ok(());
     }
 

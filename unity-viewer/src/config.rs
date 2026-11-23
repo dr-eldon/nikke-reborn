@@ -105,8 +105,8 @@ impl Config {
 
     /// Read and validate a configuration file.
     pub fn load(path: &Path) -> Result<Self, String> {
-        let bytes = std::fs::read(path)
-            .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+        let bytes =
+            std::fs::read(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
         let config: Self = serde_json::from_slice(&bytes)
             .map_err(|e| format!("invalid configuration {}: {e}", path.display()))?;
         if config.camera.zoom <= 0.0 {

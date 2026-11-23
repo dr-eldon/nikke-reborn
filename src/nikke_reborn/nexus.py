@@ -311,8 +311,7 @@ class NexusClient:
                 response.read()
         except urllib.error.HTTPError as error:
             message = (
-                f"multipart completion failed ({error.code}): "
-                f"{_problem_detail(error)}"
+                f"multipart completion failed ({error.code}): {_problem_detail(error)}"
             )
             raise PublishError(message) from error
         except (urllib.error.URLError, OSError) as error:

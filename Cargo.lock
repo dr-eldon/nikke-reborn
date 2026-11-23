@@ -1718,6 +1718,7 @@ name = "nikke-reborn"
 version = "0.4.0-dev"
 dependencies = [
  "function",
+ "png",
  "regex",
  "serde",
  "serde_json",

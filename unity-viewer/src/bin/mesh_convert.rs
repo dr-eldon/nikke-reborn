@@ -122,17 +122,13 @@ fn obj_text(mesh: &Mesh) -> String {
     for v in &mesh.vertices {
         out.push_str(&format!(
             "v {} {} {}\n",
-            v.position[0],
-            v.position[1],
-            -v.position[2]
+            v.position[0], v.position[1], -v.position[2]
         ));
     }
     for v in &mesh.vertices {
         out.push_str(&format!(
             "vn {} {} {}\n",
-            v.normal[0],
-            v.normal[1],
-            -v.normal[2]
+            v.normal[0], v.normal[1], -v.normal[2]
         ));
     }
     for v in &mesh.vertices {
