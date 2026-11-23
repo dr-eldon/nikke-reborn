@@ -17,7 +17,7 @@ static CHARACTERS: LazyLock<HashMap<String, Character>> = LazyLock::new(|| {
     )
 });
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Character {
     pub id: String,
     pub name: String,

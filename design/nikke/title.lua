@@ -6,7 +6,7 @@ local chocolate = font("../../fonts/ChocolateClassicalSans-Regular.ttf")
 function title.render(output, args)
 	local title = text(args.title:upper(), {
 		font = aire_exterior,
-		size = size(150, 7, args.title),
+		size = title.size(150, 7, args.title),
 		weight = 700,
 		x = 50,
 		y = args.y,
@@ -14,7 +14,7 @@ function title.render(output, args)
 
 	local arrow = text("↖", {
 		font = chocolate,
-		size = size(50, 15, args.title),
+		size = title.size(50, 15, args.title),
 		x = title.x + title.width,
 		y = title.y + title.height,
 	})
@@ -78,7 +78,7 @@ function title.render(output, args)
 	if args.subtitle ~= nil then
 		local subtitle = text(args.subtitle:upper(), {
 			font = aire_exterior,
-			size = size(50, 14, args.subtitle),
+			size = title.size(50, 14, args.subtitle),
 			weight = 700,
 			x = 50,
 			y = title_bounds.y + title_bounds.height + spacing,
@@ -139,7 +139,7 @@ function parallelogram(width, height, tilt)
 	return p
 end
 
-function size(base, limit, text)
+function title.size(base, limit, text)
 	return math.floor(base * math.min(limit / text:len(), 1) + 0.5)
 end
 

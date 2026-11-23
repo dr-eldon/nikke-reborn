@@ -830,6 +830,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
+name = "function"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdab653cc12dc5c142e630c9a31b0eab63b6e5d4aa114c821d0dce26c95fa22d"
+
+[[package]]
 name = "futures"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1711,6 +1717,7 @@ dependencies = [
 name = "nikke-reborn"
 version = "0.4.0-dev"
 dependencies = [
+ "function",
  "regex",
  "serde",
  "serde_json",

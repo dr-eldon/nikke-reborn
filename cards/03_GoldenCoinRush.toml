@@ -135,3 +135,31 @@ models = [
     { id = "darkhero" },
     { id = "goldencoinrush" },
 ]
+
+[[sleeves]]
+id = "c810"
+background = "sky-night"
+variant = "sc"
+animation = "main"
+focus = "full-body"
+time = 1.50
+portrait = "delight"
+
+[[sleeves]]
+id = "c470"
+background = "desert-02-night"
+variant = "sc"
+animation = "idle"
+focus = "full-body"
+portrait = "smile"
+offset_x = -50
+
+[[sleeves]]
+id = "c382"
+title = "Leona"
+background = "kitchen"
+variant = "sc"
+animation = "main"
+focus = "full-body"
+time = 2.8
+portrait = "chu2"

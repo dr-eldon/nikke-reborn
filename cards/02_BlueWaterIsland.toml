@@ -128,3 +128,31 @@ models = [
     { id = "goldenship" },
     { id = "seayouagain" },
 ]
+
+[[sleeves]]
+id = "c203"
+background = "winter-amusement-park-night"
+variant = "sc"
+animation = "main"
+focus = "full-body"
+time = 2.5
+portrait = "special"
+
+[[sleeves]]
+id = "c401"
+background = "bubble-maker"
+variant = "sc"
+animation = "idle"
+focus = "full-body"
+time = 2.0
+portrait = "shy"
+
+[[sleeves]]
+id = "c312"
+background = "corridor"
+variant = "sc"
+animation = "idle"
+focus = "full-body"
+zoom = 1.14
+time = 0.0
+portrait = "shy"

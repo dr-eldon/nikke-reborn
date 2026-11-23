@@ -1,11 +1,9 @@
 use std::fmt;
-use std::sync::LazyLock;
 
-use regex::Regex;
 use serde::Serialize;
 
+use crate::Model;
 use crate::model;
-use crate::{Character, Model};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Card {
@@ -14,66 +12,15 @@ pub struct Card {
     pub skin: Option<String>,
     pub animation: Option<String>,
     pub rarity: Rarity,
-    pub character: Option<Character>,
     pub reel: Vec<String>,
 }
 
-static SEPARATORS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(":| - |_").expect("parse title separator regex"));
-
 impl Card {
-    pub fn title(&self) -> String {
-        SEPARATORS
-            .split(
-                if let Some(character) = &self.character
-                    && self.model.name.starts_with(&character.name)
-                {
-                    &character.name
-                } else {
-                    &self.model.name
-                },
-            )
-            .next()
-            .expect("model name must not be empty")
-            .to_owned()
-    }
-
-    pub fn subtitle(&self) -> Option<String> {
-        let subtitle = self
-            .model
-            .name
-            .trim_prefix(&self.title())
-            .trim()
-            .trim_prefix(':')
-            .trim_prefix(" - ")
-            .trim_prefix('_')
-            .trim();
-
-        if subtitle.is_empty() {
-            return None;
-        }
-
-        Some(subtitle.to_owned())
-    }
-
-    pub fn name(&self) -> String {
-        if let Some(subtitle) = self.subtitle() {
-            format!("{}: {subtitle}", self.title())
-        } else {
-            self.title()
-        }
-    }
-
     pub fn file_name(&self) -> String {
         format!(
-            "{number:<04}_{model}_{title}_{rarity_index:<02}_{rarity}",
+            "{number:<04}_{model}_{rarity_index:<02}_{rarity}",
             number = self.number,
-            model = self.model.id,
-            title = self
-                .title()
-                .chars()
-                .filter(|&c| c.is_ascii_alphanumeric() || c == '-')
-                .collect::<String>(),
+            model = self.model.file_name(),
             rarity_index = self.rarity.index(),
             rarity = self.rarity
         )
@@ -98,6 +45,7 @@ impl Card {
         let border = self.rarity.border() as usize;
 
         let bonus = self
+            .model
             .character
             .as_ref()
             .and_then(|character| character.rarity)

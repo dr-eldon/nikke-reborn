@@ -1,6 +1,7 @@
 #![recursion_limit = "512"]
 mod error;
 mod quality;
+mod sleeve;
 
 pub mod card;
 pub mod character;
@@ -14,5 +15,6 @@ pub use error::Error;
 pub use expansion::Expansion;
 pub use model::Model;
 pub use quality::Quality;
+pub use sleeve::Sleeve;
 
 pub type Result<T> = core::result::Result<T, Error>;

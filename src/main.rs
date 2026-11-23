@@ -4,11 +4,10 @@ use std::process;
 use std::sync::atomic::{self, AtomicBool};
 
 use serde::Serialize;
+use serde_json::json;
 
 use nikke_reborn::card;
-use nikke_reborn::character;
 use nikke_reborn::environment;
-use nikke_reborn::model;
 use nikke_reborn::{Card, Character, Expansion, Quality, Result};
 
 static DRY: AtomicBool = AtomicBool::new(false);
@@ -49,8 +48,9 @@ pub async fn main() -> Result<()> {
     let mut standards = Vec::new();
     let mut profiles = Vec::new();
     let mut full_arts = Vec::new();
-    let mut boxes = Vec::new();
     let mut packs = Vec::new();
+    let mut boxes = Vec::new();
+    let mut sleeves = Vec::new();
 
     let expansions = Expansion::list().await?;
 
@@ -69,37 +69,62 @@ pub async fn main() -> Result<()> {
         standards.extend(
             cards
                 .iter()
-                .filter_map(|card| Standard::new(expansion, card, quality))
-                .filter(|standard| !standard.output.is_file()),
+                .filter_map(|card| standard(expansion, card, quality))
+                .filter(|standard| !standard.is_done()),
         );
 
         profiles.extend(
             cards
                 .iter()
-                .filter_map(|card| Profile::new(expansion, card, quality))
-                .filter(|profile| !profile.output.is_file()),
+                .filter_map(|card| profile(expansion, card, quality))
+                .filter(|profile| !profile.is_done()),
         );
 
         full_arts.extend(
             cards
                 .iter()
-                .filter_map(|card| FullArt::new(expansion, card, quality))
-                .filter(|full_art| !full_art.output.is_file()),
+                .filter_map(|card| full_art(expansion, card, quality))
+                .filter(|full_art| !full_art.is_done()),
         );
 
-        boxes.push(Box {
-            background: expansion.background.clone(),
-            characters: expansion.featured.to_vec(),
-            logo: expansion.logo.clone(),
-            output: output.join("CardBox_Material.png"),
-        });
+        packs.push(job(
+            output.join("CardPack_Material.png"),
+            json!({
+                "background": expansion.background.clone(),
+                "characters": expansion.featured.to_vec(),
+                "logo": expansion.logo.clone(),
+            }),
+        ));
 
-        packs.push(Pack {
-            background: expansion.background.clone(),
-            characters: expansion.featured.to_vec(),
-            logo: expansion.logo.clone(),
-            output: output.join("CardPack_Material.png"),
-        });
+        boxes.push(job(
+            output.join("CardBox_Material.png"),
+            json!({
+                "background": expansion.background.clone(),
+                "characters": expansion.featured.to_vec(),
+                "logo": expansion.logo.clone(),
+            }),
+        ));
+
+        for sleeve in expansion.sleeves.iter() {
+            sleeves.push(job(
+                output
+                    .join(format!("{}_Material", sleeve.file_name()))
+                    .with_extension("png"),
+                json!({
+                    "id": sleeve.model.id,
+                    "background": sleeve.background,
+                    "title": sleeve.model.name(),
+                    "skin": sleeve.skin,
+                    "variant": sleeve.variant,
+                    "animation": sleeve.animation,
+                    "focus": sleeve.focus,
+                    "zoom": sleeve.zoom,
+                    "time": sleeve.time,
+                    "offset_x": sleeve.offset_x,
+                    "portrait": sleeve.portrait,
+                }),
+            ));
+        }
 
         read_dir(environment::images_dir().join("shop"), async |file| {
             copy(file, &output).await
@@ -120,11 +145,16 @@ pub async fn main() -> Result<()> {
         .await?;
     }
 
+    packs.retain(|pack| !pack.is_done());
+    boxes.retain(|box_| !box_.is_done());
+    sleeves.retain(|sleeve| !sleeve.is_done());
+
     generate("standard", &standards, quality).await?;
     generate("profile", &profiles, quality).await?;
     generate("full_art", &full_arts, quality).await?;
     generate("box", &boxes, quality).await?;
     generate("pack", &packs, quality).await?;
+    generate("sleeve", &sleeves, quality).await?;
 
     for box_ in boxes {
         snapshot(&box_.output, "CardBox_Mesh", true, quality).await?;
@@ -134,140 +164,98 @@ pub async fn main() -> Result<()> {
         snapshot(&pack.output, "CardPackStatic_Mesh_low", false, quality).await?;
     }
 
+    for sleeve in sleeves {
+        snapshot(&sleeve.output, "CardSleeve_Mesh_low", false, quality).await?;
+    }
+
     server.kill().await?;
 
     Ok(())
 }
 
-#[derive(Debug, Serialize)]
-struct Standard {
-    id: String,
-    background: String,
-    manufacturer: Option<character::Manufacturer>,
-    title: String,
-    subtitle: Option<String>,
-    variant: model::Variant,
-    animation: Option<String>,
-    time: Option<f32>,
-    focus: String,
-    output: PathBuf,
-}
-
-impl Standard {
-    fn new(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Self> {
-        if !matches!(
-            card.rarity,
-            card::Rarity::Standard | card::Rarity::Rare | card::Rarity::Cover | card::Rarity::Aim
-        ) {
-            return None;
-        }
-
-        Some(Self {
-            id: card.model.id.clone(),
-            background: card.rarity.background().unwrap_or("sky-night").to_owned(),
-            manufacturer: card.character.as_ref().and_then(Character::manufacturer),
-            title: card.title(),
-            subtitle: card.subtitle(),
-            variant: card.rarity.variant(),
-            animation: card.animation.clone(),
-            time: card.rarity.time(),
-            focus: card.focus().to_owned(),
-            output: expansion
-                .output_dir(quality)
-                .join(card.file_name())
-                .with_extension("png"),
-        })
+fn standard(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Job> {
+    if !matches!(
+        card.rarity,
+        card::Rarity::Standard | card::Rarity::Rare | card::Rarity::Cover | card::Rarity::Aim
+    ) {
+        return None;
     }
+
+    Some(job(
+        expansion
+            .output_dir(quality)
+            .join(card.file_name())
+            .with_extension("png"),
+        json!({
+            "id": card.model.id.clone(),
+            "background": card.rarity.background().unwrap_or("sky-night").to_owned(),
+            "manufacturer": card
+                .model
+                .character
+                .as_ref()
+                .and_then(Character::manufacturer),
+            "title": card.model.title(),
+            "subtitle": card.model.subtitle(),
+            "variant": card.rarity.variant(),
+            "animation": card.animation.clone(),
+            "time": card.rarity.time(),
+            "focus": card.focus().to_owned(),
+        }),
+    ))
 }
 
-#[derive(Debug, Serialize)]
-struct Profile {
-    id: String,
-    background: String,
-    manufacturer: Option<character::Manufacturer>,
-    title: String,
-    subtitle: Option<String>,
-    reel: String,
-    skin: Option<String>,
-    output: PathBuf,
+fn profile(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Job> {
+    let card::Rarity::Profile = &card.rarity else {
+        return None;
+    };
+
+    Some(job(
+        expansion
+            .output_dir(quality)
+            .join(card.file_name())
+            .with_extension("png"),
+        json!({
+            "id": card.model.id.clone(),
+            "background": card.rarity.background().unwrap_or("sky-night").to_owned(),
+            "manufacturer": card
+                .model
+                .character
+                .as_ref()
+                .and_then(Character::manufacturer),
+            "title": card.model.title(),
+            "subtitle": card.model.subtitle(),
+            "reel": card.reel.join(","),
+            "skin": card.skin.clone(),
+        }),
+    ))
 }
 
-impl Profile {
-    fn new(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Self> {
-        let card::Rarity::Profile = &card.rarity else {
-            return None;
-        };
-
-        Some(Self {
-            id: card.model.id.clone(),
-            background: card.rarity.background().unwrap_or("sky-night").to_owned(),
-            manufacturer: card.character.as_ref().and_then(Character::manufacturer),
-            title: card.title(),
-            subtitle: card.subtitle(),
-            reel: card.reel.join(","),
-            skin: card.skin.clone(),
-            output: expansion
-                .output_dir(quality)
-                .join(card.file_name())
-                .with_extension("png"),
-        })
+fn full_art(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Job> {
+    if !matches!(
+        card.rarity,
+        card::Rarity::Special
+            | card::Rarity::Exotic
+            | card::Rarity::Goddess
+            | card::Rarity::Classified,
+    ) {
+        return None;
     }
-}
 
-#[derive(Debug, Serialize)]
-struct FullArt {
-    id: String,
-    background: Option<String>,
-    variant: model::Variant,
-    skin: Option<String>,
-    animation: Option<String>,
-    time: Option<f32>,
-    focus: String,
-    output: PathBuf,
-}
-
-impl FullArt {
-    fn new(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Self> {
-        if !matches!(
-            card.rarity,
-            card::Rarity::Special
-                | card::Rarity::Exotic
-                | card::Rarity::Goddess
-                | card::Rarity::Classified,
-        ) {
-            return None;
-        }
-
-        Some(Self {
-            id: card.model.id.clone(),
-            background: card.rarity.background().map(str::to_owned),
-            variant: card.rarity.variant(),
-            skin: card.skin.clone(),
-            animation: card.animation.clone(),
-            time: card.rarity.time(),
-            focus: card.focus().to_owned(),
-            output: expansion
-                .output_dir(quality)
-                .join(card.file_name())
-                .with_extension("png"),
-        })
-    }
-}
-
-#[derive(Debug, Serialize)]
-struct Box {
-    background: serde_json::Value,
-    characters: Vec<character::Featured>,
-    logo: Option<String>,
-    output: PathBuf,
-}
-
-#[derive(Debug, Serialize)]
-struct Pack {
-    background: serde_json::Value,
-    characters: Vec<character::Featured>,
-    logo: Option<String>,
-    output: PathBuf,
+    Some(job(
+        expansion
+            .output_dir(quality)
+            .join(card.file_name())
+            .with_extension("png"),
+        json!({
+            "id": card.model.id.clone(),
+            "background": card.rarity.background().map(str::to_owned),
+            "variant": card.rarity.variant(),
+            "skin": card.skin.clone(),
+            "animation": card.animation.clone(),
+            "time": card.rarity.time(),
+            "focus": card.focus().to_owned(),
+        }),
+    ))
 }
 
 fn server() -> Result<tokio::process::Child> {
@@ -277,7 +265,7 @@ fn server() -> Result<tokio::process::Child> {
         .spawn()?)
 }
 
-async fn generate(design: &str, jobs: &[impl Serialize], quality: Quality) -> Result<()> {
+async fn generate(design: &str, jobs: &[Job], quality: Quality) -> Result<()> {
     use std::process;
     use tokio::io::AsyncWriteExt;
 
@@ -391,4 +379,21 @@ async fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result
     let _ = tokio::fs::copy(source, destination).await?;
 
     Ok(())
+}
+
+#[derive(Debug, Serialize)]
+struct Job {
+    output: PathBuf,
+    #[serde(flatten)]
+    metadata: serde_json::Value,
+}
+
+impl Job {
+    fn is_done(&self) -> bool {
+        self.output.is_file()
+    }
+}
+
+fn job(output: PathBuf, metadata: serde_json::Value) -> Job {
+    Job { output, metadata }
 }

@@ -8,8 +8,18 @@ local copyright = text("©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP.", {
 })
 local invert = nil
 
-function module.render(output, position)
-	copyright:move_to({ x = position.x, y = position.y - copyright.height })
+function module.render(output, args)
+	local copyright = copyright
+
+	if args.size ~= nil then
+		copyright = text("©PROXIMA BETA PTE. LTD. ©SHIFT UP CORP.", {
+			font = oswald,
+			size = args.size,
+			weight = 300,
+		})
+	end
+
+	copyright:move_to({ x = args.x, y = args.y - copyright.height })
 
 	if invert == nil then
 		invert = output:dominant_in(copyright.bounds):to_oklch().l > 0.5

@@ -94,3 +94,32 @@ models = [
     { id = "story1303" },
     { id = "mbg004_appearance" },
 ]
+
+[[sleeves]]
+id = "c012"
+background = "sky-day"
+variant = "sc"
+animation = "main"
+focus = "face"
+zoom = 1.7
+time = 3
+offset_x = 100
+portrait = "shy"
+
+[[sleeves]]
+id = "c191"
+background = "secret-garden"
+variant = "sc"
+animation = "idle"
+focus = "full-body"
+zoom = 1.1
+time = 1
+portrait = "delight"
+
+[[sleeves]]
+id = "c222"
+background = "land-night"
+variant = "sc"
+animation = "main"
+time = 1.0
+portrait = "shy"

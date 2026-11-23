@@ -1,4 +1,7 @@
+local copyright = require("nikke/copyright")
 local logo = require("nikke/logo")
+local title = require("nikke/title")
+
 local aire = font("../fonts/AireExterior.ttf")
 local oswald = font("../fonts/Oswald.ttf")
 
@@ -19,22 +22,29 @@ hex:resize({ width = label.width, height = label.height })
 
 return {
 	arguments = {
+		"id",
 		"title",
 		"background",
-		"model",
+		"skin",
+		"variant",
 		"animation",
 		"time",
-		"x",
+		"offset_x",
 		"portrait",
+		"focus",
+		"zoom",
 	},
 	render = function(args)
-		-- args.title = "Neon"
-		-- args.background = "nikke-room"
-		-- args.model = "c014"
-		-- args.animation = "action"
-		-- args.time = 1
-		-- args.x = -20
-		-- args.portrait = "shy"
+		-- args.id = "c382"
+		-- args.title = "Leona"
+		-- args.background = "kitchen"
+		-- args.variant = "sc"
+		-- args.animation = "main"
+		-- args.focus = "full-body"
+		-- args.time = 2.8
+		-- args.portrait = "chu2"
+
+		local inset = math.floor(label.width / 20)
 
 		local background =
 			image("../assets/images/backgrounds/" .. args.background .. ".png")
@@ -44,6 +54,28 @@ return {
 			height = front.height,
 			mode = "cover",
 		})
+		background:autocontrast()
+
+		local character = stream("nikke-viewer", {
+			width = front.width,
+			height = front.height,
+			color_space = "srgb",
+			alpha = "premultiplied",
+			args = {
+				"--stdout",
+				"--skin",
+				args.skin or "-",
+				"--time",
+				0,
+				args.id,
+			},
+		})()
+
+		local tint = character
+			:vivid_in(rectangle({ size = { front.width, front.height } }))
+			:to_oklch()
+
+		tint.a = 1.0
 
 		-- Front
 		local base = base:clone()
@@ -55,6 +87,8 @@ return {
 			alpha = "premultiplied",
 			args = {
 				"--stdout",
+				"--variant",
+				args.variant or "-",
 				"--skin",
 				args.skin or "-",
 				"--animation",
@@ -62,29 +96,44 @@ return {
 				"--time",
 				args.time or 0,
 				"--offset-x",
-				args.x or 0,
-				"--half-body",
-				args.model,
+				(args.offset_x or 0) * scale,
+				"--" .. (args.focus or "half-body"),
+				"--zoom",
+				args.zoom or 1.0,
+				args.id,
 			},
 		})()
 
-		local tint = character
-			:vivid_in(rectangle({ size = { front.width, front.height } }))
-			:to_oklch()
+		-- background:monochrome(tint)
 
-		tint.c = 0.1
+		-- local black = srgb(0, 0, 0)
 
-		background:monochrome(tint)
+		-- local fade = gradient(180)
+		-- 	:stop(0.0, black:with_alpha(0.3))
+		-- 	:stop(1.0, black:with_alpha(0.8))
+
+		-- background:fill(rectangle({ size = background.size }), fade)
+
 		base:blend(background, { at = front })
 		base:blend(character, { at = front })
 
+		copyright.reset()
+		copyright.render(base, {
+			x = front.x + inset - 20,
+			y = front.y + front.height - inset + 60,
+			size = 10,
+		})
+
 		-- Label
-		tint.c = 0.2
+		if tint.c > 0.02 then
+			tint.c = 0.2
+		end
+
 		base:fill(label, tint)
 		base:blend(hex, { at = label })
 
-		local inset = label.width / 20
 		local invert = logo.glowing(base, {
+			flat = true,
 			width = label.width / 4,
 			position = function(width, height)
 				return {
@@ -99,8 +148,10 @@ return {
 			{ font = oswald, size = label.height * 0.10, weight = 600 }
 		)
 
-		local title =
-			text(args.title:upper(), { font = aire, size = label.height * 0.3 })
+		local title = text(args.title:upper(), {
+			font = aire,
+			size = title.size(label.height * 0.3, 17, args.title),
+		})
 		local size = text(
 			"65x90mm",
 			{ font = oswald, size = label.height * 0.10, weight = 600 }
@@ -135,31 +186,36 @@ return {
 		base:fill(subtitle, text_color)
 		base:fill(size, text_color)
 
-		local face = stream("nikke-viewer", {
-			width = label.height * 0.4,
-			height = label.height * 0.4,
-			color_space = "srgb",
-			alpha = "premultiplied",
-			args = {
-				"--stdout",
-				"--skin",
-				args.skin or "-",
-				"--animation",
-				args.portrait or "-",
-				"--portrait",
-				args.model,
-			},
-		})()
+		do
+			local size = math.floor(label.height * 0.4 * scale) / scale
+			local face = stream("nikke-viewer", {
+				width = size,
+				height = size,
+				color_space = "srgb",
+				alpha = "premultiplied",
+				args = {
+					"--stdout",
+					"--portrait",
+					"--time",
+					0,
+					"--skin",
+					args.skin or "-",
+					"--animation",
+					args.portrait or "-",
+					args.id,
+				},
+			})()
 
-		local face_bounds = rectangle({
-			x = title.x,
-			y = label.y + inset,
-			size = face.size,
-		})
+			local face_bounds = rectangle({
+				x = math.floor(title.x),
+				y = math.floor(label.y + inset),
+				size = face.size,
+			})
 
-		base:fill(face_bounds:padded(1 / scale), "#000000")
-		base:fill(face_bounds, "#FFFFFF")
-		base:blend(face, { at = face_bounds })
+			base:fill(face_bounds:padded(2), "#000000")
+			base:fill(face_bounds, "#FFFFFF")
+			base:blend(face, { at = face_bounds })
+		end
 
 		yield(base)
 	end,

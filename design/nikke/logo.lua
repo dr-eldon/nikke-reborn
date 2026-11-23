@@ -71,17 +71,19 @@ function logo.glowing(output, args)
 
 	bounds = bounds:padded(radius)
 
-	local glowing = blank({
-		width = bounds.width,
-		height = bounds.height,
-	})
-	glowing:blend(logo, {
-		at = rectangle({ x = radius, y = radius, size = logo.size }),
-	})
+	if not args.flat then
+		local glowing = blank({
+			width = bounds.width,
+			height = bounds.height,
+		})
+		glowing:blend(logo, {
+			at = rectangle({ x = radius, y = radius, size = logo.size }),
+		})
 
-	glowing:recolor(tint)
-	glowing:blur(radius)
-	output:blend(glowing, { at = bounds })
+		glowing:recolor(tint)
+		glowing:blur(radius)
+		output:blend(glowing, { at = bounds })
+	end
 
 	output:blend(logo, {
 		at = rectangle({

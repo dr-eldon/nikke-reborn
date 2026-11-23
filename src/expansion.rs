@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
+use function::Binary;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::fs;
@@ -10,7 +11,7 @@ use crate::card;
 use crate::character;
 use crate::environment;
 use crate::model;
-use crate::{Card, Character, Error, Quality, Result};
+use crate::{Card, Error, Model, Quality, Result, Sleeve};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expansion {
@@ -19,8 +20,9 @@ pub struct Expansion {
     pub logo: Option<String>,
     pub background: serde_json::Value,
     pub featured: Arc<[character::Featured]>,
-    pub models: Arc<[Model]>,
+    pub models: Arc<[_Model]>,
     pub cards: Arc<OnceLock<Vec<Card>>>,
+    pub sleeves: Arc<[Sleeve]>,
 }
 
 impl Expansion {
@@ -60,7 +62,24 @@ impl Expansion {
             logo: Option<String>,
             background: serde_json::Value,
             featured: Vec<character::Featured>,
-            models: Vec<Model>,
+            models: Vec<_Model>,
+            sleeves: Vec<_Sleeve>,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct _Sleeve {
+            id: String,
+            background: String,
+            skin: Option<String>,
+            variant: Option<String>,
+            animation: Option<String>,
+            focus: Option<String>,
+            zoom: Option<f32>,
+            #[serde(default)]
+            time: f32,
+            #[serde(default)]
+            offset_x: f32,
+            portrait: String,
         }
 
         let path = path.as_ref();
@@ -76,6 +95,30 @@ impl Expansion {
             .split_once('_')
             .expect("expansion must have number and name");
 
+        let models = Model::map();
+
+        let sleeves = expansion
+            .sleeves
+            .into_iter()
+            .enumerate()
+            .map(|(i, sleeve)| Sleeve {
+                number: i + 1,
+                model: models
+                    .get(&sleeve.id)
+                    .expect("sleeve model id must be valid")
+                    .clone(),
+                background: sleeve.background,
+                skin: sleeve.skin,
+                variant: sleeve.variant,
+                animation: sleeve.animation,
+                focus: sleeve.focus,
+                time: sleeve.time,
+                zoom: sleeve.zoom.unwrap_or(1.0),
+                offset_x: sleeve.offset_x,
+                portrait: sleeve.portrait,
+            })
+            .collect::<Vec<_>>();
+
         Ok(Self {
             id: id.to_owned(),
             number: number.parse().expect("expansion number must be valid"),
@@ -84,6 +127,7 @@ impl Expansion {
             featured: Arc::from(expansion.featured),
             models: Arc::from(expansion.models),
             cards: Arc::default(),
+            sleeves: Arc::from(sleeves),
         })
     }
 
@@ -113,7 +157,6 @@ impl Expansion {
             return Ok(cards);
         }
 
-        let characters = Character::map();
         let models = model::Model::map();
         let mut cards = Vec::new();
 
@@ -126,14 +169,6 @@ impl Expansion {
             let skin = model.options.skin().map(str::to_owned);
             let animation = model.options.animation().map(str::to_owned);
 
-            let character = characters.get(
-                model
-                    .id
-                    .split("_")
-                    .next()
-                    .expect("character id must not be empty"),
-            );
-
             if metadata.is_event() {
                 cards.push(Card {
                     number,
@@ -141,7 +176,6 @@ impl Expansion {
                     skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Classified,
-                    character: character.cloned(),
                     reel: Vec::new(),
                 });
                 continue;
@@ -186,7 +220,6 @@ impl Expansion {
                     skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Profile,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
                 continue;
@@ -198,7 +231,6 @@ impl Expansion {
                 skin: skin.clone(),
                 animation: animation.clone(),
                 rarity: card::Rarity::Standard,
-                character: character.cloned(),
                 reel: reel.clone(),
             });
 
@@ -209,7 +241,6 @@ impl Expansion {
                     skin: skin.clone(),
                     animation: Some(animation.clone()),
                     rarity: card::Rarity::Rare,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
             }
@@ -229,7 +260,6 @@ impl Expansion {
                         .map(str::to_owned)
                         .or_else(|| animation.clone()),
                     rarity: card::Rarity::Profile,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
             }
@@ -241,7 +271,6 @@ impl Expansion {
                     skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Cover,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
             }
@@ -253,7 +282,6 @@ impl Expansion {
                     skin: skin.clone(),
                     animation: animation.clone(),
                     rarity: card::Rarity::Aim,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
             }
@@ -265,7 +293,6 @@ impl Expansion {
                     skin: skin.clone(),
                     animation: Some(animation.clone()),
                     rarity: card::Rarity::Special,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
             }
@@ -281,7 +308,6 @@ impl Expansion {
                         .or_else(|| skin.clone()),
                     animation: Some(model.exotic.animation().unwrap_or("action").to_owned()),
                     rarity: card::Rarity::Exotic,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
             }
@@ -304,7 +330,6 @@ impl Expansion {
                             .unwrap_or_else(|| "main".to_owned()),
                     ),
                     rarity: card::Rarity::Goddess,
-                    character: character.cloned(),
                     reel: reel.clone(),
                 });
             }
@@ -335,6 +360,11 @@ impl Expansion {
     pub async fn bundle(&self) -> Result<Bundle> {
         let bundle = self.bundle_id();
 
+        let items = [pack(self), box_(self)]
+            .into_iter()
+            .chain(self.sleeves.iter().map(sleeve.with(self)))
+            .collect::<Vec<_>>();
+
         Ok(Bundle(json!({
             "Name": bundle,
             "BundleId": bundle,
@@ -343,7 +373,7 @@ impl Expansion {
             "TextureCompression": "BC7",
             "EnableMipMaps": false,
             "Assemblies": [],
-            "Items": [pack(self), box_(self)],
+            "Items": items,
             "CardExpansions": [expansion(self).await?],
             "CustomShops": [custom_shop()],
         })))
@@ -351,7 +381,7 @@ impl Expansion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct Model {
+pub struct _Model {
     pub id: String,
     #[serde(flatten)]
     options: Options,
@@ -481,12 +511,8 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
         ..Slot::default()
     });
 
-    let level = (10 * (expansion.number - 1)).max(1);
+    let level = level(expansion);
     let level_big = level + 5;
-
-    fn progression(base: f32, growth: f32, level: usize) -> usize {
-        100 * ((base * (level as f32).powf(growth)).round() / 100.0) as usize
-    }
 
     json!({
         "Name": format!("{} Packs", expansion.name()),
@@ -498,8 +524,8 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
         "BaseCost": 1 + expansion.number,
         "SmallBoxLicensePrice": 50 + progression(40.0, 1.2, level),
         "SmallBoxLicenseLevelRequirement": level,
-        "LicensePrice": progression(50.0, 1.2, level_big),
-        "LicenseLevelRequirement": level_big,
+        "BigBoxLicensePrice": progression(50.0, 1.2, level_big),
+        "BigBoxLicenseLevelRequirement": level_big,
         "SlotWeights": {
           "Slot1": common,
           "Slot2": common,
@@ -518,7 +544,7 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
         "MeshToUse": "BasicCardPack",
         "Mesh": "",
         "MaterialList": [],
-        "IsBigBox": true,
+        "HasBigBox": true,
         "BigBoxHideTillUnlocked": false,
         "IgnoreDoubleImage": false,
         "HasSmallBox": true,
@@ -564,12 +590,8 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
 fn box_(expansion: &Expansion) -> serde_json::Value {
     let bundle = expansion.bundle_id();
 
-    let level = 3 + (10 * (expansion.number - 1)).max(1);
+    let level = 3 + level(expansion);
     let level_big = level + 5;
-
-    fn progression(base: f32, growth: f32, level: usize) -> usize {
-        100 * ((base * (level as f32).powf(growth)).round() / 100.0) as usize
-    }
 
     json!({
         "Name": format!("{} Box", expansion.name()),
@@ -579,8 +601,8 @@ fn box_(expansion: &Expansion) -> serde_json::Value {
         "SpawnsPackType": format!("{bundle}_CardPack_Item"),
         "SmallBoxLicensePrice": 100 + progression(40.0, 1.3, level),
         "SmallBoxLicenseLevelRequirement": level,
-        "LicensePrice": progression(50.0, 1.3, level_big),
-        "LicenseLevelRequirement": level_big,
+        "BigBoxLicensePrice": progression(50.0, 1.3, level_big),
+        "BigBoxLicenseLevelRequirement": level_big,
         "ItemCategory": "TCG",
         "BaseCost": 0,
         "AddItemAsAccessory": false,
@@ -591,7 +613,7 @@ fn box_(expansion: &Expansion) -> serde_json::Value {
         "MeshToUse": "",
         "Mesh": "CardBox_Mesh",
         "MaterialList": [],
-        "IsBigBox": true,
+        "HasBigBox": true,
         "BigBoxHideTillUnlocked": false,
         "IgnoreDoubleImage": false,
         "HasSmallBox": true,
@@ -679,7 +701,7 @@ async fn expansion(expansion: &Expansion) -> Result<serde_json::Value> {
 
 fn card(card: &Card) -> serde_json::Value {
     json!({
-        "Name": card.name(),
+        "Name": card.model.name(),
         "Rarity": card.rarity,
         "BorderType": card.border(),
         "Sprite": card.file_name(),
@@ -687,6 +709,77 @@ fn card(card: &Card) -> serde_json::Value {
         "ElementType": "None",
         "FoilMask": "",
         "CardBack": ""
+    })
+}
+
+fn sleeve(expansion: &Expansion, sleeve: &Sleeve) -> serde_json::Value {
+    let bundle = expansion.bundle_id();
+
+    let level = level(expansion) + 3 * sleeve.number;
+    let level_big = level + 5;
+
+    json!({
+        "Name": format!("{} Sleeves", sleeve.model.name()),
+        "Material": format!("{}_Material",sleeve.file_name()),
+        "SpriteName": format!("{}_Item", sleeve.file_name()),
+        "ItemType": format!("{bundle}_{}_Item", sleeve.file_name()),
+        "SmallBoxLicensePrice": 100 + progression(10.0, 1.2, level),
+        "SmallBoxLicenseLevelRequirement": level,
+        "BigBoxLicensePrice": progression(20.0, 1.2, level_big),
+        "BigBoxLicenseLevelRequirement": level_big,
+        "BaseCost": sigmoid(3, 20, level),
+        "ItemCategory": "Sleeve",
+        "SpawnsPackType": null,
+        "AddItemAsAccessory": true,
+        "AddItemAsFigurine": false,
+        "AddItemAsBoardGame": false,
+        "PhoneAppId": PHONE_APP_ID,
+        "UsesBaseGameMesh": true,
+        "MeshToUse": "CardSleeve_Clear",
+        "Mesh": "",
+        "MaterialList": [],
+        "HasSmallBox": true,
+        "HasBigBox": true,
+        "BigBoxHideTillUnlocked": false,
+        "IgnoreDoubleImage": false,
+        "SmallBoxHideTillUnlocked": false,
+        "SmallBoxIgnoreDoubleImage": false,
+        "IsBulkBox": false,
+        "MinMarketPricePercent": 1,
+        "MaxMarketPricePercent": 1.20000005,
+        "FollowItemPrice": "None",
+        "AutoSetBoxPrice": true,
+        "IsTallItem": false,
+        "InBoxOffsetY": 0,
+        "InBoxOffsetScale": -0.2,
+        "ItemDeminsion": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "CollidorPosOffset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "ColliderScale": {
+          "x": 0.18,
+          "y": 0.15,
+          "z": 0.1
+        },
+        "PriceAffectedBy": [],
+        "IsCardPack": false,
+        "IsCardBox": false,
+        "MinValue": 0,
+        "CardExpansion": "",
+        "CanHaveDuplicates": false,
+        "CanHaveGodPacks": false,
+        "GodPackPercentage": 0.0,
+        "PackGenerationStrategy": "Guaranteed",
+        "PackType": "",
+        "NormalWeights": {},
+        "GodWeights": {},
+        "SlotWeights": {}
     })
 }
 
@@ -701,4 +794,18 @@ fn custom_shop() -> serde_json::Value {
         "SiteHeader": "Shop_Banner",
         "SiteBackground": "Shop_Wallpaper"
     })
+}
+
+fn progression(base: f32, growth: f32, level: usize) -> usize {
+    100 * ((base * (level as f32).powf(growth)).round() / 100.0) as usize
+}
+
+fn sigmoid(min: usize, max: usize, current: usize) -> usize {
+    min + ((max - min) as f32
+        / (1.0 + std::f32::consts::E.powf(-0.12 * (current as f32 - 30.0))).round())
+        as usize
+}
+
+fn level(expansion: &Expansion) -> usize {
+    (10 * (expansion.number - 1)).max(1)
 }
