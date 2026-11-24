@@ -8,7 +8,9 @@ publish = false
 [dependencies]
 function = "0.3"
 png = "0.18"
+rayon = "1"
 regex = "1"
+sha2 = "0.11"
 thiserror = "2"
 toml = "1"
 
@@ -19,7 +21,7 @@ serde_json.version = "1"
 serde_json.features = ["preserve_order"]
 
 tokio.version = "1"
-tokio.features = ["fs", "process", "macros", "rt", "io-util"]
+tokio.features = ["fs", "process", "macros", "rt", "sync", "io-util"]
 
 [workspace]
 members = ["unity-viewer"]

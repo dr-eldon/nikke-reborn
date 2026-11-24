@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -194,6 +195,68 @@ pub async fn main() -> Result<()> {
     }
 
     server.kill().await?;
+
+    let mut manifests = vec![BTreeMap::new(); expansions.len()];
+    let (sender, mut receiver) = tokio::sync::mpsc::channel(32);
+
+    for (i, expansion) in expansions.iter().enumerate() {
+        let output = expansion.output_dir(quality);
+        let mut read_dir = tokio::fs::read_dir(&output).await?;
+
+        while let Some(entry) = read_dir.next_entry().await? {
+            use sha2::Digest;
+
+            if !entry.metadata().await?.is_file() {
+                continue;
+            }
+
+            let path = entry
+                .path()
+                .strip_prefix(&output)
+                .unwrap_or(&entry.path())
+                .to_path_buf();
+
+            let sender = sender.clone();
+
+            rayon::spawn(move || match std::fs::read(entry.path()) {
+                Ok(bytes) => {
+                    let hash = sha2::Sha256::digest(bytes)
+                        .as_slice()
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect::<String>();
+
+                    let _ = sender.blocking_send(Ok((i, path, hash)));
+                }
+                Err(error) => {
+                    let _ = sender.blocking_send(Err(error));
+                }
+            });
+        }
+    }
+
+    drop(sender);
+
+    while let Some((i, path, hash)) = receiver.recv().await.transpose()? {
+        println!("{hash} {}", path.display());
+        manifests[i].insert(path, hash);
+    }
+
+    for (expansion, manifest) in expansions.iter().zip(&manifests) {
+        let manifest = manifest
+            .iter()
+            .map(|(path, hash)| format!("{hash} {}", path.display()))
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        let output = expansion.output_dir(quality);
+
+        tokio::fs::write(
+            output.with_extension("sha256"),
+            format!("{}/\n{}", output.file_name().unwrap().display(), manifest),
+        )
+        .await?;
+    }
 
     Ok(())
 }
