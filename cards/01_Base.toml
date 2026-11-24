@@ -138,3 +138,48 @@ price = 500
 name = "Ludmilla and Alice (Chapter 7)"
 file = "EventScene_Chap_07_01"
 price = 1_000
+
+[[posters]]
+name = "Snow White (Chapter 7)"
+file = "EventScene_Chap_07_03"
+price = 500
+
+[[posters]]
+name = "Exia (Chapter 9)"
+file = "EventScene_Chap_09_01"
+price = 500
+
+[[posters]]
+name = "Rapi (Chapter 10)"
+file = "EventScene_Chap_10_01"
+price = 1_000
+
+[[posters]]
+name = "Maiden and Guillotine (Chapter 12)"
+file = "EventScene_Chap_12_02"
+price = 1_000
+
+[[posters]]
+name = "Brid, Soline, and Diesel (Chapter 13)"
+file = "EventScene_Chap_13_01"
+price = 1_000
+
+[[posters]]
+name = "Chatterbox (Chapter 13)"
+file = "EventScene_Chap_13_03"
+price = 500
+
+[[posters]]
+name = "Modernia (Chapter 13)"
+file = "EventScene_Chap_13_04"
+price = 1_000
+
+[[posters]]
+name = "Anis (Chapter 13)"
+file = "EventScene_Chap_13_05"
+price = 1_000
+
+[[posters]]
+name = "Privaty, Admi, and Yulha (Chapter 14)"
+file = "EventScene_Chap_14_02"
+price = 2_000
