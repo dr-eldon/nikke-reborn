@@ -11,10 +11,12 @@ assets change.
 ## How it's built
 
 `scripts/distill_seed.py` rebuilds it from the game's own asset files
-(`GAME_PATH` in `.env`). It loads the existing `seed.bundle` as a base
-container (the UnityPy environment + `SerializedFile`), clears it, and
-rebuilds every object including the manifest — so the previous seed
-file must exist, though its contents are discarded. The game inputs:
+(`GAME_PATH` in `.env`). It loads the minimal seed container embedded as
+a constant in the script (a `UnityFS` `BundleFile` + a `SerializedFile`
+holding only the `AssetBundle` manifest) as the base, clears it, and
+rebuilds every object from the game's assets. The full `seed.bundle` is
+a pure output — the distiller never reads a prior seed, so the file is
+regenerable from scratch. The game inputs:
 
 - `sharedassets2.assets` — one vanilla poster deco + its materials,
   meshes, shaders and textures.

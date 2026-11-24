@@ -17,6 +17,8 @@ seed-local clones. Run once, from the repo root:
     uv run python scripts/distill_seed.py
 """
 
+import base64
+import io
 import pathlib
 
 import UnityPy
@@ -35,6 +37,22 @@ from UnityPy.streams import EndianBinaryReader, EndianBinaryWriter
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ENV_FILE = REPO_ROOT / ".env"
 SEED = pathlib.Path("src/nikke_reborn/seed.bundle")
+SEED_BASE_B64 = (
+    "VW5pdHlGUwAAAAAINS54LngAMjAyMS4zLjM4ZjEAAAAAAAAAA+4AAABBAAAAWwAAAMIAAAAAAAAAAAAAAAAAABYAAQAWFgsAIgiV"
+    "CAAjCRAQABTQGgDwBzYwMDAuMC42NmYyABMAAAABAQAAAI4aADv//wABAJM6AAAA8gAAAAMQAGM3AACA//8oABaAKACiAQABAEgD"
+    "AICrASAAAFMANwGACCAAcwIAMQAAgDFAABACFAAYQCAAswMA3gAAgBsDAIAEcAAqAQAgAIBRAACAagAAgFwAHQQgAHEBANUDAIAM"
+    "xgA9//8FoAAKgAAQBhUAL0AAgAAGGwcIAQAgACJ5AoAAAGQAHQggABIEQAADnAARCRQAGYAgAFMuAwCAJDwAHQogAHMBAPEAAIAt"
+    "wAAfC8AADB0MIAAKwAAfDcAAABMfwAAAQAAdDkAAEQTAARObIAAdDyAAGQWAABEQwAEIIAAZBoAAEREUAAogAAjAAR0SIAAwBAA5"
+    "GAGNAwCAFAAAABPAABEFYAATQ2ABHxQgAAQTUCAAHxUgAAAAwAFaXAAAAAwpAwrAAANAAB0XoAEZBsABHxjAAQAAwAATYpwAHRlg"
+    "ABkCwAAfGiAABATAAB8bIAAACMAAHxzgAQAIwAAdHaAAGQPAAB8ewAAAU6YDAIBuQAAdH2AAAuADE4WgAh8goAIMHSEgAgpgAx0i"
+    "AAIK4AMdIyAAAuADE5eAAB8kgAAMECUVAB/AgAAHHyZAAQAmSAMgAx8nIAMACGAAHSjgABkFYAAdKcAAGQXgAB8q4AAAU0wAAICm"
+    "GAAdK6AEEQFgABPDoAEfLKABAAAgABPYIAAfLSAAAABgBBPkQAEfLkABDB8vYAQMHzBgBAwfMWAEDB8yYAQMHzNgBAwfNGAEDB81"
+    "YAQAAIAAIgoDYAAfNoAADB83gAAMHziAAAwbOSAA8QlBc3NldEJ1bmRsZQBtX1ByZWxvYWRUYWIPAGBGaWxlSUQYADFhdGgJAJJD"
+    "b250YWluZXI5AGJJbmZvAHA1AFRJbmRleA0AYFNpemUAYSMAgwBtX01haW5BDAD3CFJ1bnRpbWVDb21wYXRpYmlsaXR5AG1fhwAw"
+    "TmFtfAD6D0RlcGVuZGVuY2llcwBtX0lzU3RyZWFtZWRTY2VuZbcA8wNFeHBsaWNpdERhdGFMYXlvdXS0AEBGbGFnPgABNABjSGFz"
+    "aGVzFgEbAAgBC9cCDwEAAgBgAU9zZWVkJAAJHwEUAACABwAAAAAAAAAeAAEAsgEAAAkQAAADbQACDgAIHQAAGgDwGAAEQ0FCLWMy"
+    "ZGQ2NzE3Yjg3ZmM5Njc3ZjU3ZjA3YTgzY2Y4NjNkAA=="
+)
 
 
 def game_path() -> pathlib.Path:
@@ -71,6 +89,16 @@ CARDPACK_CHANNELS = (
 
 def load_file(path):
     environment = UnityPy.load(str(path))
+    file = environment.file
+    if hasattr(file, "objects"):
+        return environment, file
+    return environment, next(f for f in file.files.values() if hasattr(f, "objects"))
+
+
+def load_base():
+    environment = UnityPy.load(
+        io.BytesIO(base64.b64decode(SEED_BASE_B64)), path="seed.base"
+    )
     file = environment.file
     if hasattr(file, "objects"):
         return environment, file
@@ -506,7 +534,7 @@ def main():
     _, shared = load_file(game / "sharedassets2.assets")
     version = shared.version
 
-    seed_env, seed_sf = load_file(SEED)
+    seed_env, seed_sf = load_base()
     seed_sf.set_version(shared.unity_version)
     seed_sf.objects = {}
     seed_sf.types = []
