@@ -3,12 +3,12 @@
 The bundles are consumed by TCG Card Shop Simulator: the game resolves
 assets by name/container path, so a structurally faithful bundle loads
 the same. UnityPy can't author a SerializedFile from nothing, so we
-build on top of ``seed.bundle`` — a distillation of a real
-Unity-built bundle holding the container scaffolding, the embedded
-built-in Standard shader, and one prototype of each object type. We
-clone those prototypes (so Unity's field defaults come along for free)
-and override only what matters: name, image, size, and the PPtr wiring
-between them."""
+build on top of ``seed.bundle`` — distilled from the game's own asset
+files by ``scripts/distill_seed.py``, holding the container
+scaffolding, the game's ``display_texture`` shader, and one prototype
+of each object type. We clone those prototypes (so the game's field
+defaults come along for free) and override only what matters: name,
+image, size, and the PPtr wiring between them."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ import sys
 
 import UnityPy
 from PIL import Image
-from UnityPy.enums import TextureFormat
+from UnityPy.enums import GraphicsFormat, TextureFormat
 from UnityPy.export import Texture2DConverter
 from UnityPy.files.BundleFile import BundleFile
 from UnityPy.files.ObjectReader import ObjectReader
@@ -104,32 +104,39 @@ def compress_texture(image: Image.Image) -> tuple[int, bytes]:
     return int(fmt), data
 
 
-def compress_mipmapped(image: Image.Image) -> tuple[int, int, int, int, bytes]:
-    """Compress an RGBA image with its full mip chain, the way the
-    reference stores its room props (poster art, box / sleeve
-    materials). Card art and icons stay single-mip.
-
-    Level 0 is `image`; each further level halves both dimensions
-    (floor, minimum 1) with a box filter — the same sizes the GPU
-    derives from the stored width/height. Block levels are padded to
-    the 4×4 block grid by the encoder, so a 103×128 level stores
-    104×128 of BC7 while the stored sizes stay the true ones. Levels
-    are concatenated mip 0 first. Returns
-    (format, width, height, mip_count, bytes)."""
+def compress_mip_levels(image: Image.Image) -> tuple[int, int, int, int, list[bytes]]:
+    """Compress an RGBA image's mip chain, one entry per level, mip 0
+    first. Level 0 is `image`; each further level halves both
+    dimensions (floor, minimum 1) with a box filter — the same sizes the
+    GPU derives from the stored width/height. Block levels are padded to
+    the 4×4 block grid by the encoder, so a 103×128 level stores 104×128
+    of BC7 while the stored sizes stay the true ones. Returns
+    (format, width, height, mip_count, levels)."""
     width, height = image.size
     fmt = (
         TEXTURE_FORMAT if (width % 4 == 0 and height % 4 == 0) else TextureFormat.RGBA32
     )
-    data, _ = Texture2DConverter.image_to_texture2d(image, fmt)
-    levels = [data]
+    levels: list[bytes] = []
     level = image
     level_width, level_height = width, height
-    while level_width > 1 or level_height > 1:
-        level_width, level_height = max(1, level_width // 2), max(1, level_height // 2)
-        level = level.resize((level_width, level_height), Image.BOX)
+    while True:
         data, _ = Texture2DConverter.image_to_texture2d(level, fmt)
         levels.append(data)
-    return int(fmt), width, height, len(levels), b"".join(levels)
+        if level_width == 1 and level_height == 1:
+            break
+        level_width, level_height = max(1, level_width // 2), max(1, level_height // 2)
+        level = level.resize((level_width, level_height), Image.BOX)
+    return int(fmt), width, height, len(levels), levels
+
+
+def compress_mipmapped(image: Image.Image) -> tuple[int, int, int, int, bytes]:
+    """Compress an RGBA image with its full mip chain, the way the
+    reference stores its room props (poster art, box / sleeve
+    materials). Card art and icons stay single-mip. Levels are
+    concatenated mip 0 first. Returns (format, width, height, mip_count,
+    bytes)."""
+    fmt, width, height, mip_count, levels = compress_mip_levels(image)
+    return fmt, width, height, mip_count, b"".join(levels)
 
 
 # Unity's imported-model mesh vertex layout (position, normal, tangent,
@@ -230,14 +237,14 @@ def build_mesh_buffers(path: pathlib.Path):
 
 @dataclasses.dataclass
 class Prototypes:
-    """Known-good objects lifted from the reference bundle, used as clone templates."""
+    """Known-good objects lifted from the seed bundle, used as clone templates."""
 
     texture: ObjectReader
     sprite: ObjectReader
-    material: ObjectReader  # a Standard-shader material (`defaultMat`)
-    shader_path_id: int  # the embedded built-in Standard shader
+    material: ObjectReader  # the seed's material bound to display_texture (`defaultMat`)
+    shader_path_id: int  # the game's display_texture shader
     poster_shader_path_id: (
-        int  # the CRYPTION overlay shader PosterPlacement/PosterGuides bind to
+        int  # the placement-preview shader; the guides shader comes off poster_material_guides
     )
     # A figurine model: root GameObject -> child GameObject (MeshFilter + MeshRenderer),
     # a Transform each, and the Mesh.
@@ -265,10 +272,11 @@ class Prototypes:
     poster_material_placement: ObjectReader
     poster_material_guides: ObjectReader
     poster_guide_texture: ObjectReader
+    poster_array: ObjectReader
 
 
 class Bundle:
-    """A single AssetBundle under construction, templated from the reference bundle."""
+    """A single AssetBundle under construction, templated from the seed bundle."""
 
     def __init__(self, name: str):
         self._env = UnityPy.load(SEED.read_bytes())
@@ -287,15 +295,19 @@ class Bundle:
         # (shader + manifest).
         self._next_path_id = max(self._sf.objects) + 1
         self._deco_object_type = 0
+        self._poster_array: ObjectReader | None = None
 
-        # Start from a clean slate: keep the manifest, the Standard
-        # shader, and the poster scaffolding's shared constants (one
-        # copy per bundle, as in the reference), drop everything else.
+        # Start from a clean slate: keep the manifest, the display
+        # texture shader, the poster array shader and its fallback, and
+        # the poster scaffolding's shared constants (one copy per
+        # bundle), drop everything else.
         poster = self._protos
         keep = {
             self._manifest.path_id,
             poster.shader_path_id,
+            *self._array_shader_ids(),
             poster.poster_material_placement.read().m_Shader.m_PathID,
+            poster.poster_material_guides.read().m_Shader.m_PathID,
             poster.poster_flip.path_id,
             poster.poster_guide_texture.path_id,
             poster.poster_material_placement.path_id,
@@ -326,10 +338,6 @@ class Bundle:
             if obj.type.name == "Mesh":
                 data.m_KeepIndices = False
                 data.m_KeepVertices = False
-            if obj is poster.poster_material_guides:
-                for key, tex_env in data.m_SavedProperties.m_TexEnvs:
-                    if key == "_MainTex":
-                        tex_env.m_Texture = self._pptr(poster.poster_guide_texture)
             data.save()
 
         # Rebuild the bundle's file table with one entry: our
@@ -414,6 +422,7 @@ class Bundle:
             "Material", "__proto_poster_material_guides"
         )
         poster_guide_texture = self._proto("Texture2D", "__proto_poster_guide_tex")
+        poster_array = self._proto("Texture2DArray", "__proto_poster_array")
         return Prototypes(
             texture,
             sprite,
@@ -444,6 +453,7 @@ class Bundle:
             poster_material_placement,
             poster_material_guides,
             poster_guide_texture,
+            poster_array,
         )
 
     def _clone(self, proto: ObjectReader) -> ObjectReader:
@@ -478,6 +488,17 @@ class Bundle:
         from UnityPy.classes import PPtr
 
         return PPtr(m_FileID=file_id, m_PathID=path_id, assetsfile=self._sf)
+
+    def _array_shader_ids(self) -> tuple[int, int]:
+        """The poster material's array shader and its fallback shader, both
+        kept from the seed so the shared poster material resolves."""
+        shader = self._protos.poster_material.read().m_Shader.m_PathID
+        fallback = next(
+            dep.m_PathID
+            for dep in self._sf.objects[shader].read().m_Dependencies
+            if dep.m_FileID == 0
+        )
+        return shader, fallback
 
     def add_texture(
         self, name: str, image: Image.Image, mipmapped: bool = False
@@ -544,6 +565,46 @@ class Bundle:
         for key, tex_env in data.m_SavedProperties.m_TexEnvs:
             if key == "_MainTex":
                 tex_env.m_Texture = self._pptr(texture)
+        data.save()
+        return obj
+
+    def add_texture_array(self, name: str, images: list[Image.Image]):
+        """Pack `images` (one per slice, in `m_SpecialIndex` order) into a
+        `Texture2DArray`, the game's poster atlas. The bytes are laid out
+        slice-major — each slice's full mip chain (mip 0 first) is one
+        contiguous block, `m_DataSize // m_Depth` bytes long — the order
+        Unity derives from the stored width/height/depth."""
+        slices = [compress_mip_levels(image) for image in images]
+        fmt, width, height, mip_count, _ = slices[0]
+        depth = len(slices)
+        data = b"".join(level for slice_data in slices for level in slice_data[4])
+        obj = self._clone(self._protos.poster_array)
+        array_data = obj.read()
+        array_data.m_Name = name
+        array_data.m_Width = width
+        array_data.m_Height = height
+        array_data.m_Depth = depth
+        array_data.m_MipCount = mip_count
+        # m_Format is a GraphicsFormat, not a TextureFormat: the same BC7
+        # payload a plain texture stores as TextureFormat.BC7 (25) is
+        # RGBA_BC7 here, so mapping the wrong enum makes the GPU decode
+        # the blocks as a different format.
+        array_data.m_Format = {
+            int(TextureFormat.BC7): int(GraphicsFormat.RGBA_BC7_UNorm),
+            int(TextureFormat.RGBA32): int(GraphicsFormat.R8G8B8A8_UNorm),
+        }[fmt]
+        array_data.image_data = data
+        array_data.m_DataSize = len(data)
+        array_data.save()
+        return obj
+
+    def add_array_material(self, name: str, array: ObjectReader) -> ObjectReader:
+        obj = self._clone(self._protos.poster_material)
+        data = obj.read()
+        data.m_Name = name
+        for key, tex_env in data.m_SavedProperties.m_TexEnvs:
+            if key == "_MainTexArray":
+                tex_env.m_Texture = self._pptr(array)
         data.save()
         return obj
 
@@ -633,21 +694,18 @@ class Bundle:
         ]
         return root, graph
 
-    def add_poster(
-        self,
-        name: str,
-        texture: ObjectReader,
-    ):
-        """Build one poster from the embedded art `texture`. `name` is the
-        poster's base name (without the `_Art` texture suffix): the aspect
-        is its final segment (square / portrait / landscape), the root
-        becomes `<name>_Prefab`, and the per-poster material
-        `<name>_Material`. The quad mesh is chosen by the aspect, and the
-        game's deco scaffolding (grab trigger, flip animation, valid-area
-        slab, dashed guide lines) wraps it. Returns
-        (root_object, material, graph) — the root GameObject is what the
-        game loads by name; `graph` is the whole poster plus its shared
-        constants, for the container preload."""
+    def add_poster(self, name: str, material: ObjectReader):
+        """Build one poster. `name` is the poster's base name (without the
+        `_Art` suffix): the aspect is its final segment (square / portrait
+        / landscape), the root becomes `<name>_Prefab`. `material` is the
+        shared poster material (bound to the `_MainTexArray` atlas); the
+        art node samples it and the slice is chosen by `m_SpecialIndex`,
+        so no per-poster material or texture is made. The quad mesh is
+        chosen by the aspect, and the game's deco scaffolding (grab
+        trigger, flip animation, valid-area slab, dashed guide lines)
+        wraps it. Returns (root_object, graph) — the root GameObject is
+        what the game loads by name; `graph` is the whole poster plus its
+        shared constants, for the container preload."""
         from UnityPy.classes import ComponentPair, PPtr
 
         aspect = name.rsplit("_")[-1].lower()
@@ -672,14 +730,6 @@ class Bundle:
         rotation_y = (0.0, diagonal, 0.0, diagonal)
         uniform = (POSTER_SCALE, POSTER_SCALE, POSTER_SCALE)
         preview = (POSTER_SCALE, POSTER_SCALE, 3.1)
-
-        material = self._clone(self._protos.poster_material)
-        data = material.read()
-        data.m_Name = f"{name}_Material"
-        for key, tex_env in data.m_SavedProperties.m_TexEnvs:
-            if key == "_MainTex":
-                tex_env.m_Texture = self._pptr(texture)
-        data.save()
 
         def make_object(obj, object_name, layer, components, active: bool = True):
             data = obj.read()
@@ -971,6 +1021,8 @@ class Bundle:
         data.m_MoveStateValidArea = self._pptr(volume_transform)
         data.m_ShelfMoveStateValidArea = self._pptr(shelf)
         data.m_BoxCollider = self._pptr(root_trigger)
+        data.m_SpecialMesh = self._pptr(art_renderer)
+        data.m_SpecialIndex = self._deco_object_type - 1
         data.save()
 
         data = wire(dashed, dashed_go)
@@ -986,6 +1038,9 @@ class Bundle:
             for group in zip(line_goes, line_transforms, line_filters, line_renderers)
             for obj in group
         ]
+        array_shader, fallback_shader = (
+            self._sf.objects[shader_id] for shader_id in self._array_shader_ids()
+        )
         shared = (
             self._protos.poster_flip,
             mesh_proto,
@@ -998,6 +1053,10 @@ class Bundle:
             self._protos.poster_guide_texture,
             self.shader,
             self.poster_shader,
+            material,
+            array_shader,
+            fallback_shader,
+            self._poster_array,
         )
         graph = [
             root_go,
@@ -1035,11 +1094,9 @@ class Bundle:
             dashed_transform,
             dashed,
             *line_objects,
-            material,
-            texture,
             *shared,
         ]
-        return root_go, material, graph
+        return root_go, graph
 
     @property
     def shader(self) -> ObjectReader:
@@ -1078,6 +1135,11 @@ class Bundle:
         has_material = any(o.type.name == "Material" for o in self._sf.objects.values())
         if not has_material:
             self._sf.objects.pop(self._protos.shader_path_id, None)
+
+        has_poster = any(o.type.name == "Texture2DArray" for o in self._sf.objects.values())
+        if not has_poster:
+            for shader_id in self._array_shader_ids():
+                self._sf.objects.pop(shader_id, None)
 
         self._prune_types()
 
@@ -1222,18 +1284,15 @@ def build(
     """Build one AssetBundle named `name` from the PNGs under
     `assets_dir`.
 
-    Mirrors Unity's Builder.Run: `*_Material` PNGs become Texture2D +
-    Standard Material (the room props), `*_Art` PNGs become posters,
-    and the room props' textures — materials and poster art alike —
-    get the full mip chain, as the reference mipmaps its props; every
-    other PNG becomes Texture2D + Sprite (single-mip, like the
-    reference's card art and icons).
+    `*_Material` PNGs become Texture2D + display_texture Material (the
+    room props), `*_Art` PNGs become posters, and the room props'
+    textures — materials and poster art alike — get the full mip chain;
+    every other PNG becomes Texture2D + Sprite (single-mip).
     Container paths are `assets/<set_name>/` + the path relative to
-    `assets_dir`, lowercased — exactly what Unity emitted — so the game
-    resolves assets the same. `set_name` defaults to `assets_dir.name`;
-    pass it when the on-disk folder differs from the set's identity
-    (the ultra run's twin keeps the base set's names and container
-    paths).
+    `assets_dir`, lowercased, so the game resolves assets the same.
+    `set_name` defaults to `assets_dir.name`; pass it when the on-disk
+    folder differs from the set's identity (the ultra run's twin keeps
+    the base set's names and container paths).
 
     `jobs` is the process-pool size for the texture compression."""
     bundle = Bundle(name)
@@ -1241,15 +1300,17 @@ def build(
     assets = sorted(p for p in assets_dir.rglob("*") if p.is_file())
     textures = [p for p in assets if p.suffix == ".png"]
     meshes = [p for p in assets if p.suffix == ".obj"]
+    poster_assets = [p for p in textures if p.stem.endswith(POSTER_SUFFIX)]
+    other_assets = [p for p in textures if not p.stem.endswith(POSTER_SUFFIX)]
 
     # The slow part is the texture data (the BC7 encode holds the GIL),
     # so gather it across a process pool. Object construction stays
     # serial, in asset order, so path IDs and container order — and thus
     # the bundle's bytes — stay deterministic.
-    payloads = parallel_map(textures, _texture_payload, name, jobs)
+    payloads = parallel_map(other_assets, _texture_payload, name, jobs)
 
     for asset, (texture_format, width, height, mip_count, data) in zip(
-        textures, payloads
+        other_assets, payloads
     ):
         container = (
             f"assets/{set_name}/{asset.relative_to(assets_dir).as_posix()}".lower()
@@ -1264,34 +1325,6 @@ def build(
             material = bundle.add_material(asset.stem, texture)
             mat_path = container.removesuffix(".png") + ".mat"
             bundle.register(mat_path, material, [material, texture, bundle.shader])
-        elif asset.stem.endswith(POSTER_SUFFIX):
-            poster_name = asset.stem.removesuffix(POSTER_SUFFIX)
-            poster, material, graph = bundle.add_poster(poster_name, texture)
-            bundle.register(
-                f"assets/{set_name}/{poster_name}_material.mat".lower(),
-                material,
-                [
-                    bundle._external_pptr(
-                        BUILTIN_SHADER_FILE_ID, BUILTIN_SHADER_PATH_ID
-                    ),
-                    bundle.shader,
-                    material,
-                    texture,
-                ],
-            )
-            bundle.register(
-                container.removesuffix(".png") + ".prefab",
-                poster,
-                [
-                    bundle._external_pptr(
-                        BUILTIN_SHADER_FILE_ID, BUILTIN_SHADER_PATH_ID
-                    ),
-                    bundle._external_pptr(
-                        BUILTIN_CUBE_MESH_FILE_ID, BUILTIN_CUBE_MESH_PATH_ID
-                    ),
-                    *graph,
-                ],
-            )
         else:
             sprite = bundle.add_sprite(asset.stem, texture, (width, height))
             bundle.register(container, sprite, [sprite, texture])
@@ -1312,6 +1345,50 @@ def build(
         bundle.register(container, root_object, preload)
         bundle.register(container, default_material, preload)
         bundle.register(container, mesh_object, preload)
+
+    if poster_assets:
+        # The poster atlas: one slice per poster, packed in add order (the
+        # order `m_SpecialIndex` is assigned), behind one shared material.
+        poster_images = [Image.open(asset).convert("RGBA") for asset in poster_assets]
+        bundle._poster_array = bundle.add_texture_array("Posters", poster_images)
+        poster_material = bundle.add_array_material("PosterMaterial", bundle._poster_array)
+        bundle.register(
+            f"assets/{set_name}/posters.texarray".lower(),
+            bundle._poster_array,
+            [bundle._poster_array],
+        )
+        bundle.register(
+            f"assets/{set_name}/poster_material.mat".lower(),
+            poster_material,
+            [
+                poster_material,
+                *(
+                    bundle._sf.objects[shader_id]
+                    for shader_id in bundle._array_shader_ids()
+                ),
+                bundle._poster_array,
+            ],
+        )
+
+        for asset in poster_assets:
+            poster_name = asset.stem.removesuffix(POSTER_SUFFIX)
+            poster, graph = bundle.add_poster(poster_name, poster_material)
+            container = (
+                f"assets/{set_name}/{asset.relative_to(assets_dir).as_posix()}".lower()
+            )
+            bundle.register(
+                container.removesuffix(".png") + ".prefab",
+                poster,
+                [
+                    bundle._external_pptr(
+                        BUILTIN_SHADER_FILE_ID, BUILTIN_SHADER_PATH_ID
+                    ),
+                    bundle._external_pptr(
+                        BUILTIN_CUBE_MESH_FILE_ID, BUILTIN_CUBE_MESH_PATH_ID
+                    ),
+                    *graph,
+                ],
+            )
 
     bundle.save(output)
     print(

@@ -28,10 +28,7 @@ from nikke_reborn.preset import Preset, spaced
 
 def run() -> None:
     """Compose the game bundle from the rendered output."""
-    # No options (the bundle always covers every set under output/); the
-    # parser is here so --help works and a stray flag fails loudly instead
-    # of silently triggering a full bundle build.
-    argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         prog="bundle",
         description=(
             "Compose the game bundle from the rendered output: every set "
@@ -40,12 +37,26 @@ def run() -> None:
             "into a Unity asset bundle, and the set's BepInEx tree is "
             "zipped into one archive per set under bundles/"
         ),
-    ).parse_args()
+    )
+
+    parser.add_argument(
+        "--expansion",
+        help=(
+            "the expansion's name (its bundle at output/<set>.json, its "
+            "first frames at output/<set>/)"
+        ),
+        required=False,
+    )
+
+    args = parser.parse_args()
 
     BUNDLES_DIR.mkdir(exist_ok=True)
 
     for target in sorted(OUTPUT_DIR.iterdir()):
         if not target.is_dir():
+            continue
+
+        if args.expansion and target.name != args.expansion:
             continue
 
         # The set the bundle's identity is named after: the output

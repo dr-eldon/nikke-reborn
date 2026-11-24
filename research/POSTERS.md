@@ -1,92 +1,90 @@
 # POSTERS
 
 Research notes and plan for the poster feature (roadmap item).
-Source: the reference cardpack mod in `reference/` (extracted to
-`reference/extracted/`), analyzed with UnityPy. Every number below was
-measured from the reference bundle, not assumed.
+Source: the game's own asset files under `Card Shop Simulator_Data/`
+(`sharedassets2`, `resources`, `globalgamemanagers`), which the seed
+distillation and the bundler use directly. Every number below was
+measured from the game, not assumed.
 
-## 1. How the reference mod adds posters
+## 1. How the game adds posters
 
-The mod ships posters as **data for Enhanced Prefab Loader (EPL)** — no
-code of its own is involved. EPL scans `BepInEx/plugins/**/*_prefabloader/`
-folders; each holds an EPL manifest (`.json`) and a same-named,
-extensionless Unity AssetBundle:
+The game's posters are **decoration objects (decos)** driven by the
+game's native deco system — the same structure this repo replicates.
+We deliver the posters we render as **data for Enhanced Prefab Loader
+(EPL)** — no code of our own. EPL scans
+`BepInEx/plugins/**/*_prefabloader/` folders; each holds an EPL
+manifest (`.json`) and a same-named, extensionless Unity AssetBundle:
 
 ```
-BepInEx/plugins/CRYPTON/cryptons_posters_prefabloader/
-├── cryptons_posters          # Unity AssetBundle (33.5 MB)
-└── cryptons_posters.json     # EPL manifest
+BepInEx/plugins/<publisher>/nikke_reborn_<set>_prefabloader/
+├── nikke_reborn_<set>          # Unity AssetBundle
+└── nikke_reborn_<set>.json     # EPL manifest
 ```
 
 ### 1.1 The EPL manifest
 
-Top level: `Name: "CRYPTONS Posters"`, `BundleId:
-cryptons_posters_829a02c885fc473496cc700d0383546c`,
-`AutoCompressTextures: false`, `MaxTextureSize: 1024`,
-`TextureCompression: DXT5`. `Items`, `CardExpansions`, `CustomShops`,
-`Assemblies` are all empty — this bundle is posters only.
+Top level: `Name` (the set's display name), `BundleId` (the bundle's
+unique id), `AutoCompressTextures: false`, `MaxTextureSize: 1024`
+(`2048` if any ultra texture), and `TextureCompression`. `Items`,
+`CardExpansions`, `CustomShops` and `Assemblies` are empty — the
+bundle is posters only.
 
-`Prefabs` has 72 entries, one per poster (numbered 001–072):
+`Prefabs` has one entry per poster:
 
 | Field | Value |
 |---|---|
-| `Name` | `CRYPTONS Poster NNN` |
-| `PrefabName` | `CRYPTONS_EPL_Posters_829a02c885_NNN_Prefab` — the root object in the bundle |
-| `SpriteName` | `..._NNN_Icon` — the UI icon sprite |
-| `DecoObject` | `..._NNN_Deco` — the id the loader registers in the game's deco database |
+| `Name` | the poster's display name |
+| `PrefabName` | the root object in the bundle |
+| `SpriteName` | the UI icon sprite |
+| `DecoObject` | the id the loader registers in the game's deco database |
 | `DecoType` | `"Poster"` |
 | `IsDecoObject` | `true` |
 | `AddItemToFurnitureShop` | `false` |
-| `Price` | `500.0` |
-| `LevelRequirement` | `25` |
+| `Price` | the poster's price |
+| `LevelRequirement` | the poster's level requirement |
 | `VideoClips` | `[]` |
 
 ### 1.2 The AssetBundle
 
-UnityFS, Unity 2021.3.38f1 (the game's engine), LZ4-compressed, one
-internal `CAB-…` file + a `.resS` resource stream (mesh vertex data).
-3902 objects:
+UnityFS, LZ4 compressed, one internal `CAB-…` file + a `.resS`
+resource stream (mesh vertex data). The version string is the game's
+own `6000.0.66f2` (the seed and the bundles this repo emits match it).
 
-| Type | Count | Note |
-|---|---|---|
-| GameObject / Transform | 1080 / 1080 | 15 per poster |
-| MeshRenderer / MeshFilter | 504 / 504 | 7 per poster |
-| MonoBehaviour | 216 | 3 per poster |
-| Texture2D | 145 | 72 art + 72 icon + 1 guide |
-| BoxCollider | 144 | 2 per poster |
-| Material | 74 | 72 per-poster + 2 shared |
-| Sprite | 72 | the icons |
-| Animation | 72 | on `AnimGrp`, all bound to the shared flip clip |
-| Mesh | 4 | square / portrait / landscape quads + guide strip |
-| MonoScript | 3 | the game's own scripts (see 1.4) |
-| Shader | 2 | empty names — resolved game-side |
-| AnimationClip | 1 | `CRYPTONS_EPL_PosterFlip` |
-| AssetBundle | 1 | the bundle manifest object |
+Per poster, the bundle holds the deco's 15 GameObjects / Transforms,
+7 MeshRenderers / MeshFilters, 3 MonoBehaviours, 2 BoxColliders,
+1 Animation (on `AnimGrp`, bound to the shared flip clip) and
+1 icon Texture2D + Sprite. The shared constants are kept once per
+bundle: the 3 quad meshes + guide strip, the 3 MonoScripts, the 2
+shared materials, the `Posters` `Texture2DArray` and its shader, the
+`display_texture` shader, the guide texture and the flip clip.
 
-There are no top-level `Prefab` assets: the 72 root GameObjects are stored
-as scene objects, named exactly like the manifest's `PrefabName` values
-(verified: bundle names == manifest names, 72/72).
+There are no top-level `Prefab` assets: the root GameObjects are stored
+as scene objects, named exactly like the manifest's `PrefabName`
+values.
 
 ### 1.3 The per-poster scene graph
 
-15 GameObjects per poster, a clone of the game's vanilla poster deco
-structure with only the art swapped:
+15 GameObjects per poster, the game's poster deco structure with the
+art swapped:
 
 ```
-CRYPTONS_EPL_Posters_…_NNN_Prefab      BoxCollider (trigger) + InteractableDecoration
-├── AnimGrp                            Animation → CRYPTONS_EPL_PosterFlip
+<name>_Prefab                       BoxCollider (trigger) + InteractableDecoration
+├── AnimGrp                          Animation → the shared flip clip
 │   ├── Poster / PosterHorizontal / PosterSquare
-│   │                                  MeshFilter + MeshRenderer → NNN_Material → NNN_Art
-│   └── PreviewMesh                    MeshFilter + MeshRenderer
-└── MoveStateValidAreaGrp              ShelfMoveStateValidArea (scaled to the poster's slab, §2.5)
-    └── MoveStateValidArea             MeshFilter (null mesh) + MeshRenderer + BoxCollider (1×1×1)
+│   │                                MeshFilter + MeshRenderer → the shared PosterMaterial (array slice, §3.5)
+│   └── PreviewMesh                  MeshFilter + MeshRenderer
+└── MoveStateValidAreaGrp            ShelfMoveStateValidArea (scaled to the poster's slab, §2.5)
+    └── MoveStateValidArea           MeshFilter (null mesh) + MeshRenderer + BoxCollider (1×1×1)
         ├── SnapLoc_L / SnapLoc_R / SnapLoc_Up / SnapLoc_Down
-        └── DashedLineGrp              DashedLine
-            ├── Line1 … Line4          MeshFilter (PosterGuideMesh) + MeshRenderer
+        └── DashedLineGrp            DashedLine
+            ├── Line1 … Line4        MeshFilter (PosterGuideMesh) + MeshRenderer
 ```
 
-The art node's name is per aspect (§2.2). The three MonoBehaviours are the
-game's own scripts from `Assembly-CSharp.dll`:
+The art node's name is per aspect (§2.2). Its `MeshRenderer` uses the
+shared `PosterMaterial`, bound to the `Posters` `Texture2DArray` — the
+slice is chosen by `m_SpecialIndex` (§3.5), so no per-poster material
+or texture. The three MonoBehaviours are the game's own scripts from
+`Assembly-CSharp.dll`:
 
 - `InteractableDecoration` — on the root
 - `ShelfMoveStateValidArea` — on `MoveStateValidAreaGrp`
@@ -100,7 +98,7 @@ values.
 
 | Field | Value |
 |---|---|
-| `m_DecoObjectType` | per-poster unique — 1..72 (the poster index) in the reference |
+| `m_DecoObjectType` | per-poster unique — 1..N in registration order |
 | `m_ObjectType` | `-1` |
 | `m_HighlightOutlineWidth` | `5.0` |
 | `m_IsGenericObject` | `1` |
@@ -119,6 +117,8 @@ values.
 | `m_MoveStateValidArea` | PPtr → the `MoveStateValidArea` Transform |
 | `m_ShelfMoveStateValidArea` | PPtr → the `ShelfMoveStateValidArea` MonoBehaviour |
 | `m_BoxCollider` | PPtr → the root trigger |
+| `m_SpecialMesh` | PPtr → the deco's own art **MeshRenderer** (a game-typetree field) |
+| `m_SpecialIndex` | `m_DecoObjectType − 1` (a game-typetree field) — the **array slice** the poster samples; the game copies it into the shared `PosterMaterial`'s `_TexIndex` (§3.5) |
 | everything else (`m_Mesh`, `m_SkinMesh`, lists, …) | null / empty |
 
 Root layer: `12`. Root BoxCollider: `m_IsTrigger: true`,
@@ -131,22 +131,9 @@ In the binary bundle the MonoBehaviours reference **bundled MonoScript
 objects by direct PPtr**; the MonoScript typetree carries
 `m_ClassName` / `m_Namespace` / `m_AssemblyName` / `m_PropertiesHash`
 and **no GUID** — GUIDs are only needed by the YAML (`.prefab`) format,
-which is why that route was dropped (§3). The reference bundle is a
-shipped, working mod for the same game, so its MonoScripts are a
-drop-in prototype source.
-
-### 1.6 The rest of the reference mod (not posters)
-
-For context: four cardpack bundles (`CRYPTONS_CARDPACK` with 66 items,
-4 expansions, 1 custom shop; plus Halloween/NSFW/SEX/SFW album sets of
-300 cards each), each with its own `_prefabloader` folder, EPL manifest,
-`.ctpacks` (pack ids, card numbers, foils) and `CRYPTONPackPools.pool`
-(price profile, gacha weights). Two DLLs — `CryptonsCompanion.dll`
-v1.4.28 (`com.cryptons.cardpack.companion`) and `CRYPTONAlbumPackPools.dll`
-— both depend on `EnhancedPrefabLoader.API.*`; EPL core itself is a
-separate install. Configs cover ghost drops, album/cardback integration,
-and vanilla pricing (`ExpansionPrefix = Crypton`). A `Phone - Overhaul`
-plugin adds the shop app's icon/backgrounds.
+which is why that route was dropped (§3). The seed follows this
+binding exactly, sourcing the MonoScript objects from the game's own
+`globalgamemanagers.assets` (§3.4).
 
 ## 2. Aspect and sizing (measured)
 
@@ -167,28 +154,22 @@ The square's y range is slightly asymmetric (center offset +0.0014).
 
 ### 2.2 Aspect = bucketing to the nearest quad
 
-The artwork's `w/h` is bucketed to {1:1, 3:4, 4:3}. Across the 72:
-**39 portrait / 20 landscape / 13 square**, and the art node is named
-per aspect: `Poster` (portrait mesh) ×39, `PosterHorizontal` (landscape
-mesh) ×20, `PosterSquare` (square mesh) ×13. The icons confirm the source
-ratios: `001` content 377×505 (w/h 0.747 → 3:4), `017` 507×376
-(1.348 → 4:3), `049` 374×366 (1.022 → 1:1).
+The artwork's `w/h` is bucketed to the nearest quad — {1:1, 3:4, 4:3}
+(square, portrait, landscape). The art node is named per aspect:
+`Poster` (portrait mesh), `PosterHorizontal` (landscape mesh),
+`PosterSquare` (square mesh).
 
 The art is **cropped** to the bucket's aspect when packed into the
-texture (≤ ~4% of one dimension for these 72, e.g. 001's 0.747 source
-fills a 0.722 content box, 700×970), so display is essentially
-undistorted. Two landscape posters (045, 046) additionally got
-hand-tweaked valid-area slabs (0.5564 × 0.4098, matching their 2.8
-scale) instead of a fourth aspect.
+texture (≤ ~4% of one dimension), so display is essentially
+undistorted. A per-poster valid-area slab override is the escape valve
+for off-bucket outliers.
 
 ### 2.3 World size = one fixed uniform scale
 
 Every `Poster`/`PreviewMesh` node carries
-**localScale = (3.0683, 3.0683, 3.0683)** — 70 of 72, regardless of
+**localScale = (3.0683, 3.0683, 3.0683)**, regardless of
 aspect (root and `AnimGrp` scale 1; position (0,0,0)). The preview's
-z scale is 3.1 (a depth nudge). Two legacy landscape posters (045,
-046 — a consecutive pair, same series) are authored at **2.8** with
-preview z **2.831** instead. Final sizes:
+z scale is 3.1 (a depth nudge). Final sizes:
 
 | Aspect | w × h (game units) |
 |---|---|
@@ -201,15 +182,11 @@ preview z **2.831** instead. Final sizes:
 The art is **not** stretched anywhere (an earlier "pre-stretched
 square" reading of this was wrong). The verified mechanism:
 
-- **Art** (`…_NNN_Art`, 1024², DXT1): a small packed atlas — the
-  front artwork sits in its **aspect-matched content box at its
-  native aspect, undistorted**, with painted content in the back /
-  edge rects and the rest opaque padding (near white, alpha 255 —
-  which is why the texture corners read white). Verified by cropping
-  the front region out of the exported textures:
-  `poster049_front.png` (square) and `poster001_front.png` (portrait)
-  are clean, undistorted posters; the corner padding averages
-  (252, 251, 254).
+- **Art** (one slice of the `Posters` array, 1024² / 2048²): a small
+  packed atlas — the front artwork sits in its **aspect-matched
+  content box at its native aspect, undistorted**, with painted
+  content in the back / edge rects and the rest opaque padding (near
+  white, alpha 255 — which is why the texture corners read white).
 - **The mesh UVs do the crop.** Vertex layout: pos (3 float) + tangent
   (4 half) + uv0 (2 half) = 24 B stride; uv0 is channel 4 of the
   14-slot channel table (@12 is the tangent — clean ±1.0 axis values).
@@ -230,28 +207,28 @@ square" reading of this was wrong). The verified mechanism:
   meshes — we distill them verbatim, §4). The landscape reuses the
   portrait's rect with the axes swapped: its art is stored transversed
   (rotated 90° + mirrored) in the texture and un-transversed on
-  display — verified by transversing the `017` crop back: 970×700,
-  ratio 1.386 vs the icon's 1.348. No stretching anywhere. Back faces
+  display. No stretching anywhere. Back faces
   sample a ~206×221 px rect (square; ~206×307 portrait / landscape;
   u 748.5–954.0, v 158.4–379.5 / 113.4–420.0 in 1/1024 units), edge
   faces a ~125×9 px strip (u 762.7–887.7 × v 113.4–122.6); the guide
   mesh has its own trivial 0–1 UVs.
-- **No material-side aspect params**: `m_SavedProperties` is only
-  `_Color` (gray 0.684) + `_EmissionColor` (0); no `_MainTex_ST`.
-- **Icon** (`…_NNN_Icon`, 512², DXT5 + Sprite): the artwork uniformly
-  scaled and letterboxed on transparent at its native aspect (e.g.
-  `001` content bbox 64,4 – 441,509) for the UI.
-- **Material** (`…_NNN_Material`): 72/72 verified to bind their own
-  `_NNN_Art` texture via `_MainTex`.
-- Shared: `CRYPTONS_EPL_PosterPlacement`, `CRYPTONS_EPL_PosterGuides`
-  materials; `CRYPTONS_EPL_PosterGuideTexture` (512²).
-- Animation: the 72 `Animation` components on `AnimGrp` are 72/72 bound
-  to the single shared clip `CRYPTONS_EPL_PosterFlip` (the placement
-  flip, matching `m_CanFlip: 1`).
+- **No material-side aspect params**: the shared `PosterMaterial`'s
+  `m_SavedProperties` carry no per-aspect values (no `_MainTex_ST`), so
+  the same material serves every aspect.
+- **Icon** (512² + Sprite): the artwork uniformly scaled and
+  letterboxed on transparent at its native aspect for the UI.
+- **Material**: the shared `PosterMaterial`, bound to the `Posters`
+  `Texture2DArray` (§3.5); the slice is chosen by `m_SpecialIndex`.
+- Shared: the placement and guides materials, the guide texture
+  (512²), and the `Posters` array.
+- Animation: each poster's `Animation` component on `AnimGrp` is bound
+  to the single shared flip clip (the placement flip, matching
+  `m_CanFlip: 1`).
 
-Texture inventory: 72 × 1024² + 73 × 512² (72 icons + 1 guide).
+Texture inventory: one `Texture2D` per icon (512²), the `Posters` array
+(the poster art, 1024² / 2048²), and the guide texture (512²).
 
-Consequence: we replicate the reference layout exactly — the three
+Consequence: we replicate the game's deco layout exactly — the three
 quad Mesh objects are distilled verbatim (UVs included), and the
 final texture arrives already matching that layout (art in the
 content boxes, back / edge rects painted); the bundler embeds it
@@ -260,7 +237,7 @@ as-is. UVs are normalized, so the same quads serve the 1024² and
 
 ### 2.5 Interaction geometry
 
-- **Root trigger** (all 72, aspect-independent): BoxCollider
+- **Root trigger** (aspect-independent): BoxCollider
   `0.6 × 0.47 × 0.02`, center `(0, 0.08, 0)`, trigger — sized to the
   largest poster so any poster is easy to grab.
 - **`MoveStateValidAreaGrp`** (the valid wall slab): local position
@@ -268,22 +245,12 @@ as-is. UVs are normalized, so the same quads serve the 1024² and
   portrait / 0.001 landscape / 0.004 square), **rotated 90° about X**,
   scale `(w, 0.0076, h)` **per poster to its own footprint**. The 90°
   rotation maps local z to world −y, so `scale.z` is the poster's
-  vertical height and `scale.y` the 7.6 mm wall thickness. Measured
-  ~1% under the world footprint:
-
-  | Slab scale | Count | Aspect |
-  |---|---|---|
-  | (0.449, 0.0076, 0.6066) | 39 | portrait |
-  | (0.449, 0.0076, 0.4393) | 13 | square |
-  | (0.6017, 0.0076, 0.4465) | 18 | landscape |
-  | (0.5564, 0.0076, 0.4098) | 2 | landscape (hand-tweaked) |
-
-  (x = width, z = height along the wall.)
+  vertical height and `scale.y` the 7.6 mm wall thickness. The slab is
+  derived from the world sizes (measured ~1% under the footprint).
 - **`MoveStateValidArea`** (layer 27): scale 1, local position
   `(0, 0.469, 0)`, unit BoxCollider (trigger), **no mesh** — the
-  reference's MeshFilter holds an external-file PPtr (fileID 1,
-  pathID 10202, an authoring-scene object that resolves to nothing
-  outside it) — an invisible placement volume.
+  MeshFilter holds an external-file PPtr to the built-in cube mesh
+  (fileID 1, pathID 10202) — an invisible placement volume.
 - **`SnapLoc_L/R/Up/Down`**: four snap points under
   `MoveStateValidArea`, identity rotation/scale, fixed local positions
   on the back face of the unit box — L `(0, −0.469, +0.5)`,
@@ -332,7 +299,7 @@ as-is. UVs are normalized, so the same quads serve the 1024² and
   prototype, set fields, wire PPtrs, return the graph for preload).
 - **No MonoScript GUID problem.** That only exists in the YAML format;
   binary bundles bind scripts via bundled MonoScript objects + direct
-  PPtrs, exactly as the shipped reference mod does.
+  PPtrs, exactly as the game's own decos do.
 - **One language, one library, one proven mechanism.** The Python
   bundler already loads `seed.bundle`, clones prototypes, embeds
   textures (BC7 via `Texture2DConverter`, with the `nkTx` lossless
@@ -344,8 +311,13 @@ as-is. UVs are normalized, so the same quads serve the 1024² and
   builds bundles, lays out the BepInEx tree, zips.
 - `bundler` (library) — the Unity construction layer: the only place
   with game-format knowledge. `add_poster` belongs here.
-- Per-poster input: the final texture (1024² / 2048²) and final icon
-  (512²) PNGs plus the chosen aspect. The EPL manifest JSON is emitted
+- Per-poster input: the final art texture (1024² / 2048²) and the final
+  icon (512²) PNGs. The aspect is the poster name's final segment, and
+  the icon ships as a plain Texture2D + Sprite in the cardpack bundle —
+  not part of the poster graph. The poster's art is one slice of the
+  shared `Posters` `Texture2DArray` behind one shared `PosterMaterial`
+  (§3.5) — no per-poster material or texture is emitted. The EPL
+  manifest JSON (per set, one `Prefabs` entry per poster) is emitted
   alongside the bundle (same layer).
 
 ### 3.4 Prototype gap
@@ -353,93 +325,148 @@ as-is. UVs are normalized, so the same quads serve the 1024² and
 `seed.bundle` holds prototypes for: Transform, GameObject, Texture2D,
 Sprite, Shader, MeshFilter, Material, Mesh, MeshRenderer (+ the
 AssetBundle manifest). Posters need **five more types** — and the
-reference bundle contains all of them with the vanilla field values
-already set:
+game's own files contain all of them, with the vanilla field values
+already set (the deco is the game's own poster implementation) — plus
+the `Posters` `Texture2DArray` and the array shader the shared
+`PosterMaterial` binds (§3.5):
 
-| Needed | In reference bundle |
+| Needed | In the game files |
 |---|---|
-| BoxCollider | 144 (root triggers + placement volumes) |
-| Animation | 72 (bound to the flip clip) |
-| AnimationClip | 1 (`CRYPTONS_EPL_PosterFlip`) |
-| MonoBehaviour | 216 (3 scripts, vanilla values) |
-| MonoScript | 3 (`InteractableDecoration`, `ShelfMoveStateValidArea`, `DashedLine`) |
+| BoxCollider | the deco's root trigger + placement volume |
+| Animation | on `AnimGrp`, bound to the flip clip |
+| AnimationClip | the shared flip clip (bound by every deco) |
+| MonoBehaviour | 3 per deco, vanilla values |
+| MonoScript | the three scripts, in `globalgamemanagers` |
+| Texture2DArray | the game's `Posters` array — empty-templated in the seed, filled per bundle |
+| Shader | the array shader + its fallback (§3.5) |
 
 The constant content (shared materials, guide texture, flip clip) and
-the three quad meshes are distilled from the reference bundle as-is —
-the Mesh objects carry the exact geometry and UVs (including the
-transversed landscape set), so nothing is reconstructed.
-`scripts/distill_seed.py` recreates the distillation (the original
-distiller filtered a whole reference bundle whose source no longer
-exists): it extends the current seed in place, cloning the prototypes
-across files — copying the type-table entries (the three MonoBehaviour
-entries carry one typetree per script class), materializing the
-stream-based mesh / texture data inline, and rewiring the PPtrs (mono
-→ script, animation → clip, materials → shader) to the seed-local
-clones.
+the three quad meshes are distilled verbatim — the Mesh objects carry
+the exact geometry and UVs (including the transversed landscape set),
+so nothing is reconstructed.
+`scripts/distill_seed.py` rebuilds the seed from the game's own asset
+files: it clones one vanilla deco's objects (the MonoScripts from
+`globalgamemanagers`, the rest from `sharedassets2` and the external
+`resources` file), materializes the stream-based mesh / texture data
+inline (the seed carries no resource stream), and rewires the PPtrs
+(mono → script, animation → clip, materials → shader, the deco GO
+pair's components and transforms) to the seed-local clones. The game's
+files carry no embedded typetrees (they resolve types through the
+engine's type tree package), so the distiller embeds one per class:
+the stock class nodes straight from the type tree package, and a
+synthesized node per script class (the three MonoBehaviours), which is
+what lets the bundler read and write the mono fields. The seed adopts
+the game's Unity version string and native serialization layout, and
+its `script_type_index` values are rebased to a dense 0/1/2. Every
+seed object round-trips byte-exact.
+
+### 3.5 The texture array (the vanilla mechanism)
+
+The game's posters share one `PosterMaterial` bound to a `Posters`
+**`Texture2DArray`**; each deco's art node samples it, and the slice is
+chosen by `m_SpecialIndex`, which the game copies into the material's
+`_TexIndex` uniform. One array + one shared material per bundle — no
+per-poster material or texture.
+
+- **The array** — `add_texture_array` packs one slice per poster (the
+  set's poster count; not the vanilla's 72) into a `Texture2DArray`,
+  slice-major: each slice's full mip chain (mip 0 first) is one
+  contiguous block, `m_DataSize // m_Depth` bytes long. `m_Format` is
+  the **GraphicsFormat** for the payload (`RGBA_BC7_UNorm` for BC7),
+  not the `TextureFormat` — the array's `m_Format` field is a
+  GraphicsFormat, and writing the `TextureFormat` value (e.g. `25` for
+  BC7) makes the GPU decode the blocks as a different format. The
+  vanilla array is DXT5 (`GraphicsFormat 100`); ours is BC7, the
+  bundler's format for all textures.
+- **The shared material** — `add_array_material` clones the seed's
+  `__proto_poster_material` (the game's `PosterMaterial`) and binds
+  `_MainTexArray` to the array.
+- **Slice selection** — `add_poster` sets `m_SpecialIndex` to
+  `m_DecoObjectType − 1` (the 0-based slice, in registration order) and
+  `m_SpecialMesh` to the poster's own art renderer. The art node's
+  `MeshRenderer` uses the shared material; the game picks the slice at
+  runtime.
 
 ## 4. Plan
 
 1. **Extend the seed distillation** — done. `scripts/distill_seed.py`
-   adds the five prototype types, the three quad meshes plus the guide
-   strip mesh (verbatim — stream vertex data materialized inline), and
-   the constant content (2 shared materials + their deco shader, guide
-   texture inline, flip clip), plus the per-poster material prototype
-   (001's, `_MainTex` nulled — it binds the seed's built-in Standard
-   shader, so no shader remap was needed). Seed is now 30 objects /
-   17 type entries / 62 KB; the quad UVs round-trip exactly.
-   BoxCollider / Animation prototypes stay unnamed (their reference
-   typetrees carry no `m_Name`) and are found by type; the rest by
-   name.
-2. **`add_poster(name, texture, icon, aspect)` on `Bundle`** — done.
-   Derives every object name from `name` (`{name}_Prefab` root,
-   `{name}_Art` texture, `{name}_Icon` texture + sprite,
-   `{name}_Material`); `aspect` selects the kept quad mesh, the art
-   node name (`Poster` / `PosterHorizontal` / `PosterSquare`), and the
-   slab scale. BC7-embeds the final images, builds the 15-GameObject
-   graph from the prototypes with the §2.5 constants (art scale
-   3.0683, preview z 3.1, trigger verbatim from the seed, layers
-   12 / 27, PPtrs per §1.4); `m_DecoObjectType` increments per
-   bundle (1..N in registration order). The shared constants (flip clip, quad meshes,
-   guide mesh + texture, the 3 scripts, the 2 shared materials, the
-   deco shader) are kept once per bundle like the Standard shader
-   (~360 KB, mostly the guide mips) and renamed from `__proto_*` to
-   the reference-style names. Returns `(root, graph)` for
-   `register()` — `graph` is the whole poster plus the shared
-   constants, for the preload list. Two reference quirks normalized:
-   the `MoveStateValidArea` mesh is a plain null (the reference's
-   external-file PPtr is unresolvable outside the authoring scene),
-   and the slab's per-aspect y nudge (0 / 0.001 / 0.004) is dropped —
-   the slab is derived exactly from the world sizes per the Decisions.
+   rebuilds the seed from the game's own asset files (§3.4): the five
+   prototype types, the three quad meshes plus the guide strip mesh
+   (verbatim — stream vertex data materialized inline), and the
+   constant content (the game's `MAT_PreviewTransparentGreen` and
+   `MAT_Dashedline` materials with their own shaders, guide texture
+   inline, flip clip), plus the cardpack scaffolding (the
+   `display_texture` shader from the external `resources` file, the
+   `defaultMat` material, the cardpack mesh proto — the deco's
+   `Plane_1x1` with the cardpack's channel table — and the deco's
+   `PosterHorizontal` / `SnapLoc_L` GameObject pair, wired exactly as
+   the deco wires them: the 3-component child under the 1-component
+   root, filter on the `default` mesh, renderer on `defaultMat`) — and
+   the array scaffolding (§3.5): the game's `Posters` `Texture2DArray`
+   (empty-templated — `m_DataSize` 0; the bundler fills width / height /
+   depth / `m_Format` / data) and the game's `PosterMaterial` (bound to
+   the array shader, `_MainTexArray` nulled). Seed is now 34 objects /
+   18 type entries / ~200 KB (the embedded typetrees account for most
+   of the size); every object round-trips byte-exact. BoxCollider /
+   Animation prototypes stay unnamed (their typetrees carry no
+   `m_Name`) and are found by type; the rest by name.
+2. **`add_poster(name, material)` on `Bundle`** — done. The aspect is
+   `name`'s final segment (square / portrait / landscape) and the root
+   object name derives from `name` (`{name}_Prefab`); the aspect
+   selects the kept quad mesh and the art node name (`Poster` /
+   `PosterHorizontal` / `PosterSquare`). `material` is the shared
+   `PosterMaterial` (bound to the `Posters` array's `_MainTexArray`,
+   §3.5) — the art node samples it and `m_SpecialIndex` picks the
+   slice, so no per-poster material or texture is emitted. The icon is
+   not part of the poster — it ships as a plain Texture2D + Sprite in
+   the cardpack bundle. Builds the 15-GameObject graph from the
+   prototypes with the §2.5 constants (art scale 3.0683, preview z
+   3.1, trigger verbatim from the seed, layers 12 / 27, PPtrs per
+   §1.4); `m_DecoObjectType` increments per bundle (1..N in
+   registration order), `m_SpecialIndex` is `m_DecoObjectType − 1`
+   (the array slice) and `m_SpecialMesh` the poster's own art renderer
+   (the game-typetree-only pair, verified on the vanilla decos). The
+   shared constants (flip clip, quad meshes, guide mesh + texture, the
+   3 scripts, the 2 shared materials, the array shader + its fallback,
+   the `Posters` array) are kept once per bundle and renamed from
+   `__proto_*`. Returns `(root, graph)` for `register()` — `graph` is
+   the whole poster plus the shared constants, for the preload list.
+   Two quirks normalized: the `MoveStateValidArea` mesh is bound as an
+   external-file PPtr to the built-in cube mesh (fileID 1, pathID
+   10202 — the game's own binding, resolved through the externals
+   table), and the slab keeps the deco's per-aspect y nudge (0 /
+   0.001 / 0.004).
 3. **EPL manifest emitter**: the JSON of §1.1 with our naming
    (`Name`, `PrefabName`, `SpriteName`, `DecoObject`, `DecoType:
    "Poster"`, `IsDecoObject: true`, `AddItemToFurnitureShop`, `Price`,
    `LevelRequirement`, `VideoClips`), top-level bundle metadata
    (`BundleId`, `MaxTextureSize: 1024` — or `2048` if any ultra
    texture —, `TextureCompression`).
-4. **Naming convention** for the objects (the reference's
-   `CRYPTONS_EPL_Posters_<hash>_NNN_*` pattern; pick the NIKKE REBORN
-   equivalent, e.g. per-set prefix + number).
+4. **Naming convention** for the objects: a per-set prefix + number
+   (e.g. `NIKKE_REBORN_<Set>_<NNN>_Prefab`), mirroring the game's
+   `<name>_Prefab` root naming.
 5. **Wire into `bundle`**: build the poster bundle, place it as
    `<name>_prefabloader/` (bundle + manifest) in the BepInEx tree, ship
    in the per-set zip.
-6. **BC7 mip chains for the room props** — done. `compress_mipmapped`
+6. **BC7 mip chains for the room props** — done. `compress_mip_levels`
    (full chain: box-filter halving to 1×1, block levels padded to the
-   4×4 grid) feeds `add_texture(mipmapped=True)` /
-   `add_raw_texture(..., mip_count)`; `add_poster` mips the poster art
-   and `build` mips every `*_Material` texture; card art and icons
-   stay single-mip. Rebuilt 72/72 against the reference: art 11 = 11,
-   icons 1 = 1, guide 10 = 10; level-0 decode within BC7 noise of the
-   reference mip0.
+   4×4 grid; `compress_mipmapped` wraps it into one concatenated
+   payload) feeds `add_texture(mipmapped=True)` /
+   `add_raw_texture(..., mip_count)` and the `Posters` array — each
+   slice carries the full chain (§3.5). `build` mips every `*_Material`
+   texture; card art and icons stay single-mip. Art stores the full
+   chain (11 mips at 1024²), icons 1; level-0 decodes within BC7 noise
+   of the source.
 
 ### Constants to bake in
 
 - Quad base sizes: 0.1473 (short) × 0.1441 / 0.1998 (long), thickness
   0.0008; guide mesh unit-width.
-- Art scale 3.0683 (preview z 3.1, per the reference §2.3) → world
+- Art scale 3.0683 (preview z 3.1) → world
   sizes 0.4520 (short) / 0.6130 (long): square 0.4520 × 0.4421,
   portrait 0.4520 × 0.6130, landscape 0.6130 × 0.4520.
-- Slab thickness 0.0076, slab = `(w_world, 0.0076, h_world)` (the
-  reference keeps it within ~2% of the footprint); placement volume
+- Slab thickness 0.0076, slab = `(w_world, 0.0076, h_world)` (kept
+  within ~2% of the footprint); placement volume
   1×1×1 @
   local y 0.469.
 - Root trigger 0.6 × 0.47 × 0.02 @ (0, 0.08, 0), layer 12 — must stay
@@ -447,65 +474,80 @@ clones.
 - `InteractableDecoration` fields (§1.4); scripts (§1.3); flip clip
   shared across all posters.
 - Textures: final images supplied to `add_poster` (1024², or 2048²
-  ultra — content boxes per the reference, §2.4; landscape stored
-  transposed), embedded via BC7 — poster art with the full mip chain
-  (`compress_mipmapped`, as the reference mipmaps its room props);
-  icon 512²
-  letterboxed on transparent. The quads' UVs are the reference's
-  verbatim (distilled), sampling the inner margin-bleed rect.
+  ultra — content boxes per §2.4; landscape stored
+  transposed), packed into the `Posters` array (BC7, each slice the
+  full mip chain, §3.5); icon 512² letterboxed on transparent. The
+  quads' UVs are the game's verbatim (distilled), sampling the
+  inner margin-bleed rect.
 
 ### Decisions
 
 - **In-game delivery** — no work: a dedicated decoration shop
   auto-appends the posters; `AddItemToFurnitureShop: false` stands.
-- **Scale** — the reference's 3.0683 / preview z 3.1, verbatim: a
-  72/72 rebuild comparison found the reference uniform on 70 of 72,
-  so there is no reason to deviate (the two 2.8 legacy posters are
-  not reproduced). Safe either way: the scripts bind by PPtr and
-  serialized flags; none reads the scale. The trigger and slabs are
-  re-derived from the world sizes above.
+- **Scale** — the game's 3.0683 / preview z 3.1, verbatim. Safe
+  either way: the scripts bind by PPtr and serialized flags; none
+  reads the scale. The trigger and slabs are re-derived from the
+  world sizes above.
 - **`m_DecoObjectType`** — the game keys deco identity on it, so it
   must be unique per poster; `add_poster` increments it per bundle
-  (1..N in registration order — matching the reference's 1..72).
-- **Equivalence check** — the full reference set rebuilt through
-  `add_poster` and compared object-by-object: 3902 = 3902 objects,
-  every name / layer / component order / mono field / PPtr wiring /
-  mesh / UV identical, textures within encoding noise (BC7 vs DXT1 /
-  DXT5), mip structure identical (art 11 = 11, icons 1 = 1, guide
-  10 = 10).
-  Remaining deltas: the 045/046 legacy 2.8 variant, the derived slab
-  vs the reference's hand-tuned one (~1%), and the slab y-nudge.
+  (1..N in registration order).
+- **Shared material + array, not per-poster** — the game ships one
+  `PosterMaterial` bound to a `Posters` `Texture2DArray`, each deco
+  picking its slice via `m_SpecialIndex` → `_TexIndex` (§3.5). One
+  array + one shared material per bundle, so no per-poster material /
+  texture objects are emitted and the slice selection is the game's
+  own runtime mechanism. The array is named `Posters` (the game's
+  name) and its depth is the set's poster count (compact); slice
+  order is the registration order.
+- **Equivalence against the game's decos** — since the seed is
+  distilled from the game's own files, the emitted poster graph is
+  compared object-by-object to a vanilla deco in
+  `sharedassets2` (`scripts/compare_posters.py`): same 15-GameObject
+  hierarchy, component orders, layers, transforms, and
+  `InteractableDecoration` fields (including the
+  `m_SpecialMesh` / `m_SpecialIndex` pair); the shared material, the
+  `Posters` array (compact depth, BC7) and the names differ by design.
 - **Quads and UVs verbatim** — the three quad Mesh objects are
-  distilled from the reference as-is (geometry, UVs, indices —
+  distilled from the game's files as-is (geometry, UVs, indices —
   including the transversed landscape set); the textures reuse the
-  reference positions (content boxes + margin bleed, §2.4), so the
-  display matches the reference exactly and no UV transcription is
-  needed.
+  game's content boxes + margin bleed (§2.4), so the display matches
+  the game exactly and no UV transcription is needed.
 - **Art prep is upstream** — `add_poster` takes the final texture,
   final icon, and the chosen aspect; no image processing beyond the
   BC7 embedding. Cropping to the bucket, resize, transversed
-  landscape storage, placement in the reference content boxes, the
+  landscape storage, placement in the game's content boxes, the
   back / edge rects, the 2048² "ultra" canvas (source ≥ the 2048 box
   size), and icon generation happen in a stage before `bundle` — not
   built yet; just `bundle` for now.
 - **Texture format / mips** — BC7 (the bundler's existing
   `compress_texture` path; 1024²/2048²/512² are multiples of 4, so no
-  RGBA32 fallback). Mip policy mirrors the reference across the whole
-  mod family: the room props (poster art, the cardpack `*_Material`
-  box / sleeve textures) store the full BC7 chain
-  (`compress_mipmapped` — box-filter halving to 1×1, block levels
-  padded to the 4×4 grid), card art and icons stay single-mip.
+  RGBA32 fallback). Mip policy across the bundle: the room props (the
+  poster art in the `Posters` array, the cardpack `*_Material` box /
+  sleeve textures) store the full BC7
+  chain (`compress_mip_levels` — box-filter halving to 1×1, block
+  levels padded to the 4×4 grid), card art and icons stay single-mip.
+  The array's `m_Format` is the **GraphicsFormat** for the payload
+  (`RGBA_BC7_UNorm`), not the `TextureFormat` — the field is a
+  GraphicsFormat, and writing the `TextureFormat` value makes the GPU
+  decode the BC7 blocks as a different format (every mip garbage,
+  shifting with distance).
 - **No `poster.rs`** — `add_poster` keeps the bundling in-process:
   embed the final texture (BC7), build the graph, wire the constants.
-- **MonoScripts** — the reference mod is recently updated; its
-  MonoScripts are current.
+- **MonoScripts** — the seed clones the game's own MonoScript objects
+  (from `globalgamemanagers.assets`) — the exact assemblies the game
+  loads — so there is no staleness question; the MonoBehaviour
+  typetrees are synthesized per script class (§3.4).
 - **Off-bucket ratios** — the artwork's ratio rarely equals a bucket
-  exactly (017: 1.348 vs 1.333; 049: 1.022 vs 1.0); the reference
-  absorbs the difference with a center crop at pack time (≤ ~4% of
-  one dimension for all 72 — invisible). Our upstream stage does the
-  same; a per-poster slab override (the reference hand-tweaked two
-  landscape slabs to the art's true ratio: 0.5564 × 0.4098 = 1.358 vs
-  1.348) is the escape valve for > ~3% outliers.
+  exactly; the difference is absorbed with a center crop at pack time
+  (≤ ~4% of one dimension — invisible). Our upstream stage does the
+  same; a per-poster slab override (the slab matched to the art's
+  true ratio) is the escape valve for > ~3% outliers.
+- **Dashed-line tint** — the guides material is the game's own
+  `MAT_Dashedline` (cloned verbatim, green `_Color`
+  (0.176, 1.0, 0.0, 60/255) and all), bound to the game's
+  `Mobile/Particles/Additive` shader, which never reads `_Color`
+  (additive `_MainTex` only) — so the line renders white exactly like
+  the game's posters, and no normalization is needed.
 
 ### Remaining
 
