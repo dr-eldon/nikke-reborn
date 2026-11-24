@@ -17,42 +17,31 @@ seed-local clones. Run once, from the repo root:
     uv run python scripts/distill_seed.py
 """
 
-import base64
-import io
 import pathlib
 
 import UnityPy
 from UnityPy.classes import ChannelInfo, ComponentPair, PPtr, Quaternionf, Vector3f
-from UnityPy.enums import ClassIDType
+from UnityPy.enums import BuildTarget, ClassIDType
+from UnityPy.enums.BundleFile import ArchiveFlags
+from UnityPy.files.BundleFile import BundleFile
+from UnityPy.files.File import File
 from UnityPy.files.ObjectReader import ObjectReader
 from UnityPy.files.SerializedFile import (
     LocalSerializedObjectIdentifier,
+    SerializedFile,
+    SerializedFileHeader,
     SerializedType,
 )
 from UnityPy.helpers import TypeTreeHelper
+from UnityPy.helpers.ContainerHelper import ContainerHelper
 from UnityPy.helpers.Tpk import get_typetree_node
 from UnityPy.helpers.TypeTreeNode import TypeTreeNode
+from UnityPy.helpers.UnityVersion import UnityVersion
 from UnityPy.streams import EndianBinaryReader, EndianBinaryWriter
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ENV_FILE = REPO_ROOT / ".env"
 SEED = pathlib.Path("src/nikke_reborn/seed.bundle")
-SEED_BASE_B64 = (
-    "VW5pdHlGUwAAAAAINS54LngAMjAyMS4zLjM4ZjEAAAAAAAAAA+4AAABBAAAAWwAAAMIAAAAAAAAAAAAAAAAAABYAAQAWFgsAIgiV"
-    "CAAjCRAQABTQGgDwBzYwMDAuMC42NmYyABMAAAABAQAAAI4aADv//wABAJM6AAAA8gAAAAMQAGM3AACA//8oABaAKACiAQABAEgD"
-    "AICrASAAAFMANwGACCAAcwIAMQAAgDFAABACFAAYQCAAswMA3gAAgBsDAIAEcAAqAQAgAIBRAACAagAAgFwAHQQgAHEBANUDAIAM"
-    "xgA9//8FoAAKgAAQBhUAL0AAgAAGGwcIAQAgACJ5AoAAAGQAHQggABIEQAADnAARCRQAGYAgAFMuAwCAJDwAHQogAHMBAPEAAIAt"
-    "wAAfC8AADB0MIAAKwAAfDcAAABMfwAAAQAAdDkAAEQTAARObIAAdDyAAGQWAABEQwAEIIAAZBoAAEREUAAogAAjAAR0SIAAwBAA5"
-    "GAGNAwCAFAAAABPAABEFYAATQ2ABHxQgAAQTUCAAHxUgAAAAwAFaXAAAAAwpAwrAAANAAB0XoAEZBsABHxjAAQAAwAATYpwAHRlg"
-    "ABkCwAAfGiAABATAAB8bIAAACMAAHxzgAQAIwAAdHaAAGQPAAB8ewAAAU6YDAIBuQAAdH2AAAuADE4WgAh8goAIMHSEgAgpgAx0i"
-    "AAIK4AMdIyAAAuADE5eAAB8kgAAMECUVAB/AgAAHHyZAAQAmSAMgAx8nIAMACGAAHSjgABkFYAAdKcAAGQXgAB8q4AAAU0wAAICm"
-    "GAAdK6AEEQFgABPDoAEfLKABAAAgABPYIAAfLSAAAABgBBPkQAEfLkABDB8vYAQMHzBgBAwfMWAEDB8yYAQMHzNgBAwfNGAEDB81"
-    "YAQAAIAAIgoDYAAfNoAADB83gAAMHziAAAwbOSAA8QlBc3NldEJ1bmRsZQBtX1ByZWxvYWRUYWIPAGBGaWxlSUQYADFhdGgJAJJD"
-    "b250YWluZXI5AGJJbmZvAHA1AFRJbmRleA0AYFNpemUAYSMAgwBtX01haW5BDAD3CFJ1bnRpbWVDb21wYXRpYmlsaXR5AG1fhwAw"
-    "TmFtfAD6D0RlcGVuZGVuY2llcwBtX0lzU3RyZWFtZWRTY2VuZbcA8wNFeHBsaWNpdERhdGFMYXlvdXS0AEBGbGFnPgABNABjSGFz"
-    "aGVzFgEbAAgBC9cCDwEAAgBgAU9zZWVkJAAJHwEUAACABwAAAAAAAAAeAAEAsgEAAAkQAAADbQACDgAIHQAAGgDwGAAEQ0FCLWMy"
-    "ZGQ2NzE3Yjg3ZmM5Njc3ZjU3ZjA3YTgzY2Y4NjNkAA=="
-)
 
 
 def game_path() -> pathlib.Path:
@@ -95,14 +84,48 @@ def load_file(path):
     return environment, next(f for f in file.files.values() if hasattr(f, "objects"))
 
 
-def load_base():
-    environment = UnityPy.load(
-        io.BytesIO(base64.b64decode(SEED_BASE_B64)), path="seed.base"
-    )
-    file = environment.file
-    if hasattr(file, "objects"):
-        return environment, file
-    return environment, next(f for f in file.files.values() if hasattr(f, "objects"))
+def build_base():
+    bundle = BundleFile.__new__(BundleFile)
+    File.__init__(bundle, name="seed.base")
+    bundle.signature = "UnityFS"
+    bundle.version = 8
+    bundle.version_player = "5.x.x"
+    bundle.version_engine = "2021.3.38f1"
+    bundle.dataflags = ArchiveFlags(194)
+    bundle._uses_block_alignment = True
+
+    header = SerializedFileHeader.__new__(SerializedFileHeader)
+    header.metadata_size = 0
+    header.file_size = 0
+    header.version = 22
+    header.data_offset = 0
+    header.endian = "<"
+    header.reserved = b"\x00\x00\x00"
+
+    serialized_file = SerializedFile.__new__(SerializedFile)
+    archive_name = "CAB-c2dd6717b87fc9677f57f07a83cf863d"
+    File.__init__(serialized_file, parent=bundle, name=archive_name)
+    serialized_file.flags = 4
+    serialized_file.header = header
+    serialized_file.unity_version = "6000.0.66f2"
+    serialized_file.version = UnityVersion.from_str("6000.0.66f2")
+    serialized_file._m_target_platform = 19
+    serialized_file.target_platform = BuildTarget(19)
+    serialized_file._enable_type_tree = True
+    serialized_file.big_id_enabled = 0
+    serialized_file.unknown = 0
+    serialized_file.userInformation = ""
+    serialized_file.types = []
+    serialized_file.script_types = []
+    serialized_file.externals = []
+    serialized_file.ref_types = []
+    serialized_file.objects = {}
+    serialized_file._cache = {}
+    serialized_file.assetbundle = None
+    serialized_file._container = ContainerHelper([])
+
+    bundle.files[archive_name] = serialized_file
+    return bundle, serialized_file
 
 
 def find(sf, type_name, name=None, prefix=None):
@@ -534,7 +557,7 @@ def main():
     _, shared = load_file(game / "sharedassets2.assets")
     version = shared.version
 
-    seed_env, seed_sf = load_base()
+    seed_bundle, seed_sf = build_base()
     seed_sf.set_version(shared.unity_version)
     seed_sf.objects = {}
     seed_sf.types = []
@@ -858,7 +881,7 @@ def main():
         if external.path == "Resources/unity_builtin_extra"
     ]
     seed_sf.mark_changed()
-    SEED.write_bytes(seed_env.file.save(packer="lz4"))
+    SEED.write_bytes(seed_bundle.save(packer="lz4"))
 
     verify(SEED)
     print(
