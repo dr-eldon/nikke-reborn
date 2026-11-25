@@ -1,3 +1,4 @@
+local character = require("nikke.character")
 local copyright = require("nikke.copyright")
 local logo = require("nikke.logo")
 local manufacturer = require("nikke.manufacturer")
@@ -36,7 +37,6 @@ function profile.render(args)
 	end
 
 	local base = cache[args.background]
-
 	local reel = {}
 
 	for expression in string.gmatch(args.reel, "([^,]+)") do
@@ -107,11 +107,10 @@ function profile.render(args)
 		},
 	})()
 
-	local tint = frame:vivid_in(rectangle({ size = frame.size }))
+	local tint = character.accent(args.id, args.skin)
 
 	do
-		local tint = tint:to_oklch()
-
+		local tint = tint:clone()
 		tint.c = math.min(tint.c, 0.04)
 		tint.l = math.min(tint.l, 0.2)
 
@@ -158,7 +157,7 @@ function profile.render(args)
 			size = face.size,
 		})
 
-		local tint = tint:to_oklch()
+		local tint = tint:clone()
 		tint.l = 0.2
 
 		output:fill(bounds:padded(1 / scale), tint:with_alpha(0.7))

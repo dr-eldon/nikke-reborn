@@ -64,6 +64,10 @@ impl Card {
 
         Border::ALL[(border + bonus).min(Border::ALL.len() - 1)]
     }
+
+    pub fn is_monochrome(&self) -> bool {
+        matches!(self.rarity, Rarity::Rare | Rarity::Special | Rarity::Exotic)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -110,8 +114,7 @@ impl Rarity {
         Some(match self {
             Rarity::Standard | Rarity::Profile => "sky-night",
             Rarity::Cover | Rarity::Aim => "bubble-maker",
-            Rarity::Rare | Rarity::Special => "smoke-pink",
-            Rarity::Exotic => "sky-night",
+            Rarity::Rare | Rarity::Special | Rarity::Exotic => "sparks-red",
             Rarity::Goddess | Rarity::Classified => return None,
         })
     }

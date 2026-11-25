@@ -1,3 +1,4 @@
+local character = require("nikke.character")
 local copyright = require("nikke.copyright")
 local logo = require("nikke.logo")
 
@@ -14,6 +15,7 @@ standard.arguments = {
 	"animation",
 	"time",
 	"focus",
+	"monochrome",
 }
 
 function standard.render(args)
@@ -43,7 +45,7 @@ function standard.render(args)
 
 	local variant = args.variant or "fb"
 
-	local character = stream("nikke-viewer", {
+	local frames = stream("nikke-viewer", {
 		width = base.width,
 		height = base.height,
 		color_space = "srgb",
@@ -63,10 +65,21 @@ function standard.render(args)
 		},
 	})
 
+	local i = 0
+
 	logo.reset()
 	copyright.reset()
 
-	for frame in character do
+	for frame in frames do
+		i = i + 1
+
+		if i == 1 and args.monochrome then
+			local color = character.accent(args.id, args.skin)
+
+			base = base:clone()
+			base:monochrome(color)
+		end
+
 		local output = base:clone()
 		output:blend(frame)
 

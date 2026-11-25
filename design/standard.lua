@@ -1,3 +1,4 @@
+local character = require("nikke.character")
 local copyright = require("nikke.copyright")
 local logo = require("nikke.logo")
 local manufacturer = require("nikke.manufacturer")
@@ -22,26 +23,35 @@ standard.arguments = {
 	"animation",
 	"time",
 	"focus",
+	"monochrome",
 }
 
 function standard.render(args)
-	if cache[args.background] == nil then
+	local key = { args.background, args.monochrome and args.id }
+
+	if cache[key] == nil then
 		local base =
 			image("../assets/images/backgrounds/" .. args.background .. ".png")
-		local tint = base:dominant_in(rectangle({ size = base.size }))
 
 		base:autocontrast()
 		base:resize({ width = width, height = height, mode = "cover" })
+
+		local tint = character.accent(args.id, args.skin)
+
+		if args.monochrome then
+			base:monochrome(tint)
+		end
+
 		base:blend(mask)
 		base:convert("srgb")
 
-		cache[args.background] = { base, tint }
+		cache[key] = { base, tint }
 	end
 
-	local base, tint = table.unpack(cache[args.background])
 	local variant = args.variant or "fb"
+	local base, tint = table.unpack(cache[key])
 
-	local character = stream("nikke-viewer", {
+	local frames = stream("nikke-viewer", {
 		width = base.width,
 		height = base.height,
 		color_space = "srgb",
@@ -64,7 +74,9 @@ function standard.render(args)
 	logo.reset()
 	copyright.reset()
 
-	for frame in character do
+	local i = 0
+
+	for frame in frames do
 		local output = base:clone()
 
 		if args.manufacturer ~= nil then

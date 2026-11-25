@@ -1,20 +1,20 @@
-local title = {}
+local module = {}
 
 local aire_exterior = font("../../fonts/AireExterior.ttf")
 local chocolate = font("../../fonts/ChocolateClassicalSans-Regular.ttf")
 
-function title.render(output, args)
+function module.render(output, args)
 	local title = text(args.title:upper(), {
 		font = aire_exterior,
-		size = title.size(150, 7, args.title),
+		size = module.size(150, 7, args.title),
 		weight = 700,
 		x = 50,
-		y = args.y,
+		y = math.floor(args.y),
 	})
 
 	local arrow = text("↖", {
 		font = chocolate,
-		size = title.size(50, 15, args.title),
+		size = module.size(50, 15, args.title),
 		x = title.x + title.width,
 		y = title.y + title.height,
 	})
@@ -78,7 +78,7 @@ function title.render(output, args)
 	if args.subtitle ~= nil then
 		local subtitle = text(args.subtitle:upper(), {
 			font = aire_exterior,
-			size = title.size(50, 14, args.subtitle),
+			size = module.size(50, 14, args.subtitle),
 			weight = 700,
 			x = 50,
 			y = title_bounds.y + title_bounds.height + spacing,
@@ -112,14 +112,19 @@ function title.render(output, args)
 		})
 		subtitle_box:close()
 
-		local tint = args.tint:to_oklch()
-
-		tint.c = math.min(tint.c * 1.5, 0.25)
-
 		local color = "#FFFFFF"
+
+		local tint = args.tint:clone()
+
+		if tint.c > 0.02 then
+			tint.c = math.max(tint.c, 0.2)
+		end
 
 		if tint.l > 0.8 then
 			color = "#000000"
+			tint.l = math.min(tint.l, 0.9)
+		else
+			tint.l = math.min(tint.l, 0.7)
 		end
 
 		output:fill(subtitle_box, tint)
@@ -139,8 +144,8 @@ function parallelogram(width, height, tilt)
 	return p
 end
 
-function title.size(base, limit, text)
+function module.size(base, limit, text)
 	return math.floor(base * math.min(limit / text:len(), 1) + 0.5)
 end
 
-return title
+return module

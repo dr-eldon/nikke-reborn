@@ -291,6 +291,7 @@ fn standard(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Job>
             "animation": card.animation.clone(),
             "time": card.rarity.time(),
             "focus": card.focus().to_owned(),
+            "monochrome": card.is_monochrome(),
         }),
     ))
 }
@@ -345,6 +346,7 @@ fn full_art(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Job>
             "animation": card.animation.clone(),
             "time": card.rarity.time(),
             "focus": card.focus().to_owned(),
+            "monochrome": card.is_monochrome(),
         }),
     ))
 }
