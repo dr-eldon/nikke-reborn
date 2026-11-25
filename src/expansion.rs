@@ -11,7 +11,7 @@ use crate::card;
 use crate::character;
 use crate::environment;
 use crate::model;
-use crate::{Card, Error, Model, Poster, Quality, Result, Sleeve};
+use crate::{Card, Deckbox, Error, Model, Poster, Quality, Result, Sleeve};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expansion {
@@ -23,6 +23,7 @@ pub struct Expansion {
     pub models: Arc<[_Model]>,
     pub cards: Arc<OnceLock<Vec<Card>>>,
     pub sleeves: Arc<[Sleeve]>,
+    pub deckboxes: Arc<[Deckbox]>,
     pub posters: Arc<[Poster]>,
 }
 
@@ -65,6 +66,8 @@ impl Expansion {
             #[serde(default)]
             sleeves: Vec<_Sleeve>,
             #[serde(default)]
+            deckboxes: Vec<_Deckbox>,
+            #[serde(default)]
             posters: Vec<_Poster>,
         }
 
@@ -82,6 +85,21 @@ impl Expansion {
             #[serde(default)]
             offset_x: f32,
             portrait: String,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct _Deckbox {
+            id: String,
+            skin: Option<String>,
+            variant: Option<String>,
+            animation: Option<String>,
+            focus: Option<String>,
+            zoom: Option<f32>,
+            #[serde(default)]
+            time: f32,
+            #[serde(default)]
+            offset_x: f32,
+            color: Option<String>,
         }
 
         #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -128,6 +146,27 @@ impl Expansion {
             })
             .collect::<Vec<_>>();
 
+        let deckboxes = expansion
+            .deckboxes
+            .into_iter()
+            .enumerate()
+            .map(|(i, deckbox)| Deckbox {
+                number: i + 1,
+                model: models
+                    .get(&deckbox.id)
+                    .expect("deckbox model id must be valid")
+                    .clone(),
+                skin: deckbox.skin,
+                variant: deckbox.variant,
+                animation: deckbox.animation,
+                focus: deckbox.focus,
+                time: deckbox.time,
+                zoom: deckbox.zoom.unwrap_or(1.0),
+                offset_x: deckbox.offset_x,
+                color: deckbox.color,
+            })
+            .collect::<Vec<_>>();
+
         let posters = expansion
             .posters
             .into_iter()
@@ -151,6 +190,7 @@ impl Expansion {
             models: Arc::from(expansion.models),
             cards: Arc::default(),
             sleeves: Arc::from(sleeves),
+            deckboxes: Arc::from(deckboxes),
             posters: Arc::from(posters),
         })
     }

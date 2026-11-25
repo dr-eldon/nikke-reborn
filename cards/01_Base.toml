@@ -124,6 +124,32 @@ animation = "main"
 time = 1.0
 portrait = "shy"
 
+[[deckboxes]]
+id = "c131"
+variant = "sc"
+animation = "main"
+time = 2.6
+focus = "full-body"
+zoom = 1.1
+offset_x = -20
+
+[[deckboxes]]
+id = "c142"
+variant = "sc"
+animation = "main"
+time = 3.0
+focus = "full-body"
+zoom = 1.05
+offset_x = 25
+
+[[deckboxes]]
+id = "c202"
+variant = "sc"
+animation = "main"
+time = 0.67
+focus = "full-body"
+color = "#362d4c"
+
 [[posters]]
 name = "Syuen (Chapter 2)"
 file = "EventScene_Chap_02_After_02"

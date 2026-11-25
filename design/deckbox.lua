@@ -17,16 +17,18 @@ local left = sides()
 local right = sides()
 
 return {
-	arguments = { "id", "skin", "variant", "animation", "time", "focus" },
+	arguments = {
+		"id",
+		"skin",
+		"variant",
+		"animation",
+		"time",
+		"focus",
+		"zoom",
+		"offset_x",
+		"color",
+	},
 	render = function(args)
-		args = {
-			id = "c142",
-			variant = "sc",
-			animation = "main",
-			time = 3.0,
-			focus = "full-body",
-		}
-
 		local render = stream("nikke-viewer", {
 			width = front.width,
 			height = front.height,
@@ -45,14 +47,26 @@ return {
 				"--zoom",
 				args.zoom or 1,
 				"--" .. (args.focus or "half-body"),
+				"--offset-x",
+				(args.offset_x or 0) * scale,
 				args.id,
 			},
 		})()
 
-		local tint = render:vivid_in(rectangle({ size = render.size }))
+		local tint
+
+		if args.color == nil then
+			tint = render:vivid_in(rectangle({ size = render.size })):to_oklch()
+		else
+			tint = color(args.color):to_oklch()
+		end
+
+		tint.c = tint.c * 1.3
+		tint.l = tint.l * 0.9
+
 		local material = blank({ width = width, height = height, color = tint })
 
-		local darker = tint:to_oklch()
+		local darker = tint:clone()
 		darker.l = darker.l * 0.5
 		material:fill(bottom, darker)
 

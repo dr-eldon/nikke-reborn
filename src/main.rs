@@ -52,6 +52,7 @@ pub async fn main() -> Result<()> {
     let mut packs = Vec::new();
     let mut boxes = Vec::new();
     let mut sleeves = Vec::new();
+    let mut deckboxes = Vec::new();
     let mut posters = Vec::new();
     let mut poster_icons = Vec::new();
 
@@ -129,6 +130,25 @@ pub async fn main() -> Result<()> {
             )
         }));
 
+        deckboxes.extend(expansion.deckboxes.iter().map(|deckbox| {
+            job(
+                output
+                    .join(format!("{}_Material", deckbox.file_name()))
+                    .with_extension("png"),
+                json!({
+                    "id": deckbox.model.id,
+                    "skin": deckbox.skin,
+                    "variant": deckbox.variant,
+                    "animation": deckbox.animation,
+                    "focus": deckbox.focus,
+                    "zoom": deckbox.zoom,
+                    "time": deckbox.time,
+                    "offset_x": deckbox.offset_x,
+                    "color": deckbox.color,
+                }),
+            )
+        }));
+
         for poster in expansion.posters.iter() {
             posters.push(job(
                 output
@@ -179,6 +199,7 @@ pub async fn main() -> Result<()> {
     generate("box", &boxes, quality).await?;
     generate("pack", &packs, quality).await?;
     generate("sleeve", &sleeves, quality).await?;
+    generate("deckbox", &deckboxes, quality).await?;
     generate("poster", &posters, quality).await?;
     generate("poster_icon", &poster_icons, quality).await?;
 
@@ -192,6 +213,10 @@ pub async fn main() -> Result<()> {
 
     for sleeve in sleeves {
         snapshot(&sleeve.output, "CardSleeve_Mesh_low", false, quality).await?;
+    }
+
+    for deckbox in deckboxes {
+        snapshot(&deckbox.output, "DeckBox_Mesh", false, quality).await?;
     }
 
     server.kill().await?;
