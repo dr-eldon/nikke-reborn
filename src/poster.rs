@@ -25,9 +25,9 @@ impl Poster {
 
         let ratio = header.width as f32 / header.height as f32;
 
-        let aspect = if ratio > 1.3 {
+        let aspect = if ratio > 1.2 {
             Aspect::Landscape
-        } else if ratio < 0.7 {
+        } else if ratio < 0.8 {
             Aspect::Portrait
         } else {
             Aspect::Square

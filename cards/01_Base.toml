@@ -145,9 +145,14 @@ file = "EventScene_Chap_07_03"
 price = 500
 
 [[posters]]
+name = "Neon and Anis (Chapter 8)"
+file = "EventScene_Chap_08_01"
+price = 1_900
+
+[[posters]]
 name = "Exia (Chapter 9)"
 file = "EventScene_Chap_09_01"
-price = 500
+price = 1_000
 
 [[posters]]
 name = "Rapi (Chapter 10)"
@@ -182,4 +187,14 @@ price = 1_000
 [[posters]]
 name = "Privaty, Admi, and Yulha (Chapter 14)"
 file = "EventScene_Chap_14_02"
+price = 2_000
+
+[[posters]]
+name = "Laplace, Drake, and Maxwell (Chapter 15)"
+file = "EventScene_Main_15_After_01"
+price = 1_000
+
+[[posters]]
+name = "Crow, Viper, and Jackal (Chapter 16)"
+file = "EventScene_Main_16_01"
 price = 2_000

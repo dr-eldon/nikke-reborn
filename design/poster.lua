@@ -22,10 +22,25 @@ return {
 				height = region.height,
 				mode = "cover",
 			})
-			base:blend(art, { at = region })
 
+			base:blend(art, { at = region })
 			yield(base)
 		else
+			local base = mask_rectangle:clone()
+			local region = base:detect("#FF0000")()
+
+			if aspect == "landscape" then
+				art:rotate(90)
+			end
+
+			art:resize({
+				width = region.width,
+				height = region.height,
+				mode = "cover",
+			})
+
+			base:blend(art, { at = region })
+			yield(base)
 		end
 	end,
 }

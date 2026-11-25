@@ -163,3 +163,298 @@ animation = "main"
 focus = "full-body"
 time = 2.8
 portrait = "chu2"
+
+[[posters]]
+name = "OuteR: Automata"
+file = "EventScene_ce_02_01"
+price = 1_600
+
+[[posters]]
+name = "OuteR: Automata - II"
+file = "EventScene_ce_02_02"
+price = 1_400
+
+[[posters]]
+name = "OuteR: Automata - III"
+file = "EventTitle_OUTERAUTOMATA_02"
+price = 2_200
+
+[[posters]]
+name = "Red Ash"
+file = "EventScene_redash_01_02_f"
+price = 2_500
+
+[[posters]]
+name = "Red Ash - II"
+file = "EventScene_redash_01_04_f"
+price = 500
+
+[[posters]]
+name = "Red Ash - III"
+file = "EventScene_redash_02_2"
+price = 1_100
+
+[[posters]]
+name = "Red Ash - IV"
+file = "EventScene_redash_03_2"
+price = 900
+
+[[posters]]
+name = "Red Ash - V"
+file = "EventScene_redash_04_1"
+price = 1_100
+
+[[posters]]
+name = "Red Ash - VI"
+file = "EventScene_redash_07"
+price = 1_500
+
+[[posters]]
+name = "Red Ash - VII"
+file = "EventScene_redash_08"
+price = 1_900
+
+[[posters]]
+name = "Red Ash - VIII"
+file = "EventScene_redash_09_2"
+price = 1_700
+
+[[posters]]
+name = "Red Ash - IX"
+file = "EventScene_redash_10_2"
+price = 600
+
+[[posters]]
+name = "Red Ash - X"
+file = "EventScene_redash_12_2"
+price = 1_800
+
+[[posters]]
+name = "Red Ash - XI"
+file = "EventScene_redash_13"
+price = 3_000
+
+[[posters]]
+name = "Red Ash - XII"
+file = "EventTitle_redash_t2"
+price = 1_100
+
+[[posters]]
+name = "NEVERLAND"
+file = "EventScene_NeverLand_01"
+price = 1_100
+
+[[posters]]
+name = "NEVERLAND - II"
+file = "EventScene_NeverLand_04"
+price = 1_300
+
+[[posters]]
+name = "NEVERLAND - III"
+file = "EventScene_NeverLand_05_2"
+price = 1_100
+
+[[posters]]
+name = "Snowfall Oasis"
+file = "EventScene_snowfalloasis_01_1"
+price = 1_600
+
+[[posters]]
+name = "Snowfall Oasis - II"
+file = "EventScene_snowfalloasis_01_2"
+price = 1_700
+
+[[posters]]
+name = "Snowfall Oasis - III"
+file = "EventScene_snowfalloasis_02_1"
+price = 1_600
+
+[[posters]]
+name = "Snowfall Oasis - IV"
+file = "EventScene_snowfalloasis_06_1"
+price = 1_900
+
+[[posters]]
+name = "Snowfall Oasis - V"
+file = "EventScene_snowfalloasis_09"
+price = 1_100
+
+[[posters]]
+name = "Snowfall Oasis - VI"
+file = "EventScene_snowfalloasis_12"
+price = 1_300
+
+[[posters]]
+name = "Snowfall Oasis - VII"
+file = "EventScene_snowfalloasis_14"
+price = 1_300
+
+[[posters]]
+name = "Snowfall Oasis - VIII"
+file = "EventTitle_snowfalloasis_02"
+price = 1_000
+
+[[posters]]
+name = "Booms Day (Chapter 27)"
+file = "EventScene_Chap_27_03"
+price = 1_400
+
+[[posters]]
+name = "Booms Day (Chapter 28)"
+file = "EventScene_Chap_28_04"
+price = 1_000
+
+[[posters]]
+name = "Booms Day"
+file = "EventTitle_BoomsDay_01"
+price = 700
+
+[[posters]]
+name = "Kill the Lord"
+file = "bg_killthelord_nor"
+price = 1_500
+
+[[posters]]
+name = "Re:CIPE FOR YOU"
+file = "EventScene_ce_03_02"
+price = 1_800
+
+[[posters]]
+name = "Re:CIPE FOR YOU - II"
+file = "EventScene_ce_03_03"
+price = 3_000
+
+[[posters]]
+name = "Re:CIPE FOR YOU - III"
+file = "EventTitle_ReCIPEFORYOU_01"
+price = 1_100
+
+[[posters]]
+name = "Re:CIPE FOR YOU - IV"
+file = "EventTitle_ReCIPEFORYOU_02"
+price = 500
+
+[[posters]]
+name = "Liar's End"
+file = "EventScene_lairsend_01"
+price = 3_000
+
+[[posters]]
+name = "Second Affection"
+file = "EventScene_Side_01_01"
+price = 1_900
+
+[[posters]]
+name = "Second Affection - II"
+file = "EventScene_Side_01_02"
+price = 1_800
+
+[[posters]]
+name = "Last Kingdom (Chapter 30)"
+file = "EventScene_Chap_30_01"
+price = 2_200
+
+[[posters]]
+name = "Last Kingdom (Chapter 30) - II"
+file = "EventScene_Chap_30_02"
+price = 1_300
+
+[[posters]]
+name = "Last Kingdom (Chapter 30) - III"
+file = "EventScene_Chap_30_04_01"
+price = 1_600
+
+[[posters]]
+name = "Last Kingdom"
+file = "EventScene_lastkingdom_01_3"
+price = 900
+
+[[posters]]
+name = "Last Kingdom - II"
+file = "EventScene_lastkingdom_05"
+price = 2_100
+
+[[posters]]
+name = "Last Kingdom - III"
+file = "EventScene_lastkingdom_06_2"
+price = 1_000
+
+[[posters]]
+name = "Last Kingdom - IV"
+file = "EventScene_lastkingdom_07"
+price = 800
+
+[[posters]]
+name = "Last Kingdom - V"
+file = "EventScene_lastkingdom_09"
+price = 1_900
+
+[[posters]]
+name = "Last Kingdom - VI"
+file = "EventScene_lastkingdom_10"
+price = 900
+
+[[posters]]
+name = "Last Kingdom - VII"
+file = "EventScene_lastkingdom_11_2"
+price = 1_400
+
+[[posters]]
+name = "Last Kingdom - VIII"
+file = "EventScene_lastkingdom_12_2"
+price = 1_500
+
+[[posters]]
+name = "Last Kingdom - IX"
+file = "EventScene_lastkingdom_13_3"
+price = 3_000
+
+[[posters]]
+name = "Last Kingdom - X"
+file = "EventScene_lastkingdom_14"
+price = 3_000
+
+[[posters]]
+name = "Last Kingdom - XI"
+file = "EventScene_lastkingdom_15_2"
+price = 700
+
+[[posters]]
+name = "Last Kingdom - XII"
+file = "EventScene_lastkingdom_16"
+price = 3_000
+
+[[posters]]
+name = "D.ark Hero"
+file = "EventTitle_Darkhero_01"
+price = 800
+
+[[posters]]
+name = "Golden Coin Rush"
+file = "EventScene_GoldenCoinRush_01_1"
+price = 2_400
+
+[[posters]]
+name = "Golden Coin Rush - II"
+file = "EventScene_GoldenCoinRush_02"
+price = 1_000
+
+[[posters]]
+name = "Golden Coin Rush - III"
+file = "EventScene_GoldenCoinRush_03"
+price = 2_000
+
+[[posters]]
+name = "Golden Coin Rush - IV"
+file = "EventScene_GoldenCoinRush_04"
+price = 1_700
+
+[[posters]]
+name = "Golden Coin Rush - V"
+file = "EventScene_GoldenCoinRush_05_1"
+price = 1_900
+
+[[posters]]
+name = "Golden Coin Rush - VI"
+file = "EventScene_GoldenCoinRush_06"
+price = 2_800

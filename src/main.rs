@@ -196,6 +196,10 @@ pub async fn main() -> Result<()> {
 
     server.kill().await?;
 
+    if DRY.load(atomic::Ordering::Relaxed) {
+        return Ok(());
+    }
+
     let mut manifests = vec![BTreeMap::new(); expansions.len()];
     let (sender, mut receiver) = tokio::sync::mpsc::channel(32);
 
@@ -238,7 +242,6 @@ pub async fn main() -> Result<()> {
     drop(sender);
 
     while let Some((i, path, hash)) = receiver.recv().await.transpose()? {
-        println!("{hash} {}", path.display());
         manifests[i].insert(path, hash);
     }
 

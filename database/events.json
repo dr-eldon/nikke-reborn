@@ -1,350 +1,498 @@
 [
  {
   "name": "No Caller ID",
-  "date": "2022-11-10"
+  "date": "2022-11-10",
+  "chapters": []
  },
  {
   "name": "Hightech Toy",
-  "date": "2022-11-24"
+  "date": "2022-11-24",
+  "chapters": [
+   17,
+   18
+  ]
  },
  {
   "name": "Miracle Snow",
-  "date": "2022-12-08"
+  "date": "2022-12-08",
+  "chapters": []
  },
  {
   "name": "Brand New Year",
-  "date": "2022-12-28"
+  "date": "2022-12-28",
+  "chapters": []
  },
  {
   "name": "D-Outsiders",
-  "date": "2023-01-12"
+  "date": "2023-01-12",
+  "chapters": [
+   19,
+   20
+  ]
  },
  {
   "name": "Maid in Valentine",
-  "date": "2023-02-01"
+  "date": "2023-02-01",
+  "chapters": []
  },
  {
   "name": "BULLET X CHAINSAW",
-  "date": "2023-02-22"
+  "date": "2023-02-22",
+  "chapters": []
  },
  {
   "name": "Bow-Wow Paradise",
-  "date": "2023-03-15"
+  "date": "2023-03-15",
+  "chapters": []
  },
  {
   "name": "Cherry Blossom",
-  "date": "2023-03-30"
+  "date": "2023-03-30",
+  "chapters": []
  },
  {
   "name": "Full Fool Day",
-  "date": "2023-04-01"
+  "date": "2023-04-01",
+  "chapters": []
  },
  {
   "name": "License to Kill",
-  "date": "2023-04-13"
+  "date": "2023-04-13",
+  "chapters": []
  },
  {
   "name": "Over Zone",
-  "date": "2023-04-27"
+  "date": "2023-04-27",
+  "chapters": [
+   21,
+   22
+  ]
  },
  {
   "name": "Bunny X 777",
-  "date": "2023-05-18"
+  "date": "2023-05-18",
+  "chapters": []
  },
  {
   "name": "Queen's Order",
-  "date": "2023-06-01"
+  "date": "2023-06-01",
+  "chapters": []
  },
  {
   "name": "Blue Water Island",
-  "date": "2023-06-15"
+  "date": "2023-06-15",
+  "chapters": []
  },
  {
   "name": "Nya Nya Paradise",
-  "date": "2023-07-06"
+  "date": "2023-07-06",
+  "chapters": []
  },
  {
   "name": "Golden Ship",
-  "date": "2023-07-20"
+  "date": "2023-07-20",
+  "chapters": [
+   23,
+   24
+  ]
  },
  {
   "name": "Sea, You, Again",
-  "date": "2023-08-03"
+  "date": "2023-08-03",
+  "chapters": []
  },
  {
   "name": "First Affection",
-  "date": "2023-08-24"
+  "date": "2023-08-24",
+  "chapters": []
  },
  {
   "name": "OuteR: Automata",
-  "date": "2023-09-01"
+  "date": "2023-09-01",
+  "chapters": []
  },
  {
   "name": "School of Lock",
-  "date": "2023-09-21"
+  "date": "2023-09-21",
+  "chapters": []
  },
  {
   "name": "Dazzling Cupid",
-  "date": "2023-10-05"
+  "date": "2023-10-05",
+  "chapters": []
  },
  {
   "name": "A.C.P.U.! FREEZE!",
-  "date": "2023-10-19"
+  "date": "2023-10-19",
+  "chapters": []
  },
  {
   "name": "Happy 1st Anniversary",
-  "date": "2023-11-02"
+  "date": "2023-11-02",
+  "chapters": []
  },
  {
   "name": "Red Ash",
-  "date": "2023-11-02"
+  "date": "2023-11-02",
+  "chapters": [
+   25,
+   26
+  ]
  },
  {
   "name": "Alone Survivor",
-  "date": "2023-11-23"
+  "date": "2023-11-23",
+  "chapters": []
  },
  {
   "name": "NEVERLAND",
-  "date": "2023-12-07"
+  "date": "2023-12-07",
+  "chapters": []
  },
  {
   "name": "New Year, New Sword",
-  "date": "2023-12-28"
+  "date": "2023-12-28",
+  "chapters": []
  },
  {
   "name": "Lion Heart",
-  "date": "2024-01-11"
+  "date": "2024-01-11",
+  "chapters": []
  },
  {
   "name": "Dirty Backyard",
-  "date": "2024-01-25"
+  "date": "2024-01-25",
+  "chapters": []
  },
  {
   "name": "Perfect Maid",
-  "date": "2024-02-05"
+  "date": "2024-02-05",
+  "chapters": []
  },
  {
   "name": "Booms Day",
-  "date": "2024-02-22"
+  "date": "2024-02-22",
+  "chapters": [
+   27,
+   28
+  ]
  },
  {
   "name": "Kill the Lord",
-  "date": "2024-03-07"
+  "date": "2024-03-07",
+  "chapters": []
  },
  {
   "name": "Re:CIPE FOR YOU",
-  "date": "2024-03-21"
+  "date": "2024-03-21",
+  "chapters": []
  },
  {
   "name": "Liar's End",
-  "date": "2024-04-01"
+  "date": "2024-04-01",
+  "chapters": []
  },
  {
   "name": "One More Time",
-  "date": "2024-04-11"
+  "date": "2024-04-11",
+  "chapters": []
  },
  {
   "name": "Last Kingdom",
-  "date": "2024-04-25"
+  "date": "2024-04-25",
+  "chapters": [
+   29,
+   30
+  ]
  },
  {
   "name": "D.ark Hero",
-  "date": "2024-05-16"
+  "date": "2024-05-16",
+  "chapters": []
  },
  {
   "name": "Golden Coin Rush",
-  "date": "2024-05-30"
+  "date": "2024-05-30",
+  "chapters": []
  },
  {
   "name": "Clay, More!",
-  "date": "2024-06-20"
+  "date": "2024-06-20",
+  "chapters": []
  },
  {
   "name": "Beauty Full Shot",
-  "date": "2024-07-04"
+  "date": "2024-07-04",
+  "chapters": []
  },
  {
   "name": "Juvenile Days",
-  "date": "2024-07-25"
+  "date": "2024-07-25",
+  "chapters": [
+   31,
+   32
+  ]
  },
  {
   "name": "Colorless",
-  "date": "2024-08-08"
+  "date": "2024-08-08",
+  "chapters": []
  },
  {
   "name": "You Can (Not) Evade",
-  "date": "2024-08-21"
+  "date": "2024-08-21",
+  "chapters": []
  },
  {
   "name": "Jinx Player",
-  "date": "2024-09-19"
+  "date": "2024-09-19",
+  "chapters": []
  },
  {
   "name": "Nonsense Red",
-  "date": "2024-09-19"
+  "date": "2024-09-19",
+  "chapters": []
  },
  {
   "name": "Phantom Thief vs Detective",
-  "date": "2024-10-03"
+  "date": "2024-10-03",
+  "chapters": []
  },
  {
   "name": "Life Again",
-  "date": "2024-10-17"
+  "date": "2024-10-17",
+  "chapters": []
  },
  {
   "name": "Old Tales (event)",
-  "date": "2024-10-31"
+  "date": "2024-10-31",
+  "chapters": [
+   33,
+   34
+  ]
  },
  {
   "name": "Secret Garden",
-  "date": "2024-11-21"
+  "date": "2024-11-21",
+  "chapters": []
  },
  {
   "name": "Ice Dragon Saga",
-  "date": "2024-12-05"
+  "date": "2024-12-05",
+  "chapters": []
  },
  {
   "name": "Footstep, Walk, Run",
-  "date": "2024-12-26"
+  "date": "2024-12-26",
+  "chapters": []
  },
  {
   "name": "Out of Uniform",
-  "date": "2025-01-01"
+  "date": "2025-01-01",
+  "chapters": []
  },
  {
   "name": "Wisdom Spring",
-  "date": "2025-01-16"
+  "date": "2025-01-16",
+  "chapters": []
  },
  {
   "name": "Romantic Valentine",
-  "date": "2025-01-30"
+  "date": "2025-01-30",
+  "chapters": []
  },
  {
   "name": "Second Quest",
-  "date": "2025-02-20"
+  "date": "2025-02-20",
+  "chapters": [
+   35,
+   36
+  ]
  },
  {
   "name": "For Rest",
-  "date": "2025-03-13"
+  "date": "2025-03-13",
+  "chapters": []
  },
  {
   "name": "New Flavor",
-  "date": "2025-03-27"
+  "date": "2025-03-27",
+  "chapters": []
  },
  {
   "name": "Fool Burst Day",
-  "date": "2025-04-01"
+  "date": "2025-04-01",
+  "chapters": []
  },
  {
   "name": "True Flavor",
-  "date": "2025-04-10"
+  "date": "2025-04-10",
+  "chapters": []
  },
  {
   "name": "Unbreakable Sphere",
-  "date": "2025-04-24"
+  "date": "2025-04-24",
+  "chapters": [
+   37,
+   38
+  ]
  },
  {
   "name": "Arcane Archive",
-  "date": "2025-05-15"
+  "date": "2025-05-15",
+  "chapters": []
  },
  {
   "name": "Lord, for Justice",
-  "date": "2025-05-29"
+  "date": "2025-05-29",
+  "chapters": []
  },
  {
   "name": "Memories Teller",
-  "date": "2025-06-12"
+  "date": "2025-06-12",
+  "chapters": []
  },
  {
   "name": "Over the Horizon (event)",
-  "date": "2025-07-03"
+  "date": "2025-07-03",
+  "chapters": []
  },
  {
   "name": "Boom! The Ghost!",
-  "date": "2025-07-17"
+  "date": "2025-07-17",
+  "chapters": []
  },
  {
   "name": "ABSOLUTE",
-  "date": "2025-08-07"
+  "date": "2025-08-07",
+  "chapters": [
+   39,
+   40
+  ]
  },
  {
   "name": "Coins in Rush",
-  "date": "2025-09-04"
+  "date": "2025-09-04",
+  "chapters": []
  },
  {
   "name": "Reborn Evil",
-  "date": "2025-09-24"
+  "date": "2025-09-24",
+  "chapters": []
  },
  {
   "name": "Yes, My Commander",
-  "date": "2025-10-16"
+  "date": "2025-10-16",
+  "chapters": []
  },
  {
   "name": "Goddess Fall (event)",
-  "date": "2025-10-30"
+  "date": "2025-10-30",
+  "chapters": [
+   41,
+   42
+  ]
  },
  {
   "name": "Blank Ticket",
-  "date": "2025-11-20"
+  "date": "2025-11-20",
+  "chapters": []
  },
  {
   "name": "Terminus Ticket",
-  "date": "2025-12-04"
+  "date": "2025-12-04",
+  "chapters": []
  },
  {
   "name": "Ark Guardian",
-  "date": "2025-12-30"
+  "date": "2025-12-30",
+  "chapters": []
  },
  {
   "name": "Sin Editor",
-  "date": "2026-01-15"
+  "date": "2026-01-15",
+  "chapters": []
  },
  {
   "name": "Fatal Maid",
-  "date": "2026-01-29"
+  "date": "2026-01-29",
+  "chapters": []
+ },
+ {
+  "name": "Lie cause Recoil",
+  "date": "2026-02-12",
+  "chapters": [
+   43,
+   44
+  ]
+ },
+ {
+  "name": "Star Anis",
+  "date": "2026-04-23",
+  "chapters": [
+   45,
+   46
+  ]
  },
  {
   "name": "B-Side Idol",
-  "date": "2026-05-14"
+  "date": "2026-05-14",
+  "chapters": []
  },
  {
   "name": "Bitter Spice",
-  "date": "2026-05-28"
+  "date": "2026-05-28",
+  "chapters": []
  },
  {
   "name": "Ark Ranger",
-  "date": "2026-06-11"
+  "date": "2026-06-11",
+  "chapters": []
  },
  {
   "name": "Wave to You",
-  "date": "2026-07-02"
+  "date": "2026-07-02",
+  "chapters": []
  },
  {
   "name": "Project Matis",
-  "date": "2026-07-23"
+  "date": "2026-07-23",
+  "chapters": []
  },
  {
   "name": "Persona on Frontline",
-  "date": "2026-08-12"
+  "date": "2026-08-12",
+  "chapters": [
+   47,
+   48
+  ]
  },
  {
   "name": "Great Villain Union",
-  "date": "2026-09-03"
+  "date": "2026-09-03",
+  "chapters": []
  },
  {
   "name": "Coin Rush Showdown",
-  "date": "2026-09-17"
+  "date": "2026-09-17",
+  "chapters": []
  },
  {
   "name": "Little Witch Trick",
-  "date": "2026-10-08"
+  "date": "2026-10-08",
+  "chapters": []
  },
  {
   "name": "Most Beautiful Maid",
-  "date": "2026-10-08"
+  "date": "2026-10-08",
+  "chapters": []
  },
  {
   "name": "MARIA-n",
-  "date": "2026-10-29"
+  "date": "2026-10-29",
+  "chapters": [
+   49,
+   50
+  ]
  }
 ]

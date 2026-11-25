@@ -156,3 +156,268 @@ focus = "full-body"
 zoom = 1.14
 time = 0.0
 portrait = "shy"
+
+[[posters]]
+name = "Miracle Snow"
+file = "EventScene_MiracleSnow_01"
+price = 1_200
+
+[[posters]]
+name = "Miracle Snow - II"
+file = "EventScene_MiracleSnow_02"
+price = 2_500
+
+[[posters]]
+name = "Miracle Snow - III"
+file = "EventScene_MiracleSnow_04"
+price = 1_700
+
+[[posters]]
+name = "Brand New Year"
+file = "EventScene_BrandNewYear_01"
+price = 2_800
+
+[[posters]]
+name = "D-Outsiders (Chapter 19)"
+file = "EventScene_Chap_19_01"
+price = 1_000
+
+[[posters]]
+name = "D-Outsiders (Chapter 20)"
+file = "EventScene_Chap_20_02_01"
+price = 1_400
+
+[[posters]]
+name = "D-Outsiders (Chapter 20) - II"
+file = "EventScene_Chap_20_03"
+price = 800
+
+[[posters]]
+name = "D-Outsiders"
+file = "EventScene_Doutsiders"
+price = 2_400
+
+[[posters]]
+name = "Full Fool Day"
+file = "EventScene_FullFoolDay_01"
+price = 3_000
+
+[[posters]]
+name = "Over Zone (Chapter 21)"
+file = "EventScene_Chap_21_07"
+price = 1_200
+
+[[posters]]
+name = "Over Zone (Chapter 22)"
+file = "EventScene_Chap_22_02"
+price = 1_100
+
+[[posters]]
+name = "Over Zone (Chapter 22) - II"
+file = "EventScene_Chap_22_05"
+price = 1_200
+
+[[posters]]
+name = "Over Zone (Chapter 22) - III"
+file = "EventScene_Chap_22_06"
+price = 2_000
+
+[[posters]]
+name = "Over Zone"
+file = "EventScene_OverZone_02"
+price = 700
+
+[[posters]]
+name = "Over Zone - II"
+file = "EventScene_OverZone_03"
+price = 3_000
+
+[[posters]]
+name = "Over Zone - III"
+file = "EventScene_OverZone_03_2"
+price = 2_000
+
+[[posters]]
+name = "Over Zone - IV"
+file = "EventScene_OverZone_04"
+price = 1_500
+
+[[posters]]
+name = "Over Zone - V"
+file = "EventScene_OverZone_04_1"
+price = 1_000
+
+[[posters]]
+name = "Over Zone - VI"
+file = "EventScene_OverZone_05"
+price = 1_200
+
+[[posters]]
+name = "Over Zone - VII"
+file = "EventScene_OverZone_06"
+price = 2_400
+
+[[posters]]
+name = "Over Zone - VIII"
+file = "EventScene_OverZone_07"
+price = 2_000
+
+[[posters]]
+name = "Over Zone - IX"
+file = "EventScene_OverZone_08_2"
+price = 1_500
+
+[[posters]]
+name = "Over Zone - X"
+file = "EventScene_OverZone_09"
+price = 1_300
+
+[[posters]]
+name = "Over Zone - XI"
+file = "EventScene_OverZone_09_1"
+price = 1_900
+
+[[posters]]
+name = "Over Zone - XII"
+file = "EventScene_OverZone_09_2"
+price = 1_700
+
+[[posters]]
+name = "Over Zone - XIII"
+file = "EventScene_OverZone_10"
+price = 2_400
+
+[[posters]]
+name = "Bunny X 777"
+file = "EventTitle_BunnyX777_01"
+price = 1_500
+
+[[posters]]
+name = "Blue Water Island"
+file = "EventScene_BluewaterIsland_02"
+price = 1_200
+
+[[posters]]
+name = "Blue Water Island - II"
+file = "EventScene_BluewaterIsland_03"
+price = 1_000
+
+[[posters]]
+name = "Blue Water Island - III"
+file = "EventScene_BluewaterIsland_04"
+price = 1_900
+
+[[posters]]
+name = "Nya Nya Paradise"
+file = "EventTitle_NyaNyaParadise_01"
+price = 3_000
+
+[[posters]]
+name = "Golden Ship (Chapter 23)"
+file = "EventScene_Chap_23_01"
+price = 500
+
+[[posters]]
+name = "Golden Ship (Chapter 23) - II"
+file = "EventScene_Chap_23_02"
+price = 1_700
+
+[[posters]]
+name = "Golden Ship (Chapter 24)"
+file = "EventScene_Chap_24_01"
+price = 600
+
+[[posters]]
+name = "Golden Ship (Chapter 24) - II"
+file = "EventScene_Chap_24_05"
+price = 700
+
+[[posters]]
+name = "Golden Ship (Chapter 24) - III"
+file = "EventScene_Chap_24_07"
+price = 1_200
+
+[[posters]]
+name = "Golden Ship (Chapter 24) - IV"
+file = "EventScene_Chap_24_08"
+price = 1_400
+
+[[posters]]
+name = "Golden Ship (Chapter 24) - V"
+file = "EventScene_Chap_24_09"
+price = 700
+
+[[posters]]
+name = "Sea, You, Again"
+file = "EventScene_SeaYouAgain_01_1"
+price = 3_000
+
+[[posters]]
+name = "Sea, You, Again - II"
+file = "EventScene_SeaYouAgain_02_1"
+price = 2_800
+
+[[posters]]
+name = "Sea, You, Again - III"
+file = "EventScene_SeaYouAgain_02_3"
+price = 2_200
+
+[[posters]]
+name = "Sea, You, Again - IV"
+file = "EventScene_SeaYouAgain_05"
+price = 700
+
+[[posters]]
+name = "Sea, You, Again - V"
+file = "EventTitle_SeaYouAgain_02"
+price = 3_000
+
+[[posters]]
+name = "Red Ash (Chapter 26)"
+file = "EventScene_Chap_26_01"
+price = 1_500
+
+[[posters]]
+name = "Red Ash (Chapter 26) - II"
+file = "EventScene_Chap_26_03"
+price = 500
+
+[[posters]]
+name = "Red Ash (Chapter 26) - III"
+file = "EventScene_Chap_26_04"
+price = 1_600
+
+[[posters]]
+name = "Red Ash (Chapter 26) - IV"
+file = "EventScene_Chap_26_05"
+price = 2_300
+
+[[posters]]
+name = "Red Ash (Chapter 26) - V"
+file = "EventScene_Chap_26_After_01"
+price = 1_600
+
+[[posters]]
+name = "BBQ Master"
+file = "EventScene_bbqmaster_01"
+price = 1_400
+
+[[posters]]
+name = "BBQ Master - II"
+file = "EventScene_bbqmaster_02"
+price = 1_900
+
+[[posters]]
+name = "BBQ Master - III"
+file = "EventScene_bbqmaster_03"
+price = 1_200
+
+[[posters]]
+name = "BBQ Master - IV"
+file = "EventScene_bbqmaster_04"
+price = 500
+
+[[posters]]
+name = "BBQ Master - V"
+file = "EventScene_bbqmaster_05"
+price = 3_000

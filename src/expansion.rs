@@ -132,7 +132,14 @@ impl Expansion {
             .posters
             .into_iter()
             .enumerate()
-            .map(|(i, poster)| Ok(Poster::new(i + 1, poster.file, poster.name, poster.price)?))
+            .map(|(i, poster)| {
+                Ok(Poster::new(
+                    i + 1,
+                    format!("{file_stem}/{}", poster.file),
+                    poster.name,
+                    poster.price,
+                )?)
+            })
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self {
