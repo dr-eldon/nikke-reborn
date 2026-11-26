@@ -11,6 +11,7 @@ pub struct Deckbox {
     pub zoom: f32,
     pub time: f32,
     pub offset_x: f32,
+    pub offset_y: f32,
     pub color: Option<String>,
 }
 

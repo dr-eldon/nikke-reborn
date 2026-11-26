@@ -164,6 +164,34 @@ focus = "full-body"
 time = 2.8
 portrait = "chu2"
 
+[[deckboxes]]
+id = "c233_01"
+variant = "fb"
+animation = "think"
+time = 0
+focus = "half-body"
+
+[[deckboxes]]
+id = "c225"
+variant = "sc"
+animation = "skillcut_1"
+time = 2.45
+focus = "full-body"
+offset_x = -80
+offset_y = -5
+color = "#222222"
+
+[[deckboxes]]
+id = "c330"
+variant = "sc"
+animation = "idle"
+time = 0
+focus = "full-body"
+zoom = 1.2
+offset_y = 30
+offset_x = 30
+color = "#FFFFFF"
+
 [[posters]]
 name = "OuteR: Automata"
 file = "EventScene_ce_02_01"

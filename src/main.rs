@@ -144,6 +144,7 @@ pub async fn main() -> Result<()> {
                     "zoom": deckbox.zoom,
                     "time": deckbox.time,
                     "offset_x": deckbox.offset_x,
+                    "offset_y": deckbox.offset_y,
                     "color": deckbox.color,
                 }),
             )
@@ -201,22 +202,34 @@ pub async fn main() -> Result<()> {
     generate("sleeve", &sleeves, quality).await?;
     generate("deckbox", &deckboxes, quality).await?;
     generate("poster", &posters, quality).await?;
-    generate("poster_icon", &poster_icons, quality).await?;
+    generate("poster_icon", &poster_icons, Quality::Normal).await?;
 
     for box_ in boxes {
-        snapshot(&box_.output, "CardBox_Mesh", true, quality).await?;
+        snapshot(&box_.output, "CardBox_Mesh", true, Quality::Normal).await?;
     }
 
     for pack in packs {
-        snapshot(&pack.output, "CardPackStatic_Mesh_low", false, quality).await?;
+        snapshot(
+            &pack.output,
+            "CardPackStatic_Mesh_low",
+            false,
+            Quality::Normal,
+        )
+        .await?;
     }
 
     for sleeve in sleeves {
-        snapshot(&sleeve.output, "CardSleeve_Mesh_low", false, quality).await?;
+        snapshot(
+            &sleeve.output,
+            "CardSleeve_Mesh_low",
+            false,
+            Quality::Normal,
+        )
+        .await?;
     }
 
     for deckbox in deckboxes {
-        snapshot(&deckbox.output, "DeckBox_Mesh", false, quality).await?;
+        snapshot(&deckbox.output, "DeckBox_Mesh", false, Quality::Normal).await?;
     }
 
     server.kill().await?;

@@ -26,9 +26,90 @@ return {
 		"focus",
 		"zoom",
 		"offset_x",
+		"offset_y",
 		"color",
 	},
 	render = function(args)
+		-- A2
+		-- args = {
+		-- 	id = "c811",
+		-- 	variant = "sc",
+		-- 	animation = "idle",
+		-- 	time = 0,
+		-- 	focus = "full-body",
+		-- 	-- zoom = 1.1,
+		-- 	-- offset_x = 40,
+		-- 	-- offset_y = -20,
+		-- 	color = "#444444",
+		-- }
+		-- Marciana
+		-- args = {
+		-- 	id = "c321",
+		-- 	variant = "sc",
+		-- 	animation = "idle",
+		-- 	time = 3.7,
+		-- 	focus = "full-body",
+		-- 	zoom = 1.2,
+		-- 	offset_x = 50,
+		-- 	offset_y = -100,
+		-- 	color = "#FFFFFF",
+		-- }
+		-- Naga
+		-- args = {
+		-- 	id = "c450",
+		-- 	variant = "sc",
+		-- 	animation = "idle",
+		-- 	time = 3,
+		-- 	focus = "half-body",
+		-- 	zoom = 1.2,
+		-- 	-- offset_x = 50,
+		-- 	offset_y = -10,
+		-- 	-- color = "#FFFFFF",
+		-- 	color = "#544c99",
+		-- }
+		-- Crown
+		-- args = {
+		-- 	id = "c330",
+		-- 	variant = "sc",
+		-- 	animation = "idle",
+		-- 	time = 0,
+		-- 	focus = "full-body",
+		-- 	zoom = 1.2,
+		-- 	offset_y = 30,
+		-- 	offset_x = 30,
+		-- 	color = "#FFFFFF",
+		-- }
+		-- Makima
+		-- args = {
+		-- 	id = "c800",
+		-- 	variant = "sc",
+		-- 	animation = "main",
+		-- 	time = 2.14,
+		-- 	focus = "full-body",
+		-- 	zoom = 1.03,
+		-- 	offset_x = 80,
+		-- 	offset_y = -110,
+		-- }
+		-- Dorothy
+		-- args = {
+		-- 	id = "c233_01",
+		-- 	variant = "fb",
+		-- 	animation = "think",
+		-- 	time = 0,
+		-- 	focus = "half-body",
+		-- }
+		-- Scarlet: Black Shadow
+		-- args = {
+		-- 	id = "c225",
+		-- 	variant = "sc",
+		-- 	animation = "skillcut_1",
+		-- 	time = 2.45,
+		-- 	focus = "full-body",
+		-- 	offset_x = -80,
+		-- 	offset_y = -5,
+		-- 	color = "#222222",
+		-- }
+
 		local render = stream("nikke-viewer", {
 			width = front.width,
 			height = front.height,
@@ -49,6 +130,8 @@ return {
 				"--" .. (args.focus or "half-body"),
 				"--offset-x",
 				(args.offset_x or 0) * scale,
+				"--offset-y",
+				(args.offset_y or 0) * scale,
 				args.id,
 			},
 		})()
@@ -62,7 +145,10 @@ return {
 		end
 
 		tint.c = tint.c * 1.3
-		tint.l = tint.l * 0.9
+
+		if tint.l < 1.0 then
+			tint.l = tint.l * 0.9
+		end
 
 		local material = blank({ width = width, height = height, color = tint })
 
@@ -73,7 +159,7 @@ return {
 		material:blend(render, { at = front })
 
 		logo.glowing(material, {
-			width = left.width * 0.6,
+			width = left.width * 0.5,
 			flat = true,
 			position = function(width, height)
 				return {
@@ -84,7 +170,7 @@ return {
 		})
 
 		logo.glowing(material, {
-			width = right.width * 0.6,
+			width = right.width * 0.5,
 			flat = true,
 			position = function(width, height)
 				return {

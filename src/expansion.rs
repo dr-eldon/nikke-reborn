@@ -99,6 +99,8 @@ impl Expansion {
             time: f32,
             #[serde(default)]
             offset_x: f32,
+            #[serde(default)]
+            offset_y: f32,
             color: Option<String>,
         }
 
@@ -163,6 +165,7 @@ impl Expansion {
                 time: deckbox.time,
                 zoom: deckbox.zoom.unwrap_or(1.0),
                 offset_x: deckbox.offset_x,
+                offset_y: deckbox.offset_y,
                 color: deckbox.color,
             })
             .collect::<Vec<_>>();

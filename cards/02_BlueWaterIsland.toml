@@ -157,6 +157,34 @@ zoom = 1.14
 time = 0.0
 portrait = "shy"
 
+[[deckboxes]]
+id = "c111"
+variant = "sc"
+animation = "main"
+time = 1.5
+focus = "full-body"
+zoom = 1.1
+
+[[deckboxes]]
+id = "c800"
+variant = "sc"
+animation = "main"
+time = 2.14
+focus = "full-body"
+zoom = 1.03
+offset_x = 80
+offset_y = -110
+
+[[deckboxes]]
+id = "c132"
+variant = "sc"
+animation = "main"
+time = 1.17
+focus = "full-body"
+zoom = 1.1
+offset_x = 40
+offset_y = -20
+
 [[posters]]
 name = "Miracle Snow"
 file = "EventScene_MiracleSnow_01"
