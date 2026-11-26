@@ -193,6 +193,7 @@ pub async fn main() -> Result<()> {
     sleeves.retain(|sleeve| !sleeve.is_done());
     posters.retain(|poster| !poster.is_done());
     poster_icons.retain(|icon| !icon.is_done());
+    deckboxes.retain(|deckbox| !deckbox.is_done());
 
     generate("standard", &standards, quality).await?;
     generate("profile", &profiles, quality).await?;
@@ -515,7 +516,13 @@ async fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result
         return Ok(());
     }
 
-    println!("{}", destination.display());
+    println!(
+        "{}",
+        destination
+            .strip_prefix(root)
+            .unwrap_or(destination.as_path())
+            .display()
+    );
     let _ = tokio::fs::copy(source, destination).await?;
 
     Ok(())

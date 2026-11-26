@@ -430,6 +430,7 @@ impl Expansion {
         let items = [pack(self), box_(self)]
             .into_iter()
             .chain(self.sleeves.iter().map(sleeve.with(self)))
+            .chain(self.deckboxes.iter().map(deckbox.with(self)))
             .collect::<Vec<_>>();
 
         let prefabs = self
@@ -668,7 +669,7 @@ fn box_(expansion: &Expansion) -> serde_json::Value {
     let level_big = level + 5;
 
     json!({
-        "Name": format!("{} Box", expansion.name()),
+        "Name": format!("{} Boxes", expansion.name()),
         "Material": "CardBox_Material",
         "SpriteName": "CardBox_Item",
         "ItemType": format!("{bundle}_CardBox_Item"),
@@ -790,18 +791,19 @@ fn sleeve(expansion: &Expansion, sleeve: &Sleeve) -> serde_json::Value {
     let bundle = expansion.bundle_id();
 
     let level = level(expansion) + 3 * sleeve.number;
-    let price = 100 + progression(20.0, 1.2, level);
+    let unlock_price = 100 + progression(20.0, 1.2, level);
+    let base_cost = sigmoid(3, 20, level);
 
     json!({
         "Name": format!("{} Sleeves", sleeve.model.name()),
         "Material": format!("{}_Material",sleeve.file_name()),
         "SpriteName": format!("{}_Item", sleeve.file_name()),
         "ItemType": format!("{bundle}_{}_Item", sleeve.file_name()),
-        "SmallBoxLicensePrice": price,
+        "SmallBoxLicensePrice": unlock_price,
         "SmallBoxLicenseLevelRequirement": level,
-        "BigBoxLicensePrice": price,
+        "BigBoxLicensePrice": unlock_price,
         "BigBoxLicenseLevelRequirement": level,
-        "BaseCost": sigmoid(3, 20, level),
+        "BaseCost": base_cost,
         "ItemCategory": "Sleeve",
         "SpawnsPackType": null,
         "AddItemAsAccessory": true,
@@ -810,6 +812,78 @@ fn sleeve(expansion: &Expansion, sleeve: &Sleeve) -> serde_json::Value {
         "PhoneAppId": PHONE_APP_ID,
         "UsesBaseGameMesh": true,
         "MeshToUse": "CardSleeve_Clear",
+        "Mesh": "",
+        "MaterialList": [],
+        "HasSmallBox": false,
+        "HasBigBox": true,
+        "BigBoxHideTillUnlocked": false,
+        "BigBoxIgnoreDoubleImage": true,
+        "SmallBoxHideTillUnlocked": false,
+        "SmallBoxIgnoreDoubleImage": false,
+        "IsBulkBox": false,
+        "MinMarketPricePercent": 1,
+        "MaxMarketPricePercent": 1.20000005,
+        "FollowItemPrice": "None",
+        "AutoSetBoxPrice": true,
+        "IsTallItem": false,
+        "InBoxOffsetY": 0,
+        "InBoxOffsetScale": -0.2,
+        "ItemDeminsion": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "CollidorPosOffset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "ColliderScale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "PriceAffectedBy": [],
+        "IsCardPack": false,
+        "IsCardBox": false,
+        "MinValue": 0,
+        "CardExpansion": "",
+        "CanHaveDuplicates": false,
+        "CanHaveGodPacks": false,
+        "GodPackPercentage": 0.0,
+        "PackGenerationStrategy": "Guaranteed",
+        "PackType": "",
+        "NormalWeights": {},
+        "GodWeights": {},
+        "SlotWeights": {}
+    })
+}
+
+fn deckbox(expansion: &Expansion, deckbox: &Deckbox) -> serde_json::Value {
+    let bundle = expansion.bundle_id();
+
+    let level = level(expansion) + 4 * deckbox.number;
+    let unlock_price = 100 + progression(20.0, 1.2, level);
+    let base_cost = sigmoid(20, 100, level);
+
+    json!({
+        "Name": format!("{} Deckboxes", deckbox.model.name()),
+        "Material": format!("{}_Material", deckbox.file_name()),
+        "SpriteName": format!("{}_Item", deckbox.file_name()),
+        "ItemType": format!("{bundle}_{}_Item", deckbox.file_name()),
+        "SmallBoxLicensePrice": unlock_price,
+        "SmallBoxLicenseLevelRequirement": level,
+        "BigBoxLicensePrice": unlock_price,
+        "BigBoxLicenseLevelRequirement": level,
+        "BaseCost": base_cost,
+        "ItemCategory": "Deckbox",
+        "SpawnsPackType": null,
+        "AddItemAsAccessory": true,
+        "AddItemAsFigurine": false,
+        "AddItemAsBoardGame": false,
+        "PhoneAppId": PHONE_APP_ID,
+        "UsesBaseGameMesh": true,
+        "MeshToUse": "DeckBox1",
         "Mesh": "",
         "MaterialList": [],
         "HasSmallBox": false,
