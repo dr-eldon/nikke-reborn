@@ -18,12 +18,12 @@ return {
 		-- args.background = "sky-night"
 		-- args.background = "beach-day"
 		-- args.characters = {
-		-- { id = "c010", animation = "action", time = 1.247 },
-		-- { id = "c011" },
-		-- { id = "c013", animation = "action", time = 2 },
-		-- { id = "c353", animation = "action", time = 3 },
-		-- { id = "c142_01", animation = "action", time = 1.34 },
-		-- { id = "c014", animation = "action", time = 4.1 },
+		-- 	-- { id = "c010", animation = "action", time = 1.247 },
+		-- 	-- { id = "c011" },
+		-- 	-- { id = "c013", animation = "action", time = 2 },
+		-- 	{ id = "c353", animation = "action", time = 3 },
+		-- 	{ id = "c142_01", animation = "action", time = 1.34 },
+		-- 	{ id = "c014", animation = "action", time = 4.1 },
 		-- }
 		-- args.logo = "BlueWaterIsland"
 
@@ -78,12 +78,6 @@ return {
 					translate = translate + math.floor(i / 2) * right.height / 9
 				end
 
-				at = rectangle({
-					x = at.x,
-					y = at.y + translate,
-					size = { at.width, at.height - translate },
-				})
-
 				local render = stream("nikke-viewer", {
 					width = right.width,
 					height = right.height,
@@ -101,6 +95,8 @@ return {
 						zoom,
 						"--offset-x",
 						offset * scale,
+						"--offset-y",
+						translate * scale,
 					},
 				})()
 

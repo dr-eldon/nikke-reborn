@@ -14,17 +14,26 @@ local top = material:detect("#FF0000")()
 return {
 	arguments = { "background", "characters", "logo" },
 	render = function(args)
-		-- args.background = "sky-night"
-		-- args.background = "beach-day"
+		-- args.background =
+		-- 	{ id = "coin-rush-game-zone", front = { align_y = "center" } }
 		-- args.characters = {
-		-- 	{ id = "c010", animation = "action", time = 1.247 },
-		-- 	{ id = "c011" },
-		-- 	{ id = "c013", animation = "action", time = 2 },
-		-- { id = "c353", animation = "action", time = 3 },
-		-- { id = "c142_01", animation = "action", time = 1.34 },
-		-- { id = "c014", animation = "action", time = 4.1 },
+		-- 	-- { id = "c010", animation = "action", time = 1.247 },
+		-- 	-- { id = "c011" },
+		-- 	-- { id = "c013", animation = "action", time = 2 },
+		-- 	-- { id = "c353", animation = "action", time = 3 },
+		-- 	-- { id = "c142_01", animation = "action", time = 1.34 },
+		-- 	-- { id = "c014", animation = "action", time = 4.1 },
+		-- 	{ id = "c195" },
+		-- 	{ id = "c314", animation = "action", time = 1, zoom = 1.1 },
+		-- 	{
+		-- 		id = "c242_01",
+		-- 		animation = "action",
+		-- 		time = 0.7,
+		-- 		x = 40,
+		-- 		zoom = 1.1,
+		-- 	},
 		-- }
-		-- args.logo = "BlueWaterIsland"
+		-- args.logo = "GoldenCoinRush"
 
 		local background = image(
 			"../assets/images/backgrounds/"
@@ -102,6 +111,7 @@ return {
 			local offset = 0
 			local zoom = character.zoom or 1.0
 			local at = front
+			local translate = 0
 
 			if i > 1 then
 				offset = (-1) ^ (i % 2)
@@ -110,13 +120,7 @@ return {
 				offset = -math.floor(offset + 0.5)
 				zoom = zoom - 0.25 * math.floor(i / 2)
 
-				local translate = math.floor(i / 2) * front.height / 10
-
-				at = rectangle({
-					x = at.x,
-					y = at.y + translate,
-					size = { at.width, at.height - translate },
-				})
+				translate = math.floor(i / 2) * front.height / 10
 			end
 
 			local render = stream("nikke-viewer", {
@@ -136,6 +140,8 @@ return {
 					zoom,
 					"--offset-x",
 					offset * scale,
+					"--offset-y",
+					translate * scale,
 				},
 			})()
 
