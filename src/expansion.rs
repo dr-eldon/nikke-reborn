@@ -968,9 +968,8 @@ fn progression(base: f32, growth: f32, level: usize) -> usize {
 }
 
 fn sigmoid(min: usize, max: usize, current: usize) -> usize {
-    min + ((max - min) as f32
-        / (1.0 + std::f32::consts::E.powf(-0.12 * (current as f32 - 30.0))).round())
-        as usize
+    min + ((max - min) as f32 / (1.0 + std::f32::consts::E.powf(-0.12 * (current as f32 - 40.0))))
+        .round() as usize
 }
 
 fn level(expansion: &Expansion) -> usize {
