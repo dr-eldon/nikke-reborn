@@ -12,13 +12,17 @@
 //! UVs have a bottom-left origin; wgpu/Vulkan textures place v=0 at the
 //! top row). OBJ files hold the standard right-handed positions with a
 //! bottom-left UV origin — the OBJ/Blender convention the in-game assets
-//! (e.g. BatA_Mesh.obj) carry. The shader samples UVs verbatim, so to
-//! render an OBJ exactly as the equivalent `.asset` renders, this loader
-//! inverts the shader's position mapping at load time (file coordinates
-//! `(x, y, z)` become shader-input `(x, y, -z)`) and converts the file UV
-//! `(u, v)` to `(u, 1 - v)`. The file on disk keeps the standard
-//! convention (a converted mesh opens in Blender unmirrored); a mesh
-//! converted by `mesh-convert` round-trips through this exactly.
+//! (e.g. BatA_Mesh.obj) carry. The shader samples UVs verbatim and
+//! applies the position mapping in the vertex stage, so this loader
+//! rotates the file coordinates by 180° about the Y axis around the
+//! origin, inverts the shader's position mapping at load time (file
+//! coordinates `(x, y, z)` become shader-input `(-x, y, z)`), and
+//! converts the file UV `(u, v)` to `(u, 1 - v)`. Normals carry the same
+//! rotation; UVs and face winding are untouched (a 180° rotation
+//! preserves orientation). The file on disk keeps the standard
+//! convention (a converted mesh opens in Blender unmirrored);
+//! `mesh-convert` pre-applies this same rotation, so its output renders
+//! identically to the original `.asset` through this loader.
 //!
 //! Each face corner (a vertex/uv/normal triple) is exploded into its own
 //! vertex — the same representation as the `.asset` parser's output — so
@@ -86,13 +90,15 @@ pub fn parse(raw: &str, name: &str) -> Result<Mesh, Error> {
         match tag {
             "v" => {
                 let [x, y, z] = three(rest, "v")?;
+                let [x, y, z] = rotate_y_180([x, y, z]);
                 // Invert the shader's .asset mapping (world = (-x, y, z)):
-                // the file's right-handed (x, y, z) becomes the shader
+                // the rotated file coordinates (x, y, z) become the shader
                 // input (x, y, -z).
                 positions.push([x, y, -z]);
             }
             "vn" => {
                 let [x, y, z] = three(rest, "vn")?;
+                let [x, y, z] = rotate_y_180([x, y, z]);
                 normals.push([x, y, -z]);
             }
             "vt" => {
@@ -196,6 +202,10 @@ pub fn parse(raw: &str, name: &str) -> Result<Mesh, Error> {
     })
 }
 
+fn rotate_y_180([x, y, z]: [f32; 3]) -> [f32; 3] {
+    [-x, y, -z]
+}
+
 /// `(a/b/c)` — the three 1-based indices of one face corner (a negative
 /// index is relative to the end of its list; a missing component is
 /// `None`).
@@ -267,4 +277,52 @@ fn two(s: &str, tag: &str) -> Result<[f32; 2], Error> {
             .parse()
             .map_err(|_| Error::Parse(format!("bad {tag} number {}", nums[1])))?,
     ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse;
+
+    #[test]
+    fn parse_rotates_vertices_and_normals_180_about_y() {
+        let raw = "\
+v 1 2 3
+v -1 2 3
+v 1 -2 -3
+v -1 -2 -3
+vn 1 0 0
+vn 0 1 0
+vt 0.25 0.75
+f 1/1/1 2/1/2 3/1/1 4/1/2
+";
+        let mesh = parse(raw, "square").unwrap();
+        assert_eq!(
+            mesh.vertices.iter().map(|v| v.position).collect::<Vec<_>>(),
+            [
+                [-1.0, 2.0, 3.0],
+                [1.0, 2.0, 3.0],
+                [-1.0, -2.0, -3.0],
+                [-1.0, 2.0, 3.0],
+                [-1.0, -2.0, -3.0],
+                [1.0, -2.0, -3.0]
+            ]
+        );
+        assert_eq!(
+            mesh.vertices.iter().map(|v| v.normal).collect::<Vec<_>>(),
+            [
+                [-1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [-1.0, 0.0, 0.0],
+                [-1.0, 0.0, 0.0],
+                [-1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0]
+            ]
+        );
+        assert_eq!(
+            mesh.vertices.iter().map(|v| v.uv).collect::<Vec<_>>(),
+            [[0.25, 0.25]; 6]
+        );
+        assert_eq!(mesh.indices, [0, 1, 2, 3, 4, 5]);
+        assert_eq!(mesh.extent, [1.0, 2.0, 3.0]);
+    }
 }

@@ -230,7 +230,13 @@ pub async fn main() -> Result<()> {
     }
 
     for deckbox in deckboxes {
-        snapshot(&deckbox.output, "DeckBox_Mesh", false, Quality::Normal).await?;
+        snapshot(
+            &deckbox.output,
+            "DeckBox_Mesh_low_improved",
+            true,
+            Quality::Normal,
+        )
+        .await?;
     }
 
     server.kill().await?;

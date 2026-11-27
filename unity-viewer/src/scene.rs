@@ -1641,9 +1641,9 @@ mod blit_tests {
 
     /// The viewer widget sits next to the sidebar, so iced's clip rect is
     /// offset from the frame origin. The blit must map the offscreen image
-    /// to the clip 1:1 in device pixels — content centered in the clip at
-    /// the same relative scale as a full-frame render (no squashing), and
-    /// nothing drawn outside the clip.
+    /// to the clip 1:1 in device pixels — the same content at the same
+    /// scale, aligned with the full-frame render (no squashing or
+    /// misalignment), and nothing drawn outside the clip.
     #[test]
     fn blit_is_one_to_one_for_offset_clip() {
         let full = iced::Rectangle {
@@ -1675,17 +1675,20 @@ mod blit_tests {
                     (o_w as i64 - f_w as i64).abs() <= 2,
                     "content squashed: full width {f_w}, offset width {o_w}"
                 );
-                // Content centered in each clip: the offset render's center
-                // (relative to the clip origin) must equal the full
-                // render's, scaled by the clip-width ratio.
-                let f_cx = (f.0 as i64 + f.2 as i64) / 2;
-                let o_cx = (o.0 as i64 + o.2 as i64) / 2;
-                // Simpler, robust form: relative centering must match.
-                let f_rel = f_cx - full.x as i64; // content center within the full clip
-                let o_rel = o_cx - offset.x as i64;
+                // The blit is 1:1 in device pixels: the offset render is
+                // the full render's content at the same scale, centered in
+                // each clip — i.e. shifted by the clip-center offset (the
+                // silhouette itself need not be symmetric about it).
+                let shift = offset.x as i64 + offset.width as i64 / 2 - full.width as i64 / 2;
+                let (f_left, f_right) = (f.0 as i64, f.2 as i64);
+                let (o_left, o_right) = (o.0 as i64, o.2 as i64);
                 assert!(
-                    (o_rel - f_rel * 930 / 1080).abs() <= 4,
-                    "content not centered in the offset clip: full rel {f_rel}, offset rel {o_rel}"
+                    (o_left - (f_left + shift)).abs() <= 4,
+                    "content not 1:1 in the offset clip: full left {f_left}, offset left {o_left}, shift {shift}"
+                );
+                assert!(
+                    (o_right - (f_right + shift)).abs() <= 4,
+                    "content not 1:1 in the offset clip: full right {f_right}, offset right {o_right}, shift {shift}"
                 );
                 // Nothing outside the clip rect.
                 assert!(o.0 >= offset.x, "content leaked left of the clip");

@@ -7,8 +7,9 @@
 //! The mesh is read through the same parser the viewer uses (origin-
 //! centered positions, normals and uv0), then written in the standard OBJ
 //! convention — right-handed coordinates, bottom-left UV origin (the
-//! OBJ/Blender convention) — so a converted mesh renders identically to
-//! the original `.asset` and opens in Blender unmirrored.
+//! OBJ/Blender convention) — with the loader's load-time 180° Y rotation
+//! pre-applied, so a converted mesh renders identically to the original
+//! `.asset` and opens in Blender unmirrored.
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -77,9 +78,9 @@ Usage:
   mesh-convert <mesh.asset> [--out <path.obj>]
 
 The .obj keeps the standard convention (right-handed coordinates,
-bottom-left UV origin, as in the in-game .obj assets): unity-viewer's
-loaders convert it to the render space, so the converted mesh renders
-identically and opens in Blender unmirrored.
+bottom-left UV origin, as in the in-game .obj assets) with the loader's
+load-time 180° Y rotation pre-applied, so the converted mesh renders
+identically to the original .asset and opens in Blender unmirrored.
 The output path defaults to the input's path with the .obj extension.
 "
     );
@@ -107,28 +108,30 @@ fn run(input: &Path, out: Option<PathBuf>) -> Result<(String, usize, usize), Str
 }
 
 /// The mesh as OBJ text: positions/normals in the file's right-handed
-/// convention (the shader input's Z negated) and UVs at the bottom-left
-/// origin (the shader input's Vulkan-native v negated), with 1-based
-/// `f a/b/c` triangles.
+/// convention (the shader input's X negated — the loader's load-time
+/// 180° Y rotation pre-applied, so the round-trip is exact) and UVs at
+/// the bottom-left origin (the shader input's Vulkan-native v negated),
+/// with 1-based `f a/b/c` triangles.
 fn obj_text(mesh: &Mesh) -> String {
     let mut out = String::new();
     let name = &mesh.name;
     out.push_str(&format!("# {name}\n"));
     out.push_str("# Converted from Unity .asset by mesh-convert: right-handed\n");
     out.push_str("# (Blender) coordinates, bottom-left UV origin — the standard\n");
-    out.push_str("# OBJ convention; unity-viewer's loaders convert it to the\n");
-    out.push_str("# render space (world = (-x, y, z), uv = (u, 1 - v)).\n");
+    out.push_str("# OBJ convention, with the loader's load-time 180° Y rotation\n");
+    out.push_str("# pre-applied, so unity-viewer renders it exactly as the\n");
+    out.push_str("# original .asset.\n");
     out.push_str(&format!("o {name}\n"));
     for v in &mesh.vertices {
         out.push_str(&format!(
             "v {} {} {}\n",
-            v.position[0], v.position[1], -v.position[2]
+            -v.position[0], v.position[1], v.position[2]
         ));
     }
     for v in &mesh.vertices {
         out.push_str(&format!(
             "vn {} {} {}\n",
-            v.normal[0], v.normal[1], -v.normal[2]
+            -v.normal[0], v.normal[1], v.normal[2]
         ));
     }
     for v in &mesh.vertices {

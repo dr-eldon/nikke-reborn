@@ -5,12 +5,14 @@ local height = 2048
 
 local mask = image("../assets/images/DeckBox_Material_Mask.png")
 local leather = image("../assets/images/designs/Leather_Mask.png")
+local leather_low = image("../assets/images/designs/Leather_Mask_low.png")
 
 mask:resize({ width = width, height = height, filter = "nearest" })
 leather:resize({ width = width, height = height })
+leather_low:resize({ width = width, height = height })
 
 local front = mask:detect("#FF0000")()
-local bottom = mask:detect("#0000FF")()
+local bottom = mask:detect("#0000FF")
 
 local sides = mask:detect("#00FF00")
 local left = sides()
@@ -154,12 +156,30 @@ return {
 
 		local darker = tint:clone()
 		darker.l = darker.l * 0.5
-		material:fill(bottom, darker)
+
+		for region in bottom do
+			material:fill(region, darker)
+		end
 
 		material:blend(render, { at = front })
 
+		local shadow_h = gradient(90)
+			:stop(0.0, color("#000000"):with_alpha(0.4))
+			:stop(0.1, color("#000000"):with_alpha(0))
+			:stop(0.9, color("#000000"):with_alpha(0))
+			:stop(1.0, color("#000000"):with_alpha(0.4))
+
+		local shadow_v = gradient(0)
+			:stop(0.0, color("#000000"):with_alpha(0.3))
+			:stop(0.05, color("#000000"):with_alpha(0))
+			:stop(0.95, color("#000000"):with_alpha(0))
+			:stop(1.0, color("#000000"):with_alpha(0.3))
+
+		material:fill(left, shadow_h)
+		material:fill(left, shadow_v)
+
 		logo.glowing(material, {
-			width = left.width * 0.5,
+			width = left.width * 0.6,
 			flat = true,
 			position = function(width, height)
 				return {
@@ -169,8 +189,11 @@ return {
 			end,
 		})
 
+		material:fill(right, shadow_h)
+		material:fill(right, shadow_v)
+
 		logo.glowing(material, {
-			width = right.width * 0.5,
+			width = right.width * 0.6,
 			flat = true,
 			position = function(width, height)
 				return {
@@ -180,7 +203,11 @@ return {
 			end,
 		})
 
-		material:blend(leather)
+		if scale < 1.0 then
+			material:blend(leather_low)
+		else
+			material:blend(leather)
+		end
 
 		yield(material)
 	end,

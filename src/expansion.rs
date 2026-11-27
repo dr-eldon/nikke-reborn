@@ -882,9 +882,9 @@ fn deckbox(expansion: &Expansion, deckbox: &Deckbox) -> serde_json::Value {
         "AddItemAsFigurine": false,
         "AddItemAsBoardGame": false,
         "PhoneAppId": PHONE_APP_ID,
-        "UsesBaseGameMesh": true,
-        "MeshToUse": "DeckBox1",
-        "Mesh": "",
+        "UsesBaseGameMesh": false,
+        "MeshToUse": "",
+        "Mesh": "DeckBox_Mesh_low_improved",
         "MaterialList": [],
         "HasSmallBox": false,
         "HasBigBox": true,
@@ -902,7 +902,7 @@ fn deckbox(expansion: &Expansion, deckbox: &Deckbox) -> serde_json::Value {
         "InBoxOffsetScale": -0.2,
         "ItemDeminsion": {
           "x": 1,
-          "y": 1,
+          "y": 4,
           "z": 1
         },
         "CollidorPosOffset": {
@@ -911,9 +911,9 @@ fn deckbox(expansion: &Expansion, deckbox: &Deckbox) -> serde_json::Value {
           "z": 0
         },
         "ColliderScale": {
-          "x": 1,
-          "y": 1,
-          "z": 1
+          "x": 0.18,
+          "y": 0.15,
+          "z": 0.1
         },
         "PriceAffectedBy": [],
         "IsCardPack": false,
