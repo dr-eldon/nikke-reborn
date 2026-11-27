@@ -19,13 +19,27 @@ return {
 		-- args.background = "beach-day"
 		-- args.characters = {
 		-- 	-- { id = "c010", animation = "action", time = 1.247 },
-		-- 	-- { id = "c011" },
-		-- 	-- { id = "c013", animation = "action", time = 2 },
+		-- 	-- { id = "c011", offset_y = 150 },
+		-- 	-- { id = "c013", animation = "action", time = 2, offset_y = 100 },
 		-- 	{ id = "c353", animation = "action", time = 3 },
 		-- 	{ id = "c142_01", animation = "action", time = 1.34 },
 		-- 	{ id = "c014", animation = "action", time = 4.1 },
 		-- }
 		-- args.logo = "BlueWaterIsland"
+		-- args.background =
+		-- 	{ id = "coin-rush-game-zone", front = { align_y = "center" } }
+		-- args.characters = {
+		-- 	{ id = "c195" },
+		-- 	{ id = "c314", animation = "action", time = 1, zoom = 1.1 },
+		-- 	{
+		-- 		id = "c242_01",
+		-- 		animation = "action",
+		-- 		time = 0.7,
+		-- 		x = 40,
+		-- 		zoom = 1.1,
+		-- 	},
+		-- }
+		-- args.logo = "GoldenCoinRush"
 
 		local padding = 100
 
@@ -66,7 +80,7 @@ return {
 				local offset = 0
 				local zoom = 0.8 * (character.zoom or 1.0)
 				local at = right
-				local translate = at.height / 7
+				local translate = at.height / 7 + (character.offset_y or 0)
 
 				if i > 1 then
 					offset = (-1) ^ (i % 2)
@@ -75,7 +89,8 @@ return {
 					offset = -math.floor(offset + 0.5)
 					zoom = zoom - 0.35 * math.floor(i / 2)
 
-					translate = translate + math.floor(i / 2) * right.height / 9
+					translate = translate
+						+ math.floor(i / 2) * right.height / 40
 				end
 
 				local render = stream("nikke-viewer", {

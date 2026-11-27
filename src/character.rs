@@ -92,12 +92,3 @@ impl TryFrom<String> for Rarity {
         })
     }
 }
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Featured {
-    pub id: String,
-    pub animation: Option<String>,
-    pub time: Option<f32>,
-    pub zoom: Option<f32>,
-    pub x: Option<f32>,
-}

@@ -8,7 +8,6 @@ use tokio::fs;
 use tokio::process;
 
 use crate::card;
-use crate::character;
 use crate::environment;
 use crate::model;
 use crate::{Card, Deckbox, Error, Model, Poster, Quality, Result, Sleeve};
@@ -19,7 +18,7 @@ pub struct Expansion {
     pub number: usize,
     pub logo: Option<String>,
     pub background: serde_json::Value,
-    pub featured: Arc<[character::Featured]>,
+    pub featured: Arc<[serde_json::Value]>,
     pub models: Arc<[_Model]>,
     pub cards: Arc<OnceLock<Vec<Card>>>,
     pub sleeves: Arc<[Sleeve]>,
@@ -61,7 +60,7 @@ impl Expansion {
         struct _Expansion {
             logo: Option<String>,
             background: serde_json::Value,
-            featured: Vec<character::Featured>,
+            featured: Vec<serde_json::Value>,
             models: Vec<_Model>,
             #[serde(default)]
             sleeves: Vec<_Sleeve>,
