@@ -21,80 +21,80 @@
       "BigBoxLicenseLevelRequirement": 15,
       "SlotWeights": {
         "Slot1": {
-          "Standard": 97.5,
+          "Standard": 97.0,
           "Profile": 2.0,
-          "Rare": 0.5,
-          "Cover": 0.0,
-          "Aim": 0.0,
+          "Rare": 0.0,
+          "Cover": 0.5,
+          "Aim": 0.5,
           "Special": 0.0,
           "Exotic": 0.0,
           "Goddess": 0.0,
           "Classified": 0.0
         },
         "Slot2": {
-          "Standard": 97.5,
+          "Standard": 97.0,
           "Profile": 2.0,
-          "Rare": 0.5,
-          "Cover": 0.0,
-          "Aim": 0.0,
+          "Rare": 0.0,
+          "Cover": 0.5,
+          "Aim": 0.5,
           "Special": 0.0,
           "Exotic": 0.0,
           "Goddess": 0.0,
           "Classified": 0.0
         },
         "Slot3": {
-          "Standard": 97.5,
+          "Standard": 97.0,
           "Profile": 2.0,
-          "Rare": 0.5,
-          "Cover": 0.0,
-          "Aim": 0.0,
+          "Rare": 0.0,
+          "Cover": 0.5,
+          "Aim": 0.5,
           "Special": 0.0,
           "Exotic": 0.0,
           "Goddess": 0.0,
           "Classified": 0.0
         },
         "Slot4": {
-          "Standard": 97.5,
+          "Standard": 97.0,
           "Profile": 2.0,
-          "Rare": 0.5,
-          "Cover": 0.0,
-          "Aim": 0.0,
+          "Rare": 0.0,
+          "Cover": 0.5,
+          "Aim": 0.5,
           "Special": 0.0,
           "Exotic": 0.0,
           "Goddess": 0.0,
           "Classified": 0.0
         },
         "Slot5": {
-          "Standard": 89.4,
+          "Standard": 88.4,
           "Profile": 6.0,
-          "Rare": 2.0,
-          "Cover": 1.0,
-          "Aim": 1.0,
+          "Rare": 1.0,
+          "Cover": 2.0,
+          "Aim": 2.0,
           "Special": 0.5,
           "Exotic": 0.1,
           "Goddess": 0.0,
           "Classified": 0.0
         },
         "Slot6": {
-          "Standard": 89.4,
+          "Standard": 88.4,
           "Profile": 6.0,
-          "Rare": 2.0,
-          "Cover": 1.0,
-          "Aim": 1.0,
+          "Rare": 1.0,
+          "Cover": 2.0,
+          "Aim": 2.0,
           "Special": 0.5,
           "Exotic": 0.1,
           "Goddess": 0.0,
           "Classified": 0.0
         },
         "Slot7": {
-          "Standard": 87.2,
-          "Profile": 0.0,
-          "Rare": 4.0,
-          "Cover": 3.0,
-          "Aim": 3.0,
-          "Special": 1.5,
+          "Standard": 0.0,
+          "Profile": 45.5,
+          "Rare": 10.0,
+          "Cover": 25.0,
+          "Aim": 15.0,
+          "Special": 3.0,
           "Exotic": 1.0,
-          "Goddess": 0.2,
+          "Goddess": 0.4,
           "Classified": 0.1
         }
       },
@@ -149,7 +149,7 @@
       "GodWeights": {}
     },
     {
-      "Name": "Blue Water Island Box",
+      "Name": "Blue Water Island Boxes",
       "Material": "CardBox_Material",
       "SpriteName": "CardBox_Item",
       "ItemType": "NIKKE_REBORN_BlueWaterIsland_CardBox_Item",
@@ -283,7 +283,7 @@
       "SmallBoxLicenseLevelRequirement": 16,
       "BigBoxLicensePrice": 600,
       "BigBoxLicenseLevelRequirement": 16,
-      "BaseCost": 5,
+      "BaseCost": 4,
       "ItemCategory": "Sleeve",
       "SpawnsPackType": null,
       "AddItemAsAccessory": true,
@@ -346,7 +346,7 @@
       "SmallBoxLicenseLevelRequirement": 19,
       "BigBoxLicensePrice": 700,
       "BigBoxLicenseLevelRequirement": 19,
-      "BaseCost": 6,
+      "BaseCost": 4,
       "ItemCategory": "Sleeve",
       "SpawnsPackType": null,
       "AddItemAsAccessory": true,
@@ -399,6 +399,195 @@
       "NormalWeights": {},
       "GodWeights": {},
       "SlotWeights": {}
+    },
+    {
+      "Name": "Jackal Deckboxes",
+      "Material": "DeckBox_0001_c111_Jackal_Material",
+      "SpriteName": "DeckBox_0001_c111_Jackal_Item",
+      "ItemType": "NIKKE_REBORN_BlueWaterIsland_DeckBox_0001_c111_Jackal_Item",
+      "SmallBoxLicensePrice": 500,
+      "SmallBoxLicenseLevelRequirement": 14,
+      "BigBoxLicensePrice": 500,
+      "BigBoxLicenseLevelRequirement": 14,
+      "BaseCost": 23,
+      "ItemCategory": "Deckbox",
+      "SpawnsPackType": null,
+      "AddItemAsAccessory": true,
+      "AddItemAsFigurine": false,
+      "AddItemAsBoardGame": false,
+      "PhoneAppId": "NIKKE_REBORN",
+      "UsesBaseGameMesh": false,
+      "MeshToUse": "",
+      "Mesh": "DeckBox_Mesh_low_improved",
+      "MaterialList": [],
+      "HasSmallBox": false,
+      "HasBigBox": true,
+      "BigBoxHideTillUnlocked": false,
+      "BigBoxIgnoreDoubleImage": true,
+      "SmallBoxHideTillUnlocked": false,
+      "SmallBoxIgnoreDoubleImage": false,
+      "IsBulkBox": false,
+      "MinMarketPricePercent": 1,
+      "MaxMarketPricePercent": 1.20000005,
+      "FollowItemPrice": "None",
+      "AutoSetBoxPrice": true,
+      "IsTallItem": false,
+      "InBoxOffsetY": 0,
+      "InBoxOffsetScale": -0.2,
+      "ItemDeminsion": {
+        "x": 1,
+        "y": 4,
+        "z": 1
+      },
+      "CollidorPosOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "ColliderScale": {
+        "x": 0.18,
+        "y": 0.15,
+        "z": 0.1
+      },
+      "PriceAffectedBy": [],
+      "IsCardPack": false,
+      "IsCardBox": false,
+      "MinValue": 0,
+      "CardExpansion": "",
+      "CanHaveDuplicates": false,
+      "CanHaveGodPacks": false,
+      "GodPackPercentage": 0.0,
+      "PackGenerationStrategy": "Guaranteed",
+      "PackType": "",
+      "NormalWeights": {},
+      "GodWeights": {},
+      "SlotWeights": {}
+    },
+    {
+      "Name": "Makima Deckboxes",
+      "Material": "DeckBox_0002_c800_Makima_Material",
+      "SpriteName": "DeckBox_0002_c800_Makima_Item",
+      "ItemType": "NIKKE_REBORN_BlueWaterIsland_DeckBox_0002_c800_Makima_Item",
+      "SmallBoxLicensePrice": 700,
+      "SmallBoxLicenseLevelRequirement": 18,
+      "BigBoxLicensePrice": 700,
+      "BigBoxLicenseLevelRequirement": 18,
+      "BaseCost": 25,
+      "ItemCategory": "Deckbox",
+      "SpawnsPackType": null,
+      "AddItemAsAccessory": true,
+      "AddItemAsFigurine": false,
+      "AddItemAsBoardGame": false,
+      "PhoneAppId": "NIKKE_REBORN",
+      "UsesBaseGameMesh": false,
+      "MeshToUse": "",
+      "Mesh": "DeckBox_Mesh_low_improved",
+      "MaterialList": [],
+      "HasSmallBox": false,
+      "HasBigBox": true,
+      "BigBoxHideTillUnlocked": false,
+      "BigBoxIgnoreDoubleImage": true,
+      "SmallBoxHideTillUnlocked": false,
+      "SmallBoxIgnoreDoubleImage": false,
+      "IsBulkBox": false,
+      "MinMarketPricePercent": 1,
+      "MaxMarketPricePercent": 1.20000005,
+      "FollowItemPrice": "None",
+      "AutoSetBoxPrice": true,
+      "IsTallItem": false,
+      "InBoxOffsetY": 0,
+      "InBoxOffsetScale": -0.2,
+      "ItemDeminsion": {
+        "x": 1,
+        "y": 4,
+        "z": 1
+      },
+      "CollidorPosOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "ColliderScale": {
+        "x": 0.18,
+        "y": 0.15,
+        "z": 0.1
+      },
+      "PriceAffectedBy": [],
+      "IsCardPack": false,
+      "IsCardBox": false,
+      "MinValue": 0,
+      "CardExpansion": "",
+      "CanHaveDuplicates": false,
+      "CanHaveGodPacks": false,
+      "GodPackPercentage": 0.0,
+      "PackGenerationStrategy": "Guaranteed",
+      "PackType": "",
+      "NormalWeights": {},
+      "GodWeights": {},
+      "SlotWeights": {}
+    },
+    {
+      "Name": "Mary: Bay Goddess Deckboxes",
+      "Material": "DeckBox_0003_c132_Mary_Material",
+      "SpriteName": "DeckBox_0003_c132_Mary_Item",
+      "ItemType": "NIKKE_REBORN_BlueWaterIsland_DeckBox_0003_c132_Mary_Item",
+      "SmallBoxLicensePrice": 900,
+      "SmallBoxLicenseLevelRequirement": 22,
+      "BigBoxLicensePrice": 900,
+      "BigBoxLicenseLevelRequirement": 22,
+      "BaseCost": 28,
+      "ItemCategory": "Deckbox",
+      "SpawnsPackType": null,
+      "AddItemAsAccessory": true,
+      "AddItemAsFigurine": false,
+      "AddItemAsBoardGame": false,
+      "PhoneAppId": "NIKKE_REBORN",
+      "UsesBaseGameMesh": false,
+      "MeshToUse": "",
+      "Mesh": "DeckBox_Mesh_low_improved",
+      "MaterialList": [],
+      "HasSmallBox": false,
+      "HasBigBox": true,
+      "BigBoxHideTillUnlocked": false,
+      "BigBoxIgnoreDoubleImage": true,
+      "SmallBoxHideTillUnlocked": false,
+      "SmallBoxIgnoreDoubleImage": false,
+      "IsBulkBox": false,
+      "MinMarketPricePercent": 1,
+      "MaxMarketPricePercent": 1.20000005,
+      "FollowItemPrice": "None",
+      "AutoSetBoxPrice": true,
+      "IsTallItem": false,
+      "InBoxOffsetY": 0,
+      "InBoxOffsetScale": -0.2,
+      "ItemDeminsion": {
+        "x": 1,
+        "y": 4,
+        "z": 1
+      },
+      "CollidorPosOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "ColliderScale": {
+        "x": 0.18,
+        "y": 0.15,
+        "z": 0.1
+      },
+      "PriceAffectedBy": [],
+      "IsCardPack": false,
+      "IsCardBox": false,
+      "MinValue": 0,
+      "CardExpansion": "",
+      "CanHaveDuplicates": false,
+      "CanHaveGodPacks": false,
+      "GodPackPercentage": 0.0,
+      "PackGenerationStrategy": "Guaranteed",
+      "PackType": "",
+      "NormalWeights": {},
+      "GodWeights": {},
+      "SlotWeights": {}
     }
   ],
   "CardExpansions": [
@@ -419,7 +608,7 @@
         {
           "Name": "Helm",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0001_c352_Helm_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -499,7 +688,7 @@
         {
           "Name": "Laplace",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0002_c100_Laplace_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -579,7 +768,7 @@
         {
           "Name": "Maxwell: Mechanic White",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0003_c102_01_Maxwell_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -649,7 +838,7 @@
         {
           "Name": "Poli: Sweet Holic",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0004_c030_01_Poli_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -719,7 +908,7 @@
         {
           "Name": "Brid: Model Worker",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0005_c070_01_Brid_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -789,7 +978,7 @@
         {
           "Name": "Emma: Color me Red",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0006_c090_01_Emma_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -859,7 +1048,7 @@
         {
           "Name": "Maiden: Covert Nurse",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0007_c181_01_Maiden_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -929,7 +1118,7 @@
         {
           "Name": "Neve",
           "Rarity": "Rare",
-          "BorderType": "FirstEdition",
+          "BorderType": "Gold",
           "Sprite": "0008_c193_Neve_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -999,7 +1188,7 @@
         {
           "Name": "Rupee: Winter Shopper",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0009_c203_Rupee_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1079,7 +1268,7 @@
         {
           "Name": "Exia: Joy to the Nerds",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0010_c210_01_Exia_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1149,7 +1338,7 @@
         {
           "Name": "Anne: Miracle Fairy",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0011_c121_Anne_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1229,7 +1418,7 @@
         {
           "Name": "Julia: Mild Nocturne",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0012_c150_01_Julia_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1299,7 +1488,7 @@
         {
           "Name": "Sugar: Hard-Boiled",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0013_c140_01_Sugar_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1369,7 +1558,7 @@
         {
           "Name": "Modernia",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0014_c260_Modernia_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1449,7 +1638,7 @@
         {
           "Name": "Helm: Chandelier",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0015_c352_01_Helm_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1519,7 +1708,7 @@
         {
           "Name": "Jackal",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0016_c111_Jackal_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1599,7 +1788,7 @@
         {
           "Name": "Guilty",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0017_c400_Guilty_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1679,7 +1868,7 @@
         {
           "Name": "Sin",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0018_c401_Sin_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1759,7 +1948,7 @@
         {
           "Name": "Quency",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0019_c402_Quency_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1839,7 +2028,7 @@
         {
           "Name": "Viper",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0020_c112_Viper_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1919,7 +2108,7 @@
         {
           "Name": "Signal: Dramatic Chocolate",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0021_c022_01_Signal_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -1989,7 +2178,7 @@
         {
           "Name": "Privaty: Government Grunt",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0022_c170_01_Privaty_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2059,7 +2248,7 @@
         {
           "Name": "Cocoa",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0023_c311_Cocoa_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2139,7 +2328,7 @@
         {
           "Name": "Soda",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0024_c312_Soda_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2219,7 +2408,7 @@
         {
           "Name": "Milk: Extreme Fighter",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0025_c141_01_Milk_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2289,7 +2478,7 @@
         {
           "Name": "Makima",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0026_c800_Makima_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2369,7 +2558,7 @@
         {
           "Name": "Makima: Coat Off",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0027_c800_01_Makima_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2439,7 +2628,7 @@
         {
           "Name": "Power",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0028_c801_Power_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2519,7 +2708,7 @@
         {
           "Name": "Himeno",
           "Rarity": "Rare",
-          "BorderType": "FirstEdition",
+          "BorderType": "Gold",
           "Sprite": "0029_c802_Himeno_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2599,7 +2788,7 @@
         {
           "Name": "Denji",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0030_c803_Denji_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2659,7 +2848,7 @@
         {
           "Name": "Aki Hayakawa",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0032_c804_AkiHayakawa_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2699,7 +2888,7 @@
         {
           "Name": "Dolla: Dark Rose",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0033_c202_01_Dolla_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2769,7 +2958,7 @@
         {
           "Name": "Centi: Supreme Holiday",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0034_c080_01_Centi_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2839,7 +3028,7 @@
         {
           "Name": "Biscuit",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0035_c381_Biscuit_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2919,7 +3108,7 @@
         {
           "Name": "Yuni: Pretty in Pink",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0036_c160_01_Yuni_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -2989,7 +3178,7 @@
         {
           "Name": "Novel: Penguin Holmes",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0037_c212_01_Novel_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3059,7 +3248,7 @@
         {
           "Name": "Nihilister",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0038_c261_Nihilister_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3139,7 +3328,7 @@
         {
           "Name": "Sakura",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0039_c282_Sakura_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3219,7 +3408,7 @@
         {
           "Name": "Sakura",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0040_c836_Sakura_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3299,7 +3488,7 @@
         {
           "Name": "Noise: Cherry Blossom Stage",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0041_c430_01_Noise_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3369,7 +3558,7 @@
         {
           "Name": "D",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0042_c040_D_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3449,7 +3638,7 @@
         {
           "Name": "Alice: Sweet Home",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0043_c191_01_Alice_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3519,7 +3708,7 @@
         {
           "Name": "Dorothy",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0044_c233_Dorothy_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3599,7 +3788,7 @@
         {
           "Name": "Rei",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0045_c392_Rei_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3829,7 +4018,7 @@
         {
           "Name": "Viper: Toxic Rabbit",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0051_c112_01_Viper_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3899,7 +4088,7 @@
         {
           "Name": "Rupee: Rabbit Deluxe",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0052_c200_01_Rupee_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -3969,7 +4158,7 @@
         {
           "Name": "Blanc",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0053_c270_Blanc_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4049,7 +4238,7 @@
         {
           "Name": "Noir",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0054_c271_Noir_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4129,7 +4318,7 @@
         {
           "Name": "Emma: Office Therapy",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0055_c090_02_Emma_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4199,7 +4388,7 @@
         {
           "Name": "Rosanna",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0056_c280_Rosanna_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4279,7 +4468,7 @@
         {
           "Name": "Sakura: Midnight Stealth",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0057_c282_01_Sakura_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4349,7 +4538,7 @@
         {
           "Name": "Pepper: Ocean Vitamin",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0058_c131_01_Pepper_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4419,7 +4608,7 @@
         {
           "Name": "Mary: Bay Goddess",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0059_c132_Mary_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4499,7 +4688,7 @@
         {
           "Name": "Neon: Blue Ocean",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0060_c014_Neon_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4579,7 +4768,7 @@
         {
           "Name": "Frima: Sea of Sloth",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0061_c142_01_Frima_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4649,7 +4838,7 @@
         {
           "Name": "Rapi: Classic Vacation",
           "Rarity": "Rare",
-          "BorderType": "FirstEdition",
+          "BorderType": "Gold",
           "Sprite": "0062_c010_03_Rapi_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4719,7 +4908,7 @@
         {
           "Name": "Drake: Villain Racer",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0063_c101_01_Drake_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4789,7 +4978,7 @@
         {
           "Name": "Nero",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0064_c380_Nero_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4869,7 +5058,7 @@
         {
           "Name": "Indivilia",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0065_c263_Indivilia_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4909,7 +5098,7 @@
         {
           "Name": "Mast",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0066_c350_Mast_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -4989,7 +5178,7 @@
         {
           "Name": "Yan: Sunrise Market",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0067_c201_01_Yan_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5059,7 +5248,7 @@
         {
           "Name": "Anis: Sparkling Summer",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0068_c015_Anis_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5139,7 +5328,7 @@
         {
           "Name": "Liter: Guardfish",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0069_c082_01_Liter_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5209,7 +5398,7 @@
         {
           "Name": "Mast: A Pirate's Heart",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0070_c350_01_Mast_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5279,7 +5468,7 @@
         {
           "Name": "Anchor",
           "Rarity": "Rare",
-          "BorderType": "FirstEdition",
+          "BorderType": "Gold",
           "Sprite": "0071_c351_Anchor_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5359,7 +5548,7 @@
         {
           "Name": "Helm: Aquamarine",
           "Rarity": "Rare",
-          "BorderType": "Silver",
+          "BorderType": "Gold",
           "Sprite": "0072_c353_Helm_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5439,7 +5628,7 @@
         {
           "Name": "Papillon",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0073_c908_Papillon_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5489,7 +5678,7 @@
         {
           "Name": "Angelina",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0074_c934_Angelina_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5529,7 +5718,7 @@
         {
           "Name": "Deipara",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0075_c9006_Deipara_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5569,7 +5758,7 @@
         {
           "Name": "Johan",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0076_c925_Johan_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5609,7 +5798,7 @@
         {
           "Name": "Cecil",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0077_c929_Cecil_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5649,7 +5838,7 @@
         {
           "Name": "Joseph",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0078_c935_Joseph_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5749,7 +5938,7 @@
         {
           "Name": "Max",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0082_c936_Max_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5789,7 +5978,7 @@
         {
           "Name": "Booboo",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0083_c937_Booboo_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5829,7 +6018,7 @@
         {
           "Name": "Andersen: Soaked",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0084_c903_01_Andersen_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5869,7 +6058,7 @@
         {
           "Name": "Shifty",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0085_c907_Shifty_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5939,7 +6128,7 @@
         {
           "Name": "Beatrice",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0086_c930_Beatrice_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -5979,7 +6168,7 @@
         {
           "Name": "Doban",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0087_c939_Doban_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -6019,7 +6208,7 @@
         {
           "Name": "Pinne",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0088_c941_Pinne_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -6059,7 +6248,7 @@
         {
           "Name": "Katie",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0089_c945_Katie_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -6099,7 +6288,7 @@
         {
           "Name": "Ruru",
           "Rarity": "Rare",
-          "BorderType": "Base",
+          "BorderType": "Silver",
           "Sprite": "0090_c946_Ruru_03_Rare",
           "IsFoil": false,
           "ElementType": "None",
@@ -6403,9 +6592,9 @@
       "Rarities": [
         "Standard",
         "Profile",
-        "Rare",
         "Cover",
         "Aim",
+        "Rare",
         "Special",
         "Exotic",
         "Goddess",
@@ -6417,9 +6606,9 @@
       "DefaultBorderMultiplierBase": 3.15,
       "DefaultFoilMultiplier": 10.0,
       "RarityDrivenFloor": 0.03,
-      "RarityDrivenStepSize": 0.2,
-      "RarityDrivenBorderMultiplierBase": 5.0,
-      "RarityDrivenFoilMultiplier": 2.0,
+      "RarityDrivenStepSize": 1.0,
+      "RarityDrivenBorderMultiplierBase": 2.2,
+      "RarityDrivenFoilMultiplier": 5.0,
       "PlayCardMaterials": []
     }
   ],

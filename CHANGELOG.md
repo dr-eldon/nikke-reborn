@@ -1,3 +1,14 @@
+# 0.5.0
+
+- First batch of accessories!
+- 3 sleeves and 3 deckboxes per expansion
+- 127 posters featuring art from the campaign and mini-games
+- Adjusted pull rates and prices for increased pack variety
+- Guaranteed hit in the last slot of every pack
+- Revamped, more unique design for Rare cards
+- Fixed the orientation of card boxes
+- Backwards-compatible! Replace all mod files
+
 # 0.4.0
 
 - New expansion: Golden Coin Rush
