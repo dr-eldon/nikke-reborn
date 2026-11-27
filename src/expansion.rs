@@ -526,6 +526,7 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
 
     #[derive(Default)]
     struct Slot {
+        no_standard: bool,
         profile: f64,
         rare: f64,
         cover: f64,
@@ -546,9 +547,17 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
             + slot.goddess
             + slot.classified;
 
+        let rest = 100.0 - total;
+
+        let (standard, profile) = if slot.no_standard {
+            (0.0, rest + slot.profile)
+        } else {
+            (rest, slot.profile)
+        };
+
         json!({
-            "Standard": 100.0 - total,
-            "Profile": slot.profile,
+            "Standard": standard,
+            "Profile": profile,
             "Rare": slot.rare,
             "Cover": slot.cover,
             "Aim": slot.aim,
@@ -561,27 +570,29 @@ fn pack(expansion: &Expansion) -> serde_json::Value {
 
     let common = slot(Slot {
         profile: 2.0,
-        rare: 0.5,
+        cover: 0.5,
+        aim: 0.5,
         ..Slot::default()
     });
 
     let uncommon = slot(Slot {
         profile: 6.0,
-        rare: 2.0,
-        cover: 1.0,
-        aim: 1.0,
+        cover: 2.0,
+        aim: 2.0,
+        rare: 1.0,
         special: 0.5,
         exotic: 0.1,
         ..Slot::default()
     });
 
     let rare = slot(Slot {
-        rare: 4.0,
-        cover: 3.0,
-        aim: 3.0,
-        special: 1.5,
+        no_standard: true,
+        cover: 25.0,
+        aim: 15.0,
+        rare: 10.0,
+        special: 3.0,
         exotic: 1.0,
-        goddess: 0.2,
+        goddess: 0.4,
         classified: 0.1,
         ..Slot::default()
     });
@@ -753,9 +764,9 @@ async fn expansion(expansion: &Expansion) -> Result<serde_json::Value> {
         "Rarities": [
           "Standard",
           "Profile",
-          "Rare",
           "Cover",
           "Aim",
+          "Rare",
           "Special",
           "Exotic",
           "Goddess",
@@ -767,9 +778,9 @@ async fn expansion(expansion: &Expansion) -> Result<serde_json::Value> {
         "DefaultBorderMultiplierBase": 3.15,
         "DefaultFoilMultiplier": 10.0,
         "RarityDrivenFloor": 0.03,
-        "RarityDrivenStepSize": 0.2,
-        "RarityDrivenBorderMultiplierBase": 5.0,
-        "RarityDrivenFoilMultiplier": 2.0,
+        "RarityDrivenStepSize": 1.0,
+        "RarityDrivenBorderMultiplierBase": 2.2,
+        "RarityDrivenFoilMultiplier": 5.0,
         "PlayCardMaterials": []
     }))
 }

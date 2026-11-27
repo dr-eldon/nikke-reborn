@@ -12,6 +12,10 @@ local cache = {}
 local mask = image("../assets/images/designs/Card_Mask_Standard.png")
 mask:resize({ width = width, height = height })
 
+local mask_inverted =
+	image("../assets/images/designs/Card_Mask_Standard_Inverted.png")
+mask_inverted:resize({ width = width, height = height })
+
 standard.arguments = {
 	"id",
 	"background",
@@ -24,10 +28,11 @@ standard.arguments = {
 	"time",
 	"focus",
 	"monochrome",
+	"inverted",
 }
 
 function standard.render(args)
-	local key = { args.background, args.monochrome and args.id }
+	local key = { args.background, args.monochrome and args.id, args.inverted }
 
 	if cache[key] == nil then
 		local base =
@@ -39,10 +44,18 @@ function standard.render(args)
 		local tint = character.accent(args.id, args.skin)
 
 		if args.monochrome then
+			local tint = tint:clone()
+			tint.c = math.min(tint.c, 0.14)
+
 			base:monochrome(tint)
 		end
 
-		base:blend(mask)
+		if args.inverted then
+			base:blend(mask_inverted)
+		else
+			base:blend(mask)
+		end
+
 		base:convert("srgb")
 
 		cache[key] = { base, tint }
@@ -93,6 +106,7 @@ function standard.render(args)
 			subtitle = args.subtitle,
 			y = height * 0.72,
 			tint = tint,
+			inverted = args.inverted,
 		})
 
 		yield(output)

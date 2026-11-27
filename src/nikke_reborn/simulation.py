@@ -1270,7 +1270,7 @@ def render_report(
         <div class="value">{_money(price_min)} – {_money(price_max)}</div>
         <div class="sub">BaseCost {pack["BaseCost"]:g} x [{pack["MinMarketPricePercent"]:g}, {pack["MaxMarketPricePercent"]:g}]</div></div>
       <div class="stat"><div class="label">Pack license price</div>
-        <div class="value">{_money(pack["LicensePrice"])}</div>
+        <div class="value">{_money(pack["SmallBoxLicensePrice"])}</div>
         <div class="sub">one-time unlock</div></div>
       <div class="stat"><div class="label">Hits over {_money(hit_threshold)}</div>
         <div class="value" id="sum-hits">{stats["hit_count"]:,} / {n:,}</div>

@@ -58,13 +58,16 @@ pub async fn main() -> Result<()> {
 
     let expansions = Expansion::list().await?;
 
-    for expansion in expansions.iter() {
-        if let Some(target) = &expansion_target
-            && expansion.id != *target
-        {
-            continue;
-        }
+    let expansions = expansions
+        .iter()
+        .filter(|expansion| {
+            expansion_target
+                .as_ref()
+                .is_none_or(|target| expansion.id == *target)
+        })
+        .collect::<Vec<_>>();
 
+    for expansion in &expansions {
         let output = expansion.output_dir(quality);
         tokio::fs::create_dir_all(&output).await?;
 
@@ -337,6 +340,7 @@ fn standard(expansion: &Expansion, card: &Card, quality: Quality) -> Option<Job>
             "time": card.rarity.time(),
             "focus": card.focus().to_owned(),
             "monochrome": card.is_monochrome(),
+            "inverted": card.is_inverted(),
         }),
     ))
 }

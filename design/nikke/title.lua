@@ -41,9 +41,16 @@ function module.render(output, args)
 	})
 	title_box:close()
 
-	output:fill(title_box, "#333333")
-	output:fill(title, "#FFFFFF")
-	output:fill(arrow, "#FFFFFF")
+	local foreground = color("#FFFFFF")
+	local background = color("#222222")
+
+	if args.inverted then
+		foreground, background = background, foreground
+	end
+
+	output:fill(title_box, background)
+	output:fill(title, foreground)
+	output:fill(arrow, foreground)
 
 	local bar_width = math.min(math.max(title_bounds.width - 150, 80), 200)
 
@@ -70,15 +77,15 @@ function module.render(output, args)
 		y = title_bounds.y - 35,
 	})
 
-	output:fill(bar, "#333333")
-	output:fill(square_1, "#333333")
-	output:fill(square_2, "#333333")
-	output:fill(square_3, "#333333")
+	output:fill(bar, background)
+	output:fill(square_1, background)
+	output:fill(square_2, background)
+	output:fill(square_3, background)
 
 	if args.subtitle ~= nil then
 		local subtitle = text(args.subtitle:upper(), {
 			font = aire_exterior,
-			size = module.size(50, 14, args.subtitle),
+			size = module.size(50, 15, args.subtitle),
 			weight = 700,
 			x = 50,
 			y = title_bounds.y + title_bounds.height + spacing,
@@ -113,7 +120,6 @@ function module.render(output, args)
 		subtitle_box:close()
 
 		local color = "#FFFFFF"
-
 		local tint = args.tint:clone()
 
 		if tint.c > 0.02 then
@@ -121,7 +127,7 @@ function module.render(output, args)
 		end
 
 		if tint.l > 0.8 then
-			color = "#000000"
+			color = "#222222"
 			tint.l = math.min(tint.l, 0.9)
 		else
 			tint.l = math.min(tint.l, 0.7)

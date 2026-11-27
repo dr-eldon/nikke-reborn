@@ -68,6 +68,10 @@ impl Card {
     pub fn is_monochrome(&self) -> bool {
         matches!(self.rarity, Rarity::Rare | Rarity::Special | Rarity::Exotic)
     }
+
+    pub fn is_inverted(&self) -> bool {
+        matches!(self.rarity, Rarity::Rare)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -142,9 +146,9 @@ impl Rarity {
 
     pub fn border(self) -> Border {
         match self {
-            Rarity::Standard | Rarity::Profile | Rarity::Rare => Border::Base,
+            Rarity::Standard | Rarity::Profile => Border::Base,
             Rarity::Cover | Rarity::Aim => Border::FirstEdition,
-            Rarity::Special => Border::Silver,
+            Rarity::Rare | Rarity::Special => Border::Silver,
             Rarity::Exotic => Border::Gold,
             Rarity::Goddess => Border::EX,
             Rarity::Classified => Border::FullArt,
