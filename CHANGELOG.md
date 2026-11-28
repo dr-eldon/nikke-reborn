@@ -7,7 +7,7 @@
 - Guaranteed hit in the last slot of every pack
 - Revamped, more unique design for Rare cards
 - Fixed the orientation of card boxes
-- Backwards-compatible! Replace all mod files
+- Backwards-compatible! Replace all mod files and reset prices!
 
 # 0.4.0
 
