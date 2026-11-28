@@ -963,7 +963,7 @@ fn poster(expansion: &Expansion, poster: &Poster) -> serde_json::Value {
 fn custom_shop() -> serde_json::Value {
     json!({
         "PhoneAppId": PHONE_APP_ID,
-        "AppDisplayName": "NIKKE",
+        "AppDisplayName": "NIKKE REBORN",
         "AppIcon": "Shop_Icon",
         "AppInnerBGImage": "Shop_IBG",
         "AppOuterBGImage": "Shop_OBG",
